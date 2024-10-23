@@ -1,0 +1,94 @@
+name: rishai
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.16
+
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  bloc: ^8.1.4
+  flutter_bloc: ^8.1.5  
+  get_it: ^7.7.0
+  dio: ^5.4.3+1
+  injectable: ^2.4.2
+  freezed: ^2.5.2
+  flutter_svg: ^2.0.10+1
+  google_sign_in: ^6.2.1
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  firebase_messaging: ^15.1.3
+  flutter_screenutil: ^5.9.3
+  go_router: ^14.2.3
+  dartz: ^0.10.1
+  equatable: ^2.0.5
+  directus: ^0.11.0
+  flutter_dotenv: ^5.1.0
+  smooth_page_indicator: ^1.2.0+3
+  shared_preferences: ^2.3.1
+  oauth2_client: ^3.3.0
+  url_launcher: ^6.3.0
+  oauth2: ^2.0.2
+  flutter_web_auth_2: ^3.1.2
+  percent_indicator: ^4.2.3
+  numberpicker: ^2.1.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  fl_chart: ^0.69.0
+  envied: ^0.5.4+1
+  openai_dart: ^0.4.1
+  flutter_native_splash: ^2.4.1
+  flutter_local_notifications: ^17.2.3
+  auto_size_text: ^3.0.0
+  flutter_timezone: ^3.0.1
+  permission_handler: ^11.3.1
+  sign_in_with_apple: ^6.1.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  injectable_generator:  
+  build_runner:  
+  hive_generator:
+  envied_generator: ^0.5.4+1
+
+flutter:
+  generate: true
+  uses-material-design: true
+
+  fonts:
+    - family: ProximaNova
+      fonts:
+        - asset: font/proximanova.ttf
+    - family: DinPro
+      fonts:
+        - asset: font/dinpro.ttf
+
+  assets:
+    - .env
+    - assets/    
+    - assets/images/    
+    - assets/diet/    
+    - assets/cuisines/    
+    - assets/fitness/    
+    - assets/icons/    
+
+# dart run flutter_native_splash:create
+
+flutter_native_splash:
+  color: "#060327"
+  background_image: assets/splash_logo.png 
+  android: true
+  ios: true
+  web: false
+  android_gravity: center 
+  ios_content_mode: center 
+  icon_background_color: null
+
+  android_12:
+    image: assets/splash_logo.png # Логотип для Android 12
+    android_gravity: center # Центрирование
