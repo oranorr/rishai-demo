@@ -53,3 +53,5 @@ class ChatFetchLastMealPlan extends ChatEvent {
 }
 
 class ChatOnLogout extends ChatEvent {}
+
+class ChatRefreshChat extends ChatEvent {}

@@ -3,13 +3,12 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
-import 'package:rishai/core/key.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -70,6 +69,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     on<WhoopRetrieveBodyData>(_getBodyData);
     on<WhoopChangeModificatorOrSex>(_changedModificatorOrSex);
     on<WhoopUpdateDayByMealPlan>(_updateDayByMeal);
+    on<WhoopDisconnect>(_disconnect);
   }
 
   FutureOr<void> _connectWhoop(
@@ -99,6 +99,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   FutureOr<void> _getUserData(
       WhoopGetUserData event, Emitter<WhoopState> emit) async {
     emit(state.copyWith(status: Status.loading));
+
     final res = await getDataUsecase.call(GetDataParams(
         gender: event.gender,
         goal: event.goal,
@@ -128,7 +129,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           status: Status.success,
         ),
       );
-      print('is it here?!');
       // userBloc.add(
       //   UserManageDay(
       //     day: state.day.copyWith(
@@ -158,7 +158,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       }
 
       if (user.bodyMeasurements == null) {
-        log('retrieveing body data');
+        log('retrieveing BODY data');
         await _getBodyData(WhoopRetrieveBodyData(), emit);
       }
 
@@ -188,7 +188,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       WhoopUserCalibrating event, Emitter<WhoopState> emit) async {
     emit(state.copyWith(status: Status.initial));
     final remaining = await prefsRepo.calibratingDate();
-    // Ожидание паузы
     await Future.delayed(Durations.short1);
     emit(state.copyWith(calibratingCompleteDate: remaining));
 
@@ -220,33 +219,41 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
   FutureOr<void> _changedModificatorOrSex(
       WhoopChangeModificatorOrSex event, Emitter<WhoopState> emit) async {
+    final user = userBloc.state.user;
+    bool success = false;
+    String errorMessage = 'Error happened. Please, try again';
     final res = await changeModificatorOrSexUsecase.call(
         ChangeModificatorOrSexParams(
             modificator: event.modificator,
             gender: event.gender,
             weekTdeeAverage: state.day.weekTdeeAverage,
-            userId: userBloc.state.user.directusId,
+            userId: user.directusId,
             lastTdee: state.day.healthMetrics.lastTdee));
 
-    res.fold((failure) {
+    res.fold((failure) async {
       if (failure.runtimeType == WhoopDataDueToRefresh) {
-        // RishiDialog.showCustomDialog(
-        //   event.context,
-        //   type: DialogType.info,
-        //   actionDialogType: ActionDialogType.warning,
-        //   text: failure.message,
-        //   action: () {
-        //     // event.context.pop();
-        //     // event.context.pop();
-        //     // event.context.pushReplacement(AppRoutes.splah.path);
-        //     // appNavigationService.go(path: AppRoutes.splah.path);
-        //   },
-        // );
+        success = false;
+        errorMessage = failure.message;
       }
     }, (macros) {
+      success = true;
       emit(state.copyWith(day: state.day.copyWith(macros: macros)));
       userBloc.add(UserManageDay(day: state.day));
     });
+
+    if (!success) {
+      RishiDialog.showCustomDialog(
+        event.context,
+        isDissmissable: false,
+        type: DialogType.info,
+        actionDialogType: ActionDialogType.warning,
+        text: errorMessage,
+        action: () async {
+          appNavigationService.go(path: AppRoutes.redirect.path);
+        },
+      );
+      await _initWhoopOnLogin(InitWhoopOnLogin(), emit);
+    }
   }
 
   HealthMetricsEntity calcHealthMetrics(int lastTdee) {
@@ -275,7 +282,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   }
 
   (double proteinPer, double carbsPer, double fatsPar) calculatePercentage() {
-    //proteinKcal * 100 / kcal
     int proteinKcal = state.day.macros.protein * 4;
     int carbsKcal = state.day.macros.carbs * 4;
     int fatsKcal = state.day.macros.fat * 9;
@@ -302,5 +308,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       date: DateTime.now(),
       requestsLeft: chatBloc.state.requestsLeft,
     ))));
+  }
+
+  FutureOr<void> _disconnect(
+      WhoopDisconnect event, Emitter<WhoopState> emit) async {
+    await wTokenService.diconnect(userBloc.state.user.directusId);
+    await hive.disconnectWhoop();
+    chatBloc.add(ChatOnLogout());
+    appNavigationService.go(path: AppRoutes.whoopConnect.path);
   }
 }

@@ -50,4 +50,18 @@ class WhoopDataEntity {
 
   factory WhoopDataEntity.fromJson(String source) =>
       WhoopDataEntity.fromMap(json.decode(source) as Map<String, dynamic>);
+
+  WhoopDataEntity copyWith({
+    double? weekTdeeAverage,
+    MacrosBreakdown? macros,
+    DateTime? askTime,
+    int? lastTdee,
+  }) {
+    return WhoopDataEntity(
+      weekTdeeAverage: weekTdeeAverage ?? this.weekTdeeAverage,
+      macros: macros ?? this.macros,
+      askTime: askTime ?? this.askTime,
+      lastTdee: lastTdee ?? this.lastTdee,
+    );
+  }
 }

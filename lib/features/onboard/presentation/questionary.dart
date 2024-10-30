@@ -23,7 +23,7 @@ part './questionary_widgets/bmi.dart';
 part './questionary_widgets/gender.dart';
 part './questionary_widgets/age.dart';
 part 'questionary_widgets/selectable_list.dart';
-part './mixin.dart';
+part 'questionary_mixin.dart';
 
 class Questionary extends StatefulWidget {
   const Questionary({super.key});

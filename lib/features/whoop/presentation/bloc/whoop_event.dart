@@ -49,3 +49,5 @@ class WhoopUpdateDayByMealPlan extends WhoopEvent {
     required this.mealPlanEntity,
   });
 }
+
+class WhoopDisconnect extends WhoopEvent {}

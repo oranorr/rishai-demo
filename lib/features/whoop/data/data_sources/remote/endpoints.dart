@@ -6,6 +6,10 @@ class WhoopEndpoints {
       'https://api.prod.whoop.com/developer/v1/activity/workout';
   String get sleeps => 'https://api.prod.whoop.com/developer/v1/activity/sleep';
   String get recoveries => 'https://api.prod.whoop.com/developer/v1/recovery';
+  String recoveryById({required int cycleId}) =>
+      'https://api.prod.whoop.com/developer/v1/cycle/$cycleId/recovery';
+  String cycleById({required int cycleId}) =>
+      'https://api.prod.whoop.com/developer/v1/cycle/$cycleId';
 }
 
 

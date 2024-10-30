@@ -12,6 +12,7 @@ import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
@@ -183,97 +184,42 @@ class WhoopRepositoryImpl implements WhoopRepository {
   @override
   Future<Either<Failure, WhoopDataEntity>> getData(
       {required GetDataParams params}) async {
-    //нужно хранить время последнего обращения, чтобы раз в сутки это дело обновлять
     try {
-      final localData = await localDataSource.fetchSavedData();
-      if (localData != null) {
-        return Right(localData);
-      }
+      UserDataEntity? savedUserData =
+          await hive.fetchUserDataEntity(userId: params.userId);
 
-      final remoteData = await remoteDataSource.fetchDirectusData();
-      if (remoteData != null) {
-        return Right(remoteData);
-      }
-
-      final BodyMeasurementsEntity? body = await remoteDataSource.getBodyData();
-
-      final List<CycleModel> cycles = await remoteDataSource.getCycles();
-
-      log('cycles are: $cycles\n\n');
-
-      List<WorkoutModel> workouts = [];
-      if (cycles.isNotEmpty) {
-        workouts =
-            await remoteDataSource.getWorkoutsOfCycle(cycle: cycles.first);
-        log('workouts are: $workouts\n\n');
-      }
-
-      RecoveryModel? recovery;
-      if (cycles.isNotEmpty) {
-        recovery =
-            await remoteDataSource.getRecoveryOfCycle(cycleId: cycles.first.id);
-        log('recovery is: $recovery\n\n');
-      }
-
-      final SleepModel? sleep = await remoteDataSource.getLastSleep();
-      log('sleep is: $sleep\n\n');
-
-      if (cycles.isNotEmpty &&
-          recovery != null &&
-          sleep != null &&
-          body != null) {
-        WhoopDataEntity data;
-        final DateTime askTime = DateTime.now();
-
-        final double tdeeAverage = calculateTDEEAverage(cycles);
-        final double strainValue = cycles
-            .firstWhere((cycle) => cycle.scoreState == 'SCORED')
-            .score!
-            .strain;
-        final int calorieGoal = calculateCalorieGoal(
-          tdeeAvrage: tdeeAverage,
-          modificator: params.goal.modificator,
-        ).round();
-
-        final int recoveryScore = recovery.score!.recoveryScore.round();
-        final int sleepScore = sleep.score!.sleepPerformancePercentage!.round();
-
-        final userData = UserDataEntity(
-            workouts: workouts,
-            userWeightLbs: body.weight * kgToLbs,
+      if (savedUserData == null) {
+        final freshData = await _fetchFreshData(
+            modificator: params.goal.modificator,
             gender: params.gender,
-            strainValue: strainValue,
-            recoveryScore: recoveryScore,
-            sleepPerformance: sleepScore,
-            calorieGoal: calorieGoal,
-            userId: params.userId,
-            askTime: askTime);
+            userId: params.userId);
+        return freshData;
+      }
 
-        await hive.saveUserData(dataEntity: userData);
+      final isCurrentCycleEnded = await tryFetch(() => remoteDataSource
+          .pingCurrentCycle(cycleId: savedUserData.currentCycleId));
+      print('Cycle is finished: $isCurrentCycleEnded');
+      if (!isCurrentCycleEnded!) {
+        final localData = await localDataSource.fetchSavedData();
+        if (localData != null) {
+          return Right(localData);
+        } else {
+          final remoteData =
+              await tryFetch(() => remoteDataSource.fetchDirectusData());
 
-        final int proteins = userData.calcProteins();
-        final int fats = userData.clacFats();
-        final int carbs = userData.calcCarbs(
-            kalorieGoal: calorieGoal,
-            proteinsInKcal: proteins * 4,
-            fatsInKcal: fats * 9);
-
-        data = WhoopDataEntity(
-            weekTdeeAverage: tdeeAverage,
-            askTime: askTime,
-            macros: MacrosBreakdown(
-              kcal: calorieGoal,
-              protein: proteins,
-              carbs: carbs,
-              fat: fats,
-            ),
-            lastTdee: (cycles.first.score!.kilojoule * kjToKcal).round());
-
-        await remoteDataSource.updateDirectus(data: data);
-        await localDataSource.saveData(data: data);
-        return Right(data);
+          if (remoteData != null) {
+            await localDataSource.saveData(data: remoteData);
+            return Right(remoteData);
+          } else {
+            return const Left(WhoopNoDataFailure());
+          }
+        }
       } else {
-        return const Left(WhoopNoDataFailure());
+        final freshData = await tryFetch(() => _fetchFreshData(
+            modificator: params.goal.modificator,
+            gender: params.gender,
+            userId: params.userId));
+        return freshData!;
       }
     } on Exception catch (e) {
       log('ERROR WHILE FETCHING WHOOP DATA: $e');
@@ -305,8 +251,8 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
       userData = await hive.fetchUserDataEntity(userId: params.userId);
 
-      if (userData == null || whoopDateDifference(userData.askTime)) {
-        print('yes');
+      if (userData == null) {
+        log('userData is dead, need to refresh');
         return const Left(WhoopDataDueToRefresh());
       } else {
         userData = userData.copyWith(
@@ -314,10 +260,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
         await hive.saveUserData(dataEntity: userData);
         final newMacros = userData.calcMacros();
 
-        final whoopData = WhoopDataEntity(
+        final savedWhoop = await hive.retrieveLastData();
+
+        final whoopData = savedWhoop!.copyWith(
           weekTdeeAverage: params.weekTdeeAverage,
           macros: newMacros,
-          askTime: DateTime.now(),
           lastTdee: params.lastTdee,
         );
 
@@ -331,5 +278,112 @@ class WhoopRepositoryImpl implements WhoopRepository {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<Either<Failure, WhoopDataEntity>> _fetchFreshData(
+      {required double modificator,
+      required Gender gender,
+      required String userId}) async {
+    try {
+      final BodyMeasurementsEntity? body =
+          await tryFetch(() => remoteDataSource.getBodyData());
+      final res = await tryFetch(() => remoteDataSource.getCycles());
+
+      List<CycleModel> cycles = res!.$1;
+      int indexOfCurrentCycle = res.$2;
+
+      List<WorkoutModel> workouts = [];
+      // print(cycles.first);
+      RecoveryModel? recovery;
+      if (cycles.isNotEmpty) {
+        workouts =
+            // await tryFetch(() =>
+            await remoteDataSource.getWorkoutsOfCycle(cycle: cycles.first);
+        // [];
+        log('workouts are: $workouts\n\n');
+
+        recovery = await tryFetch(() =>
+            remoteDataSource.getRecoveryOfCycle(cycleId: cycles.first.id));
+        log('recovery is: $recovery\n\n');
+      }
+
+      final SleepModel? sleep =
+          await tryFetch(() => remoteDataSource.getLastSleep());
+      log('sleep is: $sleep\n\n');
+
+      if (cycles.isNotEmpty &&
+          recovery != null &&
+          sleep != null &&
+          body != null) {
+        final DateTime askTime = DateTime.now();
+
+        final double tdeeAverage = calculateTDEEAverage(cycles);
+        final double strainValue = cycles.first.score!.strain;
+
+        final int calorieGoal = calculateCalorieGoal(
+          tdeeAvrage: tdeeAverage,
+          modificator: modificator,
+        ).round();
+
+        final int recoveryScore = recovery.score!.recoveryScore.round();
+        final int sleepScore = sleep.score!.sleepPerformancePercentage!.round();
+
+        final userData = UserDataEntity(
+            workouts: workouts,
+            userWeightLbs: body.weight * kgToLbs,
+            gender: gender,
+            strainValue: strainValue,
+            recoveryScore: recoveryScore,
+            sleepPerformance: sleepScore,
+            calorieGoal: calorieGoal,
+            userId: userId,
+            askTime: askTime,
+            currentCycleId: indexOfCurrentCycle);
+
+        await hive.saveUserData(dataEntity: userData);
+
+        final int proteins = userData.calcProteins();
+        final int fats = userData.clacFats();
+        final int carbs = userData.calcCarbs(
+            kalorieGoal: calorieGoal,
+            proteinsInKcal: proteins * 4,
+            fatsInKcal: fats * 9);
+
+        final data = WhoopDataEntity(
+            weekTdeeAverage: tdeeAverage,
+            askTime: askTime,
+            macros: MacrosBreakdown(
+              kcal: calorieGoal,
+              protein: proteins,
+              carbs: carbs,
+              fat: fats,
+            ),
+            lastTdee: (cycles.first.score!.kilojoule * kjToKcal).round());
+
+        await tryFetch(() => remoteDataSource.updateDirectus(data: data));
+        await tryFetch(() => localDataSource.saveData(data: data));
+        chatBloc.add(ChatRefreshChat());
+        return Right(data);
+      }
+    } catch (e) {
+      log('EROR WHILE FETCHING FRESHDATA, ${e.toString()}');
+    }
+    return const Left(WhoopNoDataFailure());
+  }
+
+  Future<T?> tryFetch<T>(Future<T?> Function() fetchFunction) async {
+    const int maxRetries = 3; // максимальное количество попыток
+    const Duration retryDelay = Duration(seconds: 2);
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        final result = await fetchFunction();
+        if (result != null) return result;
+      } catch (e) {
+        log('Attempt ${attempt + 1} failed: $e');
+        if (attempt == maxRetries - 1) rethrow;
+        await Future.delayed(retryDelay);
+      }
+    }
+    return null;
   }
 }

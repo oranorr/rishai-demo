@@ -6,4 +6,5 @@ abstract class WhoopTokenService {
   String get accessToken;
 
   Future<bool> initService();
+  Future<void> diconnect(String userId);
 }

@@ -15,4 +15,8 @@ abstract class HiveRepo {
 
   Future<void> saveUserData({required UserDataEntity dataEntity});
   Future<UserDataEntity?> fetchUserDataEntity({required String userId});
+
+  Future<void> disconnectWhoop();
+
+  Future<void> refreshChat();
 }

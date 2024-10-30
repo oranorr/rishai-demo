@@ -11,6 +11,7 @@ import 'package:rishai/features/login/presentation/pages/login_screen.dart';
 import 'package:rishai/features/onboard/presentation/onboard.dart';
 import 'package:rishai/features/onboard/presentation/questionary.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/connection_settings.dart';
+import 'package:rishai/features/settings/presentation/settings_pages/legal_page.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/notifications_settings.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/other.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/profile_settings.dart';
@@ -112,6 +113,12 @@ class AppNavigationService {
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
                 state: state, child: const CalibratingScreen()),
           ),
+          // GoRoute(
+          //   name: AppRoutes.legalPage.name,
+          //   path: AppRoutes.legalPage.path,
+          //   pageBuilder: (context, state) => _buildPageWithDefaultTransition(
+          //       state: state, child: const LegalPage()),
+          // ),
         ],
       );
 

@@ -37,16 +37,19 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   }
 
   @override
-  Future<List<CycleModel>> getCycles() async {
+  Future<(List<CycleModel>, int)> getCycles() async {
     try {
       final data = await _requestData(endpoint: WhoopEndpoints().whoopCycles);
 
       if (data == null || data['records'] == null) {
-        return [];
+        return (<CycleModel>[], 0);
       }
 
       final List<Map<String, dynamic>> rawCycles =
           List<Map<String, dynamic>>.from(data['records']);
+
+      Map<String, dynamic> currentCycle =
+          rawCycles.firstWhere((map) => map['end'] == null);
 
       final List<CycleModel> cycles = rawCycles
           .take(8)
@@ -54,7 +57,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           .map((map) => CycleModel.fromMap(map))
           .toList();
       log('CYCLES LENGTH: ${cycles.length}');
-      return cycles;
+      return (cycles, (currentCycle['id'] as int));
     } catch (e) {
       rethrow;
     }
@@ -64,7 +67,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   Future<List<WorkoutModel>> getWorkoutsOfCycle(
       {required CycleModel cycle}) async {
     final data = await _requestData(endpoint: WhoopEndpoints().workouts);
-    // List<Map<String, String>> rawWorkouts = data!['records'];
+
     List<Map<String, dynamic>> rawWorkouts =
         List.from(data!['records']).cast<Map<String, dynamic>>();
 
@@ -92,6 +95,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<RecoveryModel?> getRecoveryOfCycle({required int cycleId}) async {
     final data = await _requestData(endpoint: WhoopEndpoints().recoveries);
+
     List<dynamic> list = emptify ? [] : data!['records'];
     if (list.isNotEmpty) {
       final first = list.firstWhere((recovery) =>
@@ -124,11 +128,11 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     if (needsLimit ?? false) {
       uri.replace(queryParameters: {'limit': '7'});
     }
-    const maxAttempts = 3; // Максимальное количество попыток
+    const maxAttempts = 3;
     int attempts = 0;
 
     while (attempts <= maxAttempts) {
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1));
       final thisResponse = await http.get(
         uri,
         headers: {
@@ -140,6 +144,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         break;
       } else {
         attempts++;
+        response = thisResponse;
       }
     }
 
@@ -170,19 +175,19 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       final data = res['whoopData'];
       if (data != null && data.isNotEmpty) {
         final whoopData = WhoopDataEntity.fromMap(data);
-
-        final then = whoopData.askTime;
-
-        if (whoopDateDifference(then)) {
-          return whoopData;
-        } else {
-          return null;
-        }
+        return whoopData;
       } else {
         return null;
       }
     } else {
       return null;
     }
+  }
+
+  @override
+  Future<bool> pingCurrentCycle({required int cycleId}) async {
+    final raw = await _requestData(
+        endpoint: WhoopEndpoints().cycleById(cycleId: cycleId));
+    return raw!['end'] != null;
   }
 }

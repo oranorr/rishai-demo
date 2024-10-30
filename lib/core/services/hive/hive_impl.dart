@@ -1,17 +1,13 @@
 import 'dart:developer';
-
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
-import 'package:rishai/features/settings/presentation/settings_pages/connection_settings.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
-import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
@@ -158,14 +154,25 @@ class HiveImpl implements HiveRepo {
       log('NO USER DATA FOUND');
       return null;
     }
-    final listEntities = userDataBox.values.toList();
-    final last = listEntities.lastWhere((data) => data.userId == userId);
+    UserDataEntity? last;
+    final listEntities = userDataBox.values.toList().reversed;
+
+    for (var data in listEntities) {
+      if (data.userId == userId) {
+        last = data;
+      }
+    }
+
     return last;
-    // if (whoopDateDifference(last.askTime)) {
-    //   return last;
-    // } else {
-    //   print('its no time!');
-    //   return null;
-    // }
+  }
+
+  @override
+  Future<void> disconnectWhoop() async {
+    await whoopDataBox.clear();
+  }
+
+  @override
+  Future<void> refreshChat() async {
+    await chatBox.clear();
   }
 }

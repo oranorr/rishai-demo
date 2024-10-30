@@ -60,44 +60,52 @@ class RequestPlanParams {
     // Определяем распределение калорий по блюдам, включая перекус
     if (amountOfMeals == 2) {
       if (snackRequested) {
-        mealDistribution = [45, 45, 10];
+        // mealDistribution = [45, 45, 10];
+        mealDistribution = [50, 40, 10];
       } else {
-        mealDistribution = [50, 50];
+        mealDistribution = [60, 40];
+        // mealDistribution = [50, 50];
       }
     } else if (amountOfMeals == 3) {
       if (hadTraining) {
         if (snackRequested) {
           // С перекусом и тренировкой: [20, 20, 40, 10]
-          mealDistribution = [30, 20, 40, 10];
+          mealDistribution = [40, 30, 20, 10];
         } else {
           // Без перекуса, но с тренировкой: [40, 30, 30]
-          mealDistribution = [40, 30, 30];
+          mealDistribution = [45, 30, 25];
         }
       } else {
         if (snackRequested) {
           // С перекусом без тренировки: [30, 30, 30, 10]
-          mealDistribution = [30, 30, 30, 10];
+          // mealDistribution = [30, 30, 30, 10];
+          mealDistribution = [35, 30, 25, 10];
         } else {
           // Без тренировки и без перекуса: [33.3, 33.3, 33.4]
-          mealDistribution = [33.3, 33.3, 33.4];
+          // mealDistribution = [33.3, 33.3, 33.4];
+          mealDistribution = [40, 35, 25];
         }
       }
     } else if (amountOfMeals == 4) {
       if (hadTraining) {
         if (snackRequested) {
           // С перекусом и тренировкой: [20, 20, 20, 30, 10]
-          mealDistribution = [20, 20, 20, 30, 10];
+          // mealDistribution = [20, 20, 20, 30, 10];
+          mealDistribution = [26.5, 22.5, 21.5, 19.5, 10];
         } else {
           // Без перекуса, но с тренировкой: [10, 25, 25, 40]
-          mealDistribution = [10, 25, 25, 40];
+          // mealDistribution = [10, 25, 25, 40];
+          mealDistribution = [30, 25, 24, 21];
         }
       } else {
         if (snackRequested) {
           // С перекусом без тренировки: [22.5, 22.5, 22.5, 22.5, 10]
-          mealDistribution = [22.5, 22.5, 22.5, 22.5, 10];
+          // mealDistribution = [22.5, 22.5, 22.5, 22.5, 10];
+          mealDistribution = [24.5, 23.5, 22.5, 19.5, 10];
         } else {
           // Без тренировки и без перекуса: [25, 25, 25, 25]
-          mealDistribution = [25, 25, 25, 25];
+          // mealDistribution = [25, 25, 25, 25];
+          mealDistribution = [27, 26, 25, 22];
         }
       }
     } else {

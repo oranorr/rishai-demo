@@ -27,7 +27,7 @@ class DirectusRepositoryImpl implements DirectusService {
           '',
           client: Dio(
             BaseOptions(
-              baseUrl: 'https://rishai-directus-app-54tcs.ondigitalocean.app/',
+              baseUrl: 'https://rishai.dev.mvplab.org/',
             ),
           ),
         ).init();

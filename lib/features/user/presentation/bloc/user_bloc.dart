@@ -220,8 +220,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
   Future<void> createMockData(DayEntity day) async {
     // print('hi');
-    // await directus.createMany(
-    //     collection: daysCollection, data: day.mockDays(length: 60, id: '111'));
+    await directus.createMany(
+        collection: daysCollection, data: day.mockDays(length: 30, id: '139'));
     // print('done');
   }
 }

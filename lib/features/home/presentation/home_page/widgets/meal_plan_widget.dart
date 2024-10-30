@@ -41,29 +41,11 @@ class _MealPlanWidget extends StatelessWidget {
               shrinkWrap: true,
               padding: EdgeInsets.zero,
               itemBuilder: (BuildContext context, int index) {
-                List<int> kcals = [];
-                List<MacrosBreakdown> macros = [];
-
-                for (var meal in plan!.meals) {
-                  if (meal.type != 'Snack') {
-                    kcals.add(meal.macros.kcal);
-                    macros.add(meal.macros);
-                  }
-                }
-
-                final biggest = kcals.reduce(math.max);
-
-                int indexOfBiggest = kcals.indexOf(biggest);
-
-                bool areEqualCKals = kcals.every((cal) => cal == biggest);
-
-                bool areEuqalMacros = plan!.meals
-                    .every((meal) => meal.macros == macros[indexOfBiggest]);
-
-                bool areEqual = areEuqalMacros || areEqualCKals;
+                final meals = plan!.meals;
+                final res = areMealsEqual(meals);
                 return _MealTile(
-                  meal: plan!.meals[index],
-                  isPostWorkout: areEqual ? false : indexOfBiggest == index,
+                  meal: meals[index],
+                  isPostWorkout: res.$1 ? false : res.$2 == index,
                 );
               },
               separatorBuilder: (BuildContext context, int index) {
@@ -72,18 +54,62 @@ class _MealPlanWidget extends StatelessWidget {
                 );
               },
             ),
-            // if (kDebugMode) ...[
-            //   SizedBox(height: 20.h),
-            //   RishButton.primary(
-            //       title: 'Clear Meal plan',
-            //       enabled: true,
-            //       isLoading: false,
-            //       action: () => chatBloc.add(ChatDeleteMealPlan())),
-            // ]
+            if (kDebugMode) ...[
+              SizedBox(
+                height: 20.h,
+              ),
+              RishButton.primary(
+                  title: 'Clear plan',
+                  enabled: true,
+                  isLoading: false,
+                  action: () {
+                    chatBloc.add(ChatDeleteMealPlan());
+                  }),
+            ],
           ],
         ),
       );
     }
+  }
+
+  (bool areEqual, int? indexOfBiggest) areMealsEqual(List<Meal> mealEntities) {
+    if (mealEntities.isEmpty) {
+      return (true, null);
+    }
+
+    final nonSnackMeals = [
+      for (int i = 0; i < mealEntities.length; i++)
+        if (mealEntities[i].type != 'Snack') (i, mealEntities[i])
+    ];
+
+    if (nonSnackMeals.isEmpty) {
+      return (true, null);
+    }
+
+    int maxMacrosIndex = nonSnackMeals[0].$1;
+    var maxMacrosMeal = nonSnackMeals[0].$2;
+
+    for (var i = 1; i < nonSnackMeals.length; i++) {
+      final (index, meal) = nonSnackMeals[i];
+      if (meal.macros.kcal > maxMacrosMeal.macros.kcal) {
+        maxMacrosIndex = index;
+        maxMacrosMeal = meal;
+      }
+    }
+
+    for (var (_, meal) in nonSnackMeals) {
+      final caloriesDiff = (maxMacrosMeal.macros.kcal - meal.macros.kcal).abs();
+      final fatsDiff = (maxMacrosMeal.macros.fat - meal.macros.fat).abs();
+      final carbsDiff = (maxMacrosMeal.macros.carbs - meal.macros.carbs).abs();
+
+      if (caloriesDiff > 10) {
+        return (false, maxMacrosIndex);
+      }
+      if (fatsDiff > 5 || carbsDiff > 5) {
+        return (false, null);
+      }
+    }
+    return (true, maxMacrosIndex);
   }
 }
 

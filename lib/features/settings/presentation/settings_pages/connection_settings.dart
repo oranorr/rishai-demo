@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 class ConnectionSettings extends StatelessWidget {
   const ConnectionSettings({super.key});
@@ -30,7 +31,9 @@ class ConnectionSettings extends StatelessWidget {
                   ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () {},
+                    onTap: () {
+                      whoopBloc.add(WhoopDisconnect());
+                    },
                     child: Builder(builder: (context) {
                       ConnectionStatus status = data[i]['status'];
 

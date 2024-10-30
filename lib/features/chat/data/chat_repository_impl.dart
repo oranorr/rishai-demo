@@ -1,8 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/constants/constants.dart';
-
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -19,20 +17,13 @@ class ChatRepositoryImpl implements ChatRepository {
   final ChatRemoteDataSource remote;
   ChatRepositoryImpl(this.remote);
 
-  ///мы смотрим на дату.
-  ///Если последний сохраненный был сегодня -— обновляем, иначе, сохраняем новый
   @override
   Future<void> saveChatSnapShot({required ChatSnapshotEntity chatSnap}) async {
     if (hive.chatBox.isEmpty) {
       await hive.chatBox.add(chatSnap);
     } else {
       int last = hive.chatBox.length - 1;
-      final ChatSnapshotEntity res = await hive.chatBox.getAt(last);
-      if (chatIsActual(res.date)) {
-        await hive.chatBox.putAt(last, chatSnap);
-      } else {
-        await hive.chatBox.add(chatSnap);
-      }
+      await hive.chatBox.putAt(last, chatSnap);
     }
   }
 

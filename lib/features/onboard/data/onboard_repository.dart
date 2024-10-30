@@ -4,7 +4,7 @@ class OnboardRepository {
     OnboardEntity(
       title: 'Unlock your WHOOP\'s full potential',
       subtitle:
-          'Pivot seamlessly integrates with WHOOP to provide bespoke nutrition advice based on your lifestyle\nOptimize your healthspan, Pivot to longevity',
+          'Pivot seamlessly integrates with WHOOP to provide bespoke nutrition advice based on your lifestyle.\nOptimize your healthspan, Pivot to longevity',
       assetPath: 'assets/images/onboard_1.png',
     ),
     OnboardEntity(

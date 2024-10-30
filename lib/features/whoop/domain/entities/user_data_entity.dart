@@ -2,8 +2,8 @@
 import 'dart:developer';
 
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/activity.dart';
@@ -31,6 +31,8 @@ class UserDataEntity {
   final DateTime askTime;
   @HiveField(8)
   final String userId;
+  @HiveField(9)
+  final int currentCycleId;
   UserDataEntity({
     required this.workouts,
     required this.userWeightLbs,
@@ -41,6 +43,7 @@ class UserDataEntity {
     required this.calorieGoal,
     required this.askTime,
     required this.userId,
+    required this.currentCycleId,
   });
 
   int calcProteins() {
@@ -134,27 +137,27 @@ class UserDataEntity {
     return 'UserDataEntity(workouts: $workouts, userWeightLbs: $userWeightLbs, gender: $gender, strainValue: $strainValue, recoveryScore: $recoveryScore, sleepPerformance: $sleepPerformance, calorieGoal: $calorieGoal, askTime: $askTime)';
   }
 
-  UserDataEntity copyWith({
-    List<WorkoutModel>? workouts,
-    double? userWeightLbs,
-    Gender? gender,
-    double? strainValue,
-    int? recoveryScore,
-    int? sleepPerformance,
-    int? calorieGoal,
-    DateTime? askTime,
-    String? userId,
-  }) {
+  UserDataEntity copyWith(
+      {List<WorkoutModel>? workouts,
+      double? userWeightLbs,
+      Gender? gender,
+      double? strainValue,
+      int? recoveryScore,
+      int? sleepPerformance,
+      int? calorieGoal,
+      DateTime? askTime,
+      String? userId,
+      int? currentCycleId}) {
     return UserDataEntity(
-      workouts: workouts ?? this.workouts,
-      userWeightLbs: userWeightLbs ?? this.userWeightLbs,
-      gender: gender ?? this.gender,
-      strainValue: strainValue ?? this.strainValue,
-      recoveryScore: recoveryScore ?? this.recoveryScore,
-      sleepPerformance: sleepPerformance ?? this.sleepPerformance,
-      calorieGoal: calorieGoal ?? this.calorieGoal,
-      askTime: askTime ?? this.askTime,
-      userId: userId ?? this.userId,
-    );
+        workouts: workouts ?? this.workouts,
+        userWeightLbs: userWeightLbs ?? this.userWeightLbs,
+        gender: gender ?? this.gender,
+        strainValue: strainValue ?? this.strainValue,
+        recoveryScore: recoveryScore ?? this.recoveryScore,
+        sleepPerformance: sleepPerformance ?? this.sleepPerformance,
+        calorieGoal: calorieGoal ?? this.calorieGoal,
+        askTime: askTime ?? this.askTime,
+        userId: userId ?? this.userId,
+        currentCycleId: currentCycleId ?? this.currentCycleId);
   }
 }

@@ -48,7 +48,6 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
 
   Future<bool> refreshToken(String refToken) async {
     final res = await wRepo.refreshToken(refToken);
-    print(res);
     if (res != null) {
       _accessToken = res.accessToken;
       _refreshToken = res.refreshToken;
@@ -91,5 +90,30 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
       return false;
     }
     // }
+  }
+
+  @override
+  Future<void> diconnect(String userId) async {
+    try {
+      await prefsRepo.clearTokens();
+      final updUser = await directus.updateOne(
+        collection: usersCollection,
+        itemId: userId,
+        updateData: {
+          'whoopRefreshToken': null,
+          'whoopData': {},
+          'bodyMeasurements': {},
+        },
+      );
+      log('Cleared user: $updUser');
+
+      if (updUser['days'] != null && updUser['days'].isNotEmpty) {
+        print('days were: ${updUser['days']}');
+        await directus.deleteOne(
+            collection: daysCollection, id: updUser['days'].last.toString());
+      }
+    } catch (e) {
+      rethrow;
+    }
   }
 }

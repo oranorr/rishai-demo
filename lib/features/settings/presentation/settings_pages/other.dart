@@ -1,9 +1,11 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
+import 'package:rishai/features/settings/presentation/settings_pages/legal_page.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class OtherSettings extends StatelessWidget {
   const OtherSettings({super.key});
@@ -18,60 +20,104 @@ class OtherSettings extends StatelessWidget {
         'Other',
         style: context.styles.h2,
       ),
-      child: Column(
-        children: [
-          for (int i = 0; i < data.length; i++)
-            GestureDetector(
-              onTap: () async {
-                await launchUrl(Uri.parse(data[i]['url']!));
-              },
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 70.h,
-                    child: Row(
-                      children: [
-                        Text(
-                          data[i]['title']!,
-                          style: context.styles.regularLarge.copyWith(
-                              color: i == 3 ? RishColors.primary : null),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.open_in_new_rounded,
-                          color: RishColors.textSecondary,
-                        )
-                      ],
-                    ),
+      child: ListView.separated(
+        itemCount: data.length,
+        separatorBuilder: (context, index) {
+          return const Divider(
+            thickness: 1,
+            color: RishColors.stroke,
+          );
+        },
+        itemBuilder: (context, index) {
+          return GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) => LegalPage(
+                    entity: data[index],
                   ),
-                  if (i != 3)
-                    const Divider(
-                      color: RishColors.stroke,
+                ),
+              );
+            },
+            child: SizedBox(
+              height: 70.h,
+              child: Row(
+                children: [
+                  Text(
+                    data[index].title,
+                    style: context.styles.regularLarge.copyWith(
+                        color: index == 4 ? RishColors.primary : null),
+                  ),
+                  const Spacer(),
+                  const RotatedBox(
+                    quarterTurns: 2,
+                    child: Icon(
+                      Icons.arrow_back_ios,
+                      color: RishColors.textSecondary,
                     ),
+                  )
                 ],
               ),
             ),
-        ],
+          );
+        },
       ),
+
+      // ),
     );
   }
 }
 
-const List<Map<String, String>> data = [
-  {
-    'title': 'Terms of Service',
-    'url': 'https://rish.ai/terms-of-service',
-  },
-  {
-    'title': 'Privacy Policy',
-    'url': 'https://rish.ai/privacy-policy',
-  },
-  {
-    'title': 'Help & Support',
-    'url': 'https://rish.ai/contact',
-  },
-  {
-    'title': 'COMING SOON PREMIUM FEATURES',
-    'url': 'http://rish.ai/premium-features',
-  },
+List<OtherEntity> data = [
+  OtherEntity(
+      title: 'Terms of Service',
+      body: LegalTextsRepo().tos,
+      type: OtherType.tos),
+  OtherEntity(
+    title: 'Privacy Policy',
+    body: LegalTextsRepo().pp,
+    type: OtherType.pp,
+  ),
+  OtherEntity(
+    title: 'Disclaimer',
+    body: LegalTextsRepo().disclaimer,
+    type: OtherType.disclaimer,
+  ),
+  OtherEntity(
+      title: 'Help & Support',
+      body: LegalTextsRepo().help,
+      type: OtherType.help),
+  OtherEntity(
+    title: 'COMING SOON  FEATURES',
+    body: '',
+    type: OtherType.premium,
+  ),
 ];
+
+class OtherEntity {
+  final String title;
+  final String body;
+  final OtherType type;
+  OtherEntity({
+    required this.title,
+    required this.body,
+    required this.type,
+  });
+}
+
+enum OtherType { tos, pp, disclaimer, help, premium }
+
+
+//  {
+//     'title': 'Terms of Service',
+//   },
+//   {
+//     'title': 'Privacy Policy',
+//   },
+//   {
+//     'title': 'Help & Support',
+//   },
+//   // {
+//   //   'title': 'COMING SOON PREMIUM FEATURES',
+//   //   'url': 'http://rish.ai/premium-features',
+//   // },

@@ -26,13 +26,14 @@ class UserDataEntityAdapter extends TypeAdapter<UserDataEntity> {
       calorieGoal: fields[6] as int,
       askTime: fields[7] as DateTime,
       userId: fields[8] as String,
+      currentCycleId: fields[9] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserDataEntity obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.workouts)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class UserDataEntityAdapter extends TypeAdapter<UserDataEntity> {
       ..writeByte(7)
       ..write(obj.askTime)
       ..writeByte(8)
-      ..write(obj.userId);
+      ..write(obj.userId)
+      ..writeByte(9)
+      ..write(obj.currentCycleId);
   }
 
   @override

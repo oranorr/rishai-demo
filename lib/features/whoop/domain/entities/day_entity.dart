@@ -13,6 +13,7 @@ class DayEntity {
   final MealPlanEntity? mealPlanEntity;
   final DateTime dateTime;
   final ChatSnapshotEntity snap;
+
   DayEntity({
     required this.directusId,
     required this.weekTdeeAverage,
@@ -135,7 +136,7 @@ class DayEntity {
         ),
         healthMetrics: healthMetrics,
         dateTime: subs.add(Duration(days: index)),
-        mealPlanEntity: index ~/ 3 == 0 ? mealPlanEntity : null,
+        mealPlanEntity: mealPlanEntity,
         snap: ChatSnapshotEntity(
           messages: [],
           date: subs.add(Duration(days: index)),

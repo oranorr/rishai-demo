@@ -74,4 +74,9 @@ class PrefsRepository {
   String? getNoteTime() {
     return _prefs.getString(notesTime);
   }
+
+  Future<void> clearTokens() async {
+    await _prefs.setString(whoopAccessToken, '');
+    await _prefs.setString(whoopRefreshToken, '');
+  }
 }

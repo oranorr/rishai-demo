@@ -13,12 +13,13 @@ class RishiDialog {
     required DialogType type,
     required ActionDialogType? actionDialogType,
     required VoidCallback? action,
+    final bool? isDissmissable,
     final String? text,
   }) {
     showGeneralDialog(
       context: context,
       barrierLabel: "",
-      barrierDismissible: true,
+      barrierDismissible: isDissmissable ?? true,
       barrierColor: const Color(0xff1717253d).withOpacity(0.25),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) {
