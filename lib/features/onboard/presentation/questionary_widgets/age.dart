@@ -21,7 +21,10 @@ class _AgeWidgetState extends State<AgeWidget> {
 
   @override
   void initState() {
-    widget.setAge(age);
+    Future.delayed(Durations.short1, () {
+      // print('hi');
+      widget.setAge(age);
+    });
     super.initState();
   }
 

@@ -143,6 +143,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 action: () {
                   setState(() {
                     currentStep++;
+                    FocusManager.instance.primaryFocus?.unfocus();
                     widget.controller.rAnimate(1);
                   });
                 },
@@ -187,7 +188,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
             child: state.status == Status.loading
                 ? const CircularProgressIndicator()
                 : currentStep == 0
-                    ? state.mealPlan == null
+                    ? state.mealPlan == null && state.requestsLeft != 0
                         ? steps[currentStep]
                         : const SizedBox.shrink()
                     : steps[currentStep],

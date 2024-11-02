@@ -159,6 +159,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       return;
     } else {
       await directus.createOne(collection: daysCollection, data: data);
+
       log('Day is created');
     }
   }
@@ -181,14 +182,13 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         chatBloc.add(ChatFetchLastMealPlan(day: days.last));
       }
       days.removeLast();
+    } else {
+      await directus.createOne(
+          collection: daysCollection,
+          data: currentDay.toDirectus(userId: state.user.directusId));
     }
-
     days.add(currentDay);
     emit(state.copyWith(status: Status.success, days: days));
-    // chatBloc.add(InitChatBloc(
-    //     requestsLeft: currentDay.snap.requestsLeft > days.last.snap.requestsLeft
-    //         ? days.last.snap.requestsLeft
-    //         : currentDay.snap.requestsLeft));
   }
 
   Future<void> showDataPicker({

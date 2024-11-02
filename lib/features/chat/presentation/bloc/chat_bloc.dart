@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
@@ -128,12 +129,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       },
       (snap) {
         if (snap != null) {
+          log('requests left: ${snap.requestsLeft}');
           emit(state.copyWith(
             messages: snap.messages,
             requestsLeft: snap.requestsLeft,
             mealPlan: snap.mealPlan,
           ));
           threadId = snap.threadId;
+          log('requests left: ${state.requestsLeft}');
         }
       },
     );
@@ -223,12 +226,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   FutureOr<void> _deleteMealPlan(
       ChatDeleteMealPlan event, Emitter<ChatState> emit) async {
-    emit(state.copyWith(
-      mealPlan: null,
-      requestsLeft: state.requestsLeft + 1,
-      messages: [],
-    ));
-    add(ChatSaveSnap());
+    // emit(state.copyWith(
+    //   mealPlan: null,
+    //   requestsLeft: state.requestsLeft + 1,
+    //   messages: [],
+    // ));
+    // add(ChatSaveSnap());
   }
 
   FutureOr<void> _fetchLatsPlan(
@@ -240,7 +243,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ChatOnLogout event, Emitter<ChatState> emit) async {
     emit(state.copyWith(
       messages: [],
-      requestsLeft: 5,
+      requestsLeft: event.needsCounterClear ? 5 : state.requestsLeft,
       mealPlan: null,
     ));
   }
@@ -248,6 +251,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   FutureOr<void> _refreshChat(
       ChatRefreshChat event, Emitter<ChatState> emit) async {
     await hive.refreshChat();
-    add(ChatOnLogout());
+    emit(state.copyWith(
+      messages: event.needsRequestsAmountRefresh ? [] : state.messages,
+      requestsLeft: event.needsRequestsAmountRefresh ? 5 : state.requestsLeft,
+      mealPlan: null,
+    ));
   }
 }

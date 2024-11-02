@@ -3,11 +3,14 @@ import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/directus/directus_collections.dart';
+import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
@@ -77,6 +80,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     emit(state.copyWith(status: Status.loading));
     final res = await connectWhoopUsecase.call(const NoParams());
     bool success = false;
+    final needsQuestionary = userBloc.state.user.needsQuestionary;
 
     res.fold((fail) {
       RishSnackbar().showSnackBar(fail.message);
@@ -87,9 +91,11 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
     if (success) {
       await _getBodyData(WhoopRetrieveBodyData(), emit);
-
+      if (!needsQuestionary) {
+        await _initWhoopOnLogin(InitWhoopOnLogin(), emit);
+      }
       appNavigationService.go(
-          path: userBloc.state.user.needsQuestionary
+          path: needsQuestionary
               ? AppRoutes.questionary.path
               : AppRoutes.homeScreen.path);
       emit(state.copyWith(status: Status.initial));
@@ -171,6 +177,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
         if (state.status != Status.loading && state.status != Status.error) {
           userBloc.add(UserGetDays());
+          // chatBloc.add(InitChatBloc());
           appNavigationService.go(path: AppRoutes.homeScreen.path);
           emit(state.copyWith(status: Status.success));
           return;
@@ -194,7 +201,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     if (event.needsRedirect! && remaining != null) {
       appNavigationService.go(path: AppRoutes.calibratingScreen.path);
     } else {
-      print('hei');
+      print('Calibrating done.');
     }
   }
 
@@ -312,9 +319,25 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
   FutureOr<void> _disconnect(
       WhoopDisconnect event, Emitter<WhoopState> emit) async {
-    await wTokenService.diconnect(userBloc.state.user.directusId);
-    await hive.disconnectWhoop();
-    chatBloc.add(ChatOnLogout());
-    appNavigationService.go(path: AppRoutes.whoopConnect.path);
+    emit(state.copyWith(status: Status.loading));
+    try {
+      final res = await directus.readOne(
+          collection: usersCollection, id: userBloc.state.user.directusId);
+      await directus.updateOne(
+          collection: daysCollection,
+          itemId: res['days'].last.toString(),
+          updateData: {'mealPlan': null});
+      // log(res['days'].toString());
+      await wTokenService.diconnect(userBloc.state.user.directusId);
+
+      await hive.disconnectWhoop();
+      emit(state.copyWith(status: Status.success));
+      appNavigationService.go(path: AppRoutes.whoopConnect.path);
+    } catch (e) {
+      emit(state.copyWith(status: Status.error));
+      RishSnackbar().showSnackBar(
+          'Error disconnecting your WHOOP account. Please, try again. Error: $e');
+    }
+    // chatBloc.add(const ChatOnLogout(needsCounterClear: false));
   }
 }

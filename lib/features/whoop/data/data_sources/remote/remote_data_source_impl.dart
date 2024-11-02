@@ -98,9 +98,12 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
     List<dynamic> list = emptify ? [] : data!['records'];
     if (list.isNotEmpty) {
-      final first = list.firstWhere((recovery) =>
-          recovery['score_state'] == 'SCORED' &&
-          recovery['cycle_id'] == cycleId);
+      final first = list.firstWhere(
+        (recovery) =>
+            recovery['score_state'] == 'SCORED' &&
+            recovery['cycle_id'] == cycleId,
+        orElse: () => list.first,
+      );
       return RecoveryModel.fromJson(first);
     } else {
       return null;
@@ -112,8 +115,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     final rawSleeps = await _requestData(endpoint: WhoopEndpoints().sleeps);
     List<dynamic> list = emptify ? [] : rawSleeps!['records'];
     if (list.isNotEmpty) {
-      final first =
-          list.firstWhere((sleep) => sleep['score_state'] == 'SCORED');
+      final first = list.firstWhere(
+        (sleep) => sleep['score_state'] == 'SCORED',
+        orElse: () => list.first,
+      );
       return SleepModel.fromMap(first);
     } else {
       return null;

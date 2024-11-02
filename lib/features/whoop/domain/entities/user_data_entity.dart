@@ -33,6 +33,7 @@ class UserDataEntity {
   final String userId;
   @HiveField(9)
   final int currentCycleId;
+
   UserDataEntity({
     required this.workouts,
     required this.userWeightLbs,

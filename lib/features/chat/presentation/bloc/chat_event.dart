@@ -35,8 +35,8 @@ class CreateMealPlan extends ChatEvent {
 }
 
 class InitChatBloc extends ChatEvent {
-  int? requestsLeft;
-  InitChatBloc({
+  final int? requestsLeft;
+  const InitChatBloc({
     this.requestsLeft,
   });
 }
@@ -52,6 +52,18 @@ class ChatFetchLastMealPlan extends ChatEvent {
   });
 }
 
-class ChatOnLogout extends ChatEvent {}
+class ChatOnLogout extends ChatEvent {
+  final bool needsCounterClear;
+  const ChatOnLogout({
+    required this.needsCounterClear,
+  });
+}
 
-class ChatRefreshChat extends ChatEvent {}
+class ChatRefreshChat extends ChatEvent {
+  final bool needsRequestsAmountRefresh;
+  final bool messagesRefresh;
+  const ChatRefreshChat({
+    required this.needsRequestsAmountRefresh,
+    required this.messagesRefresh,
+  });
+}

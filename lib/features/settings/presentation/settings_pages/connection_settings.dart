@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 
 class ConnectionSettings extends StatelessWidget {
   const ConnectionSettings({super.key});
@@ -30,29 +33,40 @@ class ConnectionSettings extends StatelessWidget {
                     style: context.styles.regularMedium,
                   ),
                   const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      whoopBloc.add(WhoopDisconnect());
-                    },
-                    child: Builder(builder: (context) {
-                      ConnectionStatus status = data[i]['status'];
+                  BlocBuilder<WhoopBloc, WhoopState>(
+                    bloc: whoopBloc,
+                    builder: (context, state) {
+                      return GestureDetector(
+                        onTap: state.status != Status.loading && i == 0
+                            ? () {
+                                whoopBloc.add(WhoopDisconnect());
+                              }
+                            : null,
+                        child: Builder(builder: (context) {
+                          ConnectionStatus status = data[i]['status'];
 
-                      return Container(
-                        decoration: BoxDecoration(
-                            border: Border.all(
-                                color: resolveColor(status, context)),
-                            borderRadius: BorderRadius.circular(20)),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              vertical: 12.h, horizontal: 16.w),
-                          child: Text(
-                            resolveLabel(status),
-                            style: context.styles.boldMedium
-                                .copyWith(color: resolveColor(status, context)),
-                          ),
-                        ),
+                          return Container(
+                            decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: resolveColor(status, context)),
+                                borderRadius: BorderRadius.circular(20)),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                  vertical: 12.h, horizontal: 16.w),
+                              child: state.status == Status.loading && i == 0
+                                  ? CircularProgressIndicator(
+                                      color: context.theme.colorScheme.error,
+                                    )
+                                  : Text(
+                                      resolveLabel(status),
+                                      style: context.styles.boldMedium.copyWith(
+                                          color: resolveColor(status, context)),
+                                    ),
+                            ),
+                          );
+                        }),
                       );
-                    }),
+                    },
                   ),
                 ],
               ),

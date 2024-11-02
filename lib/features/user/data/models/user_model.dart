@@ -43,19 +43,21 @@ class UserModel extends Equatable {
     FoodPreferences? foodPreferences,
     BodyMeasurementsEntity? bodyMeasurementsEntity,
     List<int>? daysIds,
+    int? userWhoopId,
   }) {
     return UserModel(
-        directusId: directusId ?? this.directusId,
-        whoopId: whoopId ?? this.whoopId,
-        email: email ?? this.email,
-        name: name ?? this.name,
-        age: age ?? this.age,
-        gender: gender ?? this.gender,
-        userGoal: userGoal ?? this.userGoal,
-        foodPreferences: foodPreferences ?? this.foodPreferences,
-        bodyMeasurementsEntity:
-            bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
-        daysIds: daysIds ?? this.daysIds);
+      directusId: directusId ?? this.directusId,
+      whoopId: whoopId ?? this.whoopId,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      userGoal: userGoal ?? this.userGoal,
+      foodPreferences: foodPreferences ?? this.foodPreferences,
+      bodyMeasurementsEntity:
+          bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
+      daysIds: daysIds ?? this.daysIds,
+    );
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -64,6 +66,7 @@ class UserModel extends Equatable {
       'cuisines': map['cuisines'],
       'goal': map['goal'],
     };
+
     return UserModel(
       directusId: map['id'].toString(),
       whoopId: map['whoopId'] ?? 0,
@@ -83,6 +86,7 @@ class UserModel extends Equatable {
           ? UserGoal.fromMap(map['userGoal'])
           : null,
       daysIds: List.from(map['days']).cast<int>(),
+      // userWhoopId: map['userWhoopId'] as int,
     );
   }
 
@@ -117,6 +121,7 @@ class UserModel extends Equatable {
       foodPreferences: foodPreferences,
       userGoal: userGoal,
       daysIds: daysIds,
+      // userWhoopId: userWhoopId,
     );
   }
 }

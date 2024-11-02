@@ -96,7 +96,8 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
   Future<void> diconnect(String userId) async {
     try {
       await prefsRepo.clearTokens();
-      final updUser = await directus.updateOne(
+      // final updUser =
+      await directus.updateOne(
         collection: usersCollection,
         itemId: userId,
         updateData: {
@@ -105,13 +106,13 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
           'bodyMeasurements': {},
         },
       );
-      log('Cleared user: $updUser');
+      // log('Cleared user: $updUser');
 
-      if (updUser['days'] != null && updUser['days'].isNotEmpty) {
-        print('days were: ${updUser['days']}');
-        await directus.deleteOne(
-            collection: daysCollection, id: updUser['days'].last.toString());
-      }
+      // if (updUser['days'] != null && updUser['days'].isNotEmpty) {
+      //   print('days were: ${updUser['days']}');
+      //   await directus.deleteOne(
+      //       collection: daysCollection, id: updUser['days'].last.toString());
+      // }
     } catch (e) {
       rethrow;
     }

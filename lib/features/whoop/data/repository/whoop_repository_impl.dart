@@ -7,6 +7,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
+import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -198,7 +199,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
       final isCurrentCycleEnded = await tryFetch(() => remoteDataSource
           .pingCurrentCycle(cycleId: savedUserData.currentCycleId));
+
       print('Cycle is finished: $isCurrentCycleEnded');
+
       if (!isCurrentCycleEnded!) {
         final localData = await localDataSource.fetchSavedData();
         if (localData != null) {
@@ -211,7 +214,12 @@ class WhoopRepositoryImpl implements WhoopRepository {
             await localDataSource.saveData(data: remoteData);
             return Right(remoteData);
           } else {
-            return const Left(WhoopNoDataFailure());
+            log('remote data empty, fetching any data now.');
+            final freshData = await _fetchFreshData(
+                modificator: params.goal.modificator,
+                gender: params.gender,
+                userId: params.userId);
+            return freshData;
           }
         }
       } else {
@@ -293,13 +301,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
       int indexOfCurrentCycle = res.$2;
 
       List<WorkoutModel> workouts = [];
-      // print(cycles.first);
       RecoveryModel? recovery;
+
       if (cycles.isNotEmpty) {
         workouts =
-            // await tryFetch(() =>
             await remoteDataSource.getWorkoutsOfCycle(cycle: cycles.first);
-        // [];
         log('workouts are: $workouts\n\n');
 
         recovery = await tryFetch(() =>
@@ -329,16 +335,18 @@ class WhoopRepositoryImpl implements WhoopRepository {
         final int sleepScore = sleep.score!.sleepPerformancePercentage!.round();
 
         final userData = UserDataEntity(
-            workouts: workouts,
-            userWeightLbs: body.weight * kgToLbs,
-            gender: gender,
-            strainValue: strainValue,
-            recoveryScore: recoveryScore,
-            sleepPerformance: sleepScore,
-            calorieGoal: calorieGoal,
-            userId: userId,
-            askTime: askTime,
-            currentCycleId: indexOfCurrentCycle);
+          workouts: workouts,
+          userWeightLbs: body.weight * kgToLbs,
+          gender: gender,
+          strainValue: strainValue,
+          recoveryScore: recoveryScore,
+          sleepPerformance: sleepScore,
+          calorieGoal: calorieGoal,
+          userId: userId,
+          askTime: askTime,
+          currentCycleId: indexOfCurrentCycle,
+          // userWhoopId: cycles.first.userId,
+        );
 
         await hive.saveUserData(dataEntity: userData);
 
@@ -350,25 +358,53 @@ class WhoopRepositoryImpl implements WhoopRepository {
             fatsInKcal: fats * 9);
 
         final data = WhoopDataEntity(
-            weekTdeeAverage: tdeeAverage,
-            askTime: askTime,
-            macros: MacrosBreakdown(
-              kcal: calorieGoal,
-              protein: proteins,
-              carbs: carbs,
-              fat: fats,
-            ),
-            lastTdee: (cycles.first.score!.kilojoule * kjToKcal).round());
+          weekTdeeAverage: tdeeAverage,
+          askTime: askTime,
+          macros: MacrosBreakdown(
+            kcal: calorieGoal,
+            protein: proteins,
+            carbs: carbs,
+            fat: fats,
+          ),
+          lastTdee: (cycles.first.score!.kilojoule * kjToKcal).round(),
+        );
 
         await tryFetch(() => remoteDataSource.updateDirectus(data: data));
         await tryFetch(() => localDataSource.saveData(data: data));
-        chatBloc.add(ChatRefreshChat());
+
+        final chatNeedsRefresh = await _doesChatNeedRefresh(userId: userId);
+
+        chatBloc.add(
+          ChatRefreshChat(
+            needsRequestsAmountRefresh: chatNeedsRefresh,
+            messagesRefresh: chatNeedsRefresh,
+          ),
+        );
+
         return Right(data);
+      } else {
+        return const Left(WhoopNoDataFailure());
       }
     } catch (e) {
       log('EROR WHILE FETCHING FRESHDATA, ${e.toString()}');
+      return const Left(WhoopNoDataFailure());
     }
-    return const Left(WhoopNoDataFailure());
+  }
+
+  Future<bool> _doesChatNeedRefresh({required String userId}) async {
+    final rawUser =
+        await directus.readOne(collection: usersCollection, id: userId);
+    final daysIds = List.from(rawUser['days']).cast<int>();
+    if (daysIds.isEmpty) {
+      return true;
+    }
+    final rawLast = await directus.readOne(
+        collection: daysCollection, id: daysIds.last.toString());
+    final dateOfLast =
+        DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
+
+    //if same date — we don't need to refresh chat
+    return !dateOfLast.isSameDate(DateTime.now());
   }
 
   Future<T?> tryFetch<T>(Future<T?> Function() fetchFunction) async {

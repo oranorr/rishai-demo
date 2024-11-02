@@ -169,6 +169,7 @@ class HiveImpl implements HiveRepo {
   @override
   Future<void> disconnectWhoop() async {
     await whoopDataBox.clear();
+    await userDataBox.clear();
   }
 
   @override

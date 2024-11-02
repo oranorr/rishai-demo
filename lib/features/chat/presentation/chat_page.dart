@@ -35,6 +35,7 @@ class _ChatPageState extends State<ChatPage>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
   @override
   Widget build(BuildContext context) {
     super.build(context);

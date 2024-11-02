@@ -27,7 +27,7 @@ class HealthMetricsEntity {
     );
   }
 
-  List<String> toListNames() => ['BMI', '24H Cal Burn', 'BMR'];
+  List<String> toListNames() => ['BMI', '24h Cal Burn', 'BMR'];
 
   List<int> toList() {
     return [bmi, lastTdee, bmr];

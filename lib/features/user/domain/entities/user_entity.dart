@@ -55,21 +55,22 @@ class UserEntity extends HiveObject {
     List<int>? daysIds,
   }) {
     return UserEntity(
-        directusId: directusId ?? this.directusId,
-        whoopId: whoopId ?? this.whoopId,
-        email: email ?? this.email,
-        name: name ?? this.name,
-        age: age ?? this.age,
-        gender: gender ?? this.gender,
-        foodPreferences: foodPreferences ?? this.foodPreferences,
-        bodyMeasurements: bodyMeasurements ?? this.bodyMeasurements,
-        userGoal: userGoal ?? this.userGoal,
-        daysIds: daysIds ?? this.daysIds);
+      directusId: directusId ?? this.directusId,
+      whoopId: whoopId ?? this.whoopId,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      foodPreferences: foodPreferences ?? this.foodPreferences,
+      bodyMeasurements: bodyMeasurements ?? this.bodyMeasurements,
+      userGoal: userGoal ?? this.userGoal,
+      daysIds: daysIds ?? this.daysIds,
+    );
   }
 
   @override
   String toString() {
-    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, daysIds: $daysIds)';
+    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, daysIds: $daysIds, )';
   }
 
   factory UserEntity.unauthorized() => UserEntity(

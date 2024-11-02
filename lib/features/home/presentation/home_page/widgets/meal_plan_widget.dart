@@ -5,25 +5,35 @@ class _MealPlanWidget extends StatelessWidget {
   final PageController controller;
   final MealPlanEntity? plan;
   final bool isToday;
+  final bool enoughRequests;
   const _MealPlanWidget({
     super.key,
     required this.controller,
     this.plan,
     required this.isToday,
+    required this.enoughRequests,
   });
 
   @override
   Widget build(BuildContext context) {
     if (plan == null) {
       if (isToday) {
-        return RishButton.primary(
-          title: 'Create Meal Plan',
-          enabled: true,
-          isLoading: false,
-          action: () {
-            controller.rAnimate(0);
-          },
-        );
+        if (enoughRequests) {
+          return RishButton.primary(
+            title: 'Create Meal Plan',
+            enabled: true,
+            isLoading: false,
+            action: () {
+              controller.rAnimate(0);
+            },
+          );
+        } else {
+          return Text(
+            'You already run out of requests for today. Come again tomorrow.',
+            style: context.styles.regularLarge,
+            textAlign: TextAlign.center,
+          );
+        }
       } else {
         return Text(
           'No meal plan was created that day.',
@@ -42,10 +52,9 @@ class _MealPlanWidget extends StatelessWidget {
               padding: EdgeInsets.zero,
               itemBuilder: (BuildContext context, int index) {
                 final meals = plan!.meals;
-                final res = areMealsEqual(meals);
                 return _MealTile(
                   meal: meals[index],
-                  isPostWorkout: res.$1 ? false : res.$2 == index,
+                  isPostWorkout: false,
                 );
               },
               separatorBuilder: (BuildContext context, int index) {

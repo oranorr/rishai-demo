@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -215,6 +214,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
           builder: (context, state) {
             // print(widget.day.mealPlanEntity);
             return _MealPlanWidget(
+              enoughRequests: state.requestsLeft != 0,
               controller: widget.controller,
               isToday: widget.day.isToday,
               plan: widget.day.isToday

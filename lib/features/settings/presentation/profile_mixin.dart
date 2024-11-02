@@ -68,12 +68,10 @@ mixin ProfileMixin on State<ProfileSettings> {
 
   void setUser(UserEntity upd) {
     setState(() {
-      setState(() {
-        updUser = upd;
-        buttonIsActive = true;
-        modificatorChangable = updUser.userGoal!.goal == GoalType.aesthetics ||
-            updUser.userGoal!.goal == GoalType.performance;
-      });
+      updUser = upd;
+      buttonIsActive = true;
+      modificatorChangable = updUser.userGoal!.goal == GoalType.aesthetics ||
+          updUser.userGoal!.goal == GoalType.performance;
     });
   }
 }

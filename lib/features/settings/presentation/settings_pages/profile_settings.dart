@@ -61,7 +61,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             ),
             SizedBox(height: 16.h),
             RishDropdownMenu(
-              title: 'Cuisine Preferences',
+              title: 'Cuisine preferences',
               preSelectedData: updUser.foodPreferences!.cuisines.join(', '),
               action: planCreated
                   ? _showDialog

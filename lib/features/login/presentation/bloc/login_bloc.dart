@@ -133,7 +133,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     await hive.clear();
     await prefsRepo.flush();
     await notes.cancelNotifications();
-    chatBloc.add(ChatOnLogout());
+    chatBloc.add(const ChatOnLogout(needsCounterClear: true));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
     appNavigationService.go(path: AppRoutes.login.path);
   }

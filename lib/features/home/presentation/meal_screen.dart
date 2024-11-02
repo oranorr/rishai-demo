@@ -35,19 +35,22 @@ class MealScreen extends StatelessWidget {
           SizedBox(height: 20.h),
           Text('Macros breakdown', style: context.styles.h3),
           SizedBox(height: 12.h),
-          Container(
-            decoration: BoxDecoration(
-              color: RishColors.formBackgroun,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  meal.buildPieChart(dimension: 48.h),
-                  SizedBox(width: 25.w),
-                  meal.macros.buildTextMacros(context: context)
-                ],
+          FittedBox(
+            fit: BoxFit.fitWidth,
+            child: Container(
+              decoration: BoxDecoration(
+                color: RishColors.formBackgroun,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    meal.buildPieChart(dimension: 48.h),
+                    SizedBox(width: 25.w),
+                    meal.macros.buildTextMacros(context: context)
+                  ],
+                ),
               ),
             ),
           ),

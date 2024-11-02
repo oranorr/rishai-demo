@@ -8,14 +8,14 @@ class QuestionaryRepository {
     QuestionaryData(title: 'Your gender', subtitle: 'Please, select'),
     QuestionaryData(title: 'Age', subtitle: 'How old are you?'),
     QuestionaryData(
-        title: 'Dietary Preferences', subtitle: 'Please, select one:'),
+        title: 'Dietary Preferences', subtitle: 'Please select one:'),
     QuestionaryData(
         title: 'Cuisine Preferences',
         subtitle: 'You can select multiple cuisines:'),
     QuestionaryData(
         title: 'Fitness Goal',
         subtitle:
-            'Please, select one:\nEach goal works on a specific surplus or deficit percentage of one\'s total energy expenditure'),
+            'Please select one:\nEach goal works on a specific surplus or deficit percentage of one\'s total energy expenditure'),
   ];
 
   final List<Dietary> diets = [
