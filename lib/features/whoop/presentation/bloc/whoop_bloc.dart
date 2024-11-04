@@ -9,9 +9,6 @@ import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -28,6 +25,7 @@ import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/domain/usecases/change_modificatorOrSex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart';
+import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
@@ -43,11 +41,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   final WhoopGetDataUsecase getDataUsecase;
   final WhoopGetBodyData getBodyUsecase;
   final ChangeModificatorOrSexUsecase changeModificatorOrSexUsecase;
+  final DisconnectWhoopUsecase disconnectWhoopUsecase;
   WhoopBloc(
     this.connectWhoopUsecase,
     this.getDataUsecase,
     this.getBodyUsecase,
     this.changeModificatorOrSexUsecase,
+    this.disconnectWhoopUsecase,
   ) : super(WhoopMainState(
           status: Status.initial,
           day: DayEntity(
@@ -135,17 +135,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           status: Status.success,
         ),
       );
-      // userBloc.add(
-      //   UserManageDay(
-      //     day: state.day.copyWith(
-      //       snap: ChatSnapshotEntity(
-      //         messages: [],
-      //         date: DateTime.now(),
-      //         requestsLeft: chatBloc.state.requestsLeft,
-      //       ),
-      //     ),
-      //   ),
-      // );
     });
   }
 
@@ -209,6 +198,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       WhoopRetrieveBodyData event, Emitter<WhoopState> emit) async {
     emit(state.copyWith(status: Status.loading));
     final bodyRes = await getBodyUsecase.call(const NoParams());
+
     bodyRes.fold((l) async {
       emit(state.copyWith(status: Status.error));
       RishSnackbar().showSnackBar(
@@ -230,12 +220,14 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     bool success = false;
     String errorMessage = 'Error happened. Please, try again';
     final res = await changeModificatorOrSexUsecase.call(
-        ChangeModificatorOrSexParams(
-            modificator: event.modificator,
-            gender: event.gender,
-            weekTdeeAverage: state.day.weekTdeeAverage,
-            userId: user.directusId,
-            lastTdee: state.day.healthMetrics.lastTdee));
+      ChangeModificatorOrSexParams(
+        modificator: event.modificator,
+        gender: event.gender,
+        weekTdeeAverage: state.day.weekTdeeAverage,
+        userId: user.directusId,
+        lastTdee: state.day.healthMetrics.lastTdee,
+      ),
+    );
 
     res.fold((failure) async {
       if (failure.runtimeType == WhoopDataDueToRefresh) {
@@ -321,23 +313,20 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       WhoopDisconnect event, Emitter<WhoopState> emit) async {
     emit(state.copyWith(status: Status.loading));
     try {
-      final res = await directus.readOne(
-          collection: usersCollection, id: userBloc.state.user.directusId);
-      await directus.updateOne(
-          collection: daysCollection,
-          itemId: res['days'].last.toString(),
-          updateData: {'mealPlan': null});
-      // log(res['days'].toString());
-      await wTokenService.diconnect(userBloc.state.user.directusId);
-
-      await hive.disconnectWhoop();
-      emit(state.copyWith(status: Status.success));
-      appNavigationService.go(path: AppRoutes.whoopConnect.path);
+      final res = await disconnectWhoopUsecase
+          .call(DisconnecWhoopParams(userId: userBloc.state.user.directusId));
+      res.fold((l) {
+        emit(state.copyWith(status: Status.error));
+        RishSnackbar().showSnackBar(
+            'Error disconnecting your WHOOP account. Please, try again.');
+      }, (r) {
+        emit(state.copyWith(status: Status.success));
+        appNavigationService.go(path: AppRoutes.whoopConnect.path);
+      });
     } catch (e) {
       emit(state.copyWith(status: Status.error));
       RishSnackbar().showSnackBar(
           'Error disconnecting your WHOOP account. Please, try again. Error: $e');
     }
-    // chatBloc.add(const ChatOnLogout(needsCounterClear: false));
   }
 }

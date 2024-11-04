@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:developer';
 import 'package:bloc/bloc.dart';
-import 'package:directus/directus.dart';
+
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
@@ -21,6 +20,8 @@ import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
+import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
+import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
@@ -31,13 +32,17 @@ import '../../../whoop/presentation/bloc/whoop_bloc.dart';
 part 'user_event.dart';
 
 final userBloc = getIt.get<UserBloc>();
-int daysPerPage = kDebugMode ? 3 : 5;
+// int daysPerPage = kDebugMode ? 3 : 5;
 
 @injectable
 class UserBloc extends Bloc<UserEvent, UserState> {
   final UpdateUserUsecase updateUserUsecase;
+  final GetDaysUsecase getDaysUsecase;
+  final ManageDayUsecase manageDayUsecase;
   UserBloc(
     this.updateUserUsecase,
+    this.getDaysUsecase,
+    this.manageDayUsecase,
   ) : super(
           UserMainState(
             status: Status.initial,
@@ -83,7 +88,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       emit(state.copyWith(user: user));
       add(const UserCheckForRecomp());
       whoopBloc.add(InitWhoopOnLogin());
-      chatBloc.add(InitChatBloc());
+      chatBloc.add(const InitChatBloc());
       // await _getDays(UserGetDays(), emit);
     } else {
       appNavigationService.go(
@@ -118,7 +123,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
             updatedAt: DateTime.now());
         UserEntity userUpd = state.user.copyWith(userGoal: updGoal);
         add(UpdateUserEvent(user: userUpd));
-      } else {}
+      } else {
+        return;
+      }
     }
   }
 
@@ -127,41 +134,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     final day = event.day.copyWith(mealPlanEntity: chatBloc.state.mealPlan);
     final data = day.toDirectus(userId: state.user.directusId);
 
-    final rawUser = await directus.readOne(
-        collection: usersCollection, id: state.user.directusId);
-    final List<int> ids = List.from(rawUser['days']).cast<int>();
-
-    if (ids.isEmpty) {
-      await directus.createOne(collection: daysCollection, data: data);
-      log('Day is created');
-      return;
-    }
-    final lastRecord = await directus.readOne(
-        collection: daysCollection, id: ids.last.toString());
-
-    final lastDate =
-        DateTime.fromMillisecondsSinceEpoch(int.parse(lastRecord['dateTime']));
-
-    if (lastDate.isSameDate(DateTime.now())) {
-      final lastEntity = DayEntity.fromMap(lastRecord);
-
-      if ((lastEntity.mealPlanEntity != event.day.mealPlanEntity &&
-              event.day.mealPlanEntity != null) ||
-          lastEntity.macros != event.day.macros ||
-          lastEntity.snap != event.day.snap) {
-        log('Day is updating');
-        await directus.updateOne(
-            collection: daysCollection,
-            itemId: lastRecord['id'].toString(),
-            updateData: data);
-      }
-      log('Day is not updating');
-      return;
-    } else {
-      await directus.createOne(collection: daysCollection, data: data);
-
-      log('Day is created');
-    }
+    await manageDayUsecase.call(ManageDayParams(
+        userId: state.user.directusId, dayMap: data, incomingDay: event.day));
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
@@ -173,22 +147,14 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       emit(state.copyWith(status: Status.success, days: [currentDay]));
       return;
     }
-    final rawList = await directus.readMany(
-        collection: daysCollection, filters: Filters({'id': F.isIn(ids)}));
-    final days = rawList.map((map) => DayEntity.fromMap(map)).toList();
-
-    if (days.last.dateTime.isSameDate(DateTime.now())) {
-      if (days.last.mealPlanEntity != null) {
-        chatBloc.add(ChatFetchLastMealPlan(day: days.last));
-      }
-      days.removeLast();
-    } else {
-      await directus.createOne(
-          collection: daysCollection,
-          data: currentDay.toDirectus(userId: state.user.directusId));
-    }
-    days.add(currentDay);
-    emit(state.copyWith(status: Status.success, days: days));
+    final res = await getDaysUsecase
+        .call(GetDaysParams(daysIds: ids, userId: state.user.directusId));
+    res.fold((l) {
+      RishSnackbar()
+          .showSnackBar('Error occured while fetching days. Please, restart.');
+    }, (r) {
+      emit(state.copyWith(status: Status.success, days: r));
+    });
   }
 
   Future<void> showDataPicker({

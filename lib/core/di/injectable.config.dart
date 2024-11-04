@@ -73,6 +73,10 @@ import 'package:rishai/features/user/data/repositories/user_repository_impl.dart
     as _i670;
 import 'package:rishai/features/user/domain/repositories/user_repository.dart'
     as _i926;
+import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart'
+    as _i547;
+import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart'
+    as _i892;
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart'
     as _i663;
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart' as _i984;
@@ -90,6 +94,8 @@ import 'package:rishai/features/whoop/domain/usecases/change_modificatorOrSex_us
     as _i741;
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart'
     as _i513;
+import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart'
+    as _i62;
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart'
     as _i1035;
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart'
@@ -141,8 +147,10 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i246.ChatRepositoryImpl(gh<_i867.ChatRemoteDataSource>()));
     gh.factory<_i663.UpdateUserUsecase>(
         () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
-    gh.factory<_i984.UserBloc>(
-        () => _i984.UserBloc(gh<_i663.UpdateUserUsecase>()));
+    gh.factory<_i892.ManageDayUsecase>(
+        () => _i892.ManageDayUsecase(gh<_i926.UserRepository>()));
+    gh.factory<_i547.GetDaysUsecase>(
+        () => _i547.GetDaysUsecase(gh<_i926.UserRepository>()));
     gh.singleton<_i544.LoginRepository>(
         () => _i1025.LoginRepositoryImpl(gh<_i510.LoginRemoteDataSource>()));
     gh.factory<_i1003.LoginViaGoogleUsecase>(
@@ -161,6 +169,13 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i513.ConnectWhoopUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i741.ChangeModificatorOrSexUsecase>(
         () => _i741.ChangeModificatorOrSexUsecase(gh<_i897.WhoopRepository>()));
+    gh.factory<_i62.DisconnectWhoopUsecase>(
+        () => _i62.DisconnectWhoopUsecase(gh<_i897.WhoopRepository>()));
+    gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
+          gh<_i663.UpdateUserUsecase>(),
+          gh<_i547.GetDaysUsecase>(),
+          gh<_i892.ManageDayUsecase>(),
+        ));
     gh.factory<_i222.FetchSavedSnapUsecase>(
         () => _i222.FetchSavedSnapUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i241.InitGptUsecase>(
@@ -174,6 +189,7 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i757.WhoopGetDataUsecase>(),
           gh<_i1035.WhoopGetBodyData>(),
           gh<_i741.ChangeModificatorOrSexUsecase>(),
+          gh<_i62.DisconnectWhoopUsecase>(),
         ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
           gh<_i1003.LoginViaGoogleUsecase>(),

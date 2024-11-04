@@ -180,7 +180,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
 
     emit(state.copyWith(messages: list));
-
     add(ChatSaveSnap());
   }
 

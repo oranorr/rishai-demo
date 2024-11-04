@@ -7,9 +7,6 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/extensions/date_time_extension.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -27,6 +24,7 @@ import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
 import 'package:rishai/features/whoop/domain/usecases/change_modificatorOrSex_usecase.dart';
+import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import '../../../../core/services/envied/envied.dart';
 
@@ -128,15 +126,13 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
   @override
   Future<RefreshTokenModel?> refreshToken(String refreshToken) async {
-    const maxAttempts = 3; // Максимальное количество попыток
+    const maxAttempts = 3;
     int attempts = 0;
     late http.Response response;
 
     while (attempts < maxAttempts) {
       try {
-        await Future.delayed(
-            const Duration(seconds: 2)); // Задержка между попытками
-
+        await Future.delayed(const Duration(seconds: 2));
         response = await http.post(
           Uri.parse(tokenUrl),
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -186,107 +182,119 @@ class WhoopRepositoryImpl implements WhoopRepository {
   Future<Either<Failure, WhoopDataEntity>> getData(
       {required GetDataParams params}) async {
     try {
+      // Получаем сохранённые данные пользователя из локального хранилища
       UserDataEntity? savedUserData =
           await hive.fetchUserDataEntity(userId: params.userId);
 
+      // Если данных пользователя нет, загружаем свежие данные и возвращаем
       if (savedUserData == null) {
-        final freshData = await _fetchFreshData(
-            modificator: params.goal.modificator,
-            gender: params.gender,
-            userId: params.userId);
-        return freshData;
+        return await _fetchAndSaveFreshData(params);
       }
 
+      // Проверяем, завершился ли текущий цикл
       final isCurrentCycleEnded = await tryFetch(() => remoteDataSource
           .pingCurrentCycle(cycleId: savedUserData.currentCycleId));
 
       print('Cycle is finished: $isCurrentCycleEnded');
 
-      if (!isCurrentCycleEnded!) {
-        final localData = await localDataSource.fetchSavedData();
-        if (localData != null) {
-          return Right(localData);
-        } else {
-          final remoteData =
-              await tryFetch(() => remoteDataSource.fetchDirectusData());
-
-          if (remoteData != null) {
-            await localDataSource.saveData(data: remoteData);
-            return Right(remoteData);
-          } else {
-            log('remote data empty, fetching any data now.');
-            final freshData = await _fetchFreshData(
-                modificator: params.goal.modificator,
-                gender: params.gender,
-                userId: params.userId);
-            return freshData;
-          }
-        }
-      } else {
-        final freshData = await tryFetch(() => _fetchFreshData(
-            modificator: params.goal.modificator,
-            gender: params.gender,
-            userId: params.userId));
-        return freshData!;
+      // Если цикл не завершён, проверяем данные в локальном хранилище
+      if (isCurrentCycleEnded == false) {
+        return await _getLocalOrRemoteData();
       }
+
+      // Если цикл завершился или данные в локальном хранилище отсутствуют, загружаем свежие данные
+      return await _fetchAndSaveFreshData(params);
     } on Exception catch (e) {
       log('ERROR WHILE FETCHING WHOOP DATA: $e');
       return Left(FailedToGetUserData('$e'));
     }
   }
 
-  double calculateCalorieGoal(
-      {required double tdeeAvrage, required double modificator}) {
-    return ((1 + modificator) * tdeeAvrage);
+// Вспомогательная функция для загрузки свежих данных и их сохранения
+  Future<Either<Failure, WhoopDataEntity>> _fetchAndSaveFreshData(
+      GetDataParams params) async {
+    final res = await tryFetch(() => _fetchFreshData(
+        modificator: params.goal.modificator,
+        gender: params.gender,
+        userId: params.userId));
+    return res!.fold((l) {
+      return Left(l);
+    }, (r) async {
+      await localDataSource.saveData(data: r);
+      return Right(r);
+    });
   }
 
-  double calculateTDEEAverage(List<CycleModel> cycles) {
-    double sum = 0;
-    for (var cyc in cycles) {
-      sum += cyc.score!.kilojoule;
+// Вспомогательная функция для получения локальных данных или загрузки удалённых данных
+  Future<Either<Failure, WhoopDataEntity>> _getLocalOrRemoteData() async {
+    final localData = await localDataSource.fetchSavedData();
+    if (localData != null) {
+      return Right(localData);
     }
-    sum = sum * kjToKcal;
-    return sum / cycles.length;
-  }
 
-  @override
-  Future<Either<Failure, MacrosBreakdown>> changeModificatorOfSex(
-      {required ChangeModificatorOrSexParams params}) async {
-    try {
-      UserDataEntity? userData;
-      final newCalorieGoal =
-          ((1 + params.modificator) * params.weekTdeeAverage);
-
-      userData = await hive.fetchUserDataEntity(userId: params.userId);
-
-      if (userData == null) {
-        log('userData is dead, need to refresh');
-        return const Left(WhoopDataDueToRefresh());
-      } else {
-        userData = userData.copyWith(
-            calorieGoal: newCalorieGoal.round(), gender: params.gender);
-        await hive.saveUserData(dataEntity: userData);
-        final newMacros = userData.calcMacros();
-
-        final savedWhoop = await hive.retrieveLastData();
-
-        final whoopData = savedWhoop!.copyWith(
-          weekTdeeAverage: params.weekTdeeAverage,
-          macros: newMacros,
-          lastTdee: params.lastTdee,
-        );
-
-        await hive.saveWhoopData(data: whoopData);
-        await directus.updateOne(
-            collection: usersCollection,
-            itemId: params.userId,
-            updateData: {'whoopData': whoopData.toMap()});
-        return Right(newMacros);
-      }
-    } catch (e) {
-      rethrow;
+    // Если локальные данные отсутствуют, пытаемся загрузить данные с удалённого сервера
+    final remoteData =
+        await tryFetch(() => remoteDataSource.fetchDirectusData());
+    if (remoteData != null) {
+      await localDataSource.saveData(data: remoteData);
+      return Right(remoteData);
+    } else {
+      log('remote data empty, fetching any data now.');
+      return const Left(FailedToGetUserData('Remote data is empty'));
     }
   }
+  // @override
+  // Future<Either<Failure, WhoopDataEntity>> getData(
+  //     {required GetDataParams params}) async {
+  //   try {
+  //     UserDataEntity? savedUserData =
+  //         await hive.fetchUserDataEntity(userId: params.userId);
+
+  //     if (savedUserData == null) {
+  //       final freshData = await _fetchFreshData(
+  //           modificator: params.goal.modificator,
+  //           gender: params.gender,
+  //           userId: params.userId);
+  //       return freshData;
+  //     }
+
+  //     final isCurrentCycleEnded = await tryFetch(() => remoteDataSource
+  //         .pingCurrentCycle(cycleId: savedUserData.currentCycleId));
+
+  //     print('Cycle is finished: $isCurrentCycleEnded');
+
+  //     if (!isCurrentCycleEnded!) {
+  //       final localData = await localDataSource.fetchSavedData();
+  //       if (localData != null) {
+  //         return Right(localData);
+  //       } else {
+  //         final remoteData =
+  //             await tryFetch(() => remoteDataSource.fetchDirectusData());
+
+  //         if (remoteData != null) {
+  //           await localDataSource.saveData(data: remoteData);
+  //           return Right(remoteData);
+  //         } else {
+  //           log('remote data empty, fetching any data now.');
+  //           final freshData = await _fetchFreshData(
+  //               modificator: params.goal.modificator,
+  //               gender: params.gender,
+  //               userId: params.userId);
+  //           return freshData;
+  //         }
+  //       }
+  //     } else {
+  //       final freshData = await tryFetch(() => _fetchFreshData(
+  //           modificator: params.goal.modificator,
+  //           gender: params.gender,
+  //           userId: params.userId));
+  //       return freshData!;
+  //     }
+  //   } on Exception catch (e) {
+  //     log('ERROR WHILE FETCHING WHOOP DATA: $e');
+  //     return Left(FailedToGetUserData('$e'));
+  //   }
+  // }
 
   Future<Either<Failure, WhoopDataEntity>> _fetchFreshData(
       {required double modificator,
@@ -345,7 +353,6 @@ class WhoopRepositoryImpl implements WhoopRepository {
           userId: userId,
           askTime: askTime,
           currentCycleId: indexOfCurrentCycle,
-          // userWhoopId: cycles.first.userId,
         );
 
         await hive.saveUserData(dataEntity: userData);
@@ -372,7 +379,8 @@ class WhoopRepositoryImpl implements WhoopRepository {
         await tryFetch(() => remoteDataSource.updateDirectus(data: data));
         await tryFetch(() => localDataSource.saveData(data: data));
 
-        final chatNeedsRefresh = await _doesChatNeedRefresh(userId: userId);
+        final chatNeedsRefresh =
+            await remoteDataSource.doesChatNeedsRefreshment(userId: userId);
 
         chatBloc.add(
           ChatRefreshChat(
@@ -391,20 +399,36 @@ class WhoopRepositoryImpl implements WhoopRepository {
     }
   }
 
-  Future<bool> _doesChatNeedRefresh({required String userId}) async {
-    final rawUser =
-        await directus.readOne(collection: usersCollection, id: userId);
-    final daysIds = List.from(rawUser['days']).cast<int>();
-    if (daysIds.isEmpty) {
-      return true;
-    }
-    final rawLast = await directus.readOne(
-        collection: daysCollection, id: daysIds.last.toString());
-    final dateOfLast =
-        DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
+  double calculateCalorieGoal(
+      {required double tdeeAvrage, required double modificator}) {
+    return ((1 + modificator) * tdeeAvrage);
+  }
 
-    //if same date — we don't need to refresh chat
-    return !dateOfLast.isSameDate(DateTime.now());
+  double calculateTDEEAverage(List<CycleModel> cycles) {
+    double sum = 0;
+    for (var cyc in cycles) {
+      sum += cyc.score!.kilojoule;
+    }
+    sum = sum * kjToKcal;
+    return sum / cycles.length;
+  }
+
+  @override
+  Future<Either<Failure, MacrosBreakdown>> changeModificatorOfSex(
+      {required ChangeModificatorOrSexParams params}) async {
+    try {
+      final res =
+          await localDataSource.changeModificatorOrSexLocal(params: params);
+
+      return res.fold((l) async {
+        return Left(l);
+      }, (r) async {
+        await remoteDataSource.updateDirectus(data: r.$2);
+        return Right(r.$1);
+      });
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<T?> tryFetch<T>(Future<T?> Function() fetchFunction) async {
@@ -421,5 +445,20 @@ class WhoopRepositoryImpl implements WhoopRepository {
       }
     }
     return null;
+  }
+
+  @override
+  Future<Either<Failure, void>> disconnectWhoop(
+      {required DisconnecWhoopParams params}) async {
+    try {
+      await remoteDataSource.clearWhoopUserDataOnDisconnect(
+          userId: params.userId);
+      await wTokenService.diconnect(params.userId);
+      await hive.disconnectWhoop();
+      return const Right(null);
+    } catch (e) {
+      log('Error: $e', name: 'DiconnectWhoop Repo');
+      return const Left(UnknownFailure());
+    }
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
@@ -194,5 +195,38 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     final raw = await _requestData(
         endpoint: WhoopEndpoints().cycleById(cycleId: cycleId));
     return raw!['end'] != null;
+  }
+
+  @override
+  Future<bool> clearWhoopUserDataOnDisconnect({required String userId}) async {
+    try {
+      final res =
+          await directus.readOne(collection: usersCollection, id: userId);
+      await directus.updateOne(
+          collection: daysCollection,
+          itemId: res['days'].last.toString(),
+          updateData: {'mealPlan': null});
+      return true;
+    } catch (e) {
+      log('Error: $e', name: 'Diconnect Whoop RDS');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> doesChatNeedsRefreshment({required String userId}) async {
+    final rawUser =
+        await directus.readOne(collection: usersCollection, id: userId);
+    final daysIds = List.from(rawUser['days']).cast<int>();
+    if (daysIds.isEmpty) {
+      return true;
+    }
+    final rawLast = await directus.readOne(
+        collection: daysCollection, id: daysIds.last.toString());
+    final dateOfLast =
+        DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
+
+    //if same date — we don't need to refresh chat
+    return !dateOfLast.isSameDate(DateTime.now());
   }
 }
