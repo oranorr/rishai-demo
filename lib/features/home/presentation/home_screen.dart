@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/presentation/chat_page.dart';
@@ -17,20 +18,31 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late PageController pageController;
   int currentPage = 1;
   @override
   void initState() {
     pageController = PageController(initialPage: currentPage)
       ..addListener(listener);
+    WidgetsBinding.instance.addObserver(this);
     super.initState();
   }
 
   @override
   void dispose() {
     pageController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!whoopBloc.state.day.dateTime.isSameDate(DateTime.now())) {
+        whoopBloc.add(InitWhoopOnLogin());
+      }
+    }
   }
 
   void listener() {

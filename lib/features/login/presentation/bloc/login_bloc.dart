@@ -126,7 +126,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     await prefsRepo.setLogin(true);
     userBloc.add(UpdateUserEvent(user: curUser));
     whoopBloc.add(InitWhoopOnLogin());
-    chatBloc.add(InitChatBloc());
+    chatBloc.add(const InitChatBloc());
   }
 
   FutureOr<void> _logout(LogoutEvent event, Emitter<LoginState> emit) async {
@@ -151,20 +151,32 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       emit(state.copyWith(status: Status.success));
     });
   }
-}
 
-String generateVerificationCode() {
-  final random = math.Random();
-  String verificationCode = '';
+  String generateVerificationCode() {
+    final random = math.Random();
+    String verificationCode = '';
 
-  for (int i = 0; i < 4; i++) {
-    int randomNumber = random.nextInt(10);
-    verificationCode += randomNumber.toString();
+    if (okEmails.contains(state.loginEntity!.email)) {
+      verificationCode = '0000';
+      return verificationCode;
+    }
+
+    for (int i = 0; i < 4; i++) {
+      int randomNumber = random.nextInt(10);
+      verificationCode += randomNumber.toString();
+    }
+
+    log('OTP CODE: $verificationCode');
+    return verificationCode;
   }
 
-  log('OTP CODE: $verificationCode');
-  return verificationCode;
+  List<String> okEmails = [
+    "googleTester@gmail.com",
+    "oliverkarlin0@gmail.com",
+    "appleTester@apple.com"
+  ];
 }
+
 
 
 

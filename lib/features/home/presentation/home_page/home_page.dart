@@ -43,20 +43,16 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     pageController = PageController();
+
     super.initState();
   }
 
   @override
   void dispose() {
     pageController.dispose();
+
     super.dispose();
   }
-
-  // void checkForDayChange({required DayEntity currentDay}) {
-  //   if (!currentDay.dateTime.isSameDate(DateTime.now())) {
-  //     userBloc.add(UserManageDay(day: currentDay));
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +66,6 @@ class _HomePageState extends State<HomePage> {
           reverse: true,
           itemCount: state.days.length,
           itemBuilder: (context, index) {
-            // print(state.days.length);
             return _HomePageBody(
               homePageController: pageController,
               controller: widget.controller,
