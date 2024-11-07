@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:rishai/app.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -14,23 +15,19 @@ import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
-// import 'package:rishai/firebase_options.dart';
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
-  await Firebase.initializeApp(
-      // options: DefaultFirebaseOptions.currentPlatform,
-      );
+  await Firebase.initializeApp();
   await configureDependencies();
-  // await firebase.init();
   await dotenv.load(fileName: ".env");
   await hive.initHive();
   await prefsRepo.init();
   await directus.initDirectus();
   await notes.initNotificationsService();
   await notes.requestPermissions();
-
+  await adapty.initAdapty();
   FlutterNativeSplash.remove();
   runApp(const RishAi());
 }

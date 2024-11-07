@@ -12,6 +12,10 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:rishai/core/router/app_navigation_service.dart' as _i453;
 import 'package:rishai/core/router/navigator_key_provider.dart' as _i572;
+import 'package:rishai/core/services/adapty_service/adapty_repository.dart'
+    as _i1067;
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
+    as _i910;
 import 'package:rishai/core/services/directus/directus_repository.dart' as _i89;
 import 'package:rishai/core/services/directus/directus_repository_impl.dart'
     as _i523;
@@ -125,6 +129,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i820.WhoopTokenService>(() => _i597.WhoopTokenServiceImpl());
     gh.singleton<_i510.LoginRemoteDataSource>(
         () => _i675.RemoteDataSourceImpl());
+    gh.singleton<_i1067.AdaptyRepository>(() => _i910.AdaptyRepositoryImpl());
     gh.singleton<_i675.WhoopRemoteDataSource>(
         () => _i675.WhoopRemoteDataSourceImpl());
     gh.singleton<_i886.UserLocalDataSource>(() => _i461.UserLocalDataImpl());

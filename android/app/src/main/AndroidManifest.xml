@@ -65,7 +65,7 @@
 
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
-
+        <meta-data android:name="AdaptyPublicSdkKey" android:value="public_live_LKsqyHpI.uNBDvmJqMT1WEzHrJDsL" />
     </application>
 
     <queries>
