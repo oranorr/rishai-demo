@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 extension DateFormatExtension on DateTime {
   String formatAsDayString() {
     final now = DateTime.now();
@@ -9,9 +11,8 @@ extension DateFormatExtension on DateTime {
     } else if (isSameDate(yesterday)) {
       return 'Yesterday';
     } else {
-      final day = this.day;
-      final monthName = _getMonthName(month);
-      return '${_getDayEnding(day)} of $monthName';
+      final dateFormat = DateFormat('EEE, MMM d');
+      return dateFormat.format(this);
     }
   }
 

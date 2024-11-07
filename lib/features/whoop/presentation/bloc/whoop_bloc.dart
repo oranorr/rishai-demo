@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
@@ -280,20 +279,47 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     );
   }
 
-  (double proteinPer, double carbsPer, double fatsPar) calculatePercentage() {
+  (double proteinPer, double carbsPer, double fatsPer) calculatePercentage() {
     int proteinKcal = state.day.macros.protein * 4;
     int carbsKcal = state.day.macros.carbs * 4;
     int fatsKcal = state.day.macros.fat * 9;
 
-    final proteinPerc = proteinKcal / state.day.macros.kcal;
-    final carbsPerc = carbsKcal / state.day.macros.kcal;
-    final fatsPerc = fatsKcal / state.day.macros.kcal;
+    final totalKcal = state.day.macros.kcal;
+
+    double proteinPerc = (proteinKcal / totalKcal) * 100;
+    double carbsPerc = (carbsKcal / totalKcal) * 100;
+    double fatsPerc = (fatsKcal / totalKcal) * 100;
+
+    int proteinRounded = proteinPerc.round();
+    int carbsRounded = carbsPerc.round();
+    int fatsRounded = fatsPerc.round();
+
+    int totalRounded = proteinRounded + carbsRounded + fatsRounded;
+    if (totalRounded != 100) {
+      int difference = 100 - totalRounded;
+
+      if (proteinRounded >= carbsRounded && proteinRounded >= fatsRounded) {
+        proteinRounded += difference;
+      } else if (carbsRounded >= proteinRounded &&
+          carbsRounded >= fatsRounded) {
+        carbsRounded += difference;
+      } else {
+        fatsRounded += difference;
+      }
+    }
 
     return (
-      proteinPerc.toPrecision(),
-      carbsPerc.toPrecision(),
-      fatsPerc.toPrecision()
+      proteinRounded.toDouble(),
+      carbsRounded.toDouble(),
+      fatsRounded.toDouble()
     );
+  }
+
+  (int carbsKcal, int proteinKcal, int fatKcal) calculateMacrosInKcal() {
+    int proteinKcal = state.day.macros.protein * 4;
+    int carbsKcal = state.day.macros.carbs * 4;
+    int fatsKcal = state.day.macros.fat * 9;
+    return (carbsKcal, proteinKcal, fatsKcal);
   }
 
   FutureOr<void> _updateDayByMeal(

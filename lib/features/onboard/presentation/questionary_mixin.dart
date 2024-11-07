@@ -25,7 +25,8 @@ mixin QuestionaryMixin on State<Questionary> {
   }
 
   void resolveType(int page) {
-    if (page == 5) {
+    // print(gender);
+    if (page == 6) {
       setState(() {
         isLastPage = true;
       });
@@ -36,10 +37,10 @@ mixin QuestionaryMixin on State<Questionary> {
     }
 
     bool enabled;
-    if (page == 0 || page == 2) {
+    if (page == 0 || page == 3) {
       // _type = ButtonType.primary;
       enabled = true;
-    } else if (page == 1) {
+    } else if (page == 2) {
       enabled = gender != null;
       // _type = gender == null ? ButtonType.disabled : ButtonType.primary;
     } else if (page == 3) {
@@ -55,9 +56,15 @@ mixin QuestionaryMixin on State<Questionary> {
     });
   }
 
-  void setGender(Gender gnd) {
+  void setSex(Gender gnd) {
     setState(() {
       gender = gnd;
+      buttonEnabled = true;
+    });
+  }
+
+  void setGender() {
+    setState(() {
       buttonEnabled = true;
     });
   }

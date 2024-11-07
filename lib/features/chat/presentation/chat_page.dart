@@ -1,4 +1,3 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -36,6 +35,21 @@ class _ChatPageState extends State<ChatPage>
   @override
   bool get wantKeepAlive => true;
 
+  late TextEditingController controller;
+  bool sendActive = false;
+
+  @override
+  void initState() {
+    controller = TextEditingController()
+      ..addListener(() {
+        setState(() {
+          sendActive =
+              controller.text.isNotEmpty && chatBloc.state.mealPlan != null;
+        });
+      });
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -45,8 +59,12 @@ class _ChatPageState extends State<ChatPage>
         const _ChatWidget(),
         _AutoPrompts(
           controller: widget.controller,
+          isThereText: controller.text.isNotEmpty,
         ),
-        const _InputAndSend(),
+        _InputAndSend(
+          textEditingController: controller,
+          sendActive: sendActive,
+        ),
       ],
     );
   }

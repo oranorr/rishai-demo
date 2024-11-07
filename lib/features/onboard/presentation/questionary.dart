@@ -20,10 +20,11 @@ import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 
 part './questionary_widgets/bmi.dart';
-part './questionary_widgets/gender.dart';
+part 'questionary_widgets/sex_picker.dart';
 part './questionary_widgets/age.dart';
 part 'questionary_widgets/selectable_list.dart';
 part 'questionary_mixin.dart';
+part './questionary_widgets/gender_picker.dart';
 
 class Questionary extends StatefulWidget {
   const Questionary({super.key});
@@ -38,6 +39,7 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
     List<Widget> bodies = [
       const BmiWidget(),
       GenderPicker(setGender: setGender),
+      SexPicker(setGender: setSex, needsLightBack: false),
       AgeWidget(setAge: setAge),
       SelectableList(
           data: QuestionaryRepository().diets, setSomething: setDiets),

@@ -58,9 +58,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       bloc: whoopBloc,
       builder: (context, state) {
         List<Widget> bodies = [
-          ChatPage(
-            controller: pageController,
-          ),
+          ChatPage(controller: pageController),
           HomePage(controller: pageController),
           const SettingsPage(),
         ];
@@ -78,7 +76,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             padding: EdgeInsets.only(top: 60.h),
             child: PageView.builder(
               controller: pageController,
-              physics: const NeverScrollableScrollPhysics(),
               itemBuilder: (context, index) {
                 return bodies[index];
               },

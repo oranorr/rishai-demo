@@ -3,9 +3,11 @@ part of '../chat_page.dart';
 
 class _AutoPrompts extends StatefulWidget {
   final PageController controller;
+  final bool isThereText;
   const _AutoPrompts({
     super.key,
     required this.controller,
+    required this.isThereText,
   });
 
   @override
@@ -19,9 +21,6 @@ class __AutoPromptsState extends State<_AutoPrompts>
   bool trainingToday = false;
 
   int currentStep = 0;
-  // List<String> options = ['Morning', 'Afternoon', 'Evening', 'No workout'];
-
-  // bool scenarioCompleted = false;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +93,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
             ),
         ],
       ),
-      //workoutTime
+      //is there workout
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -176,7 +175,10 @@ class __AutoPromptsState extends State<_AutoPrompts>
           }
         },
       ),
-      const SizedBox.shrink(),
+      _PromptQuestions(
+        isVisible: widget.isThereText,
+      ),
+      // const SizedBox.shrink(),
     ];
 
     return BlocBuilder<ChatBloc, ChatState>(
@@ -187,11 +189,9 @@ class __AutoPromptsState extends State<_AutoPrompts>
           child: SizedBox(
             child: state.status == Status.loading
                 ? const CircularProgressIndicator()
-                : currentStep == 0
-                    ? state.mealPlan == null && state.requestsLeft != 0
-                        ? steps[currentStep]
-                        : const SizedBox.shrink()
-                    : steps[currentStep],
+                : state.mealPlan == null && state.requestsLeft != 0
+                    ? steps[currentStep]
+                    : steps.last,
           ),
         );
       },
@@ -200,4 +200,97 @@ class __AutoPromptsState extends State<_AutoPrompts>
 
   @override
   bool get wantKeepAlive => true;
+}
+
+class _PromptQuestions extends StatefulWidget {
+  final bool isVisible;
+  const _PromptQuestions({
+    super.key,
+    required this.isVisible,
+  });
+
+  @override
+  State<_PromptQuestions> createState() => _PromptQuestionsState();
+}
+
+class _PromptQuestionsState extends State<_PromptQuestions> {
+  final List<String> questions = [
+    'Is protein essential to build muscle and lose fat?',
+    'What are good sources of fats?',
+    'Does intermittent fasting help with body compostition?'
+  ];
+
+  bool bodyVisible = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ChatBloc, ChatState>(
+      bloc: chatBloc,
+      builder: (context, state) {
+        return AnimatedOpacity(
+            opacity: !widget.isVisible &&
+                    state.status != Status.loading &&
+                    state.requestsLeft != 0
+                ? 1
+                : 0,
+            duration: Durations.short4,
+            onEnd: () {
+              setState(() {
+                bodyVisible = !bodyVisible;
+              });
+            },
+            child: AnimatedContainer(
+              duration: Durations.short4,
+              height: bodyVisible ? null : 0,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: questions
+                    .map((q) => _QuestionPromptButton(text: q))
+                    .toList(),
+              ),
+            ));
+      },
+    );
+  }
+}
+
+class _QuestionPromptButton extends StatelessWidget {
+  final String text;
+  const _QuestionPromptButton({
+    super.key,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: 8.w),
+        child: GestureDetector(
+          onTap: () {
+            chatBloc.add(
+              ChatSendMessage(text: text, isRequest: true, isMe: true),
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+                color: RishColors.formBackgroun,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(width: 1, color: RishColors.primary)),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4),
+              child: Text(
+                text,
+                textAlign: TextAlign.end,
+                style: context.styles.regularMedium
+                    .copyWith(color: RishColors.textPrimary),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

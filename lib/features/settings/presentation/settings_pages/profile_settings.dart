@@ -167,14 +167,14 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                 SizedBox(width: 16.w),
                 Expanded(
                   child: RishDropdownMenu(
-                    title: 'Gender',
+                    title: 'Biological Sex',
                     preSelectedData: updUser.gender!.name.capitalize(),
                     action: () {
                       ModalSheet.showSingleChildSheet(
                         context: context,
-                        title: 'Your Gender',
+                        title: 'Your biological sex',
                         height: 383.h,
-                        child: GenderPicker(
+                        child: SexPicker(
                           setGender: (gender) {
                             updateGender(gender);
                           },

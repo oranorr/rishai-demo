@@ -13,6 +13,7 @@ class _MacrosBreakdownWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final res = whoopBloc.calculatePercentage();
+
     return _Card(
         child: Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -26,21 +27,32 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                 PieChartSectionData(
                   value: res.$2,
                   color: RishColors.carbs,
-                  showTitle: false,
                   radius: 12,
-                  // borderSide:
+                  showTitle: true,
+                  title: "${res.$2.toInt().toString()}%",
+                  titlePositionPercentageOffset: -2.3,
+                  titleStyle:
+                      context.styles.numsS.copyWith(color: RishColors.carbs),
                 ),
                 PieChartSectionData(
                   value: res.$1,
                   color: RishColors.protein,
-                  showTitle: false,
+                  showTitle: true,
                   radius: 12,
+                  title: "${res.$1.toInt().toString()}%",
+                  titlePositionPercentageOffset: -2.3,
+                  titleStyle:
+                      context.styles.numsS.copyWith(color: RishColors.protein),
                 ),
                 PieChartSectionData(
                   value: res.$3,
                   color: RishColors.fat,
-                  showTitle: false,
+                  showTitle: true,
                   radius: 12,
+                  title: "${res.$3.toInt().toString()}%",
+                  titlePositionPercentageOffset: -2.3,
+                  titleStyle:
+                      context.styles.numsS.copyWith(color: RishColors.fat),
                 ),
               ],
             ),
@@ -50,10 +62,49 @@ class _MacrosBreakdownWidget extends StatelessWidget {
         BlocBuilder<WhoopBloc, WhoopState>(
           bloc: whoopBloc,
           builder: (context, state) {
+            final kcals = whoopBloc.calculateMacrosInKcal();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
+                // Row(
+                //   children: [
+                //     Text(
+                //       isToday
+                //           ? "${state.day.macros.protein}g "
+                //           : '${day.macros.protein}g ',
+                //       style: context.styles.numsM
+                //           .copyWith(color: RishColors.protein),
+                //     ), Column(
+                //       children: [
+                //         Text('123'),
+                //         Text
+                //       ],
+                //     )
+                //   ],
+                // ),
+                // Row(
+                //   children: [
+                //     Text(
+                //       isToday
+                //           ? "${state.day.macros.carbs}g "
+                //           : '${day.macros.carbs}g ',
+                //       style: context.styles.numsM
+                //           .copyWith(color: RishColors.carbs),
+                //     )
+                //   ],
+                // ),
+                // Row(
+                //   children: [
+                //     Text(
+                //       isToday
+                //           ? "${state.day.macros.fat}g "
+                //           : '${day.macros.fat}g ',
+                //       style:
+                //           context.styles.numsM.copyWith(color: RishColors.fat),
+                //     )
+                //   ],
+                // ),
                 Text.rich(
                   TextSpan(
                       text: isToday
@@ -63,9 +114,10 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                           .copyWith(color: RishColors.protein),
                       children: [
                         TextSpan(
-                            text: 'Protein',
-                            style: context.styles.regularMedium
-                                .copyWith(color: RishColors.protein))
+                          text: 'Protein\n(${kcals.$2} kcal)',
+                          style: context.styles.regularMedium
+                              .copyWith(color: RishColors.protein),
+                        )
                       ]),
                 ),
                 SizedBox(height: 12.h),
@@ -78,7 +130,7 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                           .copyWith(color: RishColors.carbs),
                       children: [
                         TextSpan(
-                            text: 'Carbs',
+                            text: 'Carbs\n(${kcals.$1} kcal)',
                             style: context.styles.regularMedium
                                 .copyWith(color: RishColors.carbs))
                       ]),
@@ -93,9 +145,11 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                           context.styles.numsM.copyWith(color: RishColors.fat),
                       children: [
                         TextSpan(
-                            text: 'Fat',
-                            style: context.styles.regularMedium
-                                .copyWith(color: RishColors.fat))
+                          text: 'Fat\n(${kcals.$3} kcal)',
+                          style: context.styles.regularMedium.copyWith(
+                            color: RishColors.fat,
+                          ),
+                        )
                       ]),
                 ),
               ],

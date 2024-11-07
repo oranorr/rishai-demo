@@ -25,6 +25,7 @@ part 'widgets/calories_widget.dart';
 part 'widgets/health_metrics_widget.dart';
 part 'widgets/macros_breakdown_widget.dart';
 part 'widgets/meal_plan_widget.dart';
+part 'widgets/calendar_widget.dart';
 
 class HomePage extends StatefulWidget {
   final PageController controller;
@@ -111,65 +112,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
       shrinkWrap: true,
       padding: EdgeInsets.zero,
       children: [
-        SizedBox(
-          height: 50.h,
-          child: Row(
-            children: [
-              SizedBox(width: 1.w),
-              GestureDetector(
-                onTap: () {
-                  // print(widget.homePageController.page);
-                  widget.homePageController.nextPage(
-                      duration: Durations.medium1, curve: Curves.ease);
-                },
-                child: widget.isLoading
-                    ? const SizedBox.square(
-                        dimension: 25,
-                        child: CircularProgressIndicator(
-                          color: RishColors.stroke,
-                          strokeWidth: 1,
-                        ),
-                      )
-                    : widget.isLastPage
-                        ? const SizedBox.square(dimension: 25)
-                        : const Icon(
-                            Icons.arrow_back_ios,
-                            color: RishColors.stroke,
-                          ),
-              ),
-              // const Spacer(),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () async {
-                    await userBloc.showDataPicker(
-                      context: context,
-                      initalDate: widget.day.dateTime,
-                      controller: widget.homePageController,
-                    );
-                  },
-                  child: Text(
-                    widget.day.dateTime.formatAsDayString(),
-                    style: context.styles.h2,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              // const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  widget.homePageController.previousPage(
-                      duration: Durations.medium1, curve: Curves.ease);
-                },
-                child: widget.isFirstPage
-                    ? const SizedBox.square(dimension: 25)
-                    : const Icon(
-                        Icons.arrow_forward_ios,
-                        color: RishColors.stroke,
-                      ),
-              ),
-            ],
-          ),
-        ),
+        _CalendarWidget(widget: widget),
         SizedBox(height: 20.h),
         Text(
           'Calories',
@@ -181,7 +124,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
         ),
         SizedBox(height: 20.h),
         Text(
-          'Daily Macros Consumption',
+          'Today\'s macros goal',
           style: context.styles.h3,
         ),
         SizedBox(height: 12.h),

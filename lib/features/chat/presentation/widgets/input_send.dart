@@ -1,42 +1,48 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 part of '../chat_page.dart';
 
 class _InputAndSend extends StatefulWidget {
-  const _InputAndSend({super.key});
+  final TextEditingController textEditingController;
+  bool sendActive;
+  _InputAndSend({
+    super.key,
+    required this.textEditingController,
+    required this.sendActive,
+  });
 
   @override
   State<_InputAndSend> createState() => __InputAndSendState();
 }
 
 class __InputAndSendState extends State<_InputAndSend> {
-  late TextEditingController controller;
-  bool sendActive = false;
+  // bool sendActive = false;
 
-  @override
-  void initState() {
-    controller = TextEditingController()
-      ..addListener(() {
-        setState(() {
-          sendActive =
-              controller.text.isNotEmpty && chatBloc.state.mealPlan != null;
-        });
-      });
-    super.initState();
-  }
+  // @override
+  // void initState() {
+  //   // wigdet.textEditingController.addListener(() {
+  //   //   setState(() {
+  //   //     // sendActive =
+  //   //     //     controller.text.isNotEmpty && chatBloc.state.mealPlan != null;
+  //   //   });
+  //   // });
+  //   super.initState();
+  // }
 
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
+  // @override
+  // void dispose() {
+  //   controller.dispose();
+  //   super.dispose();
+  // }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
-        sendActive = controller.text.trim().isNotEmpty &&
-            state.mealPlan != null &&
-            state.status != Status.loading;
+        widget.sendActive =
+            widget.textEditingController.text.trim().isNotEmpty &&
+                state.mealPlan != null &&
+                state.status != Status.loading;
         if (state.requestsLeft <= 0) {
           return Text(
             'You run out of free requests. Please, come back tomorrow',
@@ -54,7 +60,8 @@ class __InputAndSendState extends State<_InputAndSend> {
                 keyboardType: TextInputType.text,
                 minLines: 1,
                 maxLines: 5,
-                controller: controller,
+                textInputAction: TextInputAction.done,
+                controller: widget.textEditingController,
                 decoration: InputDecoration(
                   hintText:
                       'Write message (${state.requestsLeft} requests left)',
@@ -69,13 +76,13 @@ class __InputAndSendState extends State<_InputAndSend> {
             ),
             SizedBox(width: 8.w),
             GestureDetector(
-              onTap: sendActive
+              onTap: widget.sendActive
                   ? () {
                       chatBloc.add(ChatSendMessage(
-                        text: controller.text.trim(),
+                        text: widget.textEditingController.text.trim(),
                         isRequest: state.mealPlan != null,
                       ));
-                      controller.clear();
+                      widget.textEditingController.clear();
                     }
                   : () {},
               child: AnimatedContainer(
@@ -83,7 +90,9 @@ class __InputAndSendState extends State<_InputAndSend> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: !sendActive ? RishColors.stroke : RishColors.primary,
+                  color: !widget.sendActive
+                      ? RishColors.stroke
+                      : RishColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: SvgPicture.asset(
@@ -91,7 +100,7 @@ class __InputAndSendState extends State<_InputAndSend> {
                   width: 24,
                   height: 24,
                   fit: BoxFit.scaleDown,
-                  color: !sendActive ? Colors.black : Colors.white,
+                  color: !widget.sendActive ? Colors.black : Colors.white,
                   // fit: BoxFit.fitHeight,
                 ),
               ),

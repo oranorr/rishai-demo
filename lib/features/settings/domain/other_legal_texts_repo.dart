@@ -1,86 +1,55 @@
 class LegalTextsRepo {
   String get tos => '''
-
 1. Acceptance of Terms
-By using the app Pivot, you agree to be bound by these Terms of Service 
-("Terms"). If you do not agree to these Terms, you may not use the app. We 
-reserve the right to modify these Terms at any time without prior notice. 
-Continued use of the app following any changes constitutes acceptance of the 
-new Terms.\n
+By using the Pivot app, you agree to be bound by these Terms of Service (“Terms”). If you do not agree to these Terms, you may not use the app. We reserve the right to modify these Terms at any time without prior notice. Continued use of the app following any changes constitutes acceptance of the new Terms.
+
 2. App Description
-The Pivot app integrates data from WHOOP and utilizes its proprietary 
-algorithm to calculate your target calories, macronutrient ratios, and integrates 
-AI for meal recommendations based on your preferences for caloric surplus or 
-deficit. The Pivot app leverages metrics such as activities performed, sleep 
-performance, and recovery data from WHOOP to provide personalized 
-nutritional guidance.\n
+The Pivot app integrates data from WHOOP and utilizes its proprietary algorithm to calculate your target calories, macronutrient ratios, and provide AI-based meal recommendations based on your preferences for caloric surplus or deficit. The app leverages metrics such as activities performed, sleep performance, and recovery data from WHOOP to deliver personalized nutritional guidance.
+
 3. Use of WHOOP Data
-The Pivot app relies on data provided by your WHOOP device, including but not 
-limited to calories burned, sleep performance, and recovery scores. We do not 
-control or guarantee the accuracy of the data provided by WHOOP. As a result, 
-any discrepancies in WHOOP's data may affect the Pivot app's outputs. You 
-understand that the Pivot app is intended to be used as a reference tool, and all 
-recommendations are estimations based on data that may not be 100% precise.\n
+The Pivot app relies on data provided by your WHOOP device, including but not limited to calories burned, sleep performance, and recovery scores. We do not control or guarantee the accuracy of the data provided by WHOOP, and any discrepancies in WHOOP’s data may affect the Pivot app’s outputs. The app is intended to be used as a reference tool, and all recommendations are estimations based on data that may not be 100% precise.
+
 4. Not Medical or Professional Advice
-The Pivot app provides nutritional guidelines and meal suggestions based on 
-WHOOP data and our proprietary algorithm. These recommendations are for 
-informational purposes only and are not intended to diagnose, treat, cure, or 
-prevent any medical condition. The Pivot app does not offer medical advice. 
-Always seek the advice of a qualified healthcare provider before making any 
-major dietary or health-related decisions.\n
+The Pivot app provides nutritional guidelines and meal suggestions based on WHOOP data and our proprietary algorithm. These recommendations are for informational purposes only and are not intended to diagnose, treat, cure, or prevent any medical condition. The Pivot app does not offer medical advice. Always seek the advice of a qualified healthcare provider before making any major dietary or health-related decisions.
+
 5. User Responsibilities
-You are responsible for ensuring that the personal data you provide, including 
-preferences and WHOOP data, is accurate. You agree not to misuse the app by 
-providing false information or engaging in unlawful activities. The Pivot app is 
-intended for personal use only.\n
+You are responsible for ensuring that the personal data you provide, including preferences and WHOOP data, is accurate. You agree not to misuse the app by providing false information or engaging in unlawful activities. The Pivot app is intended for personal use only.
+
 6. Limitation of Liability
-The Pivot app’s creators and developers make no guarantees regarding the 
-accuracy, completeness, or reliability of the information provided. By using the 
-Pivot app, you agree that we are not responsible or liable for any indirect, 
-incidental, special, or consequential damages arising from your use of the Pivot 
-app, including but not limited to health outcomes, weight loss, or fitness 
-achievements. All recommendations provided by the Pivot app should be 
-considered as guidelines only.\n
+The Pivot app’s creators and developers make no guarantees regarding the accuracy, completeness, or reliability of the information provided. By using the Pivot app, you agree that we are not responsible or liable for any indirect, incidental, special, or consequential damages arising from your use of the app, including but not limited to health outcomes, weight loss, or fitness achievements. All recommendations provided by the app should be considered as guidelines only.
+
 7. Intellectual Property
-All content, algorithms, and proprietary software within the Pivot app are the 
-intellectual property of the Pivot app’s creators. You agree not to copy, 
-reproduce, distribute, or create derivative works based on the content of this 
-app without explicit written permission from the developers.\n
+All content, algorithms, and proprietary software within the Pivot app are the intellectual property of the app’s creators. You agree not to copy, reproduce, distribute, or create derivative works based on the content of this app without explicit written permission from the developers.
+
 8. Privacy
-Your privacy is important to us. The app collects and processes personal 
-information, including WHOOP data, as outlined in our Privacy Policy. By using 
-the Pivot app, you consent to the collection, use, and storage of your personal 
-information as described in the policy.\n
+Your privacy is important to us. The app collects and processes personal information, including WHOOP data, as outlined in our Privacy Policy. By using the Pivot app, you consent to the collection, use, and storage of your personal information as described in the policy.
+
 9. Termination of Use
-We reserve the right to terminate or suspend your access to the Pivot app at any
-time, with or without cause or notice, if we believe you have violated these 
-Terms or if we are required to do so by law.\n
+We reserve the right to terminate or suspend your access to the Pivot app at any time, with or without cause or notice, if we believe you have violated these Terms or if we are required to do so by law.
+
 10. Governing Law
-These Terms are governed by and construed in accordance with the laws of 
-Dubai Integrated Economic Zones Authority (DIEZA) and International Free 
-Zone Authority (IFZA) Dubai, United Arab Emirates, without regard to its 
-conflict of law principles. Any disputes arising from the use of the app shall be 
-resolved exclusively in the courts of Dubai, United Arab Emirates.\n
+These Terms are governed by and construed in accordance with the laws of Dubai Integrated Economic Zones Authority (DIEZA) and International Free Zone Authority (IFZA) Dubai, United Arab Emirates, without regard to its conflict of law principles. Any disputes arising from the use of the app shall be resolved exclusively in the courts of Dubai, United Arab Emirates.
+
 11. Contact Information
-For any questions or concerns regarding these Terms, please contact us at 
-Healthspan Culture FZCO, +971 56 343 8645, info@rishidhingra.com.
-By using the Pivot app, you acknowledge that you have read, understood, and 
-agreed to these Terms of Service
+For any questions or concerns regarding these Terms, please contact us at Healthspan Culture FZCO, +971 56 343 8645, or info@rishidhingra.com.
+
+By using the Pivot app, you acknowledge that you have read, understood, and agreed to these Terms of Service.
 ''';
 
   String get pp => '''
 Effective Date: Nov 1, 2024
+
 Introduction: At the Pivot app, we prioritize your privacy and are committed to protecting your personal information. This Privacy Policy outlines how we collect, use, store, and share your data when using our Pivot app, which integrates data from third-party devices like Whoop, along with our proprietary algorithms, to offer personalized nutritional guidance.
 
 1. Information We Collect:
 a. Personal Information: When you sign up for the Pivot app, we may collect personal details such as your name, email address, and demographic information (age, gender, etc.) for profile creation and personalized recommendations.
 b. Device Data (Whoop Data): Our app integrates data from third-party devices such as Whoop, including but not limited to:
-
 	1.	Activity levels and type
 	2.	Calories burned
 	3.	Sleep performance
 	4.	Recovery metrics
 	5.	Other health and fitness-related data
+
 c. The Pivot App Usage Data: We collect information about how you use the Pivot app, including feature interaction, settings, and user preferences, to improve the app’s functionality and user experience.
 
 2. How We Use Your Information:
@@ -115,22 +84,26 @@ By using the Pivot app, you agree to the terms of this Privacy Policy.
 
   String get disclaimer => '''
 The Pivot app integrates WHOOP data and its proprietary algorithms to calculate target calories based on your desired deficit or surplus. While we aim for accurate nutritional insights, these data may vary.
+
 The Pivot app is a guide for nutrition and meal planning, not a substitute for medical advice. The app's insights are based on algorithms and should be used as reference points, not definitive solutions, and all recommendations are estimations based on data that may not be 100% precise.
+
 By using Pivot, you acknowledge it's for wellness purposes only, and we are not liable for data discrepancies or related outcomes. We do not control or guarantee the accuracy of the data provided
+
 
 Disclaimer for meal plans:
 The AI-generated information provided by this app is for general informational purposes only and should not be considered accurate data or medical advice. It is not intended to diagnose, treat, cure, or prevent any medical condition. 
+
 Always consult a qualified healthcare professional for personalized medical advice or treatment. The app's insights are based on algorithms and should be used as reference points, not definitive solutions. We do not control or guarantee the accuracy of the data provided by AI. As a result, any discrepancies in the AI’s data may affect the app's outputs. You understand that this app is intended to be used as a reference tool, and all recommendations are estimations based on data that may not be 100% precise.
 ''';
 
   String get help => '''
 Effective Date: Nov 1, 2024
+
 Introduction:
 At the Pivot app, we strive to ensure a seamless user experience. This Help & Support Policy outlines how you can reach us for assistance, the types of support we offer, and our commitment to resolving any issues you may face while using our app.
 
 1. Contacting Support:
 If you encounter any issues or need assistance, you can contact our support team in the following ways:
-
 	•	In-App Support: Access the “Help” section directly within the app to submit a support request.
 	•	Email Support: Send us an email at info@rishidhingra.com, and a member of our team will get back to you as soon as possible.
 	•	FAQ Section: Browse through our Frequently Asked Questions (FAQs) for answers to common queries. Available in the “Help” section of the app and on our website.
@@ -148,7 +121,6 @@ Our support team is available during weekdays, Monday through Friday; response t
 We aim to respond to support inquiries within 48 hours. Please note that response times may vary depending on the complexity of the issue or the volume of inquiries.
 
 5. Limitations of Support:
-
 	•	Third-Party Device Issues: While we assist with integrating third-party devices like Whoop, we are not responsible for technical problems with those devices. You may need to contact the device manufacturer for hardware-specific issues.
 	•	Medical and Dietary Advice: The Pivot app is designed to provide insights based on data, but it is not a substitute for professional medical or nutritional advice. Our support team cannot provide health diagnoses, treatment plans, or personalized dietary consultations.
 

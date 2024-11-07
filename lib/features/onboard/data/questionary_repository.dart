@@ -5,7 +5,10 @@ class QuestionaryRepository {
   List<QuestionaryData> data = [
     QuestionaryData(
         title: 'A few more details..', subtitle: 'We\'ve got this from WHOOP'),
-    QuestionaryData(title: 'Your gender', subtitle: 'Please, select'),
+    QuestionaryData(title: 'Your gender', subtitle: 'Please pick one:'),
+    QuestionaryData(
+        title: 'Biological Sex assigned at birth',
+        subtitle: 'Please pick one:'),
     QuestionaryData(title: 'Age', subtitle: 'How old are you?'),
     QuestionaryData(
         title: 'Dietary Preferences', subtitle: 'Please select one:'),

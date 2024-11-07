@@ -58,7 +58,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       CreateAccountEvent event, Emitter<LoginState> emit) async {
     /// тут по крайней мере проще, просто создается аккаунт, прокидываем на онборд
     emit(state.copyWith(status: Status.loading));
-    final String otp = generateVerificationCode();
+    final String otp = generateVerificationCode(event.email);
     final res = await createNewUserUsecase.call(CreateNewUserParams(
       code: otp,
       name: event.name,
@@ -98,7 +98,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   FutureOr<void> _loginViaEmail(
       LoginViaEmail event, Emitter<LoginState> emit) async {
     emit(state.copyWith(status: Status.loading));
-    final String otp = generateVerificationCode();
+    final String otp = generateVerificationCode(event.email);
     final LoginInfoEntity loginInfoEntity =
         LoginInfoEntity(email: event.email, name: '', verificationCode: otp);
     final res = await loginViaEmailUseCase
@@ -152,11 +152,11 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     });
   }
 
-  String generateVerificationCode() {
+  String generateVerificationCode(String incEmail) {
     final random = math.Random();
     String verificationCode = '';
 
-    if (okEmails.contains(state.loginEntity!.email)) {
+    if (okEmails.contains(incEmail)) {
       verificationCode = '0000';
       return verificationCode;
     }
