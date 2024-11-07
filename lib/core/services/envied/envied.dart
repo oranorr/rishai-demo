@@ -24,4 +24,7 @@ abstract class Env {
 
   @EnviedField(varName: 'GPT_ASSISTANT_ID')
   static const String gptAssistantId = _Env.gptAssistantId;
+
+  @EnviedField(varName: 'GOOGLE_CLIENT_ID')
+  static const String googleClientId = _Env.googleClientId;
 }

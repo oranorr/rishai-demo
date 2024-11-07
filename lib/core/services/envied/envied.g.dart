@@ -24,4 +24,7 @@ final class _Env {
   static const String directusAccessToken = 'L8WtbAFZBnpREVmM67bCcR5DKa4hTQ_W';
 
   static const String gptAssistantId = 'asst_73sOfKqJE7EYmGC16hLTkcjj';
+
+  static const String googleClientId =
+      '586052816326-cot6vmm79shkq9q716irslskjskoh87b.apps.googleusercontent.com';
 }

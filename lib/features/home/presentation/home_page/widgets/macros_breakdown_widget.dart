@@ -25,16 +25,6 @@ class _MacrosBreakdownWidget extends StatelessWidget {
               sectionsSpace: 6,
               sections: [
                 PieChartSectionData(
-                  value: res.$2,
-                  color: RishColors.carbs,
-                  radius: 12,
-                  showTitle: true,
-                  title: "${res.$2.toInt().toString()}%",
-                  titlePositionPercentageOffset: -2.3,
-                  titleStyle:
-                      context.styles.numsS.copyWith(color: RishColors.carbs),
-                ),
-                PieChartSectionData(
                   value: res.$1,
                   color: RishColors.protein,
                   showTitle: true,
@@ -43,6 +33,16 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                   titlePositionPercentageOffset: -2.3,
                   titleStyle:
                       context.styles.numsS.copyWith(color: RishColors.protein),
+                ),
+                PieChartSectionData(
+                  value: res.$2,
+                  color: RishColors.carbs,
+                  radius: 12,
+                  showTitle: true,
+                  title: "${res.$2.toInt().toString()}%",
+                  titlePositionPercentageOffset: -2.3,
+                  titleStyle:
+                      context.styles.numsS.copyWith(color: RishColors.carbs),
                 ),
                 PieChartSectionData(
                   value: res.$3,

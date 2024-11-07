@@ -101,7 +101,7 @@ class _LowerPart extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < (Platform.isAndroid ? 1 : 2); i++)
               Padding(
                 padding: EdgeInsets.only(right: 8.w, left: 8.w),
                 child: GestureDetector(

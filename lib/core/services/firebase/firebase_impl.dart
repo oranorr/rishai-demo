@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/firebase/firebase_repo.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -12,12 +15,16 @@ final firebase = getIt.get<FirebaseRepository>();
 class FirebaseImplementation implements FirebaseRepository {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final List<String> scopes = <String>['email'];
-  late GoogleSignIn googleSignIn = GoogleSignIn(
-    // Optional clientId
-    // clientId: 'your-client_id.apps.googleusercontent.com',
+  late GoogleSignIn googleSignIn = Platform.isAndroid
+      ? GoogleSignIn(
+          // Optional clientId
+          // clientId: 'your-client_id.apps.googleusercontent.com',
 
-    scopes: scopes,
-  );
+          scopes: scopes,
+        )
+      : GoogleSignIn(
+          clientId: Env.googleClientId,
+        );
 
   @override
   Future<User?> login() async {

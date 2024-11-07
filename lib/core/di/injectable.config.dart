@@ -145,10 +145,10 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.singleton<_i831.ChatRepository>(
         () => _i246.ChatRepositoryImpl(gh<_i867.ChatRemoteDataSource>()));
-    gh.factory<_i663.UpdateUserUsecase>(
-        () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i892.ManageDayUsecase>(
         () => _i892.ManageDayUsecase(gh<_i926.UserRepository>()));
+    gh.factory<_i663.UpdateUserUsecase>(
+        () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i547.GetDaysUsecase>(
         () => _i547.GetDaysUsecase(gh<_i926.UserRepository>()));
     gh.singleton<_i544.LoginRepository>(
@@ -163,14 +163,14 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i914.LoginViaAppleUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i1035.WhoopGetBodyData>(
         () => _i1035.WhoopGetBodyData(gh<_i897.WhoopRepository>()));
-    gh.factory<_i757.WhoopGetDataUsecase>(
-        () => _i757.WhoopGetDataUsecase(gh<_i897.WhoopRepository>()));
-    gh.factory<_i513.ConnectWhoopUsecase>(
-        () => _i513.ConnectWhoopUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i741.ChangeModificatorOrSexUsecase>(
         () => _i741.ChangeModificatorOrSexUsecase(gh<_i897.WhoopRepository>()));
+    gh.factory<_i757.WhoopGetDataUsecase>(
+        () => _i757.WhoopGetDataUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i62.DisconnectWhoopUsecase>(
         () => _i62.DisconnectWhoopUsecase(gh<_i897.WhoopRepository>()));
+    gh.factory<_i513.ConnectWhoopUsecase>(
+        () => _i513.ConnectWhoopUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
           gh<_i663.UpdateUserUsecase>(),
           gh<_i547.GetDaysUsecase>(),
