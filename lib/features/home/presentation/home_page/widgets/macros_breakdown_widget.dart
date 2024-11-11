@@ -59,102 +59,104 @@ class _MacrosBreakdownWidget extends StatelessWidget {
           ),
         ),
         SizedBox(width: 20.w),
-        BlocBuilder<WhoopBloc, WhoopState>(
-          bloc: whoopBloc,
-          builder: (context, state) {
-            final kcals = whoopBloc.calculateMacrosInKcal();
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                // Row(
-                //   children: [
-                //     Text(
-                //       isToday
-                //           ? "${state.day.macros.protein}g "
-                //           : '${day.macros.protein}g ',
-                //       style: context.styles.numsM
-                //           .copyWith(color: RishColors.protein),
-                //     ), Column(
-                //       children: [
-                //         Text('123'),
-                //         Text
-                //       ],
-                //     )
-                //   ],
-                // ),
-                // Row(
-                //   children: [
-                //     Text(
-                //       isToday
-                //           ? "${state.day.macros.carbs}g "
-                //           : '${day.macros.carbs}g ',
-                //       style: context.styles.numsM
-                //           .copyWith(color: RishColors.carbs),
-                //     )
-                //   ],
-                // ),
-                // Row(
-                //   children: [
-                //     Text(
-                //       isToday
-                //           ? "${state.day.macros.fat}g "
-                //           : '${day.macros.fat}g ',
-                //       style:
-                //           context.styles.numsM.copyWith(color: RishColors.fat),
-                //     )
-                //   ],
-                // ),
-                Text.rich(
-                  TextSpan(
-                      text: isToday
-                          ? "${state.day.macros.protein}g "
-                          : '${day.macros.protein}g ',
-                      style: context.styles.numsM
-                          .copyWith(color: RishColors.protein),
-                      children: [
-                        TextSpan(
-                          text: 'Protein\n(${kcals.$2} kcal)',
-                          style: context.styles.regularMedium
-                              .copyWith(color: RishColors.protein),
-                        )
-                      ]),
-                ),
-                SizedBox(height: 12.h),
-                Text.rich(
-                  TextSpan(
-                      text: isToday
-                          ? "${state.day.macros.carbs}g "
-                          : '${day.macros.carbs}g ',
-                      style: context.styles.numsM
-                          .copyWith(color: RishColors.carbs),
-                      children: [
-                        TextSpan(
-                            text: 'Carbs\n(${kcals.$1} kcal)',
+        Expanded(
+          child: BlocBuilder<WhoopBloc, WhoopState>(
+            bloc: whoopBloc,
+            builder: (context, state) {
+              final kcals = whoopBloc.calculateMacrosInKcal();
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Row(
+                  //   children: [
+                  //     Text(
+                  //       isToday
+                  //           ? "${state.day.macros.protein}g "
+                  //           : '${day.macros.protein}g ',
+                  //       style: context.styles.numsM
+                  //           .copyWith(color: RishColors.protein),
+                  //     ), Column(
+                  //       children: [
+                  //         Text('123'),
+                  //         Text
+                  //       ],
+                  //     )
+                  //   ],
+                  // ),
+                  // Row(
+                  //   children: [
+                  //     Text(
+                  //       isToday
+                  //           ? "${state.day.macros.carbs}g "
+                  //           : '${day.macros.carbs}g ',
+                  //       style: context.styles.numsM
+                  //           .copyWith(color: RishColors.carbs),
+                  //     )
+                  //   ],
+                  // ),
+                  // Row(
+                  //   children: [
+                  //     Text(
+                  //       isToday
+                  //           ? "${state.day.macros.fat}g "
+                  //           : '${day.macros.fat}g ',
+                  //       style:
+                  //           context.styles.numsM.copyWith(color: RishColors.fat),
+                  //     )
+                  //   ],
+                  // ),
+                  Text.rich(
+                    TextSpan(
+                        text: isToday
+                            ? "${state.day.macros.protein}g "
+                            : '${day.macros.protein}g ',
+                        style: context.styles.numsM
+                            .copyWith(color: RishColors.protein),
+                        children: [
+                          TextSpan(
+                            text: 'Protein\n(${kcals.$2} kcal)',
                             style: context.styles.regularMedium
-                                .copyWith(color: RishColors.carbs))
-                      ]),
-                ),
-                SizedBox(height: 12.h),
-                Text.rich(
-                  TextSpan(
-                      text: isToday
-                          ? "${state.day.macros.fat}g "
-                          : '${day.macros.fat}g ',
-                      style:
-                          context.styles.numsM.copyWith(color: RishColors.fat),
-                      children: [
-                        TextSpan(
-                          text: 'Fat\n(${kcals.$3} kcal)',
-                          style: context.styles.regularMedium.copyWith(
-                            color: RishColors.fat,
-                          ),
-                        )
-                      ]),
-                ),
-              ],
-            );
-          },
+                                .copyWith(color: RishColors.protein),
+                          )
+                        ]),
+                  ),
+                  SizedBox(height: 12.h),
+                  Text.rich(
+                    TextSpan(
+                        text: isToday
+                            ? "${state.day.macros.carbs}g "
+                            : '${day.macros.carbs}g ',
+                        style: context.styles.numsM
+                            .copyWith(color: RishColors.carbs),
+                        children: [
+                          TextSpan(
+                              text: 'Carbs\n(${kcals.$1} kcal)',
+                              style: context.styles.regularMedium
+                                  .copyWith(color: RishColors.carbs))
+                        ]),
+                  ),
+                  SizedBox(height: 12.h),
+                  Text.rich(
+                    TextSpan(
+                        text: isToday
+                            ? "${state.day.macros.fat}g "
+                            : '${day.macros.fat}g ',
+                        style: context.styles.numsM
+                            .copyWith(color: RishColors.fat),
+                        children: [
+                          TextSpan(
+                            text: 'Fat\n(${kcals.$3} kcal)',
+                            style: context.styles.regularMedium.copyWith(
+                              color: RishColors.fat,
+                            ),
+                          )
+                        ]),
+                  ),
+                ],
+              );
+            },
+          ),
         )
       ],
     ));

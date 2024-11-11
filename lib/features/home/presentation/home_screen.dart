@@ -76,6 +76,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             padding: EdgeInsets.only(top: 60.h),
             child: PageView.builder(
               controller: pageController,
+              itemCount: bodies.length,
               itemBuilder: (context, index) {
                 return bodies[index];
               },

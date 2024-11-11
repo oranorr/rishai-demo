@@ -12,6 +12,7 @@ enum AppRoutes {
   notificationsSettings('notificationsSettings', '/notificationsSettings'),
   otherSettings('otherSettings', '/otherSettings'),
   calibratingScreen('calibratingScreen', '/calibratingScreen'),
+  paywall('paywall', '/paywall'),
   chat('chat', '/chat');
 
   final String name;

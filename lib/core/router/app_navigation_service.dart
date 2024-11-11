@@ -17,6 +17,7 @@ import 'package:rishai/features/settings/presentation/settings_pages/profile_set
 import 'package:rishai/features/whoop/presentation/calibrating_screen.dart';
 import 'package:rishai/features/whoop/presentation/fetching_data_screen.dart';
 import 'package:rishai/features/whoop/presentation/whoop_connect_page.dart';
+import 'package:rishai/paywall.dart';
 import 'package:rishai/splash.dart';
 
 final appNavigationService = getIt<AppNavigationService>();
@@ -31,7 +32,7 @@ class AppNavigationService {
 
   GoRouter get config => GoRouter(
         navigatorKey: _navigatorKeyProvider.rootNavigatorKey,
-        initialLocation: AppRoutes.splah.path,
+        initialLocation: AppRoutes.paywall.path,
         debugLogDiagnostics: false,
         routes: [
           GoRoute(
@@ -111,6 +112,12 @@ class AppNavigationService {
             path: AppRoutes.calibratingScreen.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
                 state: state, child: const CalibratingScreen()),
+          ),
+          GoRoute(
+            name: AppRoutes.paywall.name,
+            path: AppRoutes.paywall.path,
+            pageBuilder: (context, state) => _buildPageWithDefaultTransition(
+                state: state, child: const Paywall()),
           ),
           // GoRoute(
           //   name: AppRoutes.legalPage.name,

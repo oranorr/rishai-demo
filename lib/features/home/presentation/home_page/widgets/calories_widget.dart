@@ -61,6 +61,7 @@ class _CaloriesWidget extends StatelessWidget {
                           child: _Card(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 FittedBox(
                                   fit: BoxFit.fitWidth,
@@ -87,6 +88,7 @@ class _CaloriesWidget extends StatelessWidget {
                           child: _Card(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 FittedBox(
                                   fit: BoxFit.fitWidth,
