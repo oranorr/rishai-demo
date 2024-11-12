@@ -95,7 +95,7 @@ class WhoopConnectPage extends StatelessWidget {
               enabled: true,
               isLoading: state.status == Status.loading,
               action: () {
-                whoopBloc.add(const WhoopConnectEvent());
+                whoopBloc.add(WhoopConnectEvent(context));
               },
             );
           },

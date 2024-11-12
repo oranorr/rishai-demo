@@ -9,7 +9,10 @@ sealed class WhoopEvent extends Equatable {
 }
 
 class WhoopConnectEvent extends WhoopEvent {
-  const WhoopConnectEvent();
+  final BuildContext context;
+  const WhoopConnectEvent(
+    this.context,
+  );
 }
 
 class WhoopGetUserData extends WhoopEvent {

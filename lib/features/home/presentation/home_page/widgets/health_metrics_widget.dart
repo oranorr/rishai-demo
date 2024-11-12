@@ -32,7 +32,7 @@ class _HealthMetricsWidget extends StatelessWidget {
                     ),
                     SizedBox(height: 3.h),
                     Text(
-                      health.toList()[i].toString(),
+                      health.toList()[i].comaThisNumber(),
                       style: context.styles.numsS,
                     ),
                   ],

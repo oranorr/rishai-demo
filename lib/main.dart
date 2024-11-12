@@ -22,12 +22,12 @@ void main() async {
   await Firebase.initializeApp();
   await configureDependencies();
   await dotenv.load(fileName: ".env");
+  await adapty.initAdapty();
   await hive.initHive();
   await prefsRepo.init();
   await directus.initDirectus();
   await notes.initNotificationsService();
   await notes.requestPermissions();
-  await adapty.initAdapty();
   FlutterNativeSplash.remove();
   runApp(const RishAi());
 }

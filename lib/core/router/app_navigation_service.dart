@@ -1,4 +1,3 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
@@ -32,7 +31,7 @@ class AppNavigationService {
 
   GoRouter get config => GoRouter(
         navigatorKey: _navigatorKeyProvider.rootNavigatorKey,
-        initialLocation: AppRoutes.paywall.path,
+        initialLocation: AppRoutes.splah.path,
         debugLogDiagnostics: false,
         routes: [
           GoRoute(
@@ -119,12 +118,6 @@ class AppNavigationService {
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
                 state: state, child: const Paywall()),
           ),
-          // GoRoute(
-          //   name: AppRoutes.legalPage.name,
-          //   path: AppRoutes.legalPage.path,
-          //   pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-          //       state: state, child: const LegalPage()),
-          // ),
         ],
       );
 

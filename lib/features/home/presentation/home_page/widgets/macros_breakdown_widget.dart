@@ -58,7 +58,7 @@ class _MacrosBreakdownWidget extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(width: 20.w),
+        SizedBox(width: 26.w),
         Expanded(
           child: BlocBuilder<WhoopBloc, WhoopState>(
             bloc: whoopBloc,

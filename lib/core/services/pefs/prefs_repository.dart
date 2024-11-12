@@ -79,4 +79,12 @@ class PrefsRepository {
     await _prefs.setString(whoopAccessToken, '');
     await _prefs.setString(whoopRefreshToken, '');
   }
+
+  Future<bool> checkForWhoopDisclaimerAccpeted() async {
+    return _prefs.getBool(acceptedWhoopDisclaimer) ?? false;
+  }
+
+  Future<void> disclaimerAccpeted() async {
+    await _prefs.setBool(acceptedWhoopDisclaimer, true);
+  }
 }

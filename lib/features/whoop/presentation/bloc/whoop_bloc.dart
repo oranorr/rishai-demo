@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -77,6 +78,10 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   FutureOr<void> _connectWhoop(
       WhoopConnectEvent event, Emitter<WhoopState> emit) async {
     emit(state.copyWith(status: Status.loading));
+    if (!await prefsRepo.checkForWhoopDisclaimerAccpeted()) {
+      RishiDialog.whoopDisclaimer(event.context);
+      return;
+    }
     final res = await connectWhoopUsecase.call(const NoParams());
     bool success = false;
     final needsQuestionary = userBloc.state.user.needsQuestionary;
@@ -165,8 +170,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
         if (state.status != Status.loading && state.status != Status.error) {
           userBloc.add(UserGetDays());
-          // chatBloc.add(InitChatBloc());
-          appNavigationService.go(path: AppRoutes.homeScreen.path);
+          appNavigationService.go(
+              path:
+                  //  adapty.isActive
+                  //     ?
+                  AppRoutes.homeScreen.path);
+          // :
+          // AppRoutes.paywall.path);
           emit(state.copyWith(status: Status.success));
           return;
         }

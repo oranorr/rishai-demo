@@ -4,8 +4,11 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/new_button.dart';
+import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 class RishiDialog {
   static void showCustomDialog(
@@ -36,6 +39,78 @@ class RishiDialog {
                     ? _buildWarningDialog(
                         text: text!, context: context, action: action)
                     : Container(),
+          ),
+        );
+      },
+      transitionBuilder: (_, anim, __, child) {
+        Tween<double> tween;
+        if (anim.status == AnimationStatus.reverse) {
+          tween = Tween(begin: 0, end: 1);
+        } else {
+          tween = Tween(begin: 0, end: 1);
+        }
+
+        return FadeTransition(
+          opacity: tween.animate(anim),
+          child: child,
+        );
+      },
+    );
+  }
+
+  static void whoopDisclaimer(
+    BuildContext context, {
+    final String? text,
+  }) {
+    showGeneralDialog(
+      context: context,
+      barrierLabel: "",
+      barrierDismissible: true,
+      barrierColor: const Color(0xff1717253d).withOpacity(0.25),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
+          child: Center(
+            child: Container(
+              height: 350.h,
+              width: double.infinity,
+              margin: EdgeInsets.symmetric(horizontal: 24.w),
+              decoration: BoxDecoration(
+                  color: context.theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: RishColors.stroke)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0).copyWith(top: 8),
+                child: ListView(
+                  children: [
+                    Text(
+                      'Disclaimer',
+                      style: context.styles.boldLarge,
+                    ),
+                    SizedBox(
+                      height: 10.h,
+                    ),
+                    Text(
+                      LegalTextsRepo().shortDisclaimer,
+                      style: context.styles.regularMedium,
+                    ),
+                    SizedBox(
+                      height: 20.h,
+                    ),
+                    RishButton.primary(
+                        title: 'Accept',
+                        enabled: true,
+                        isLoading: false,
+                        action: () async {
+                          await prefsRepo.disclaimerAccpeted();
+                          context.pop();
+                          whoopBloc.add(WhoopConnectEvent(context));
+                        }),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       },

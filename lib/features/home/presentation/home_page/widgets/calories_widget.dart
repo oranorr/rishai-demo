@@ -73,7 +73,7 @@ class _CaloriesWidget extends StatelessWidget {
                                 ),
                                 SizedBox(height: 10.h),
                                 Text(
-                                  '$kcal kcal',
+                                  '${kcal.comaThisNumber()} kcal',
                                   style: context.styles.numsM
                                       .copyWith(color: RishColors.primary),
                                 )
@@ -100,7 +100,7 @@ class _CaloriesWidget extends StatelessWidget {
                                 ),
                                 SizedBox(height: 10.h),
                                 Text(
-                                  '${day.weekTdeeAverage.round()} kcal',
+                                  '${day.weekTdeeAverage.round().comaThisNumber()} kcal',
                                   style: context.styles.numsM
                                       .copyWith(color: RishColors.protein),
                                 )

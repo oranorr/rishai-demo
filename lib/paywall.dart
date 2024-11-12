@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:adapty_flutter/adapty_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/new_button.dart';
@@ -75,6 +79,7 @@ class _PaywallState extends State<Paywall> {
 
   void processPurchaseResult(String res) {
     if (res == 'SUCCESS') {
+      appNavigationService.push(path: AppRoutes.homeScreen.path);
     } else if (res == 'CANCEL') {
       RishSnackbar().showSnackBar('Purchase was cancelled.');
     } else if (res.contains('Error')) {
@@ -109,8 +114,12 @@ class __SubButtonsState extends State<_SubButtons> {
           Padding(
             padding: const EdgeInsets.only(bottom: 25.0),
             child: GestureDetector(
-              onTap: () => _select(i),
+              onTap: () {
+                // print(adapty.products[i]);
+                _select(i);
+              },
               child: Container(
+                width: double.infinity,
                 decoration: BoxDecoration(
                   color: RishColors.formBackgroun,
                   borderRadius: BorderRadius.circular(20),
@@ -122,17 +131,18 @@ class __SubButtonsState extends State<_SubButtons> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     vertical: 15.h,
-                    horizontal: 90.w,
+                    // horizontal: 100.w,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        _getTitle(adapty.products[i].vendorProductId),
+                        Platform.isIOS
+                            ? _getTitleIOs(adapty.products[i].vendorProductId)
+                            : _getTitleAndroid(adapty.products[i]
+                                .subscriptionDetails!.androidBasePlanId!),
                         style: context.styles.regularLarge,
-                        softWrap: true,
-                        maxLines: 2,
                       ),
                       Text(
                         "${adapty.products[i].price.amount} ${adapty.products[i].price.currencySymbol}",
@@ -157,7 +167,20 @@ class __SubButtonsState extends State<_SubButtons> {
     );
   }
 
-  String _getTitle(String vendorId) {
+  String _getTitleAndroid(String androidBasePlanId) {
+    switch (androidBasePlanId) {
+      case 'pivot-monthly':
+        return 'Monthly subscription';
+      case 'pivot-annual':
+        return 'Annual subscription';
+
+      default:
+        return 'Some error?';
+    }
+  }
+
+  String _getTitleIOs(String vendorId) {
+    // print(vendorId);
     switch (vendorId) {
       case 'pivot_sub':
         return 'Monthly subscription';

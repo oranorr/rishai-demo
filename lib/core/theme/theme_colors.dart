@@ -13,7 +13,7 @@ abstract class RishColors {
   static const Color textPrimary = Color(0xffEFEFEF);
   static const Color textSecondary = Color(0xffA8A8A8);
   static const Color inputField = Color(0xff050323);
-  static const Color formBackgroun = Color(0xff242239);
+  static const Color formBackgroun = Color(0xff111827);
   static const Color stroke = Color(0xff403D64);
   static const Color success = Color(0xff66C87B);
   static const Color warning = Color(0xffF4C700);

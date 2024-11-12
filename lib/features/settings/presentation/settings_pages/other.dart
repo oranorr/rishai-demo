@@ -89,7 +89,7 @@ List<OtherEntity> data = [
       type: OtherType.help),
   OtherEntity(
     title: 'COMING SOON  FEATURES',
-    body: '',
+    body: LegalTextsRepo().comingSoon,
     type: OtherType.premium,
   ),
 ];

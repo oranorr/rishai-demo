@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
+import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
