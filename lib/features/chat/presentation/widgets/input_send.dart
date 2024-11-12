@@ -60,6 +60,7 @@ class __InputAndSendState extends State<_InputAndSend> {
                 keyboardType: TextInputType.text,
                 minLines: 1,
                 maxLines: 5,
+                enabled: state.status != Status.loading,
                 textInputAction: TextInputAction.done,
                 controller: widget.textEditingController,
                 decoration: InputDecoration(

@@ -4,4 +4,5 @@ abstract class ChatRemoteDataSource {
   Future<String?> sendMessage(String userMessage);
   Future<Map<String, dynamic>?> fetchLastChatSnap(String directusId);
   String? get threadId;
+  Future<void> closeGpt();
 }

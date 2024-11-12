@@ -233,4 +233,9 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
     // return null;
   }
+
+  @override
+  Future<void> closeGpt() async {
+    // client = null;
+  }
 }

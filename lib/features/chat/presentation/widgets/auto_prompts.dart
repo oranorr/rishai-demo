@@ -187,12 +187,19 @@ class __AutoPromptsState extends State<_AutoPrompts>
         return Padding(
           padding: const EdgeInsets.only(bottom: 12.0, top: 12),
           child: SizedBox(
-            child: state.status == Status.loading
-                ? const CircularProgressIndicator()
-                : state.mealPlan == null && state.requestsLeft != 0
-                    ? steps[currentStep]
-                    : steps.last,
-          ),
+              child: state.status == Status.loading
+                  ? const CircularProgressIndicator()
+                  : state.requestsLeft == 0
+                      ? const SizedBox.shrink()
+                      : state.mealPlan == null || currentStep == 4
+                          ? steps[currentStep]
+                          : steps.last
+              // :Container(
+              //     color: Colors.amber,
+              //     height: 100,
+              //   ),
+              // : steps.last,
+              ),
         );
       },
     );

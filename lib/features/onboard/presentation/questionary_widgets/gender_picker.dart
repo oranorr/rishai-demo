@@ -26,8 +26,8 @@ class _GenderPickerState extends State<GenderPicker> {
   List<String> assets = [
     'assets/images/male_sign.svg',
     'assets/images/female_sign.svg',
-    'assets/images/female_sign.svg',
-    'assets/images/female_sign.svg',
+    'assets/images/non-b_sign.svg',
+    'assets/images/idk_sign.svg',
   ];
 
   List<String> titles = [
@@ -73,6 +73,7 @@ class _GenderPickerState extends State<GenderPicker> {
               Text(
                 titles[i],
                 style: context.styles.boldLarge,
+                textAlign: TextAlign.center,
               )
             ],
           ),
@@ -89,9 +90,9 @@ class _GenderPickerState extends State<GenderPicker> {
     } else if (selected == 1) {
       return Colors.pink;
     } else if (selected == 2) {
-      return Colors.grey;
+      return const Color(0xffF4C700);
     } else if (selected == 3) {
-      return Colors.green;
+      return const Color(0xffF5F5DC);
     } else {
       return Colors.white;
     }
