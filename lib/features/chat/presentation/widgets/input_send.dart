@@ -1,6 +1,6 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
 part of '../chat_page.dart';
 
+// ignore: must_be_immutable
 class _InputAndSend extends StatefulWidget {
   final TextEditingController textEditingController;
   bool sendActive;
@@ -15,25 +15,6 @@ class _InputAndSend extends StatefulWidget {
 }
 
 class __InputAndSendState extends State<_InputAndSend> {
-  // bool sendActive = false;
-
-  // @override
-  // void initState() {
-  //   // wigdet.textEditingController.addListener(() {
-  //   //   setState(() {
-  //   //     // sendActive =
-  //   //     //     controller.text.isNotEmpty && chatBloc.state.mealPlan != null;
-  //   //   });
-  //   // });
-  //   super.initState();
-  // }
-
-  // @override
-  // void dispose() {
-  //   controller.dispose();
-  //   super.dispose();
-  // }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChatBloc, ChatState>(

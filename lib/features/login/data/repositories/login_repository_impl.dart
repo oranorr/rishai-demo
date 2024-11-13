@@ -117,6 +117,7 @@ class LoginRepositoryImpl implements LoginRepository {
             'Apple authentication failed. You may have cancelled login.'));
       }
 
+      log(aUser.email.toString());
       final res = await directus.readMany(
         collection: usersCollection,
         filters: Filters({'email': F.eq(aUser.email)}),
@@ -125,7 +126,10 @@ class LoginRepositoryImpl implements LoginRepository {
       if (res.isEmpty) {
         final rawNewUser = await directus.createOne(
           collection: usersCollection,
-          data: {'email': aUser.email, 'name': aUser.displayName},
+          data: {
+            'email': aUser.email,
+            'name': aUser.displayName ?? 'Undefined',
+          },
         );
         user = UserModel.fromMap(rawNewUser).toEntity();
       } else {

@@ -171,12 +171,9 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         if (state.status != Status.loading && state.status != Status.error) {
           userBloc.add(UserGetDays());
           appNavigationService.go(
-              path:
-                  //  adapty.isActive
-                  //     ?
-                  AppRoutes.homeScreen.path);
-          // :
-          // AppRoutes.paywall.path);
+              path: adapty.isActive
+                  ? AppRoutes.homeScreen.path
+                  : AppRoutes.paywall.path);
           emit(state.copyWith(status: Status.success));
           return;
         }
