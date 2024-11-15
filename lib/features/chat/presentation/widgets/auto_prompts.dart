@@ -189,17 +189,13 @@ class __AutoPromptsState extends State<_AutoPrompts>
           child: SizedBox(
               child: state.status == Status.loading
                   ? const CircularProgressIndicator()
-                  : state.requestsLeft == 0
-                      ? const SizedBox.shrink()
-                      : state.mealPlan == null || currentStep == 4
-                          ? steps[currentStep]
-                          : steps.last
-              // :Container(
-              //     color: Colors.amber,
-              //     height: 100,
-              //   ),
-              // : steps.last,
-              ),
+                  : !adapty.isActive
+                      ? buildSubButton(context)
+                      : state.requestsLeft == 0
+                          ? const SizedBox.shrink()
+                          : state.mealPlan == null || currentStep == 4
+                              ? steps[currentStep]
+                              : steps.last),
         );
       },
     );
@@ -207,6 +203,14 @@ class __AutoPromptsState extends State<_AutoPrompts>
 
   @override
   bool get wantKeepAlive => true;
+
+  Widget buildSubButton(BuildContext context) {
+    return RishButton.primary(
+        title: 'Purchase Subscription',
+        enabled: true,
+        isLoading: false,
+        action: () => context.go(AppRoutes.paywall.path));
+  }
 }
 
 class _PromptQuestions extends StatefulWidget {

@@ -10,6 +10,7 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -61,15 +62,22 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
   FutureOr<void> _updateUser(
       UpdateUserEvent event, Emitter<UserState> emit) async {
-    emit(state.copyWith(user: event.user, status: Status.loading));
-    final res = await updateUserUsecase.call(event.user);
+    UserEntity user = event.user;
+    if (user.adaptyId == null) {
+      user = user.copyWith(
+          adaptyId: adapty.generateAdaptyId(directusId: user.directusId));
+    }
+
+    emit(state.copyWith(user: user, status: Status.loading));
+    final res = await updateUserUsecase.call(user);
     res.fold((Failure fail) {
       log(fail.toString());
       emit(state.copyWith(status: Status.error));
       RishSnackbar().showSnackBar('Updating failed, please try again.');
-    }, (_) {
+    }, (_) async {
       log('User successfully updated!');
       emit(state.copyWith(status: Status.success));
+      await adapty.identify(adaptyId: user.adaptyId!);
     });
   }
 
@@ -85,6 +93,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       if (user.daysIds != ids) {
         user = user.copyWith(daysIds: ids);
       }
+      await adapty.identify(adaptyId: user.adaptyId!);
       emit(state.copyWith(user: user));
       add(const UserCheckForRecomp());
       whoopBloc.add(InitWhoopOnLogin());

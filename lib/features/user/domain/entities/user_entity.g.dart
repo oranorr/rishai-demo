@@ -22,6 +22,7 @@ class UserEntityAdapter extends TypeAdapter<UserEntity> {
       email: fields[2] as String,
       name: fields[3] as String,
       daysIds: (fields[9] as List).cast<int>(),
+      adaptyId: fields[10] as String?,
       age: fields[4] as int?,
       gender: fields[5] as Gender?,
       foodPreferences: fields[6] as FoodPreferences?,
@@ -33,7 +34,7 @@ class UserEntityAdapter extends TypeAdapter<UserEntity> {
   @override
   void write(BinaryWriter writer, UserEntity obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.directusId)
       ..writeByte(1)
@@ -53,7 +54,9 @@ class UserEntityAdapter extends TypeAdapter<UserEntity> {
       ..writeByte(8)
       ..write(obj.userGoal)
       ..writeByte(9)
-      ..write(obj.daysIds);
+      ..write(obj.daysIds)
+      ..writeByte(10)
+      ..write(obj.adaptyId);
   }
 
   @override

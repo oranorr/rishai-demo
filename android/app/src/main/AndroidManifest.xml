@@ -10,7 +10,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="uses-permission:'com.android.vending.BILLING'" />
+
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+
 
     <application android:label="Pivot" android:name="${applicationName}" android:icon="@mipmap/ic_launcher" android:extractNativeLibs="true" android:usesCleartextTraffic="true" android:allowBackup="false" android:screenOrientation="portrait">
 

@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
@@ -133,6 +134,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     await hive.clear();
     await prefsRepo.flush();
     await notes.cancelNotifications();
+    await adapty.logout();
     chatBloc.add(const ChatOnLogout(needsCounterClear: true));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
     appNavigationService.go(path: AppRoutes.login.path);

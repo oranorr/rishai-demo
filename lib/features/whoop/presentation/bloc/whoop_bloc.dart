@@ -98,11 +98,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       if (!needsQuestionary) {
         await _initWhoopOnLogin(InitWhoopOnLogin(), emit);
       }
-      appNavigationService.go(
-          path: needsQuestionary
-              ? AppRoutes.questionary.path
-              : AppRoutes.homeScreen.path);
-      emit(state.copyWith(status: Status.initial));
+      await Future.delayed(Durations.medium1, () {
+        appNavigationService.go(
+            path: needsQuestionary
+                ? AppRoutes.questionary.path
+                : AppRoutes.homeScreen.path);
+        emit(state.copyWith(status: Status.initial));
+      });
     }
   }
 

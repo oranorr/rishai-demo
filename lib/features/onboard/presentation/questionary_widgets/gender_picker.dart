@@ -33,7 +33,7 @@ class _GenderPickerState extends State<GenderPicker> {
   List<String> titles = [
     'Male',
     'Female',
-    "Non-binary",
+    "Non-Binary",
     'Prefer not to choose'
   ];
 

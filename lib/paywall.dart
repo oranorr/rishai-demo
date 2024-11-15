@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:adapty_flutter/adapty_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
@@ -11,6 +12,7 @@ import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
+// import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 
 class Paywall extends StatefulWidget {
   const Paywall({super.key});
@@ -25,63 +27,80 @@ class _PaywallState extends State<Paywall> {
 
   @override
   Widget build(BuildContext context) {
+    // adapty.identify(adaptyId: userBloc.state.user.adaptyId!);
     return RishScaffold(
-        appBar: AppBar(
-          title: Text(
+      appBar: AppBar(
+        // leading: IconButton(onPressed: () {}, icon: const Icon(Icons.close)),
+        title: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
             'Buy our subscription',
             style: context.styles.h1,
           ),
         ),
-        needsAppBar: true,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              '''
-1. Daily calculation of the target amount of calories and nutrients using a unique method based on Whoop activity data
-
-2. Generation of personalized meal plans adapted to the user's goals and food preferences
-
-3. Regeneration of any 1 meal per day of your choice
-
-4. Up to 5 requests/day to the AI ​​coach on any nutrition-related issues
-
-''',
-              style: context.styles.regularMedium,
+      ),
+      needsAppBar: true,
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          Text(
+            '''
+        1. Daily calculation of the target amount of calories and nutrients using a unique method based on Whoop activity data
+        
+        2. Generation of personalized meal plans adapted to the user's goals and food preferences
+        
+        3. Regeneration of any 1 meal per day of your choice
+        
+        4. Up to 5 requests/day to the AI ​​coach on any nutrition-related issues
+        
+        ''',
+            style: context.styles.regularMedium,
+          ),
+          _SubButtons(
+            callback: (p) {
+              setState(() {
+                selectedProduct = p;
+              });
+            },
+          ),
+          RishButton.primary(
+            title: 'Buy',
+            enabled: selectedProduct != null,
+            isLoading: processing,
+            action: () async {
+              setState(() {
+                processing = true;
+              });
+              final res = await adapty.makePurchase(product: selectedProduct!);
+              processPurchaseResult(res);
+            },
+          ),
+          SizedBox(height: 20.h),
+          Center(
+              child: GestureDetector(
+            onTap: () => context.go(AppRoutes.homeScreen.path),
+            child: Text(
+              'Skip for now',
+              style: context.styles.regularSmall.copyWith(
+                color: RishColors.primary,
+                decoration: TextDecoration.underline,
+              ),
             ),
-            const Spacer(),
-            _SubButtons(
-              callback: (p) {
-                setState(() {
-                  selectedProduct = p;
-                });
-              },
-            ),
-            const Spacer(),
-            RishButton.primary(
-              title: 'Buy',
-              enabled: selectedProduct != null,
-              isLoading: processing,
-              action: () async {
-                setState(() {
-                  processing = true;
-                });
-                final res =
-                    await adapty.makePurchase(product: selectedProduct!);
-                processPurchaseResult(res);
-              },
-            ),
-            SizedBox(height: 20.h),
-          ],
-        ));
+          )),
+          SizedBox(height: 15.h),
+        ],
+      ),
+    );
   }
 
   void processPurchaseResult(String res) {
     if (res == 'SUCCESS') {
-      appNavigationService.push(path: AppRoutes.homeScreen.path);
+      appNavigationService.go(path: AppRoutes.homeScreen.path);
     } else if (res == 'CANCEL') {
       RishSnackbar().showSnackBar('Purchase was cancelled.');
+    } else if (res == 'ALREADY_EXISTS') {
+      RishSnackbar()
+          .showSnackBar('Subscription is already linked to another account.');
     } else if (res.contains('Error')) {
       RishSnackbar().showSnackBar(res);
     }

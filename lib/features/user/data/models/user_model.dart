@@ -18,6 +18,7 @@ class UserModel extends Equatable {
   final BodyMeasurementsEntity? bodyMeasurementsEntity;
   final UserGoal? userGoal;
   final List<int> daysIds;
+  final String? adaptyId;
 
   const UserModel({
     required this.directusId,
@@ -25,6 +26,7 @@ class UserModel extends Equatable {
     required this.email,
     required this.name,
     required this.daysIds,
+    required this.adaptyId,
     this.age,
     this.gender,
     this.userGoal,
@@ -44,20 +46,21 @@ class UserModel extends Equatable {
     BodyMeasurementsEntity? bodyMeasurementsEntity,
     List<int>? daysIds,
     int? userWhoopId,
+    String? adaptyId,
   }) {
     return UserModel(
-      directusId: directusId ?? this.directusId,
-      whoopId: whoopId ?? this.whoopId,
-      email: email ?? this.email,
-      name: name ?? this.name,
-      age: age ?? this.age,
-      gender: gender ?? this.gender,
-      userGoal: userGoal ?? this.userGoal,
-      foodPreferences: foodPreferences ?? this.foodPreferences,
-      bodyMeasurementsEntity:
-          bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
-      daysIds: daysIds ?? this.daysIds,
-    );
+        directusId: directusId ?? this.directusId,
+        whoopId: whoopId ?? this.whoopId,
+        email: email ?? this.email,
+        name: name ?? this.name,
+        age: age ?? this.age,
+        gender: gender ?? this.gender,
+        userGoal: userGoal ?? this.userGoal,
+        foodPreferences: foodPreferences ?? this.foodPreferences,
+        bodyMeasurementsEntity:
+            bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
+        daysIds: daysIds ?? this.daysIds,
+        adaptyId: adaptyId ?? this.adaptyId);
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -86,6 +89,7 @@ class UserModel extends Equatable {
           ? UserGoal.fromMap(map['userGoal'])
           : null,
       daysIds: List.from(map['days']).cast<int>(),
+      adaptyId: map['adaptyId'],
       // userWhoopId: map['userWhoopId'] as int,
     );
   }
@@ -121,6 +125,7 @@ class UserModel extends Equatable {
       foodPreferences: foodPreferences,
       userGoal: userGoal,
       daysIds: daysIds,
+      adaptyId: adaptyId,
       // userWhoopId: userWhoopId,
     );
   }

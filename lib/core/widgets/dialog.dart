@@ -65,7 +65,7 @@ class RishiDialog {
     showGeneralDialog(
       context: context,
       barrierLabel: "",
-      barrierDismissible: true,
+      barrierDismissible: false,
       barrierColor: const Color(0xff1717253d).withOpacity(0.25),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) {

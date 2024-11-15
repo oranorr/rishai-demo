@@ -28,6 +28,8 @@ class UserEntity extends HiveObject {
   final UserGoal? userGoal;
   @HiveField(9)
   final List<int> daysIds;
+  @HiveField(10)
+  final String? adaptyId;
 
   UserEntity({
     required this.directusId,
@@ -35,6 +37,7 @@ class UserEntity extends HiveObject {
     required this.email,
     required this.name,
     required this.daysIds,
+    required this.adaptyId,
     this.age,
     this.gender,
     this.foodPreferences,
@@ -53,6 +56,7 @@ class UserEntity extends HiveObject {
     BodyMeasurementsEntity? bodyMeasurements,
     UserGoal? userGoal,
     List<int>? daysIds,
+    String? adaptyId,
   }) {
     return UserEntity(
       directusId: directusId ?? this.directusId,
@@ -65,12 +69,13 @@ class UserEntity extends HiveObject {
       bodyMeasurements: bodyMeasurements ?? this.bodyMeasurements,
       userGoal: userGoal ?? this.userGoal,
       daysIds: daysIds ?? this.daysIds,
+      adaptyId: adaptyId ?? this.adaptyId,
     );
   }
 
   @override
   String toString() {
-    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, daysIds: $daysIds, )';
+    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, daysIds: $daysIds, adaptyId: $adaptyId)';
   }
 
   factory UserEntity.unauthorized() => UserEntity(
@@ -90,6 +95,7 @@ class UserEntity extends HiveObject {
         age: 0,
         gender: Gender.male,
         daysIds: [],
+        adaptyId: null,
       );
 
   Map<String, dynamic> toMap() {
@@ -103,7 +109,8 @@ class UserEntity extends HiveObject {
       'bodyMeasurements': bodyMeasurements?.toMap(),
       'diets': foodPreferences?.diets,
       'cuisines': foodPreferences?.cuisines,
-      'userGoal': userGoal?.toMap()
+      'userGoal': userGoal?.toMap(),
+      'adaptyId': adaptyId
     };
   }
 
