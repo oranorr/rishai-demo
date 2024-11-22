@@ -12,6 +12,7 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
@@ -110,17 +111,28 @@ class _HomePageBody extends StatefulWidget {
 class _HomePageBodyState extends State<_HomePageBody> {
   @override
   Widget build(BuildContext context) {
-    // whoopBloc.testAlgo();
-    // userBloc.createMockData(widget.day);
     return ListView(
       shrinkWrap: true,
       padding: EdgeInsets.zero,
       children: [
         _CalendarWidget(widget: widget),
         SizedBox(height: 20.h),
-        Text(
-          'Calories',
-          style: context.styles.h3,
+        Row(
+          children: [
+            Text(
+              'Calories',
+              style: context.styles.h3,
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => RishiDialog.infoPopup(context),
+              child: const Icon(
+                Icons.info,
+                size: 30,
+                color: RishColors.primary,
+              ),
+            ),
+          ],
         ),
         SizedBox(height: 12.h),
         _CaloriesWidget(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:ui';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
@@ -62,10 +63,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
       String aT = '';
 
       final authUrl =
-          '$authorizeUrl?response_type=code&client_id=$clientId&redirect_uri=$redirectUri&scope=${scopes.join(' ')}&state=secureRandomState';
+          '$authorizeUrl?response_type=code&client_id=$clientId&redirect_uri=$redirectUri&scope=${scopes.join('%20')}&state=secureRandomState';
 
       String? result;
-
+      // DartPluginRegistrant.ensureInitialized();
+      // log(authUrl);
       try {
         // Выполняем аутентификацию
         result = await FlutterWebAuth2.authenticate(
@@ -74,11 +76,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
         );
       } catch (e) {
         // Обрабатываем случай отмены или ошибки при аутентификации
-        print("Аутентификация отменена или произошла ошибка: $e");
+        print("Authentification failed or error occured:: $e");
         return const Left(WhoopAuthenticationFailure());
       }
 
-      print("Returned result URL: $result");
+      log("Returned result URL: $result");
 
       final code = Uri.parse(result).queryParameters['code'];
       print("Authorization code: $code");

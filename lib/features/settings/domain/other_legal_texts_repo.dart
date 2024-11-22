@@ -162,18 +162,88 @@ By using the Pivot app, you acknowledge that our support is provided in line wit
 ''';
 
   String get shortDisclaimer => '''
-By using the Pivot app, you acknowledge it’s for wellness purposes only, and the app developers are not liable for data discrepancies or related outcomes. We do not control or guarantee the accuracy of the data provided. All information is provided 'as it is' for general wellness and nutritional insights only and is not intended to treat or cure any medical condition. The Pivot app does not offer any medical or professional advice''';
+By using the Pivot app, you acknowledge that it is for wellness purposes only, and the app developers are not liable for data discrepancies or related outcomes. We do not control or guarantee the accuracy of the data provided and all information is provided “as it is” for general wellness and informational purposes only. This should not replace any professional medical or nutritional advice, and it is not intended to treat or cure any medical conditions''';
 
   String get comingSoon => '''
-1. Three (3) and Five (5) day meal planning forecasting
-2. Alternative meal generation options for the same day
-3. Cooking instructions for meals 
-4. Cloud kitchen connect to outsource meal-prep for recommended meals and macronutrients
-5. Blood test analyses
-6. Meals prepared for chronic disorders
-7. Supplementation recommendations 
-8. Integration with Continuous Glucose Monitors (CGMs)
-9. Integration with food diaries
-10. Integration with other smart devices like Apple Fitness, Garmin, Oura, FitBit
+1. Three and five day meal planning
+2. Alternative meal generation to replace existing meal
+3. Cooking instructions for meals
+4. Cloud kitchens connected to outsource meals & macros
+5. Integration with food diaries
+6. Integration with other smart devices like Apple Fitness, Garmin, Oura, Fitbit
 ''';
+
+  String get references => '''
+  Overview
+
+The Pivot app uses scientifically validated sources and industry-standard algorithms to provide accurate nutritional insights. Data sources include the WHOOP API, government health guidelines, and primary research to calculate Basal Metabolic Rate (BMR), Body Mass Index (BMI), and individualized calorie and macronutrient targets. Below are the references and supporting information.
+
+1. Primary Research Articles on BMR, BMI, and Caloric Needs
+These articles provide evidence-based information on BMR, BMI and caloric needs calculations:
+a. Henry, C. J. K. (2005). "Basal Metabolic Rate Studies in Humans: Measurement and Development of New Equations." Public Health Nutrition, 8(7A), 1133–1152. 
+Summary: This study explores BMR calculations across diverse populations, helping tailor caloric needs accurately.
+https://pubmed.ncbi.nlm.nih.gov/16277825/
+b. Müller, M. J., et al. (2004). "Equation for BMR Prediction across Adult Populations." American Journal of Clinical Nutrition, 80(5), 1256-1268. 
+Summary: World Health Organization equations have shortcomings for predicting resting energy expenditure in persons from a modern, affluent population: generation of a new reference standard from a retrospective analysis of a German database of resting energy expenditure.
+https://pubmed.ncbi.nlm.nih.gov/15531690/
+c. Comprehensive Review on BMI (Body Mass Index), TDEE (Total Daily Energy Expenditure), BMR (Basal Metabolic Rate), and Calories for Weight Management: Insights into Energy Expenditure and Nutrient Balance for Long-Term Well-Being
+https://www.researchgate.net/publication/384950082_Comprehensive_Review_on_BMI_TDEE_BMR_and_Calories_for_Weight_Management_Insights_into_Energy_Expenditure_and_Nutrient_Balance_for_Long-Term_Well-Being
+
+2. Government and Health Organization Guidelines
+These sources provide general standards for calorie and BMI calculations.
+a. Centers for Disease Control and Prevention (CDC): Guidelines on BMI and caloric intake for health assessments. CDC BMI Guidelines:
+https://www.cdc.gov/bmi/about/index.html
+b. USDA Dietary Guidelines for Americans: Recommendations for daily calorie intake and macronutrient distribution by age and gender. USDA Dietary Guidelines:
+https://www.fns.usda.gov/cnpp/dietary-guidelines-americans
+c. World Health Organization (WHO) Guidelines: International standards on daily calorie requirements. WHO Nutrition Recommendations:
+https://www.who.int/news-room/fact-sheets/detail/healthy-diet
+
+3. WHOOP API Data Usage
+This app integrates WHOOP APIs to track and adjust caloric recommendations based on activity levels, recovery, and sleep data, aligned with WHOOP’s proprietary metrics. For more details, see:
+WHOOP API Documentation.
+Data Integration Summary: WHOOP data is used to calculate calorie expenditure and recovery metrics. All metrics comply with WHOOP's privacy and user agreements. Data derived from WHOOP’s wearable technology is used to calculate metrics displayed in this app, per user agreement and privacy policy.
+https://developer.whoop.com/api/
+Data Metrics Summary: Build Better Health & Wellness Experiences with the WHOOP Developer Platform. WHOOP uses advanced wearable technology and precise data collection to empower our members, and now so can you. The WHOOP Developer Platform gives you access to powerful infrastructure to build better health and wellness experiences. Design, develop, support, and launch your app or integration with WHOOP to begin collecting valuable insights.
+https://developer.whoop.com/
+
+4. Meta-analyses and Systematic Reviews on Energy Expenditure 
+To support the broader methodology for energy expenditure, we reference systematic reviews.
+a. Speakman, J. R., et al. (2011). "The Variation in Human Metabolic Rate." Annual Review of Nutrition, 31, 453–473. 
+Summary: This review covers variations in metabolic rates across different populations and life stages. The functional significance of individual variation in basal metabolic rate.
+https://pubmed.ncbi.nlm.nih.gov/15674765/
+b. Manore, M. M., et al. (2001). "Dietary Recommendations for Active Individuals." Sports Medicine, 31(3), 155-167. PubMed Link
+Summary: Exercise and the Institute of Medicine recommendations for nutrition.
+https://pubmed.ncbi.nlm.nih.gov/16004827/
+c. Nutritional Applications in Exercise and Sport (pp.177-192) Publisher: CRC Press, Robert Keith, Heather Holden, Lisa Mcanulty, 2001
+Summary: Nutritional Applications in Exercise and Sport.
+https://www.researchgate.net/publication/229071049_Eating_Before_During_and_After_the_Event
+
+5. General Nutritional Guidelines
+These sources outline balanced dietary recommendations and macro distribution across all populations.
+a. USDA Dietary Guidelines: Current standards for macronutrient distribution. 2020-2025 Dietary Guidelines
+https://www.dietaryguidelines.gov/sites/default/files/2020-12/Dietary_Guidelines_for_Americans_2020-2025.pdf
+b. Harvard T.H. Chan School of Public Health: Nutritional guidance on balanced macro intake. Harvard Nutrition Source
+https://nutritionsource.hsph.harvard.edu/
+
+6. Internal Algorithm Attribution
+Our caloric and macronutrient distribution values are based on a custom algorithm designed by certified nutritionist and functional medicine practitioner, Rishi Dhingra, following national dietary guidelines for both men and women, while adhering to recommended daily intake values and tailored to individual energy requirements. This proprietary algorithm aligns with evidence-based standards to provide users with personalized nutrient recommendations.
+Algorithm Development Source:
+a. USDA Dietary Guidelines (see link above)
+b. American Dietetic Association Standards 
+Summary: Nutrition: Macronutrient Intake, Imbalances, and Interventions, NIH National Library of Medicine, National Center for Biotechnology Information.
+https://www.ncbi.nlm.nih.gov/books/NBK594226/
+
+c. Calculations for BMR (Basal Metabolic Rate):
+Harris-Benedict equation for BMR, Mifflin St Jeor calculations for BMR
+https://www.calculator.net/bmr-calculator.html
+d. Calculations for BMI (Body Mass Index):
+NIH: Calculate Your Body Mass Index
+https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm
+
+Note: Rishi Dhingra is certified nutritionist and functional medicine practitioner, consulting under his privately owned and licensed practice at Healthspan Culture FZCO, IFZA Authority, in Dubai, United Arab Emirates, and has developed the custom algorithm to align with recognized international nutritional standards.
+  ''';
+
+  String get infoPopup =>
+      '''All calculations are based on data from WHOOP, established government nutritional guidelines, and our custom in-house algorithm. These sources provide reliable standards for nutritional insights & dietary guidance, but they are not substitutes for professional medical advice. For further details, please read the CITATIONS, REFERENCES & SOURCES document under the OTHERS section.
+  ''';
 }

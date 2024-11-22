@@ -109,13 +109,14 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                   Text.rich(
                     TextSpan(
                         text: isToday
-                            ? "${state.day.macros.protein}g "
-                            : '${day.macros.protein}g ',
+                            ? "${state.day.macros.protein.comaThisNumber()}g "
+                            : '${day.macros.protein.comaThisNumber()}g ',
                         style: context.styles.numsM
                             .copyWith(color: RishColors.protein),
                         children: [
                           TextSpan(
-                            text: 'Protein\n(${kcals.$2} kcal)',
+                            text:
+                                'Protein\n(${kcals.$2.comaThisNumber()} kcal)',
                             style: context.styles.regularMedium
                                 .copyWith(color: RishColors.protein),
                           )
@@ -125,13 +126,14 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                   Text.rich(
                     TextSpan(
                         text: isToday
-                            ? "${state.day.macros.carbs}g "
-                            : '${day.macros.carbs}g ',
+                            ? "${state.day.macros.carbs.comaThisNumber()}g "
+                            : '${day.macros.carbs.comaThisNumber()}g ',
                         style: context.styles.numsM
                             .copyWith(color: RishColors.carbs),
                         children: [
                           TextSpan(
-                              text: 'Carbs\n(${kcals.$1} kcal)',
+                              text:
+                                  'Carbs\n(${kcals.$1.comaThisNumber()} kcal)',
                               style: context.styles.regularMedium
                                   .copyWith(color: RishColors.carbs))
                         ]),
@@ -140,13 +142,13 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                   Text.rich(
                     TextSpan(
                         text: isToday
-                            ? "${state.day.macros.fat}g "
-                            : '${day.macros.fat}g ',
+                            ? "${state.day.macros.fat.comaThisNumber()}g "
+                            : '${day.macros.fat.comaThisNumber()}g ',
                         style: context.styles.numsM
                             .copyWith(color: RishColors.fat),
                         children: [
                           TextSpan(
-                            text: 'Fat\n(${kcals.$3} kcal)',
+                            text: 'Fat\n(${kcals.$3.comaThisNumber()} kcal)',
                             style: context.styles.regularMedium.copyWith(
                               color: RishColors.fat,
                             ),

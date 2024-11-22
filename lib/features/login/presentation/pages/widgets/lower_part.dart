@@ -29,7 +29,11 @@ class _LowerPart extends StatelessWidget {
                   style: context.styles.boldMedium
                       .copyWith(color: RishColors.textSecondary),
                   recognizer: TapGestureRecognizer()
-                    ..onTap = () => print('Tap Here onTap'),
+                    ..onTap = () => launchUrl(
+                          Uri.parse(
+                            'https://thepivotapp.ai/terms-of-service',
+                          ),
+                        ),
                 ),
                 TextSpan(
                   text: '& ',
@@ -41,7 +45,11 @@ class _LowerPart extends StatelessWidget {
                   style: context.styles.boldMedium
                       .copyWith(color: RishColors.textSecondary),
                   recognizer: TapGestureRecognizer()
-                    ..onTap = () => print('Tap Here onTap'),
+                    ..onTap = () => launchUrl(
+                          Uri.parse(
+                            'https://thepivotapp.ai/privacy-policy',
+                          ),
+                        ),
                 ),
               ]),
         ),

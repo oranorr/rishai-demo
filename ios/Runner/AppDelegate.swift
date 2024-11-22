@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+// import flutter_web_auth_2
 
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate {
@@ -8,7 +9,7 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-
+    //  FlutterWebAuth2Plugin.register(with: self.registrar(forPlugin: "FlutterWebAuth2Plugin")!)
      if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
     }

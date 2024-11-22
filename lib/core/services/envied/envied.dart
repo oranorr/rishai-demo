@@ -27,4 +27,7 @@ abstract class Env {
 
   @EnviedField(varName: 'GOOGLE_CLIENT_ID')
   static const String googleClientId = _Env.googleClientId;
+
+  @EnviedField(varName: 'ADAPTY_SDK_KEY')
+  static const String adaptyKey = _Env.adaptyKey;
 }

@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 
 part 'meal_plan_entity.g.dart';
@@ -309,7 +310,7 @@ class MacrosBreakdown {
         children: [
           TextSpan(text: ' kcals   ', style: context.styles.regularMedium),
           TextSpan(
-            text: protein.toString(),
+            text: protein.comaThisNumber().toString(),
             style: context.styles.numsS.copyWith(color: RishColors.protein),
           ),
           TextSpan(
@@ -318,7 +319,7 @@ class MacrosBreakdown {
                 .copyWith(color: RishColors.protein),
           ),
           TextSpan(
-            text: carbs.toString(),
+            text: carbs.comaThisNumber().toString(),
             style: context.styles.numsS.copyWith(color: RishColors.carbs),
           ),
           TextSpan(
@@ -327,7 +328,7 @@ class MacrosBreakdown {
                 context.styles.regularMedium.copyWith(color: RishColors.carbs),
           ),
           TextSpan(
-            text: fat.toString(),
+            text: fat.comaThisNumber().toString(),
             style: context.styles.numsS.copyWith(color: RishColors.fat),
           ),
           TextSpan(

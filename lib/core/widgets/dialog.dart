@@ -73,20 +73,21 @@ class RishiDialog {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
           child: Center(
             child: Container(
-              height: 350.h,
-              width: double.infinity,
               margin: EdgeInsets.symmetric(horizontal: 24.w),
               decoration: BoxDecoration(
                   color: context.theme.colorScheme.surface,
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(color: RishColors.stroke)),
               child: Padding(
-                padding: const EdgeInsets.all(16.0).copyWith(top: 8),
+                padding: EdgeInsets.zero,
                 child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  shrinkWrap: true,
                   children: [
                     Text(
                       'Disclaimer',
-                      style: context.styles.boldLarge,
+                      style: context.styles.h2,
+                      textAlign: TextAlign.center,
                     ),
                     SizedBox(
                       height: 10.h,
@@ -94,6 +95,7 @@ class RishiDialog {
                     Text(
                       LegalTextsRepo().shortDisclaimer,
                       style: context.styles.regularMedium,
+                      // textAlign: TextAlign.center,
                     ),
                     SizedBox(
                       height: 20.h,
@@ -108,6 +110,65 @@ class RishiDialog {
                           whoopBloc.add(WhoopConnectEvent(context));
                         }),
                   ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, anim, __, child) {
+        Tween<double> tween;
+        if (anim.status == AnimationStatus.reverse) {
+          tween = Tween(begin: 0, end: 1);
+        } else {
+          tween = Tween(begin: 0, end: 1);
+        }
+
+        return FadeTransition(
+          opacity: tween.animate(anim),
+          child: child,
+        );
+      },
+    );
+  }
+
+  static void infoPopup(
+    BuildContext context,
+  ) {
+    showGeneralDialog(
+      context: context,
+      barrierLabel: "",
+      barrierDismissible: true,
+      barrierColor: const Color(0xff1717253d).withOpacity(0.25),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
+          child: Center(
+            child: Container(
+              // height: ,
+              width: double.infinity,
+              margin: EdgeInsets.symmetric(horizontal: 24.w),
+              decoration: BoxDecoration(
+                  color: context.theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: RishColors.stroke)),
+              child: Padding(
+                padding:
+                    const EdgeInsets.all(16.0).copyWith(top: 16, bottom: 0),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [
+                      Text(
+                        LegalTextsRepo().infoPopup,
+                        style: context.styles.regularMedium,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

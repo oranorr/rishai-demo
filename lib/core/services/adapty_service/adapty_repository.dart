@@ -9,4 +9,7 @@ abstract class AdaptyRepository {
   Future<void> identify({required String adaptyId});
   String generateAdaptyId({required String directusId});
   Future<void> logout();
+  Future<String> restorePurchases();
+  Future<void> test();
+  // Future<void>
 }

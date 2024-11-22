@@ -10,6 +10,7 @@
 				<key>CFBundleURLSchemes</key>
 				<array>
 					<string>com.googleusercontent.apps.586052816326-cot6vmm79shkq9q716irslskjskoh87b</string>
+					<string>pivot</string>
 				</array>
 			</dict>
 		</array>
@@ -62,5 +63,10 @@
 		</array>
 		<key>UNNotificationAlertStyle</key>
 		<integer>1</integer>
+		<!-- <key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoads</key>
+			<true/>
+		</dict> -->
 	</dict>
 </plist>

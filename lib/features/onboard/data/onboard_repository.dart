@@ -10,7 +10,7 @@ class OnboardRepository {
     OnboardEntity(
       title: 'Your personalized Nutritionist',
       subtitle:
-          'Pivot analyses your WHOOP metrics to create adaptive meal plans tailored to your fitness goals and dietary preferences',
+          'Pivot analyzes your WHOOP metrics to create adaptive meal plans tailored to your fitness goals and dietary preferences',
       assetPath: 'assets/images/onboard_2.png',
     ),
     OnboardEntity(

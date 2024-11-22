@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:directus/directus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_repository.dart';
@@ -27,7 +28,11 @@ class DirectusRepositoryImpl implements DirectusService {
           '',
           client: Dio(
             BaseOptions(
-              baseUrl: 'https://rishai.dev.mvplab.org/',
+              baseUrl:
+                  // kDebugMode
+                  //     ?
+                  // 'https://rishai.dev.mvplab.org/'
+                  'https://login.thepivotapp.ai/',
             ),
           ),
         ).init();

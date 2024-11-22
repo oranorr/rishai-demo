@@ -173,8 +173,9 @@ class _MealTile extends StatelessWidget {
                 ),
                 SizedBox(height: 4.h),
                 FittedBox(
-                    fit: BoxFit.fitWidth,
-                    child: meal.macros.buildTextMacros(context: context)),
+                  fit: BoxFit.fitWidth,
+                  child: meal.macros.buildTextMacros(context: context),
+                ),
               ],
             ),
           ),

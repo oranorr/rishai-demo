@@ -102,7 +102,9 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         appNavigationService.go(
             path: needsQuestionary
                 ? AppRoutes.questionary.path
-                : AppRoutes.homeScreen.path);
+                : adapty.isActive
+                    ? AppRoutes.homeScreen.path
+                    : AppRoutes.paywall.path);
         emit(state.copyWith(status: Status.initial));
       });
     }

@@ -15,6 +15,7 @@ import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_state.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 part '../pages/widgets/create_account.dart';
 part '../pages/widgets/login_account.dart';

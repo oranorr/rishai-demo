@@ -46,7 +46,7 @@ class OtherSettings extends StatelessWidget {
                   Text(
                     data[index].title,
                     style: context.styles.regularLarge.copyWith(
-                        color: index == 4 ? RishColors.primary : null),
+                        color: index == 5 ? RishColors.primary : null),
                   ),
                   const Spacer(),
                   const RotatedBox(
@@ -84,11 +84,16 @@ List<OtherEntity> data = [
     type: OtherType.disclaimer,
   ),
   OtherEntity(
+    title: 'CITATIONS, REFERENCES & SOURCES',
+    body: LegalTextsRepo().references,
+    type: OtherType.ref,
+  ),
+  OtherEntity(
       title: 'Help & Support',
       body: LegalTextsRepo().help,
       type: OtherType.help),
   OtherEntity(
-    title: 'COMING SOON  FEATURES',
+    title: 'COMING SOON FEATURES',
     body: LegalTextsRepo().comingSoon,
     type: OtherType.premium,
   ),
@@ -105,7 +110,14 @@ class OtherEntity {
   });
 }
 
-enum OtherType { tos, pp, disclaimer, help, premium }
+enum OtherType {
+  tos,
+  pp,
+  disclaimer,
+  help,
+  premium,
+  ref,
+}
 
 
 //  {
