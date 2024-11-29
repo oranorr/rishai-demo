@@ -37,10 +37,9 @@ class _PaywallState extends State<Paywall> {
   @override
   Widget build(BuildContext context) {
     isFreeTrialAvailable = adapty.isTrialActive;
-    adapty.test();
-    // print(selectedProduct?.subscription?);
+    // adapty.test();
     price =
-        '${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount}';
+        '${selectedProduct!.price.currencySymbol}${(selectedProduct!.price.amount).toStringAsFixed(2)}';
 
     return RishScaffold(
       needsAppBar: false,
@@ -65,7 +64,7 @@ class _PaywallState extends State<Paywall> {
           ],
           if (!isFreeTrialAvailable)
             Text(
-              'To continue enjoying Pivot and all its features, subscribe now for only $price per month',
+              'To continue enjoying Pivot and all its features, subscribe now for only $price per ${selectedProduct!.subscriptionDetails!.subscriptionPeriod.unit.name}',
               // 'Subscribe now for $price to continue enjoying Pivot and all its features.',
               style: context.styles.h2.copyWith(color: RishColors.primary),
               textAlign: TextAlign.center,
@@ -111,9 +110,9 @@ class _PaywallState extends State<Paywall> {
             });
           }),
           SizedBox(height: 16.h),
-          if (isFreeTrialAvailable)
+          if (!isFreeTrialAvailable)
             Text(
-              _getSubtitle(),
+              _getSubtitle(price),
               style: context.styles.boldLarge,
               textAlign: TextAlign.center,
             ),
@@ -138,18 +137,23 @@ class _PaywallState extends State<Paywall> {
           RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
-                text: 'By subscribing you agree to out ',
+                text: 'By subscribing you agree to our ',
                 style: context.styles.regularMedium
                     .copyWith(color: RishColors.textSecondary),
                 children: [
                   TextSpan(
-                    text: 'Terms of Use ',
-                    style: context.styles.boldMedium
-                        .copyWith(color: RishColors.textSecondary),
+                    text: Platform.isAndroid
+                        ? 'Terms of Service '
+                        : 'Terms of Use ',
+                    style: context.styles.boldMedium.copyWith(
+                        color: RishColors.primary,
+                        decoration: TextDecoration.underline),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () => launchUrl(
                             Uri.parse(
-                              'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+                              Platform.isAndroid
+                                  ? 'https://thepivotapp.ai/terms-of-service'
+                                  : 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
                             ),
                           ),
                   ),
@@ -160,8 +164,10 @@ class _PaywallState extends State<Paywall> {
                   ),
                   TextSpan(
                     text: 'Privacy Policy',
-                    style: context.styles.boldMedium
-                        .copyWith(color: RishColors.textSecondary),
+                    style: context.styles.boldMedium.copyWith(
+                      color: RishColors.primary,
+                      decoration: TextDecoration.underline,
+                    ),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () => launchUrl(
                             Uri.parse(
@@ -222,15 +228,17 @@ class _PaywallState extends State<Paywall> {
     });
   }
 
-  String _getSubtitle() {
+  String _getSubtitle(String price) {
     if (selectedProduct!.vendorProductId == 'pivot_sub' ||
         selectedProduct!.subscriptionDetails!.androidBasePlanId ==
             'pivot-monthly') {
-      return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount} per month.';
+      return '1 month for free, then $price per month.';
+      // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per month.';
     } else if ((selectedProduct!.vendorProductId == 'pivot_annual' ||
         selectedProduct!.subscriptionDetails!.androidBasePlanId ==
             'pivot-annual')) {
-      return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount} per year.';
+      return '1 month for free, then $price per year.';
+      // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per year.';
     } else {
       return 'ERRROr';
     }
@@ -321,16 +329,16 @@ class __SubButtonsState extends State<_SubButtons> {
                             FittedBox(
                                 child:
                                     _getPrice(i, context, i == indexSelected)),
-                            if (i == 1)
-                              FittedBox(
-                                child: Text(
-                                  '${adapty.products[i].price.currencySymbol}${(adapty.products[i].price.amount / 12).toString().substring(0, 4)} per month.\nSave 20%',
-                                  textAlign: TextAlign.center,
-                                  style: context.styles.regularMedium.copyWith(
-                                    color: RishColors.primary,
-                                  ),
-                                ),
-                              )
+                            // if (i == 1)
+                            //   FittedBox(
+                            //     child: Text(
+                            //       '${adapty.products[i].price.currencySymbol}${(adapty.products[i].price.amount / 12).toStringAsFixed(2)} per month.\nSave 20%',
+                            //       textAlign: TextAlign.center,
+                            //       style: context.styles.regularMedium.copyWith(
+                            //         color: RishColors.primary,
+                            //       ),
+                            //     ),
+                            //   )
                           ],
                         ),
                       )),
@@ -349,9 +357,9 @@ class __SubButtonsState extends State<_SubButtons> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'Most popular',
-                          style: context.styles.boldSmall
-                              .copyWith(color: RishColors.formBackgroun),
+                          'Save 20%',
+                          style: context.styles.boldSmall.copyWith(
+                              color: RishColors.formBackgroun, height: 1.5.h),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -367,31 +375,47 @@ class __SubButtonsState extends State<_SubButtons> {
   Widget _getPrice(int i, BuildContext context, bool isSelected) {
     if (i == 0) {
       return Text(
-        "${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount}",
-        style: context.styles.boldLarge.copyWith(
+        "${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}",
+        style: context.styles.h3.copyWith(
           color: isSelected ? null : RishColors.textSecondary,
+          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
+          height: 1.5,
         ),
       );
     } else {
       return RichText(
-        text: TextSpan(
+          maxLines: 2,
+          softWrap: true,
+          textAlign: TextAlign.center,
+          text: TextSpan(
             text:
-                '${adapty.products[i].price.currencySymbol}${adapty.products[0].price.amount * 12}',
-            style: context.styles.boldLarge.copyWith(
-              decoration: TextDecoration.lineThrough,
-              color: RishColors.textSecondary,
-            ),
-            children: [
-              TextSpan(
-                text:
-                    '  ${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount}',
-                style: context.styles.boldLarge.copyWith(
-                  decoration: TextDecoration.none,
-                  color: isSelected ? null : RishColors.textSecondary,
-                ),
-              ),
-            ]),
-      );
+                '${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
+            style: context.styles.h3.copyWith(
+                decoration: TextDecoration.none,
+                color: isSelected ? null : RishColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
+                height: 1.5),
+          )
+          // TextSpan(
+          //     text:
+          //         '${adapty.products[i].price.currencySymbol}${(adapty.products[0].price.amount * 12).toStringAsFixed(2)}',
+          //     style: context.styles.boldLarge.copyWith(
+          //       decoration: TextDecoration.lineThrough,
+          //       color: RishColors.textSecondary,
+          //       height: 1.5,
+          //     ),
+          //     children: [
+          //       TextSpan(
+          //         text:
+          //             '\n${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
+          //         style: context.styles.h3.copyWith(
+          //             decoration: TextDecoration.none,
+          //             color: isSelected ? null : RishColors.textSecondary,
+          //             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
+          //             height: 1.5),
+          //       ),
+          //     ]),
+          );
     }
   }
 

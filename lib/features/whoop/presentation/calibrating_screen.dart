@@ -80,7 +80,7 @@ class _CalibratingScreenState extends State<CalibratingScreen> {
               children: [
                 SizedBox(height: 100.h),
                 Text(
-                  'Your Rish AI coach will be ready in',
+                  'Your coach will be ready in',
                   style: context.styles.h3,
                 ),
                 SizedBox(height: 50.h),
@@ -108,7 +108,7 @@ class _CalibratingScreenState extends State<CalibratingScreen> {
                 ),
                 SizedBox(height: 50.h),
                 Text(
-                  'Your Whoop does not have sufficient data.\nPlease, come back later.',
+                  'Your WHOOP does not have sufficient data.\nPlease, come back later.',
                   style: context.styles.regularMedium
                       .copyWith(color: RishColors.textSecondary),
                   textAlign: TextAlign.center,

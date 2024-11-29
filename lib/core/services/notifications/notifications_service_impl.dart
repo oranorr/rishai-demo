@@ -105,10 +105,9 @@ class NotificationsServiceImpl implements NotificationsService {
         channel.name,
         channelDescription: channel.description,
         importance: Importance.max,
-        priority: Priority.high,
+        priority: Priority.max,
         showWhen: true,
-        fullScreenIntent: true,
-        channelAction: AndroidNotificationChannelAction.update,
+        channelAction: AndroidNotificationChannelAction.createIfNotExists,
       );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -126,6 +125,7 @@ class NotificationsServiceImpl implements NotificationsService {
       final now = tz.TZDateTime.now(tz.local);
       final scheduleTime = tz.TZDateTime(
           tz.local, now.year, now.month, now.day, time.hour, time.minute);
+
       final notificationTime = scheduleTime.isBefore(now)
           ? scheduleTime.add(const Duration(days: 1))
           : scheduleTime;
@@ -133,18 +133,20 @@ class NotificationsServiceImpl implements NotificationsService {
       log('Текущее время: $now');
       log('Время уведомления: $notificationTime');
       final int rndId = math.Random().nextInt(100);
+
       await flutterLocalNotificationsPlugin
           .zonedSchedule(
-              rndId,
-              'Pivot daily reminder',
-              "It's time to create your new meal plan for today",
-              notificationTime,
-              platformChannelSpecifics,
-              androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-              uiLocalNotificationDateInterpretation:
-                  UILocalNotificationDateInterpretation.absoluteTime,
-              androidAllowWhileIdle: true,
-              matchDateTimeComponents: DateTimeComponents.time)
+        rndId,
+        'Pivot daily reminder',
+        "It's time to create your new meal plan for today",
+        notificationTime,
+        platformChannelSpecifics,
+        androidAllowWhileIdle: true,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.wallClockTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+      )
           .then((_) {
         log('Уведомление успешно запланировано на $notificationTime');
       }).catchError((error) {
@@ -180,12 +182,40 @@ class NotificationsServiceImpl implements NotificationsService {
         iOS: iOSPlatformChannelSpecifics,
       );
 
-      await flutterLocalNotificationsPlugin.show(
-        0,
-        'Тестовое уведомление',
-        'Это тестовое уведомление.',
+      final now = tz.TZDateTime.now(tz.local);
+      final scheduleTime = tz.TZDateTime(
+          tz.local, now.year, now.month, now.day, now.hour, now.minute + 1);
+      final notificationTime = scheduleTime.isBefore(now)
+          ? scheduleTime.add(const Duration(days: 1))
+          : scheduleTime;
+
+      log('Текущее время: $now');
+      log('Время уведомления: $notificationTime');
+      final int rndId = math.Random().nextInt(100);
+      await flutterLocalNotificationsPlugin
+          .zonedSchedule(
+        rndId,
+        'Pivot daily reminder',
+        "It's time to create your new meal plan for today",
+        notificationTime,
         platformChannelSpecifics,
-      );
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+      )
+          .then((_) {
+        log('Уведомление успешно запланировано на $notificationTime');
+      }).catchError((error) {
+        log('Ошибка при планировании уведомления: $error');
+      });
+
+      // await flutterLocalNotificationsPlugin.show(
+      //   0,
+      //   'Тестовое уведомление',
+      //   'Это тестовое уведомление.',
+      //   platformChannelSpecifics,
+      // );
 
       print('Немедленное уведомление отправлено');
     } catch (e) {
