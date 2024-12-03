@@ -152,6 +152,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       emit(state.copyWith(status: Status.loading));
       UserEntity user = userBloc.state.user;
       final isTokenOk = await wTokenService.initService();
+      emit(state.copyWith(whoopConnected: isTokenOk));
       log('INIT TOKEN SERVICE RES: $isTokenOk');
 
       if (!isTokenOk) {
@@ -159,6 +160,12 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         emit(state.copyWith(status: Status.initial));
         return;
       }
+
+      // if (!adapty.isActive) {
+      //   appNavigationService.go(path: AppRoutes.paywall.path);
+      //   emit(state.copyWith(status: Status.initial));
+      //   return;
+      // }
 
       if (user.bodyMeasurements == null) {
         log('retrieveing BODY data');
@@ -175,15 +182,17 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         if (state.status != Status.loading && state.status != Status.error) {
           userBloc.add(UserGetDays());
           appNavigationService.go(
-              path: adapty.isActive
-                  ? AppRoutes.homeScreen.path
-                  : AppRoutes.paywall.path);
+            path: adapty.isActive
+                ? AppRoutes.homeScreen.path
+                : AppRoutes.paywall.path,
+          );
           emit(state.copyWith(status: Status.success));
           return;
         }
       } else {
         appNavigationService.go(path: AppRoutes.questionary.path);
         emit(state.copyWith(status: Status.initial));
+        return;
       }
     } on Exception catch (e) {
       RishSnackbar().showSnackBar(e.toString());

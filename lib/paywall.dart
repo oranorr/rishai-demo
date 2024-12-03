@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:adapty_flutter/adapty_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -38,9 +39,9 @@ class _PaywallState extends State<Paywall> {
   Widget build(BuildContext context) {
     isFreeTrialAvailable = adapty.isTrialActive;
     // adapty.test();
-    price =
-        '${selectedProduct!.price.currencySymbol}${(selectedProduct!.price.amount).toStringAsFixed(2)}';
-
+    price = selectedProduct!.price.localizedString!;
+    // '${selectedProduct!.price.currencySymbol}${(selectedProduct!.price.amount).toStringAsFixed(2)}';
+    // print(selectedProduct!.price);
     return RishScaffold(
       needsAppBar: false,
       child: ListView(
@@ -192,18 +193,20 @@ class _PaywallState extends State<Paywall> {
                     await adapty.makePurchase(product: selectedProduct!);
                 processPurchaseResult(res);
               }),
-          SizedBox(height: 20.h),
-          Center(
-            child: GestureDetector(
-              onTap: () => context.go(AppRoutes.homeScreen.path),
-              child: Text(
-                'Skip',
-                style: context.styles.boldLarge.copyWith(
-                  color: RishColors.primary,
+          if (kDebugMode) ...[
+            SizedBox(height: 20.h),
+            Center(
+              child: GestureDetector(
+                onTap: () => context.go(AppRoutes.homeScreen.path),
+                child: Text(
+                  'Skip',
+                  style: context.styles.boldLarge.copyWith(
+                    color: RishColors.primary,
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -357,7 +360,7 @@ class __SubButtonsState extends State<_SubButtons> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'Save 20%',
+                          Platform.isAndroid ? 'Best offer' : 'Save 20%',
                           style: context.styles.boldSmall.copyWith(
                               color: RishColors.formBackgroun, height: 1.5.h),
                           textAlign: TextAlign.center,
@@ -375,7 +378,8 @@ class __SubButtonsState extends State<_SubButtons> {
   Widget _getPrice(int i, BuildContext context, bool isSelected) {
     if (i == 0) {
       return Text(
-        "${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}",
+        adapty.products[i].price.localizedString!,
+        // "${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}",
         style: context.styles.h3.copyWith(
           color: isSelected ? null : RishColors.textSecondary,
           fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
@@ -388,8 +392,8 @@ class __SubButtonsState extends State<_SubButtons> {
           softWrap: true,
           textAlign: TextAlign.center,
           text: TextSpan(
-            text:
-                '${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
+            text: adapty.products[i].price.localizedString!,
+            // '${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
             style: context.styles.h3.copyWith(
                 decoration: TextDecoration.none,
                 color: isSelected ? null : RishColors.textSecondary,

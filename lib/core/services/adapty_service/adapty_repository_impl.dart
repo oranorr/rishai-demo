@@ -56,7 +56,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       final lvl = res?.accessLevels['premium'];
 
       isActive = lvl?.isActive ?? false;
-      isTrialActive = lvl != null ? await _isTrialPeriodAvailable(lvl) : false;
+      isTrialActive = lvl != null ? await _isTrialPeriodAvailable(lvl) : true;
 
       if (isActive) {
         print("Subscription purchase successful!");
@@ -80,7 +80,8 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     _logger(profile.customerUserId.toString());
 
     isActive = lvl?.isActive ?? false;
-    isTrialActive = lvl != null ? await _isTrialPeriodAvailable(lvl) : false;
+    isTrialActive = lvl != null ? await _isTrialPeriodAvailable(lvl) : true;
+    // _logger("ACCESS LEVEL $lvl");
     // isActive = true;
     // isTrialActive = true;
     _logger(
@@ -106,24 +107,9 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<bool> _isTrialPeriodAvailable(
     AdaptyAccessLevel? accessLevel,
   ) async {
-    // Если accessLevel пустой, проверяем eligibility через Adapty API
-    // if (accessLevel == null) {
-    //   _logger("Access level is null. Checking eligibility...");
-    //   final eligibility = await Adapty()
-    //       .getProductsIntroductoryOfferEligibility(products: products);
-
-    //   for (var product in products) {
-    //     final isEligible =
-    //         eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
-    //     if (isEligible) {
-    //       _logger("Trial is available for product: ${product.vendorProductId}");
-    //       return true;
-    //     }
-    //   }
-    //   _logger("No trial available for any product.");
-    //   return false;
-    // }
-
+    // final profile = await Adapty().getProfile();
+    // _logger(profile.accessLevels.toString());
+    // return profile.accessLevels.isEmpty;
     _logger(
         "Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}");
     _logger("Expires At: ${accessLevel.expiresAt}");

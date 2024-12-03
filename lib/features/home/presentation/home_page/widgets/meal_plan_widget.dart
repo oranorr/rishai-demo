@@ -19,22 +19,14 @@ class _MealPlanWidget extends StatelessWidget {
     if (plan == null) {
       if (isToday) {
         if (enoughRequests) {
-          if (adapty.isActive) {
-            return RishButton.primary(
-              title: 'Create Meal Plan',
-              enabled: true,
-              isLoading: false,
-              action: () {
-                controller.rAnimate(0);
-              },
-            );
-          } else {
-            return RishButton.primary(
-                title: 'Purchase Subscription',
-                enabled: true,
-                isLoading: false,
-                action: () => context.go(AppRoutes.paywall.path));
-          }
+          return RishButton.primary(
+            title: 'Create Meal Plan',
+            enabled: true,
+            isLoading: false,
+            action: () {
+              controller.rAnimate(0);
+            },
+          );
         } else {
           return Text(
             'You already run out of requests for today. Come again tomorrow.',
