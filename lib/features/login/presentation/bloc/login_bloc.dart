@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:math' as math;
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
-import 'package:meta/meta.dart';
-import 'dart:math' as math;
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
@@ -32,10 +32,6 @@ final loginBloc = getIt.get<LoginBloc>();
 
 @injectable
 class LoginBloc extends Bloc<LoginEvent, LoginState> {
-  final LoginViaGoogleUsecase loginViaGoogleUsecase;
-  final CreateNewUserUsecase createNewUserUsecase;
-  final LoginViaEmailUsecase loginViaEmailUseCase;
-  final LoginViaAppleUsecase loginViaAppleUsecase;
   LoginBloc(
     this.loginViaGoogleUsecase,
     this.createNewUserUsecase,
@@ -54,24 +50,35 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     on<LogoutEvent>(_logout);
     on<LoginViaApple>(_loginViaApple);
   }
+  final LoginViaGoogleUsecase loginViaGoogleUsecase;
+  final CreateNewUserUsecase createNewUserUsecase;
+  final LoginViaEmailUsecase loginViaEmailUseCase;
+  final LoginViaAppleUsecase loginViaAppleUsecase;
 
   FutureOr<void> _createAccount(
-      CreateAccountEvent event, Emitter<LoginState> emit) async {
+    CreateAccountEvent event,
+    Emitter<LoginState> emit,
+  ) async {
     /// тут по крайней мере проще, просто создается аккаунт, прокидываем на онборд
     emit(state.copyWith(status: Status.loading));
     final String otp = generateVerificationCode(event.email);
-    final res = await createNewUserUsecase.call(CreateNewUserParams(
-      code: otp,
-      name: event.name,
-      email: event.email,
-    ));
-    emit(state.copyWith(
+    final res = await createNewUserUsecase.call(
+      CreateNewUserParams(
+        code: otp,
+        name: event.name,
+        email: event.email,
+      ),
+    );
+    emit(
+      state.copyWith(
         otp: otp,
         loginEntity: LoginInfoEntity(
           email: event.email,
           name: event.name,
           verificationCode: otp,
-        )));
+        ),
+      ),
+    );
     res.fold((fail) {
       emit(state.copyWith(status: Status.error));
       RishSnackbar().showSnackBar(fail.message);
@@ -83,7 +90,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   }
 
   FutureOr<void> _loginViaGoogle(
-      LoginViaGoogle event, Emitter<LoginState> emit) async {
+    LoginViaGoogle event,
+    Emitter<LoginState> emit,
+  ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaGoogleUsecase.call(const NoParams());
     res.fold((f) {
@@ -97,7 +106,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   }
 
   FutureOr<void> _loginViaEmail(
-      LoginViaEmail event, Emitter<LoginState> emit) async {
+    LoginViaEmail event,
+    Emitter<LoginState> emit,
+  ) async {
     emit(state.copyWith(status: Status.loading));
     final String otp = generateVerificationCode(event.email);
     final LoginInfoEntity loginInfoEntity =
@@ -116,13 +127,17 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   }
 
   FutureOr<void> _cancelOtpEnter(
-      LoginCancelOtpEnter event, Emitter<LoginState> emit) {
+    LoginCancelOtpEnter event,
+    Emitter<LoginState> emit,
+  ) {
     emit(state.copyWith(otp: null, loginEntity: null, status: Status.initial));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
   }
 
   FutureOr<void> _correctOtp(
-      LoginOtpCorrect event, Emitter<LoginState> emit) async {
+    LoginOtpCorrect event,
+    Emitter<LoginState> emit,
+  ) async {
     UserEntity curUser = userBloc.state.user;
     await prefsRepo.setLogin(true);
     userBloc.add(UpdateUserEvent(user: curUser));
@@ -141,7 +156,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   }
 
   FutureOr<void> _loginViaApple(
-      LoginViaApple event, Emitter<LoginState> emit) async {
+    LoginViaApple event,
+    Emitter<LoginState> emit,
+  ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaAppleUsecase.call(const NoParams());
     res.fold((f) {
@@ -159,12 +176,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     String verificationCode = '';
 
     if (okEmails.contains(incEmail)) {
-      verificationCode = '0000';
-      return verificationCode;
+      return '0000';
     }
 
     for (int i = 0; i < 4; i++) {
       int randomNumber = random.nextInt(10);
+      // ignore: use_string_buffers
       verificationCode += randomNumber.toString();
     }
 
@@ -173,9 +190,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   }
 
   List<String> okEmails = [
-    "googleTester@gmail.com",
-    "oliverkarlin0@gmail.com",
-    "appleTester@apple.com"
+    'googleTester@gmail.com',
+    'oliverkarlin0@gmail.com',
+    'appleTester@apple.com',
   ];
 }
 

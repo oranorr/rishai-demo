@@ -107,9 +107,11 @@ class _LoginScreenState extends State<LoginScreen>
   void loginAction() {
     final isok = _formKeyLogin.currentState!.validate();
     if (isok) {
-      loginBloc.add(LoginViaEmail(
-        email: emailController2.text.trim(),
-      ));
+      loginBloc.add(
+        LoginViaEmail(
+          email: emailController2.text.trim(),
+        ),
+      );
     } else {
       Future.delayed(const Duration(seconds: 3), () {
         _formKeyLogin.currentState!.reset();
@@ -125,7 +127,8 @@ String? _emailValidator(String? value) {
     return 'We do need your email here';
   }
   final emailRegex = RegExp(
-      r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$');
+    r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$',
+  );
   if (!emailRegex.hasMatch(val)) {
     return 'Enter correct email';
   }
@@ -139,7 +142,7 @@ String? _validateName(String? value) {
     return 'There is nothing up there.';
   }
   if (val.length == 1) {
-    return 'It\'s way too short name.';
+    return "It's way too short name.";
   }
   final nameRegex = RegExp(r'^[a-zA-Zа-яА-Я\s-]+$');
   if (!nameRegex.hasMatch(val)) {

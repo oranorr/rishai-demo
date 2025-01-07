@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'dart:developer';
-
 import 'package:injectable/injectable.dart';
 import 'package:openai_dart/openai_dart.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
-import '../../../../core/services/envied/envied.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
@@ -26,7 +25,8 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     try {
       client = OpenAIClient(apiKey: Env.apiKey);
       assistant = await client.getAssistant(
-          assistantId: 'asst_pnoQdlmVN0GP4qKSgzRictaq');
+        assistantId: 'asst_pnoQdlmVN0GP4qKSgzRictaq',
+      );
 
       if (savedThreadId != null) {
         thread = await client.getThread(threadId: savedThreadId);
@@ -36,7 +36,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       }
 
       return true;
-    } catch (e) {
+    } on Exception catch (e) {
       log('Ошибка инициализации GPT: $e');
       return false;
     }
@@ -53,12 +53,15 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       final run = await client.createThreadRun(
         threadId: thread.id,
         request: CreateRunRequest(
-            assistantId: assistant.id,
-            model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
-            instructions: assistant.instructions,
-            additionalInstructions: prompt),
+          assistantId: assistant.id,
+          model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
+          instructions: assistant.instructions,
+          additionalInstructions: prompt,
+          //TODO implement this. its alright
+          // responseFormat: CreateRunRequestResponseFormat.responseFormat(ResponseFormatJsonSchema(jsonSchema: ))
+        ),
       );
-      print('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
+      log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
 
       // Добавляем цикл ожидания с проверкой
       const maxAttempts = 10; // Максимальное количество попыток
@@ -68,14 +71,15 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
       while (attempts < maxAttempts && !foundResponse) {
         await Future.delayed(
-            const Duration(seconds: 2)); // Задержка между проверками
+          const Duration(seconds: 2),
+        ); // Задержка между проверками
 
         final responseMessages =
             await client.listThreadMessages(threadId: thread.id);
 
         // Ищем сообщение от ассистента вручную
-        for (var message in responseMessages.data) {
-          // print(message);
+        for (final message in responseMessages.data) {
+          // log(message);
           if (message.role == MessageRole.assistant &&
               message.content.isNotEmpty) {
             assistantResponse = message;
@@ -95,14 +99,14 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         // return map;
         return jsonDecode(map);
       } else {
-        print('Ответ ассистента не был получен.');
+        log('Ответ ассистента не был получен.');
         await client.cancelThreadRun(threadId: thread.id, runId: run.id);
         // Возвращаем сообщение об ошибке после нескольких неудачных попыток
         return {
-          'error': 'Ассистент не смог предоставить ответ. Попробуйте позже.'
+          'error': 'Ассистент не смог предоставить ответ. Попробуйте позже.',
         };
       }
-    } catch (e) {
+    } on Exception catch (e) {
       log('Ошибка при запросе плана питания: $e');
 
       // Возвращаем сообщение об ошибке в случае исключения
@@ -122,11 +126,11 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         ),
       );
 
-      print(
-          'Сообщение пользователя отправлено: ${userMessageObject.id}, threadId: ${userMessageObject.threadId}');
+      log(
+        'Сообщение пользователя отправлено: ${userMessageObject.id}, threadId: ${userMessageObject.threadId}',
+      );
       // Проверяем, есть ли незавершенные прогоны (чтобы не запускать новый каждый раз)
 
-      //TODO: This all down was working fine. On re-login breaks.
       //Commented, becase not required. And will re-do gpt service anyway.
 
       // final activeRuns = await client.listThreadRuns(threadId: thread.id);
@@ -137,10 +141,10 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       //       await client.getThreadRun(threadId: thread.id, runId: run.id);
       //   if (runStatus.status != RunStatus.completed &&
       //       runStatus.status != RunStatus.expired) {
-      //     print('Незавершенный прогон найден: ${run.id}, отменяем его.');
+      //     log('Незавершенный прогон найден: ${run.id}, отменяем его.');
       //     await client.cancelThreadRun(threadId: thread.id, runId: run.id);
       //   } else {
-      //     print('Прогон уже завершен: ${run.id}, пропускаем отмену.');
+      //     log('Прогон уже завершен: ${run.id}, пропускаем отмену.');
       //   }
       // }
 
@@ -155,7 +159,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         ),
       );
 
-      print('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
+      log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
 
       // Ждем завершения прогона с оптимизированной проверкой
       bool runCompleted = false;
@@ -170,14 +174,14 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
             await client.getThreadRun(threadId: thread.id, runId: run.id);
         if (runStatus.status == RunStatus.completed) {
           runCompleted = true;
-          print('Прогон ассистента завершен');
+          log('Прогон ассистента завершен');
         }
 
         attempts++;
       }
 
       if (!runCompleted) {
-        print('Прогон не завершился за отведенное время, отменяем.');
+        log('Прогон не завершился за отведенное время, отменяем.');
         await client.cancelThreadRun(threadId: thread.id, runId: run.id);
         return null;
       }
@@ -187,7 +191,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
           await client.listThreadMessages(threadId: thread.id);
       MessageObject? assistantResponse;
 
-      for (var message in responseMessages.data.reversed) {
+      for (final message in responseMessages.data.reversed) {
         // Ищем сообщение от ассистента, относящееся к текущему прогону
         if (message.role == MessageRole.assistant &&
             message.runId == run.id &&
@@ -200,14 +204,14 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       // Если найдено сообщение ассистента, возвращаем его содержимое
       if (assistantResponse != null) {
         final content = assistantResponse.content.first;
-        print('Ответ ассистента: ${content.toJson()}');
+        log('Ответ ассистента: ${content.toJson()}');
         return content.text;
       } else {
-        print('Ответ ассистента не был получен.');
+        log('Ответ ассистента не был получен.');
         return null;
       }
-    } catch (e) {
-      print('Ошибка при отправке сообщения: $e');
+    } on Exception catch (e) {
+      log('Ошибка при отправке сообщения: $e');
       return null;
     }
   }
@@ -222,11 +226,13 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       } else {
         final last = rawUser['days'].last;
         final rawLastDay = await directus.readOne(
-            collection: daysCollection, id: last.toString());
+          collection: daysCollection,
+          id: last.toString(),
+        );
         // log(rawLastDay.toString());
         return rawLastDay['chatSnap'];
       }
-    } catch (e) {
+    } on Exception catch (e) {
       log('failed to fetch last Chat snap, with error: $e');
       rethrow;
     }

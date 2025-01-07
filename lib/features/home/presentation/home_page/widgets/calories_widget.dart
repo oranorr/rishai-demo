@@ -1,12 +1,10 @@
 part of '../home_page.dart';
 
 class _CaloriesWidget extends StatelessWidget {
-  final DayEntity day;
-
   const _CaloriesWidget({
-    super.key,
     required this.day,
   });
+  final DayEntity day;
 
   @override
   Widget build(BuildContext context) {
@@ -35,19 +33,22 @@ class _CaloriesWidget extends StatelessWidget {
                         children: [
                           Text.rich(
                             TextSpan(
-                                text: 'Goal Setting ',
-                                style: context.styles.regularSmall,
-                                children: [
-                                  TextSpan(
-                                      text:
-                                          '${isPositive ? '+' : ''}${(mod * 100).round()}%',
-                                      style: context.styles.numsS)
-                                ]),
+                              text: 'Goal Setting ',
+                              style: context.styles.regularSmall,
+                              children: [
+                                TextSpan(
+                                  text:
+                                      '${isPositive ? '+' : ''}${(mod * 100).round()}%',
+                                  style: context.styles.numsS,
+                                ),
+                              ],
+                            ),
                           ),
                           Expanded(
                             child: _SimpleBarChart(
-                                xValue: kcal.toDouble(),
-                                yValue: day.weekTdeeAverage),
+                              xValue: kcal.toDouble(),
+                              yValue: day.weekTdeeAverage,
+                            ),
                           ),
                         ],
                       ),
@@ -66,7 +67,7 @@ class _CaloriesWidget extends StatelessWidget {
                                 FittedBox(
                                   fit: BoxFit.fitWidth,
                                   child: Text(
-                                    'Today\'s consumption goal',
+                                    "Today's consumption goal",
                                     style: context.styles.regularSmall
                                         .copyWith(fontSize: 13),
                                   ),
@@ -76,7 +77,7 @@ class _CaloriesWidget extends StatelessWidget {
                                   '${kcal.comaThisNumber()} kcal',
                                   style: context.styles.numsM
                                       .copyWith(color: RishColors.primary),
-                                )
+                                ),
                               ],
                             ),
                           ),
@@ -103,14 +104,14 @@ class _CaloriesWidget extends StatelessWidget {
                                   '${day.weekTdeeAverage.round().comaThisNumber()} kcal',
                                   style: context.styles.numsM
                                       .copyWith(color: RishColors.protein),
-                                )
+                                ),
                               ],
                             ),
                           ),
                         ),
                       ],
                     ),
-                  )
+                  ),
                 ],
               ),
             );
@@ -122,14 +123,12 @@ class _CaloriesWidget extends StatelessWidget {
 }
 
 class _SimpleBarChart extends StatelessWidget {
-  final double xValue;
-  final double yValue;
-
   const _SimpleBarChart({
-    super.key,
     required this.xValue,
     required this.yValue,
   });
+  final double xValue;
+  final double yValue;
 
   @override
   Widget build(BuildContext context) {

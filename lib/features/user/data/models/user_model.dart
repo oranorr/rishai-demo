@@ -49,18 +49,19 @@ class UserModel extends Equatable {
     String? adaptyId,
   }) {
     return UserModel(
-        directusId: directusId ?? this.directusId,
-        whoopId: whoopId ?? this.whoopId,
-        email: email ?? this.email,
-        name: name ?? this.name,
-        age: age ?? this.age,
-        gender: gender ?? this.gender,
-        userGoal: userGoal ?? this.userGoal,
-        foodPreferences: foodPreferences ?? this.foodPreferences,
-        bodyMeasurementsEntity:
-            bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
-        daysIds: daysIds ?? this.daysIds,
-        adaptyId: adaptyId ?? this.adaptyId);
+      directusId: directusId ?? this.directusId,
+      whoopId: whoopId ?? this.whoopId,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      userGoal: userGoal ?? this.userGoal,
+      foodPreferences: foodPreferences ?? this.foodPreferences,
+      bodyMeasurementsEntity:
+          bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
+      daysIds: daysIds ?? this.daysIds,
+      adaptyId: adaptyId ?? this.adaptyId,
+    );
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -78,7 +79,8 @@ class UserModel extends Equatable {
       bodyMeasurementsEntity:
           map['bodyMeasurements'] != null && map['bodyMeasurements']!.isNotEmpty
               ? BodyMeasurementsEntity.fromMap(
-                  map['bodyMeasurements'] as Map<String, dynamic>)
+                  map['bodyMeasurements'] as Map<String, dynamic>,
+                )
               : null,
       age: map['age'],
       gender: map['gender'],

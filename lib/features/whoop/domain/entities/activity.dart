@@ -6,10 +6,12 @@ enum Activity {
 }
 
 Activity getActivity(int activityId) {
-  return data.entries.firstWhere((element) => element.key == activityId,
-      orElse: () {
-    return data.entries.elementAt(1);
-  }).value;
+  return data.entries.firstWhere(
+    (element) => element.key == activityId,
+    orElse: () {
+      return data.entries.elementAt(1);
+    },
+  ).value;
 }
 
 Map<int, Activity> data = {

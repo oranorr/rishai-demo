@@ -8,7 +8,6 @@ class RishSnackbar {
     final snackBar = SnackBar(
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           const Text(
             'Error!',
@@ -27,14 +26,15 @@ class RishSnackbar {
               fontWeight: FontWeight.w400,
               fontSize: 16,
             ),
-          )
+          ),
         ],
       ),
       padding: const EdgeInsets.all(25),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-          side: const BorderSide(width: 1, color: Color(0xffED544E)),
-          borderRadius: BorderRadius.circular(20)),
+        side: const BorderSide(color: Color(0xffED544E)),
+        borderRadius: BorderRadius.circular(20),
+      ),
       backgroundColor: const Color(0xff060327),
       duration: const Duration(seconds: 3),
     );

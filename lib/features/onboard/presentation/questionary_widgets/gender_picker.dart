@@ -5,8 +5,8 @@ class GenderPicker extends StatefulWidget {
   final VoidCallback setGender;
 
   const GenderPicker({
-    super.key,
     required this.setGender,
+    super.key,
   });
 
   @override
@@ -33,8 +33,8 @@ class _GenderPickerState extends State<GenderPicker> {
   List<String> titles = [
     'Male',
     'Female',
-    "Non-Binary",
-    'Prefer not to choose'
+    'Non-Binary',
+    'Prefer not to choose',
   ];
 
   @override
@@ -74,7 +74,7 @@ class _GenderPickerState extends State<GenderPicker> {
                 titles[i],
                 style: context.styles.boldLarge,
                 textAlign: TextAlign.center,
-              )
+              ),
             ],
           ),
         );

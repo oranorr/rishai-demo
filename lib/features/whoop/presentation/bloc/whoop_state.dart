@@ -7,9 +7,9 @@ part 'whoop_state.freezed.dart';
 @freezed
 sealed class WhoopState with _$WhoopState {
   const factory WhoopState.main({
-    required final Status status,
-    required final DayEntity day,
-    required final bool whoopConnected,
-    final DateTime? calibratingCompleteDate,
+    required Status status,
+    required DayEntity day,
+    required bool whoopConnected,
+    DateTime? calibratingCompleteDate,
   }) = WhoopMainState;
 }

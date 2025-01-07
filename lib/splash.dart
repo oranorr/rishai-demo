@@ -8,7 +8,7 @@ import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
-  void initStuff() async {
+  Future<void> initStuff() async {
     Future.delayed(Durations.medium2, () async {
       userBloc.add(CheckForSavedUser());
     });
@@ -22,7 +22,6 @@ class SplashScreen extends StatelessWidget {
       needsBottomPadding: false,
       child: Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -36,7 +35,7 @@ class SplashScreen extends StatelessWidget {
             const RishCPI(),
             SizedBox(
               height: 36.w,
-            )
+            ),
           ],
         ),
       ),

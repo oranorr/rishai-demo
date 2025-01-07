@@ -1,11 +1,11 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
-import 'package:rishai/features/settings/presentation/settings_pages/legal_page.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
+import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
+import 'package:rishai/features/settings/presentation/settings_pages/legal_page.dart';
 
 class OtherSettings extends StatelessWidget {
   const OtherSettings({super.key});
@@ -30,8 +30,8 @@ class OtherSettings extends StatelessWidget {
         },
         itemBuilder: (context, index) {
           return GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
+            onTap: () async {
+              await Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (BuildContext context) => LegalPage(
                     entity: data[index],
@@ -46,7 +46,8 @@ class OtherSettings extends StatelessWidget {
                   Text(
                     data[index].title,
                     style: context.styles.regularLarge.copyWith(
-                        color: index == 5 ? RishColors.primary : null),
+                      color: index == 5 ? RishColors.primary : null,
+                    ),
                   ),
                   const Spacer(),
                   const RotatedBox(
@@ -55,7 +56,7 @@ class OtherSettings extends StatelessWidget {
                       Icons.arrow_back_ios,
                       color: RishColors.textSecondary,
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -70,9 +71,10 @@ class OtherSettings extends StatelessWidget {
 
 List<OtherEntity> data = [
   OtherEntity(
-      title: 'Terms of Service',
-      body: LegalTextsRepo().tos,
-      type: OtherType.tos),
+    title: 'Terms of Service',
+    body: LegalTextsRepo().tos,
+    type: OtherType.tos,
+  ),
   OtherEntity(
     title: 'Privacy Policy',
     body: LegalTextsRepo().pp,
@@ -89,9 +91,10 @@ List<OtherEntity> data = [
     type: OtherType.ref,
   ),
   OtherEntity(
-      title: 'Help & Support',
-      body: LegalTextsRepo().help,
-      type: OtherType.help),
+    title: 'Help & Support',
+    body: LegalTextsRepo().help,
+    type: OtherType.help,
+  ),
   OtherEntity(
     title: 'COMING SOON FEATURES',
     body: LegalTextsRepo().comingSoon,

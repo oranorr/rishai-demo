@@ -16,7 +16,6 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         Text(
           'Settings',
@@ -25,8 +24,8 @@ class SettingsPage extends StatelessWidget {
         SizedBox(height: 24.h),
         for (int i = 0; i < firstTilesData.length; i++)
           ListTile(
-            onTap: () {
-              context.push(firstTilesData[i]['path']);
+            onTap: () async {
+              await context.push(firstTilesData[i]['path']);
             },
             leading: SvgPicture.asset(firstTilesData[i]['asset']),
             title: Text(
@@ -44,8 +43,8 @@ class SettingsPage extends StatelessWidget {
         ),
         for (int i = 0; i < lastTilesData.length; i++)
           ListTile(
-            onTap: () {
-              RishiDialog.showCustomDialog(
+            onTap: () async {
+              await RishiDialog.showCustomDialog(
                 context,
                 type: DialogType.actionful,
                 actionDialogType: i == 0
@@ -77,22 +76,22 @@ final List<Map<String, dynamic>> firstTilesData = [
   {
     'asset': 'assets/icons/user.svg',
     'label': 'Profile',
-    'path': AppRoutes.profileSettings.path
+    'path': AppRoutes.profileSettings.path,
   },
   {
     'asset': 'assets/icons/connection.svg',
     'label': 'Connection',
-    'path': AppRoutes.connectionSettings.path
+    'path': AppRoutes.connectionSettings.path,
   },
   {
     'asset': 'assets/icons/notifications.svg',
     'label': 'Notification',
-    'path': AppRoutes.notificationsSettings.path
+    'path': AppRoutes.notificationsSettings.path,
   },
   {
     'asset': 'assets/icons/info.svg',
     'label': 'Other',
-    'path': AppRoutes.otherSettings.path
+    'path': AppRoutes.otherSettings.path,
   },
 ];
 

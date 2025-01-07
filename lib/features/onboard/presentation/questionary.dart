@@ -42,7 +42,9 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
       SexPicker(setGender: setSex, needsLightBack: false),
       AgeWidget(setAge: setAge),
       SelectableList(
-          data: QuestionaryRepository().diets, setSomething: setDiets),
+        data: QuestionaryRepository().diets,
+        setSomething: setDiets,
+      ),
       SelectableList(
         data: QuestionaryRepository().cuisines,
         setSomething: setCuisines,
@@ -54,55 +56,56 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
     ];
 
     return RishScaffold(
-        needsAppBar: false,
-        child: Column(
-          children: [
-            SizedBox(height: 60.h),
-            Expanded(
-              child: PageView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                onPageChanged: (value) {
-                  resolveType(value);
-                },
-                controller: pageController,
-                itemCount: data.length,
-                itemBuilder: (context, index) {
-                  return SizedBox(
-                    height: 540.h,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data[index].title,
-                          style: context.styles.h3,
-                        ),
-                        SizedBox(height: 4.h),
-                        Text(
-                          data[index].subtitle,
-                          style: context.styles.regularLarge
-                              .copyWith(color: const Color(0xffA8A8A8)),
-                        ),
-                        SizedBox(height: 24.h),
-                        bodies[index],
-                        // const Spacer(),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            BlocBuilder<WhoopBloc, WhoopState>(
-              bloc: whoopBloc,
-              builder: (context, state) {
-                return RishButton.primary(
-                  title: isLastPage ? 'Save' : 'Continue',
-                  enabled: buttonEnabled,
-                  isLoading: state.status == Status.loading,
-                  action: buttonAction,
+      needsAppBar: false,
+      child: Column(
+        children: [
+          SizedBox(height: 60.h),
+          Expanded(
+            child: PageView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              onPageChanged: (value) {
+                resolveType(value);
+              },
+              controller: pageController,
+              itemCount: data.length,
+              itemBuilder: (context, index) {
+                return SizedBox(
+                  height: 540.h,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data[index].title,
+                        style: context.styles.h3,
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        data[index].subtitle,
+                        style: context.styles.regularLarge
+                            .copyWith(color: const Color(0xffA8A8A8)),
+                      ),
+                      SizedBox(height: 24.h),
+                      bodies[index],
+                      // const Spacer(),
+                    ],
+                  ),
                 );
               },
             ),
-          ],
-        ));
+          ),
+          BlocBuilder<WhoopBloc, WhoopState>(
+            bloc: whoopBloc,
+            builder: (context, state) {
+              return RishButton.primary(
+                title: isLastPage ? 'Save' : 'Continue',
+                enabled: buttonEnabled,
+                isLoading: state.status == Status.loading,
+                action: buttonAction,
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

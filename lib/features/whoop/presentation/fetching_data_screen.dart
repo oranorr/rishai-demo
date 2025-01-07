@@ -9,22 +9,22 @@ class Redirect extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
-        implyLeading: false,
-        needsAppBar: false,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(),
-              SizedBox(height: 50.h),
-              Text(
-                'Please stand by, fetching WHOOP data\n\nDon\'t close the app',
-                style: context.styles.h2,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ));
+      implyLeading: false,
+      needsAppBar: false,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            SizedBox(height: 50.h),
+            Text(
+              "Please stand by, fetching WHOOP data\n\nDon't close the app",
+              style: context.styles.h2,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

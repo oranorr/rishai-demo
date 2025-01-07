@@ -133,7 +133,7 @@ class HiveImpl implements HiveRepo {
       int indexOfLast = 0;
       final listEntities = userDataBox.values.toList();
 
-      for (var data in listEntities) {
+      for (final data in listEntities) {
         if (data.userId == dataEntity.userId) {
           indexOfLast = listEntities.indexOf(data);
           break;
@@ -157,7 +157,7 @@ class HiveImpl implements HiveRepo {
     UserDataEntity? last;
     final listEntities = userDataBox.values.toList().reversed;
 
-    for (var data in listEntities) {
+    for (final data in listEntities) {
       if (data.userId == userId) {
         last = data;
       }

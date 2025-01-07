@@ -79,16 +79,20 @@ class _EnterOtpState extends State<EnterOtp> {
               SizedBox(
                 height: 4.h,
               ),
-              Text.rich(TextSpan(
+              Text.rich(
+                TextSpan(
                   text: 'We sent 4-digit code to ',
                   style: context.styles.regularLarge
                       .copyWith(color: RishColors.textSecondary),
                   children: [
                     TextSpan(
-                        text: state.loginEntity!.email,
-                        style: context.styles.regularLarge
-                            .copyWith(color: RishColors.textSecondary))
-                  ])),
+                      text: state.loginEntity!.email,
+                      style: context.styles.regularLarge
+                          .copyWith(color: RishColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
               SizedBox(
                 height: 24.h,
               ),

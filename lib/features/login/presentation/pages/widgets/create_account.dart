@@ -1,21 +1,20 @@
 part of '../login_screen.dart';
 
 class CreateAccountPage extends StatelessWidget {
+  const CreateAccountPage({
+    required GlobalKey<FormState> formKey,
+    required this.nameController,
+    required this.emailController,
+    required this.tabController,
+    required this.buttonAction,
+    super.key,
+  }) : _formKey = formKey;
   final GlobalKey<FormState> _formKey;
   final TextEditingController nameController;
   final TextEditingController emailController;
 
   final TabController tabController;
   final VoidCallback buttonAction;
-
-  const CreateAccountPage({
-    super.key,
-    required GlobalKey<FormState> formKey,
-    required this.nameController,
-    required this.emailController,
-    required this.tabController,
-    required this.buttonAction,
-  }) : _formKey = formKey;
 
   @override
   Widget build(BuildContext context) {
@@ -52,16 +51,16 @@ class CreateAccountPage extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RishTextField(
-                    controller: nameController,
-                    state: RishTextInputState.enabled,
-                    needsCounter: false,
-                    maxLines: 1,
-                    maxLength: 20,
-                    keyboardType: TextInputType.name,
-                    onChanged: (t) {},
-                    labelText: 'Name',
-                    hintText: '-',
-                    validator: _validateName),
+                  controller: nameController,
+                  state: RishTextInputState.enabled,
+                  needsCounter: false,
+                  maxLength: 20,
+                  keyboardType: TextInputType.name,
+                  onChanged: (t) {},
+                  labelText: 'Name',
+                  hintText: '-',
+                  validator: _validateName,
+                ),
                 // SizedBox(
                 //   height: 20.h,
                 // ),
@@ -69,7 +68,6 @@ class CreateAccountPage extends StatelessWidget {
                   controller: emailController,
                   state: RishTextInputState.enabled,
                   needsCounter: false,
-                  maxLines: 1,
                   keyboardType: TextInputType.emailAddress,
                   onChanged: (t) {},
                   labelText: 'Email',

@@ -73,7 +73,7 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
                       prefsRepo.setNotifcationTime(null);
                     }
                     notesAreOn = v;
-                    buttonEnabled = v ? _isTimeChanged() : false;
+                    buttonEnabled = v && _isTimeChanged();
                   });
                   if (!v) {
                     await notes.cancelNotifications();
@@ -105,13 +105,13 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
                     onTap: () async {
                       await _selectTime(context);
                     },
-                    child: Container(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
                         border: Border.all(color: RishColors.stroke),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(16),
                         child: Row(
                           children: [
                             Text(
@@ -124,7 +124,7 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
                             const Icon(
                               Icons.more_time_rounded,
                               color: RishColors.textSecondary,
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -143,7 +143,7 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
               await notes.scheduleNotification(selectedTime);
               String formattedTime =
                   "${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}";
-              prefsRepo.setNotifcationTime(formattedTime);
+              await prefsRepo.setNotifcationTime(formattedTime);
               setState(() {
                 savedTime = formattedTime;
                 buttonEnabled = false;
@@ -157,7 +157,9 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
 
   // Проверка, изменилось ли время
   bool _isTimeChanged() {
-    if (savedTime == null) return true;
+    if (savedTime == null) {
+      return true;
+    }
     List<String> timeParts = savedTime!.split(':');
     int savedHour = int.parse(timeParts[0]);
     int savedMinute = int.parse(timeParts[1]);
@@ -191,7 +193,9 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
   // Форматирование TimeOfDay
   String _formatTimeOfDay(TimeOfDay timeOfDay) {
     final localizations = MaterialLocalizations.of(context);
-    return localizations.formatTimeOfDay(timeOfDay,
-        alwaysUse24HourFormat: true);
+    return localizations.formatTimeOfDay(
+      timeOfDay,
+      alwaysUse24HourFormat: true,
+    );
   }
 }

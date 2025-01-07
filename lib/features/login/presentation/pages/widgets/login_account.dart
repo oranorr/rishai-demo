@@ -1,17 +1,17 @@
 part of '../login_screen.dart';
 
 class LoginPage extends StatelessWidget {
-  final TabController tabController;
-  final VoidCallback buttonAction;
-  final TextEditingController emailController;
-  final GlobalKey<FormState> formKey;
   const LoginPage({
-    super.key,
     required this.tabController,
     required this.buttonAction,
     required this.emailController,
     required this.formKey,
+    super.key,
   });
+  final TabController tabController;
+  final VoidCallback buttonAction;
+  final TextEditingController emailController;
+  final GlobalKey<FormState> formKey;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +47,6 @@ class LoginPage extends StatelessWidget {
               controller: emailController,
               state: RishTextInputState.enabled,
               needsCounter: false,
-              maxLines: 1,
               keyboardType: TextInputType.emailAddress,
               onChanged: (t) {},
               labelText: 'Email',
@@ -69,7 +68,7 @@ class LoginPage extends StatelessWidget {
             alignment: Alignment.bottomCenter,
             child: RichText(
               text: TextSpan(
-                text: 'Don\'t have one? ',
+                text: "Don't have one? ",
                 style: context.styles.regularLarge.copyWith(
                   color: RishColors.textSecondary,
                 ),

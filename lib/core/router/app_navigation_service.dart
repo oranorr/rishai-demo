@@ -23,100 +23,126 @@ final appNavigationService = getIt<AppNavigationService>();
 
 @LazySingleton()
 class AppNavigationService {
-  final NavigatorKeyProvider _navigatorKeyProvider;
-
   const AppNavigationService(this._navigatorKeyProvider);
+  final NavigatorKeyProvider _navigatorKeyProvider;
   static BuildContext? get ctx =>
       appNavigationService.config.routerDelegate.navigatorKey.currentContext;
 
   GoRouter get config => GoRouter(
         navigatorKey: _navigatorKeyProvider.rootNavigatorKey,
         initialLocation: AppRoutes.splah.path,
-        debugLogDiagnostics: false,
         routes: [
           GoRoute(
             name: AppRoutes.login.name,
             path: AppRoutes.login.path,
-            pageBuilder: (_, __) => _buildPageWithDefaultTransition(
-                state: __, child: const LoginScreen()),
+            pageBuilder: (_, state) => _buildPageWithDefaultTransition(
+              state: state,
+              child: const LoginScreen(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.enterOtp.name,
             path: AppRoutes.enterOtp.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const EnterOtp()),
+              state: state,
+              child: const EnterOtp(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.homeScreen.name,
             path: AppRoutes.homeScreen.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const HomeScreen()),
+              state: state,
+              child: const HomeScreen(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.onboard.name,
             path: AppRoutes.onboard.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const Onboard()),
+              state: state,
+              child: const Onboard(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.whoopConnect.name,
             path: AppRoutes.whoopConnect.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const WhoopConnectPage()),
+              state: state,
+              child: const WhoopConnectPage(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.redirect.name,
             path: AppRoutes.redirect.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const Redirect()),
+              state: state,
+              child: const Redirect(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.questionary.name,
             path: AppRoutes.questionary.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const Questionary()),
+              state: state,
+              child: const Questionary(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.profileSettings.name,
             path: AppRoutes.profileSettings.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const ProfileSettings()),
+              state: state,
+              child: const ProfileSettings(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.connectionSettings.name,
             path: AppRoutes.connectionSettings.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const ConnectionSettings()),
+              state: state,
+              child: const ConnectionSettings(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.notificationsSettings.name,
             path: AppRoutes.notificationsSettings.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const NotificationsSettings()),
+              state: state,
+              child: const NotificationsSettings(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.otherSettings.name,
             path: AppRoutes.otherSettings.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const OtherSettings()),
+              state: state,
+              child: const OtherSettings(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.splah.name,
             path: AppRoutes.splah.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const SplashScreen()),
+              state: state,
+              child: const SplashScreen(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.calibratingScreen.name,
             path: AppRoutes.calibratingScreen.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const CalibratingScreen()),
+              state: state,
+              child: const CalibratingScreen(),
+            ),
           ),
           GoRoute(
             name: AppRoutes.paywall.name,
             path: AppRoutes.paywall.path,
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
-                state: state, child: const Paywall()),
+              state: state,
+              child: const Paywall(),
+            ),
           ),
         ],
       );
@@ -129,8 +155,8 @@ class AppNavigationService {
     ctx!.pop(path);
   }
 
-  void push({required String path, Object? state}) {
-    ctx!.push(path);
+  Future<void> push({required String path, Object? state}) async {
+    await ctx!.push(path);
   }
 
   String get currentPath =>

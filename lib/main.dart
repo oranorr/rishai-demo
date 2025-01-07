@@ -21,7 +21,7 @@ void main() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await Firebase.initializeApp();
   await configureDependencies();
-  await dotenv.load(fileName: ".env");
+  await dotenv.load();
   await adapty.initAdapty();
   await hive.initHive();
   await prefsRepo.init();

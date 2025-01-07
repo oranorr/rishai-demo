@@ -6,10 +6,12 @@ import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 
 abstract interface class ChatRepository {
   Future<void> saveChatSnapShot({required ChatSnapshotEntity chatSnap});
-  Future<Either<Failure, MealPlanEntity>> requestMealPlan(
-      {required RequestPlanParams params});
+  Future<Either<Failure, MealPlanEntity>> requestMealPlan({
+    required RequestPlanParams params,
+  });
   Future<Either<Failure, void>> initGpt(String? threadId);
   Future<Either<Failure, String>> sendMessage(String userMessage);
-  Future<Either<Failure, ChatSnapshotEntity?>> fetchSavedSnap(
-      {required String directusId});
+  Future<Either<Failure, ChatSnapshotEntity?>> fetchSavedSnap({
+    required String directusId,
+  });
 }

@@ -9,9 +9,8 @@ import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
 
 @injectable
 class WhoopGetDataUsecase implements UseCase<WhoopDataEntity, GetDataParams> {
-  final WhoopRepository whoopRepository;
-
   const WhoopGetDataUsecase(this.whoopRepository);
+  final WhoopRepository whoopRepository;
 
   @override
   Future<Either<Failure, WhoopDataEntity>> call(GetDataParams params) async {
@@ -20,12 +19,12 @@ class WhoopGetDataUsecase implements UseCase<WhoopDataEntity, GetDataParams> {
 }
 
 class GetDataParams {
-  final Gender gender;
-  final UserGoal goal;
-  final String userId;
   GetDataParams({
     required this.gender,
     required this.goal,
     required this.userId,
   });
+  final Gender gender;
+  final UserGoal goal;
+  final String userId;
 }

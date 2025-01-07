@@ -11,6 +11,34 @@ part 'text_input_state.dart';
 typedef OnEditText = void Function(String? value);
 
 class RishTextField extends StatelessWidget {
+  // final FormFieldValidator(String v) validator;
+
+  const RishTextField({
+    required this.state,
+    required this.needsCounter,
+    required this.onChanged,
+    super.key,
+    this.borderColor,
+    this.validator,
+    this.maxLengthEnforcement,
+    this.maxLines = 1,
+    this.onSubmitted,
+    this.errorText,
+    this.maxLength,
+    this.focusNode,
+    this.hintText,
+    this.controller,
+    this.suffixIcon,
+    this.textStyle,
+    this.contentPadding,
+    this.fillColor,
+    this.keyboardType,
+    this.textAlign,
+    this.labelText,
+    this.height,
+    this.needsErrorText,
+    this.formatters,
+  });
   final RishTextInputState state;
   final int? maxLines;
   final bool needsCounter;
@@ -34,39 +62,17 @@ class RishTextField extends StatelessWidget {
   final bool? needsErrorText;
   final String? Function(String?)? validator;
   final MaxLengthEnforcement? maxLengthEnforcement;
-  // final FormFieldValidator(String v) validator;
-
-  const RishTextField(
-      {super.key,
-      required this.state,
-      required this.needsCounter,
-      required this.onChanged,
-      this.borderColor,
-      this.validator,
-      this.maxLengthEnforcement,
-      this.maxLines = 1,
-      this.onSubmitted,
-      this.errorText,
-      this.maxLength,
-      this.focusNode,
-      this.hintText,
-      this.controller,
-      this.suffixIcon,
-      this.textStyle,
-      this.contentPadding,
-      this.fillColor,
-      this.keyboardType,
-      this.textAlign,
-      this.labelText,
-      this.height,
-      this.needsErrorText,
-      this.formatters});
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
     final inputTheme = theme.inputDecorationTheme;
-    bool needsBottomPadding = maxLines! > 1 ? true : false;
+    bool needsBottomPadding;
+    if (maxLines! > 1) {
+      needsBottomPadding = true;
+    } else {
+      needsBottomPadding = false;
+    }
 
     return Theme(
       data: theme.copyWith(inputDecorationTheme: state.resolve(inputTheme)),
@@ -109,9 +115,9 @@ class RishTextField extends StatelessWidget {
                 filled: fillColor != null,
                 fillColor: fillColor,
                 contentPadding: EdgeInsets.only(
-                    top: 0,
-                    left: textAlign == TextAlign.center ? 0 : 16,
-                    bottom: needsBottomPadding ? 40 : 0),
+                  left: textAlign == TextAlign.center ? 0 : 16,
+                  bottom: needsBottomPadding ? 40 : 0,
+                ),
                 hintText: hintText,
                 hintStyle: context.styles.regularMedium
                     .copyWith(color: RishColors.textSecondary),
@@ -127,7 +133,7 @@ class RishTextField extends StatelessWidget {
                     : const TextStyle(height: 0),
               ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -137,7 +143,9 @@ class RishTextField extends StatelessWidget {
 class NoSpaceFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     // Check if the new value contains any spaces
     if (newValue.text.contains(' ')) {
       // If it does, return the old value

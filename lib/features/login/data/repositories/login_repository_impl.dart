@@ -15,10 +15,10 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 
 @Singleton(as: LoginRepository)
 class LoginRepositoryImpl implements LoginRepository {
-  final LoginRemoteDataSource _remoteDataSource;
   // final LoginLocalDataSource _localDataSource;
 
   const LoginRepositoryImpl(this._remoteDataSource);
+  final LoginRemoteDataSource _remoteDataSource;
 
   @override
   Future<Either<Failure, UserEntity>> loginViaGoogle() async {
@@ -27,8 +27,11 @@ class LoginRepositoryImpl implements LoginRepository {
       final gUser = await _remoteDataSource.authorizeViaGoogle();
 
       if (gUser == null) {
-        return const Left(FailureNoGoogleUser(
-            'Google authentication failed. You may have cancelled login.'));
+        return const Left(
+          FailureNoGoogleUser(
+            'Google authentication failed. You may have cancelled login.',
+          ),
+        );
       }
 
       final res = await directus.readMany(
@@ -54,20 +57,23 @@ class LoginRepositoryImpl implements LoginRepository {
 
   @override
   Future<Either<Failure, UserEntity>> createNewUser(
-      CreateNewUserParams params) async {
+    CreateNewUserParams params,
+  ) async {
     try {
       final res = await directus.readMany(
-          collection: usersCollection,
-          filters: Filters({'email': F.eq(params.email)}));
+        collection: usersCollection,
+        filters: Filters({'email': F.eq(params.email)}),
+      );
 
       if (res.isEmpty) {
         final raw = await directus.createOne(
-            collection: usersCollection,
-            data: {
-              'name': params.name,
-              'email': params.email,
-              'code': params.code
-            });
+          collection: usersCollection,
+          data: {
+            'name': params.name,
+            'email': params.email,
+            'code': params.code,
+          },
+        );
         return Right(UserModel.fromMap(raw).toEntity());
       } else {
         return const Left(FailureUserAlreadyExists());
@@ -80,27 +86,30 @@ class LoginRepositoryImpl implements LoginRepository {
 
   @override
   Future<Either<Failure, UserEntity>> loginViaEmail(
-      LoginViaEmailParams params) async {
+    LoginViaEmailParams params,
+  ) async {
     try {
       final res = await directus.readMany(
-          collection: usersCollection,
-          filters: Filters({'email': F.eq(params.loginInfoEntity.email)}));
+        collection: usersCollection,
+        filters: Filters({'email': F.eq(params.loginInfoEntity.email)}),
+      );
 
       if (res.isEmpty) {
         return const Left(FailureNoUserWithEmail());
       } else {
         final rawUpd = await directus.updateOne(
-            collection: usersCollection,
-            itemId: res.first['id'].toString(),
-            updateData: {
-              'email': params.loginInfoEntity.email,
-              'code': params.loginInfoEntity.verificationCode,
-              'name': res.first['name']
-            });
+          collection: usersCollection,
+          itemId: res.first['id'].toString(),
+          updateData: {
+            'email': params.loginInfoEntity.email,
+            'code': params.loginInfoEntity.verificationCode,
+            'name': res.first['name'],
+          },
+        );
 
         return Right(UserModel.fromMap(rawUpd).toEntity());
       }
-    } catch (e) {
+    } on Exception catch (e) {
       log(e.toString());
       return const Left(FailureDirectus());
     }
@@ -113,8 +122,11 @@ class LoginRepositoryImpl implements LoginRepository {
       final aUser = await _remoteDataSource.authorizeViaApple();
 
       if (aUser == null) {
-        return const Left(FailureNoAppleUser(
-            'Apple authentication failed. You may have cancelled login.'));
+        return const Left(
+          FailureNoAppleUser(
+            'Apple authentication failed. You may have cancelled login.',
+          ),
+        );
       }
 
       log(aUser.email.toString());

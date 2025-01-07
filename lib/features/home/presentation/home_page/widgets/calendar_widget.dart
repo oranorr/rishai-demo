@@ -2,7 +2,6 @@ part of '../home_page.dart';
 
 class _CalendarWidget extends StatelessWidget {
   const _CalendarWidget({
-    super.key,
     required this.widget,
   });
 
@@ -16,9 +15,9 @@ class _CalendarWidget extends StatelessWidget {
         children: [
           SizedBox(width: 1.w),
           GestureDetector(
-            onTap: () {
+            onTap: () async {
               // print(widget.homePageController.page);
-              widget.homePageController
+              await widget.homePageController
                   .nextPage(duration: Durations.medium1, curve: Curves.ease);
             },
             child: widget.isLoading
@@ -55,9 +54,11 @@ class _CalendarWidget extends StatelessWidget {
           ),
           // const Spacer(),
           GestureDetector(
-            onTap: () {
-              widget.homePageController.previousPage(
-                  duration: Durations.medium1, curve: Curves.ease);
+            onTap: () async {
+              await widget.homePageController.previousPage(
+                duration: Durations.medium1,
+                curve: Curves.ease,
+              );
             },
             child: widget.isFirstPage
                 ? const SizedBox.square(dimension: 25)

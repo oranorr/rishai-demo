@@ -7,9 +7,8 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 
 @injectable
 class LoginViaAppleUsecase implements UseCase<UserEntity, NoParams> {
-  final LoginRepository _loginRepository;
-
   const LoginViaAppleUsecase(this._loginRepository);
+  final LoginRepository _loginRepository;
 
   @override
   Future<Either<Failure, UserEntity>> call(NoParams params) async {

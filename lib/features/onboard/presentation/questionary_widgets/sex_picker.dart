@@ -5,8 +5,8 @@ class SexPicker extends StatefulWidget {
   final Function(Gender) setGender;
   final bool? needsLightBack;
   const SexPicker({
-    super.key,
     required this.setGender,
+    super.key,
     this.needsLightBack,
   });
 
@@ -53,14 +53,15 @@ class _SexPickerState extends State<SexPicker> {
                       ),
                       child: Center(
                         child: SvgPicture.asset(
-                            'assets/images/${i == 0 ? 'male_sign' : 'female_sign'}.svg'),
+                          'assets/images/${i == 0 ? 'male_sign' : 'female_sign'}.svg',
+                        ),
                       ),
                     ),
                     SizedBox(height: 12.h),
                     Text(
                       i == 0 ? 'Male' : 'Female',
                       style: context.styles.boldLarge,
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -80,7 +81,7 @@ We ask for your sex assigned at birth because some of Pivot’s calculations, su
 We understand that gender identity is personal, and we aim to be respectful and inclusive. Your information will only be used for accurate recommendations and will be kept confidential.
 ''',
             style: context.styles.regularMedium,
-          )
+          ),
         ],
       ],
     );

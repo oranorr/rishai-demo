@@ -20,9 +20,10 @@ class CalibratingScreen extends StatefulWidget {
 
 class _CalibratingScreenState extends State<CalibratingScreen> {
   late Timer _timer;
-  double _progress = 1.0;
+  double _progress = 1;
   late DateTime target;
   Duration _remainingTime = const Duration();
+
   @override
   void initState() {
     target = whoopBloc.state.calibratingCompleteDate!;
@@ -36,7 +37,7 @@ class _CalibratingScreenState extends State<CalibratingScreen> {
     super.dispose();
   }
 
-  void _startTimer() async {
+  void _startTimer() {
     DateTime now = DateTime.now();
     Duration totalDuration = target.difference(now); // Время до конца
 
@@ -44,7 +45,7 @@ class _CalibratingScreenState extends State<CalibratingScreen> {
       // Если время окончания уже прошло
       _remainingTime = Duration.zero;
       _progress = 0.0;
-      await prefsRepo.calibratingDate();
+      prefsRepo.calibratingDate();
       return;
     }
 
@@ -75,8 +76,6 @@ class _CalibratingScreenState extends State<CalibratingScreen> {
         return RishScaffold(
           child: Center(
             child: Column(
-              // mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(height: 100.h),
                 Text(
@@ -97,12 +96,11 @@ class _CalibratingScreenState extends State<CalibratingScreen> {
                         ),
                       ),
                       Align(
-                        alignment: Alignment.center,
                         child: Text(
                           _formatRemainingTime(_remainingTime),
                           style: context.styles.h1,
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -126,14 +124,15 @@ class _CalibratingScreenState extends State<CalibratingScreen> {
       // Показываем дни и оставшиеся часы
       String twoDigits(int n) => n.toString().padLeft(2, '0');
       String hours = twoDigits(
-          duration.inHours.remainder(24)); // Часы без учёта целых дней
+        duration.inHours.remainder(24),
+      ); // Часы без учёта целых дней
       return '${duration.inDays} ${_pluralizeDays(duration.inDays)} and $hours h';
     } else {
       // Если меньше одного дня, показываем только часы и минуты
       String twoDigits(int n) => n.toString().padLeft(2, '0');
       String hours = twoDigits(duration.inHours);
       String minutes = twoDigits(duration.inMinutes.remainder(60));
-      return "$hours:$minutes";
+      return '$hours:$minutes';
     }
   }
 

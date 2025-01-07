@@ -34,16 +34,17 @@ class WhoopDataEntity {
       'weekTdeeAverage': weekTdeeAverage,
       'macros': macros.toMap(),
       'askTime': askTime.millisecondsSinceEpoch,
-      'lastTdee': lastTdee
+      'lastTdee': lastTdee,
     };
   }
 
   factory WhoopDataEntity.fromMap(Map<String, dynamic> map) {
     return WhoopDataEntity(
-        weekTdeeAverage: map['weekTdeeAverage'] as double,
-        macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
-        askTime: DateTime.fromMillisecondsSinceEpoch(map['askTime'] as int),
-        lastTdee: map['lastTdee']);
+      weekTdeeAverage: map['weekTdeeAverage'] as double,
+      macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
+      askTime: DateTime.fromMillisecondsSinceEpoch(map['askTime'] as int),
+      lastTdee: map['lastTdee'],
+    );
   }
 
   String toJson() => json.encode(toMap());

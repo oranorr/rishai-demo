@@ -38,7 +38,7 @@ import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_
     as _i467;
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart'
     as _i831;
-import 'package:rishai/features/chat/domain/usecases/fetch_savedSnap_usecase.dart'
+import 'package:rishai/features/chat/domain/usecases/fetch_saved_snap_usecase.dart'
     as _i222;
 import 'package:rishai/features/chat/domain/usecases/init_gpt_usecase.dart'
     as _i241;
@@ -94,7 +94,7 @@ import 'package:rishai/features/whoop/data/repository/whoop_repository_impl.dart
     as _i907;
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart'
     as _i897;
-import 'package:rishai/features/whoop/domain/usecases/change_modificatorOrSex_usecase.dart'
+import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart'
     as _i741;
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart'
     as _i513;

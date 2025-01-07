@@ -9,7 +9,7 @@ class RemoteDataSourceImpl implements LoginRemoteDataSource {
   Future<User?> authorizeViaGoogle() async {
     try {
       return await firebase.login();
-    } catch (e) {
+    } on Exception catch (__) {
       rethrow;
     }
   }
@@ -18,7 +18,7 @@ class RemoteDataSourceImpl implements LoginRemoteDataSource {
   Future<User?> authorizeViaApple() async {
     try {
       return await firebase.loginViaApple();
-    } catch (e) {
+    } on Exception catch (__) {
       rethrow;
     }
   }

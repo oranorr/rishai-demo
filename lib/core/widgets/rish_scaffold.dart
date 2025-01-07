@@ -6,19 +6,8 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 
 class RishScaffold extends StatelessWidget {
-  final Widget? appBarLabel;
-  final List<Widget>? appBarActions;
-  final bool? implyLeading;
-  final bool? centerChildren;
-  final VoidCallback? leadingAction;
-  final Widget child;
-  final bool? needsAppBar;
-  final Widget? bottomNavigationBar;
-  final bool? centerTitle;
-  final AppBar? appBar;
-  final bool? needsBottomPadding;
-
   const RishScaffold({
+    required this.child,
     super.key,
     this.appBarLabel,
     this.appBarActions,
@@ -30,8 +19,18 @@ class RishScaffold extends StatelessWidget {
     this.centerTitle,
     this.appBar,
     this.needsBottomPadding,
-    required this.child,
   });
+  final Widget? appBarLabel;
+  final List<Widget>? appBarActions;
+  final bool? implyLeading;
+  final bool? centerChildren;
+  final VoidCallback? leadingAction;
+  final Widget child;
+  final bool? needsAppBar;
+  final Widget? bottomNavigationBar;
+  final bool? centerTitle;
+  final AppBar? appBar;
+  final bool? needsBottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +47,7 @@ class RishScaffold extends StatelessWidget {
                 child: appBar ??
                     AppBar(
                       automaticallyImplyLeading: false,
-                      elevation: 0.0,
+                      elevation: 0,
                       backgroundColor: context.theme.colorScheme.surface,
                       centerTitle: centerTitle,
                       leading: implyLeading ?? false
@@ -79,9 +78,10 @@ class RishScaffold extends StatelessWidget {
               )
             : null,
         body: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h)
-                .copyWith(bottom: needsBottomPadding ?? true ? 16.h : 0),
-            child: child),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h)
+              .copyWith(bottom: needsBottomPadding ?? true ? 16.h : 0),
+          child: child,
+        ),
       ),
     );
   }

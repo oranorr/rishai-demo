@@ -5,17 +5,30 @@ part 'user_goal_entity.g.dart';
 
 @HiveType(typeId: 10)
 class UserGoal {
+  UserGoal({
+    required this.goal,
+    required this.modificator,
+    required this.updatedAt,
+  });
+
+  factory UserGoal.fromMap(Map<String, dynamic> map) {
+    return UserGoal(
+      goal: GoalType.values.byName(map['goal']),
+      modificator: map['modificator'].runtimeType == int
+          ? map['modificator'].toDouble()
+          : map['modificator'] as double,
+      updatedAt: DateTime.fromMicrosecondsSinceEpoch(map['updatedAt']),
+    );
+  }
+
+  factory UserGoal.fromJson(String source) =>
+      UserGoal.fromMap(json.decode(source) as Map<String, dynamic>);
   @HiveField(0)
   final GoalType goal;
   @HiveField(1)
   final double modificator;
   @HiveField(2)
   final DateTime updatedAt;
-  UserGoal({
-    required this.goal,
-    required this.modificator,
-    required this.updatedAt,
-  });
 
   UserGoal copyWith({
     GoalType? goal,
@@ -109,8 +122,6 @@ class UserGoal {
         return 'Recomp';
       case GoalType.optimize:
         return 'Optimize me';
-      default:
-        return '';
     }
   }
 
@@ -118,23 +129,11 @@ class UserGoal {
     return <String, dynamic>{
       'goal': goal.name,
       'modificator': modificator,
-      'updatedAt': updatedAt.millisecondsSinceEpoch
+      'updatedAt': updatedAt.millisecondsSinceEpoch,
     };
   }
 
-  factory UserGoal.fromMap(Map<String, dynamic> map) {
-    return UserGoal(
-        goal: GoalType.values.byName(map['goal']),
-        modificator: map['modificator'].runtimeType == int
-            ? map['modificator'].toDouble()
-            : map['modificator'] as double,
-        updatedAt: DateTime.fromMicrosecondsSinceEpoch(map['updatedAt']));
-  }
-
   String toJson() => json.encode(toMap());
-
-  factory UserGoal.fromJson(String source) =>
-      UserGoal.fromMap(json.decode(source) as Map<String, dynamic>);
 }
 
 @HiveType(typeId: 11)

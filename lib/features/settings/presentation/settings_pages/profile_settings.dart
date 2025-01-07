@@ -33,220 +33,228 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
-        implyLeading: !buttonIsActive,
-        needsAppBar: true,
-        centerTitle: true,
-        needsBottomPadding: false,
-        appBarLabel: Text(
-          'Profile',
-          style: context.styles.h2,
-        ),
-        child: ListView(
-          children: [
-            RishDropdownMenu(
-              title: 'Dietary preference',
-              preSelectedData: updUser.foodPreferences!.diets.join(', '),
-              action: planCreated
-                  ? _showDialog
-                  : () {
-                      ModalSheet.showQuestionarySheet(
-                        title: 'Dietary prefrence',
-                        context: context,
-                        data: QuestionaryRepository().diets,
-                        onSave: (List<Question> selectedDiets) {
-                          updateDietary(selectedDiets.cast<Dietary>());
-                        },
-                      );
-                    },
-            ),
-            SizedBox(height: 16.h),
-            RishDropdownMenu(
-              title: 'Cuisine preferences',
-              preSelectedData: updUser.foodPreferences!.cuisines.join(', '),
-              action: planCreated
-                  ? _showDialog
-                  : () {
-                      ModalSheet.showQuestionarySheet(
-                        title: 'Cuisine prefrences',
-                        context: context,
-                        data: QuestionaryRepository().cuisines,
-                        onSave: (List<Question> selectedCuisines) {
-                          updateCuisines(selectedCuisines.cast<Cuisine>());
-                        },
-                      );
-                    },
-            ),
-            SizedBox(height: 16.h),
-            RishDropdownMenu(
-              title: 'Fitness goal',
-              preSelectedData: updUser.userGoal!.getGoalTypeName(),
-              action:
-                  // !kDebugMode
-                  planCreated
-                      ? _showDialog
-                      : () {
-                          ModalSheet.showQuestionarySheet(
-                            title: 'Fitness goal',
-                            context: context,
-                            data: QuestionaryRepository().goals,
-                            onSave: (List<Question> selectedGoal) {
-                              // print(selectedGoal);
-                              updateGoal(selectedGoal.first as FitnessGoal);
-                            },
-                          );
-                        },
-            ),
-            SizedBox(height: 16.h),
-            RishDropdownMenu(
-                title: 'Calorie deficit/surplus %',
-                preSelectedData:
-                    '${(updUser.userGoal!.modificator * 100).round()} %',
-                action: !modificatorChangable
-                    ? () {}
-                    : modificatorChangable && chatBloc.state.mealPlan == null
-                        ? () {
-                            ModificatorSelectorSheet(
-                                    goal: updUser.userGoal!,
-                                    setModificator: (value) {
-                                      changeModificator(value);
-                                    },
-                                    context: context)
-                                .show();
-                            // ModalSheet.showSingleChildSheet(
-                            //   needsButton: false,
-                            //   context: context,
-                            //   title: 'Select Modificator',
-                            //   height: 400.h,
-                            //   child: ModificatorSelector(
-                            //     type: updUser.userGoal!.goal,
-                            //     setModificator: (value) {
-                            //       changeModificator(value);
-                            //     },
-                            //     defaultModificator:
-                            //         updUser.userGoal!.modificator,
-                            //     modificators:
-                            //         updUser.userGoal!.getModificators(),
-                            //     subtitle: updUser.userGoal!.goal ==
-                            //             GoalType.recomp
-                            //         ? 'Your calorie intake will be changing automatically every two weeks'
-                            //         : 'You calories will match your TDEE',
-                            //   ),
-                            // );
-                          }
-                        : _showDialog,
-                needsTrailing: modificatorChangable),
-            SizedBox(height: 8.h),
-            Text(
-              updUser.userGoal!.getSettingsDescription(),
-              style: context.styles.regularSmall
-                  .copyWith(color: RishColors.textSecondary),
-            ),
-            SizedBox(height: 16.h),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Expanded(
-                  child: RishDropdownMenu(
-                    title: 'Age',
-                    preSelectedData: '${updUser.age} yo',
-                    action: () {
-                      ModalSheet.showSingleChildSheet(
-                        context: context,
-                        title: 'Your Age',
-                        height: 551.h,
-                        child: AgeWidget(
-                          setAge: (age) {
-                            updateAge(age);
+      implyLeading: !buttonIsActive,
+      needsAppBar: true,
+      centerTitle: true,
+      needsBottomPadding: false,
+      appBarLabel: Text(
+        'Profile',
+        style: context.styles.h2,
+      ),
+      child: ListView(
+        children: [
+          RishDropdownMenu(
+            title: 'Dietary preference',
+            preSelectedData: updUser.foodPreferences!.diets.join(', '),
+            action: planCreated
+                ? _showDialog
+                : () async {
+                    await ModalSheet.showQuestionarySheet(
+                      title: 'Dietary prefrence',
+                      context: context,
+                      data: QuestionaryRepository().diets,
+                      onSave: (List<Question> selectedDiets) {
+                        updateDietary(selectedDiets.cast<Dietary>());
+                      },
+                    );
+                  },
+          ),
+          SizedBox(height: 16.h),
+          RishDropdownMenu(
+            title: 'Cuisine preferences',
+            preSelectedData: updUser.foodPreferences!.cuisines.join(', '),
+            action: planCreated
+                ? _showDialog
+                : () async {
+                    await ModalSheet.showQuestionarySheet(
+                      title: 'Cuisine prefrences',
+                      context: context,
+                      data: QuestionaryRepository().cuisines,
+                      onSave: (List<Question> selectedCuisines) {
+                        updateCuisines(selectedCuisines.cast<Cuisine>());
+                      },
+                    );
+                  },
+          ),
+          SizedBox(height: 16.h),
+          RishDropdownMenu(
+            title: 'Fitness goal',
+            preSelectedData: updUser.userGoal!.getGoalTypeName(),
+            action:
+                // !kDebugMode
+                planCreated
+                    ? _showDialog
+                    : () async {
+                        await ModalSheet.showQuestionarySheet(
+                          title: 'Fitness goal',
+                          context: context,
+                          data: QuestionaryRepository().goals,
+                          onSave: (List<Question> selectedGoal) {
+                            // print(selectedGoal);
+                            updateGoal(selectedGoal.first as FitnessGoal);
                           },
-                          needsLightBack: true,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                SizedBox(width: 16.w),
-                Expanded(
-                  child: RishDropdownMenu(
-                    title: 'Biological Sex',
-                    preSelectedData: updUser.gender!.name.capitalize(),
-                    action: () {
-                      ModalSheet.showSingleChildSheet(
-                        context: context,
-                        title: 'Your biological sex',
-                        height: 383.h,
-                        child: SexPicker(
-                          setGender: (gender) {
-                            updateGender(gender);
+                        );
+                      },
+          ),
+          SizedBox(height: 16.h),
+          RishDropdownMenu(
+            title: 'Calorie deficit/surplus %',
+            preSelectedData:
+                '${(updUser.userGoal!.modificator * 100).round()} %',
+            action: !modificatorChangable
+                ? () {}
+                : modificatorChangable && chatBloc.state.mealPlan == null
+                    ? () async {
+                        await ModificatorSelectorSheet(
+                          goal: updUser.userGoal!,
+                          setModificator: (value) {
+                            changeModificator(value);
                           },
-                          needsLightBack: true,
-                        ),
-                      );
-                    },
-                  ),
+                          context: context,
+                        ).show();
+                        // ModalSheet.showSingleChildSheet(
+                        //   needsButton: false,
+                        //   context: context,
+                        //   title: 'Select Modificator',
+                        //   height: 400.h,
+                        //   child: ModificatorSelector(
+                        //     type: updUser.userGoal!.goal,
+                        //     setModificator: (value) {
+                        //       changeModificator(value);
+                        //     },
+                        //     defaultModificator:
+                        //         updUser.userGoal!.modificator,
+                        //     modificators:
+                        //         updUser.userGoal!.getModificators(),
+                        //     subtitle: updUser.userGoal!.goal ==
+                        //             GoalType.recomp
+                        //         ? 'Your calorie intake will be changing automatically every two weeks'
+                        //         : 'You calories will match your TDEE',
+                        //   ),
+                        // );
+                      }
+                    : _showDialog,
+            needsTrailing: modificatorChangable,
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            updUser.userGoal!.getSettingsDescription(),
+            style: context.styles.regularSmall
+                .copyWith(color: RishColors.textSecondary),
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Expanded(
+                child: RishDropdownMenu(
+                  title: 'Age',
+                  preSelectedData: '${updUser.age} yo',
+                  action: () async {
+                    await ModalSheet.showSingleChildSheet(
+                      context: context,
+                      title: 'Your Age',
+                      height: 551.h,
+                      child: AgeWidget(
+                        setAge: (age) {
+                          updateAge(age);
+                        },
+                        needsLightBack: true,
+                      ),
+                    );
+                  },
                 ),
-              ],
-            ),
-            SizedBox(height: 28.h),
-            Text(
-              'The following parameters can be changed in WHOOP',
-              style: context.styles.regularLarge
-                  .copyWith(color: RishColors.textSecondary),
-            ),
-            SizedBox(height: 16.h),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Expanded(
-                  child: RishDropdownMenu(
-                    title: 'Height',
-                    preSelectedData:
-                        '${((updUser.bodyMeasurements!.height) * 100).round()} cm',
-                    action: () {},
-                    needsTrailing: false,
-                  ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: RishDropdownMenu(
+                  title: 'Biological Sex',
+                  preSelectedData: updUser.gender!.name.capitalize(),
+                  action: () async {
+                    await ModalSheet.showSingleChildSheet(
+                      context: context,
+                      title: 'Your biological sex',
+                      height: 383.h,
+                      child: SexPicker(
+                        setGender: (gender) {
+                          updateGender(gender);
+                        },
+                        needsLightBack: true,
+                      ),
+                    );
+                  },
                 ),
-                SizedBox(width: 16.w),
-                Expanded(
-                  child: RishDropdownMenu(
-                    title: 'Weight',
-                    preSelectedData:
-                        '${(updUser.bodyMeasurements?.weight ?? 10).round()} kg',
-                    action: () {},
-                    needsTrailing: false,
-                  ),
+              ),
+            ],
+          ),
+          SizedBox(height: 28.h),
+          Text(
+            'The following parameters can be changed in WHOOP',
+            style: context.styles.regularLarge
+                .copyWith(color: RishColors.textSecondary),
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Expanded(
+                child: RishDropdownMenu(
+                  title: 'Height',
+                  preSelectedData:
+                      '${((updUser.bodyMeasurements!.height) * 100).round()} cm',
+                  action: () {},
+                  needsTrailing: false,
                 ),
-              ],
-            ),
-            // const Spacer(),
-            SizedBox(height: 36.h),
-            RishButton.primary(
-                title: 'Save changes',
-                enabled: buttonIsActive,
-                isLoading: false,
-                action: () {
-                  userBloc.add(UpdateUserEvent(user: updUser));
-                  whoopBloc.add(WhoopChangeModificatorOrSex(
-                      modificator: updUser.userGoal!.modificator,
-                      gender: updUser.gender!,
-                      context: context));
-                  setState(() {
-                    buttonIsActive = false;
-                  });
-                  // context.pop();
-                }),
-            SizedBox(height: 16.h),
-          ],
-        ));
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: RishDropdownMenu(
+                  title: 'Weight',
+                  preSelectedData:
+                      '${updUser.bodyMeasurements?.weight ?? 10} kg',
+                  action: () {},
+                  needsTrailing: false,
+                ),
+              ),
+            ],
+          ),
+          // const Spacer(),
+          SizedBox(height: 36.h),
+          RishButton.primary(
+            title: 'Save changes',
+            enabled: buttonIsActive,
+            isLoading: false,
+            action: () {
+              userBloc.add(UpdateUserEvent(user: updUser));
+              whoopBloc.add(
+                WhoopChangeModificatorOrSex(
+                  modificator: updUser.userGoal!.modificator,
+                  gender: updUser.gender!,
+                  context: context,
+                ),
+              );
+              setState(() {
+                buttonIsActive = false;
+              });
+              // context.pop();
+            },
+          ),
+          SizedBox(height: 16.h),
+        ],
+      ),
+    );
   }
 
-  void _showDialog() {
-    RishiDialog.showCustomDialog(context,
-        type: DialogType.info,
-        actionDialogType: ActionDialogType.warning,
-        text:
-            'This setting can only be changed tomorrow, BEFORE creating a new meal plan',
-        action: () {
-      context.pop();
-    });
+  Future<void> _showDialog() async {
+    await RishiDialog.showCustomDialog(
+      context,
+      type: DialogType.info,
+      actionDialogType: ActionDialogType.warning,
+      text:
+          'This setting can only be changed tomorrow, BEFORE creating a new meal plan',
+      action: () {
+        context.pop();
+      },
+    );
   }
 }

@@ -8,6 +8,23 @@ part 'chat_snapshot_entity.g.dart';
 
 @HiveType(typeId: 4)
 class ChatSnapshotEntity {
+  ChatSnapshotEntity({
+    required this.messages,
+    required this.date,
+    required this.requestsLeft,
+    this.mealPlan,
+    this.threadId,
+  });
+
+  factory ChatSnapshotEntity.fromDirectus(Map<String, dynamic> map) {
+    return ChatSnapshotEntity(
+      messages: [],
+      date: DateTime.fromMillisecondsSinceEpoch(map['dateTime']),
+      requestsLeft: map['requestsLeft'],
+      threadId: map['threadId'],
+      mealPlan: map['mealPlan'],
+    );
+  }
   @HiveField(0)
   final List<MessageEntity> messages;
   @HiveField(1)
@@ -18,13 +35,6 @@ class ChatSnapshotEntity {
   final MealPlanEntity? mealPlan;
   @HiveField(4)
   final String? threadId;
-  ChatSnapshotEntity({
-    required this.messages,
-    required this.date,
-    required this.requestsLeft,
-    this.mealPlan,
-    this.threadId,
-  });
 
   Map<String, dynamic> toDirectus() {
     return {
@@ -32,16 +42,6 @@ class ChatSnapshotEntity {
       'requestsLeft': requestsLeft,
       'threadId': threadId,
     };
-  }
-
-  factory ChatSnapshotEntity.fromDirectus(Map<String, dynamic> map) {
-    return ChatSnapshotEntity(
-      messages: [],
-      date: DateTime.fromMillisecondsSinceEpoch((map['dateTime'])),
-      requestsLeft: map['requestsLeft'],
-      threadId: map['threadId'],
-      mealPlan: map['mealPlan'],
-    );
   }
 
   ChatSnapshotEntity copyWith({
@@ -53,11 +53,12 @@ class ChatSnapshotEntity {
     String? threadId,
   }) {
     return ChatSnapshotEntity(
-        messages: messages ?? this.messages,
-        date: date ?? this.date,
-        requestsLeft: requestsLeft ?? this.requestsLeft,
-        mealPlan: mealPlan ?? this.mealPlan,
-        threadId: threadId ?? this.threadId);
+      messages: messages ?? this.messages,
+      date: date ?? this.date,
+      requestsLeft: requestsLeft ?? this.requestsLeft,
+      mealPlan: mealPlan ?? this.mealPlan,
+      threadId: threadId ?? this.threadId,
+    );
   }
 
   @override
@@ -67,7 +68,9 @@ class ChatSnapshotEntity {
 
   @override
   bool operator ==(covariant ChatSnapshotEntity other) {
-    if (identical(this, other)) return true;
+    if (identical(this, other)) {
+      return true;
+    }
 
     return listEquals(other.messages, messages) &&
         other.date == date &&

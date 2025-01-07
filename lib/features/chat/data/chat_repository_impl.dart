@@ -28,8 +28,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<Either<Failure, MealPlanEntity>> requestMealPlan(
-      {required RequestPlanParams params}) async {
+  Future<Either<Failure, MealPlanEntity>> requestMealPlan({
+    required RequestPlanParams params,
+  }) async {
     final res = await remote.requestMealPlan(params.generatePrompt());
     if (res.containsKey('error')) {
       return Left(ChatGptRequestMealFailures(res['error']));
@@ -55,8 +56,9 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<Either<Failure, ChatSnapshotEntity?>> fetchSavedSnap(
-      {required String directusId}) async {
+  Future<Either<Failure, ChatSnapshotEntity?>> fetchSavedSnap({
+    required String directusId,
+  }) async {
     try {
       ChatSnapshotEntity? snap;
       snap = await hive.retrieveLastChat();
@@ -69,7 +71,7 @@ class ChatRepositoryImpl implements ChatRepository {
       } else {
         return const Right(null);
       }
-    } catch (e) {
+    } on Exception catch (_) {
       return const Left(UnknownFailure());
     }
   }

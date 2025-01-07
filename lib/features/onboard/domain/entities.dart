@@ -34,7 +34,9 @@ abstract class Question {
   });
   @override
   bool operator ==(covariant Question other) {
-    if (identical(this, other)) return true;
+    if (identical(this, other)) {
+      return true;
+    }
 
     return other.name == name &&
         other.assetPath == assetPath &&
@@ -84,7 +86,7 @@ class Dietary extends Question {
     bool? needsLightBack,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -111,18 +113,22 @@ class Dietary extends Question {
 }
 
 class Cuisine extends Question {
-  Cuisine(
-      {required super.name, required super.assetPath, required super.cuisine});
+  Cuisine({
+    required super.name,
+    required super.assetPath,
+    required super.cuisine,
+  });
 
   @override
-  Widget buildWidget(
-      {required BuildContext context,
-      required Function(Question question) action,
-      required bool isSelected,
-      Function(Question q)? preSelectCard,
-      bool? needsLightBack}) {
+  Widget buildWidget({
+    required BuildContext context,
+    required Function(Question question) action,
+    required bool isSelected,
+    Function(Question q)? preSelectCard,
+    bool? needsLightBack,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -160,17 +166,19 @@ class FitnessGoal extends Question {
     required this.modificator,
   });
 
+  // ignore: avoid_setters_without_getters
   set setModificator(double val) => modificator = val;
 
   @override
-  Widget buildWidget(
-      {required BuildContext context,
-      required Function(Question question) action,
-      Function(Question q)? preSelectCard,
-      required bool isSelected,
-      bool? needsLightBack}) {
+  Widget buildWidget({
+    required BuildContext context,
+    required Function(Question question) action,
+    required bool isSelected,
+    Function(Question q)? preSelectCard,
+    bool? needsLightBack,
+  }) {
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         ///for profile settings not to show popup
         if (needsLightBack ?? false) {
           preSelectCard!(this);
@@ -178,13 +186,13 @@ class FitnessGoal extends Question {
           return;
         }
         preSelectCard!(this);
-        ModificatorSelectorSheet(
-                goal: toUseGoal(),
-                setModificator: (value) {
-                  action(copyWith(modificator: value));
-                },
-                context: context)
-            .show();
+        await ModificatorSelectorSheet(
+          goal: toUseGoal(),
+          setModificator: (value) {
+            action(copyWith(modificator: value));
+          },
+          context: context,
+        ).show();
         // ModalSheet.showSingleChildSheet(
         //   needsButton: false,
         //   context: context,
@@ -210,16 +218,16 @@ class FitnessGoal extends Question {
             ? RishColors.stroke
             : RishColors.formBackgroun,
         shape: RoundedRectangleBorder(
-            side: BorderSide(
-                color: isSelected
-                    ? context.theme.colorScheme.primary
-                    : Colors.transparent,
-                width: 1),
-            borderRadius: BorderRadius.circular(16.0)),
+          side: BorderSide(
+            color: isSelected
+                ? context.theme.colorScheme.primary
+                : Colors.transparent,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: SizedBox(
           width: 132.w,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // SizedBox(height: 20.h),
@@ -247,7 +255,10 @@ class FitnessGoal extends Question {
   }
 
   UserGoal toUseGoal() => UserGoal(
-      goal: goal!, modificator: modificator, updatedAt: DateTime.now());
+        goal: goal!,
+        modificator: modificator,
+        updatedAt: DateTime.now(),
+      );
 
   FitnessGoal copyWith({
     double? modificator,

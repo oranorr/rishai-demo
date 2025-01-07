@@ -36,12 +36,18 @@ class _OnboardState extends State<Onboard> {
     super.dispose();
   }
 
-  void buttonAction(BuildContext context) async {
+  Future<void> buttonAction(BuildContext context) async {
     if (currentPage != 2) {
-      textController.animateToPage(currentPage + 1,
-          duration: const Duration(milliseconds: 400), curve: Curves.linear);
-      imageController.animateToPage(currentPage + 1,
-          duration: const Duration(milliseconds: 400), curve: Curves.linear);
+      await textController.animateToPage(
+        currentPage + 1,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.linear,
+      );
+      await imageController.animateToPage(
+        currentPage + 1,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.linear,
+      );
       setState(() {
         currentPage = currentPage + 1;
       });
@@ -55,97 +61,94 @@ class _OnboardState extends State<Onboard> {
   Widget build(BuildContext context) {
     final data = OnboardRepository.data;
     return RishScaffold(
-      child: LayoutBuilder(builder: (context, constrains) {
-        return ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: constrains.maxWidth,
-            maxHeight: constrains.maxHeight,
-            minHeight: constrains.minHeight,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 374.h,
-                child: PageView.builder(
-                  controller: imageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: data.length,
-                  itemBuilder: (context, index) {
-                    return Container(
-                      child: Image.asset(data[index].assetPath),
-                    );
-                  },
+      child: LayoutBuilder(
+        builder: (context, constrains) {
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: constrains.maxWidth,
+              maxHeight: constrains.maxHeight,
+              minHeight: constrains.minHeight,
+            ),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 374.h,
+                  child: PageView.builder(
+                    controller: imageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: data.length,
+                    itemBuilder: (context, index) {
+                      return Image.asset(data[index].assetPath);
+                    },
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 24.h,
-              ),
-              SmoothPageIndicator(
-                controller: textController,
-                count: data.length,
-                effect: ExpandingDotsEffect(
-                  expansionFactor: 5,
-                  dotColor: const Color(0xff403D64),
-                  radius: 40,
-                  dotWidth: 8.w,
-                  dotHeight: 8.h,
-                  activeDotColor: context.theme.colorScheme.primary,
+                SizedBox(
+                  height: 24.h,
                 ),
-              ),
-              SizedBox(
-                height: 24.h,
-              ),
-              Expanded(
-                child: PageView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
+                SmoothPageIndicator(
                   controller: textController,
-                  itemCount: data.length,
-                  itemBuilder: (context, index) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          data[index].title,
-                          textAlign: TextAlign.center,
-                          style: context.styles.h2,
-                        ),
-                        SizedBox(
-                          height: 8.h,
-                        ),
-                        SizedBox(
-                          height: 80.h,
-                          child: AutoSizeText(
-                            data[index].subtitle,
+                  count: data.length,
+                  effect: ExpandingDotsEffect(
+                    expansionFactor: 5,
+                    dotColor: const Color(0xff403D64),
+                    radius: 40,
+                    dotWidth: 8.w,
+                    dotHeight: 8.h,
+                    activeDotColor: context.theme.colorScheme.primary,
+                  ),
+                ),
+                SizedBox(
+                  height: 24.h,
+                ),
+                Expanded(
+                  child: PageView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    controller: textController,
+                    itemCount: data.length,
+                    itemBuilder: (context, index) {
+                      return Column(
+                        children: [
+                          Text(
+                            data[index].title,
                             textAlign: TextAlign.center,
-                            softWrap: true,
-                            style: context.styles.regularLarge
-                                .copyWith(color: const Color(0xffA8A8A8)),
-                            minFontSize: 13,
-                            maxLines: 4,
-                            // overflow: TextOverflow.ellipsis,
-                            // overflow: TextOverflow.,
+                            style: context.styles.h2,
                           ),
-                        )
-                      ],
-                    );
+                          SizedBox(
+                            height: 8.h,
+                          ),
+                          SizedBox(
+                            height: 80.h,
+                            child: AutoSizeText(
+                              data[index].subtitle,
+                              textAlign: TextAlign.center,
+                              softWrap: true,
+                              style: context.styles.regularLarge
+                                  .copyWith(color: const Color(0xffA8A8A8)),
+                              minFontSize: 13,
+                              maxLines: 4,
+                              // overflow: TextOverflow.ellipsis,
+                              // overflow: TextOverflow.,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                // const Spacer(),
+                RishButton.primary(
+                  title: currentPage == 2 ? "Let's start!" : 'Continue',
+                  enabled: true,
+                  isLoading: false,
+                  action: () async {
+                    await buttonAction(context);
                   },
                 ),
-              ),
-              // const Spacer(),
-              RishButton.primary(
-                title: currentPage == 2 ? 'Let\'s start!' : 'Continue',
-                enabled: true,
-                isLoading: false,
-                action: () {
-                  buttonAction(context);
-                },
-              ),
-            ],
-          ),
-        );
-      }),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

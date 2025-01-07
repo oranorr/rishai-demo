@@ -10,10 +10,10 @@ import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 
 @injectable
 class RequestPlanUsecase implements UseCase<MealPlanEntity, RequestPlanParams> {
-  final ChatRepository chatRepository;
   RequestPlanUsecase(
     this.chatRepository,
   );
+  final ChatRepository chatRepository;
   @override
   Future<Either<Failure, MealPlanEntity>> call(RequestPlanParams params) async {
     return chatRepository.requestMealPlan(params: params);
@@ -21,13 +21,6 @@ class RequestPlanUsecase implements UseCase<MealPlanEntity, RequestPlanParams> {
 }
 
 class RequestPlanParams {
-  final List<String> dietary;
-  final List<String> cuisines;
-  final int calorieTarget;
-  final MacrosBreakdown macros;
-  final bool trainingToday;
-  final int mealsAmount;
-  final bool snackForToday;
   RequestPlanParams({
     required this.dietary,
     required this.cuisines,
@@ -37,6 +30,13 @@ class RequestPlanParams {
     required this.mealsAmount,
     required this.snackForToday,
   });
+  final List<String> dietary;
+  final List<String> cuisines;
+  final int calorieTarget;
+  final MacrosBreakdown macros;
+  final bool trainingToday;
+  final int mealsAmount;
+  final bool snackForToday;
 
   String generatePrompt() {
     log(toString());
@@ -145,10 +145,10 @@ class RequestPlanParams {
     // Формируем список основных блюд (без перекуса)
     for (int i = 0; i < amountOfMeals; i++) {
       meals.add({
-        "calories": "${mealCalories[i].round()} kcal",
-        "protein": "${proteinDistribution[i].round()} g",
-        "carbs": "${carbsDistribution[i].round()} g",
-        "fats": "${fatsDistribution[i].round()} g"
+        'calories': '${mealCalories[i].round()} kcal',
+        'protein': '${proteinDistribution[i].round()} g',
+        'carbs': '${carbsDistribution[i].round()} g',
+        'fats': '${fatsDistribution[i].round()} g',
       });
     }
 
@@ -156,10 +156,10 @@ class RequestPlanParams {
     if (snackRequested) {
       int snackIndex = mealCalories.length - 1;
       snack = {
-        "calories": "${mealCalories[snackIndex].round()} kcal",
-        "protein": "${proteinDistribution[snackIndex].round()} g",
-        "carbs": "${carbsDistribution[snackIndex].round()} g",
-        "fats": "${fatsDistribution[snackIndex].round()} g"
+        'calories': '${mealCalories[snackIndex].round()} kcal',
+        'protein': '${proteinDistribution[snackIndex].round()} g',
+        'carbs': '${carbsDistribution[snackIndex].round()} g',
+        'fats': '${fatsDistribution[snackIndex].round()} g',
       };
     }
 
@@ -169,7 +169,7 @@ generate_meal_plan_for_me. My data is:
 {
   "dietary_preferences": $dietary,
   "cuisine_preferences": $cuisines,
-  "meals": ${meals.toString()},
+  "meals": $meals,
   ${snackForToday ? '"snack": $snack' : ''}
 }
 ''';
@@ -299,7 +299,7 @@ class PromptGeneratorTester {
   ];
 
   void test() {
-    for (var request in params) {
+    for (final request in params) {
       log(request.generatePrompt());
     }
   }

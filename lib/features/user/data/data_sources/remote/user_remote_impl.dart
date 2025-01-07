@@ -10,9 +10,10 @@ class UserRemoteImpl implements UserRemoteSource {
   Future<bool> updateUser({required UserEntity user}) async {
     try {
       final res = await directus.updateOne(
-          collection: usersCollection,
-          itemId: user.directusId,
-          updateData: user.toMap());
+        collection: usersCollection,
+        itemId: user.directusId,
+        updateData: user.toMap(),
+      );
       return res.isNotEmpty;
     } on Exception {
       rethrow;

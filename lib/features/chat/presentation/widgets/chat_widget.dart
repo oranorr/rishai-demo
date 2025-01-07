@@ -1,7 +1,7 @@
 part of '../chat_page.dart';
 
 class _ChatWidget extends StatefulWidget {
-  const _ChatWidget({super.key});
+  const _ChatWidget();
 
   @override
   State<_ChatWidget> createState() => _ChatWidgetState();

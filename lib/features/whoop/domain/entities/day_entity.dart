@@ -1,9 +1,9 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
-import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 
-import '../../../chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 
 class DayEntity {
   final int directusId;
@@ -20,8 +20,8 @@ class DayEntity {
     required this.macros,
     required this.healthMetrics,
     required this.snap,
-    this.mealPlanEntity,
     required this.dateTime,
+    this.mealPlanEntity,
   });
 
   DayEntity copyWith({
@@ -34,13 +34,14 @@ class DayEntity {
     ChatSnapshotEntity? snap,
   }) {
     return DayEntity(
-        directusId: directusId ?? this.directusId,
-        weekTdeeAverage: weekTdeeAverage ?? this.weekTdeeAverage,
-        macros: macros ?? this.macros,
-        healthMetrics: healthMetrics ?? this.healthMetrics,
-        mealPlanEntity: mealPlanEntity ?? this.mealPlanEntity,
-        dateTime: dateTime ?? this.dateTime,
-        snap: snap ?? this.snap);
+      directusId: directusId ?? this.directusId,
+      weekTdeeAverage: weekTdeeAverage ?? this.weekTdeeAverage,
+      macros: macros ?? this.macros,
+      healthMetrics: healthMetrics ?? this.healthMetrics,
+      mealPlanEntity: mealPlanEntity ?? this.mealPlanEntity,
+      dateTime: dateTime ?? this.dateTime,
+      snap: snap ?? this.snap,
+    );
   }
 
   Map<String, dynamic> toMap() {
@@ -59,7 +60,8 @@ class DayEntity {
       weekTdeeAverage: (map['weekTdeeAverage'] as int).toDouble(),
       macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
       healthMetrics: HealthMetricsEntity.fromMap(
-          map['healthMetrics'] as Map<String, dynamic>),
+        map['healthMetrics'] as Map<String, dynamic>,
+      ),
       mealPlanEntity: map['mealPlan'] != null
           ? MealPlanEntity.fromMap(map['mealPlan'] as Map<String, dynamic>)
           : null,
@@ -121,8 +123,10 @@ class DayEntity {
         dateTime.hashCode;
   }
 
-  List<Map<String, dynamic>> mockDays(
-      {required int length, required String id}) {
+  List<Map<String, dynamic>> mockDays({
+    required int length,
+    required String id,
+  }) {
     return List.generate(length, (int index) {
       DateTime subs = dateTime.subtract(Duration(days: length));
       return DayEntity(

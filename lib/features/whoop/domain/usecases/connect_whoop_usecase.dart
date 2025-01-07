@@ -6,8 +6,8 @@ import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
 
 @injectable
 class ConnectWhoopUsecase implements UseCase<void, NoParams> {
-  final WhoopRepository whoopRepository;
   const ConnectWhoopUsecase(this.whoopRepository);
+  final WhoopRepository whoopRepository;
 
   @override
   Future<Either<Failure, void>> call(NoParams params) async {

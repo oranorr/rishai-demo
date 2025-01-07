@@ -5,8 +5,8 @@ class AgeWidget extends StatefulWidget {
   final Function(int) setAge;
   final bool? needsLightBack;
   const AgeWidget({
-    super.key,
     required this.setAge,
+    super.key,
     this.needsLightBack,
   });
 
@@ -41,14 +41,14 @@ class _AgeWidgetState extends State<AgeWidget> {
                 height: 100.h,
                 width: 343.w,
                 decoration: BoxDecoration(
-                    color: widget.needsLightBack ?? false
-                        ? RishColors.stroke
-                        : RishColors.formBackgroun,
-                    borderRadius: BorderRadius.circular(16)),
+                  color: widget.needsLightBack ?? false
+                      ? RishColors.stroke
+                      : RishColors.formBackgroun,
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
             NumberPicker(
-              itemCount: 3,
               minValue: 12,
               maxValue: 90,
               haptics: true,

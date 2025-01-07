@@ -15,8 +15,7 @@ enum AppRoutes {
   paywall('paywall', '/paywall'),
   chat('chat', '/chat');
 
+  const AppRoutes(this.name, this.path);
   final String name;
   final String path;
-
-  const AppRoutes(this.name, this.path);
 }

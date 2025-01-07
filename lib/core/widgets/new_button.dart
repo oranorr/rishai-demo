@@ -1,40 +1,25 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'dart:ui';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
+
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 
 class RishButton extends StatelessWidget {
-  final String title;
-  final double? height;
-  final double? width;
-  final bool? isLoading;
-  final bool enabled;
-  final Color backgroundColor;
-  final bool needsBorder;
-  final Color textColor;
-  final double radius;
-  final VoidCallback action;
-  final Color? borderColor;
   const RishButton({
-    Key? key,
     required this.title,
+    required this.backgroundColor,
+    required this.needsBorder,
+    required this.textColor,
+    required this.action,
+    super.key,
     this.enabled = true,
     this.height = 58,
     this.width = double.infinity,
     this.isLoading = false,
-    required this.backgroundColor,
-    required this.needsBorder,
-    required this.textColor,
     this.radius = 24,
     this.borderColor,
-    required this.action,
-  }) : super(key: key);
+  });
 
   factory RishButton.primary({
     required String title,
@@ -69,8 +54,6 @@ class RishButton extends StatelessWidget {
       textColor: textColor ?? RishColors.primary,
       action: action,
       height: 58.h,
-      enabled: true,
-      isLoading: false,
       borderColor: borderColor,
       width: width,
     );
@@ -89,10 +72,19 @@ class RishButton extends StatelessWidget {
       textColor: textColor ?? RishColors.primary,
       action: action,
       height: height ?? 58.h,
-      enabled: true,
-      isLoading: false,
     );
   }
+  final String title;
+  final double? height;
+  final double? width;
+  final bool? isLoading;
+  final bool enabled;
+  final Color backgroundColor;
+  final bool needsBorder;
+  final Color textColor;
+  final double radius;
+  final VoidCallback action;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +102,8 @@ class RishButton extends StatelessWidget {
           color: enabled ? backgroundColor : RishColors.stroke,
           border: needsBorder
               ? Border.all(
-                  color: borderColor ?? context.theme.colorScheme.primary)
+                  color: borderColor ?? context.theme.colorScheme.primary,
+                )
               : null,
           borderRadius: BorderRadius.circular(radius),
         ),
@@ -131,7 +124,7 @@ class RishButton extends StatelessWidget {
                     strokeWidth: 2.5,
                   ),
                 ),
-              ]
+              ],
             ],
           ),
         ),

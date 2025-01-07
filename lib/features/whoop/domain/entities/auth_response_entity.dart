@@ -1,14 +1,14 @@
 import 'package:equatable/equatable.dart';
 
 class AuthResponseEntity extends Equatable {
-  final String accessToken;
-  final String refreshToken;
-  final Duration expiresIn;
   const AuthResponseEntity({
     required this.accessToken,
     required this.refreshToken,
     required this.expiresIn,
   });
+  final String accessToken;
+  final String refreshToken;
+  final Duration expiresIn;
 
   AuthResponseEntity copyWith({
     String? accessToken,

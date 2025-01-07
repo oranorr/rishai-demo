@@ -7,9 +7,8 @@ import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 
 @injectable
 class UpdateUserUsecase implements UseCase<void, UserEntity> {
-  final UserRepository userRepository;
-
   const UpdateUserUsecase(this.userRepository);
+  final UserRepository userRepository;
 
   @override
   Future<Either<Failure, void>> call(UserEntity params) async {

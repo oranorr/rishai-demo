@@ -1,13 +1,13 @@
 part of '../questionary.dart';
 
 class SelectableList extends StatefulWidget {
-  final List<Question> data;
-  final Function(List<Question>) setSomething;
   const SelectableList({
-    super.key,
     required this.data,
     required this.setSomething,
+    super.key,
   });
+  final List<Question> data;
+  final Function(List<Question>) setSomething;
 
   @override
   State<SelectableList> createState() => _SelectableListState();

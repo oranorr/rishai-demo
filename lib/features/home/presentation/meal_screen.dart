@@ -6,12 +6,11 @@ import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 
 class MealScreen extends StatelessWidget {
-  final Meal meal;
   const MealScreen({
-    super.key,
     required this.meal,
+    super.key,
   });
-
+  final Meal meal;
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
@@ -37,18 +36,18 @@ class MealScreen extends StatelessWidget {
           SizedBox(height: 12.h),
           FittedBox(
             fit: BoxFit.fitWidth,
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
                 color: RishColors.formBackgroun,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
                     meal.buildPieChart(dimension: 48.h),
                     SizedBox(width: 25.w),
-                    meal.macros.buildTextMacros(context: context)
+                    meal.macros.buildTextMacros(context: context),
                   ],
                 ),
               ),
@@ -57,13 +56,13 @@ class MealScreen extends StatelessWidget {
           SizedBox(height: 20.h),
           Text('Ingredients', style: context.styles.h3),
           SizedBox(height: 12.h),
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: RishColors.formBackgroun,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: ListView.builder(
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
@@ -75,7 +74,7 @@ class MealScreen extends StatelessWidget {
                 },
               ),
             ),
-          )
+          ),
         ],
       ),
     );

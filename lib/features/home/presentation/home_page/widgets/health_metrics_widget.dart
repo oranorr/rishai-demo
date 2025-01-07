@@ -1,11 +1,10 @@
 part of '../home_page.dart';
 
 class _HealthMetricsWidget extends StatelessWidget {
-  final HealthMetricsEntity health;
   const _HealthMetricsWidget({
-    super.key,
     required this.health,
   });
+  final HealthMetricsEntity health;
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +13,7 @@ class _HealthMetricsWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           for (int i = 0; i < health.toList().length; i++)
-            Container(
+            DecoratedBox(
               decoration: BoxDecoration(
                 color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),

@@ -32,6 +32,7 @@ class RishTexts extends ThemeExtension<RishTexts> {
     required this.numsS,
   });
 
+  @override
   RishTexts copyWith({
     TextStyle? h1,
     TextStyle? h2,
@@ -64,7 +65,9 @@ class RishTexts extends ThemeExtension<RishTexts> {
 
   @override
   ThemeExtension<RishTexts> lerp(
-      covariant ThemeExtension<RishTexts>? other, double t) {
+    covariant ThemeExtension<RishTexts>? other,
+    double t,
+  ) {
     if (other == null || other is! RishTexts) {
       return this;
     }

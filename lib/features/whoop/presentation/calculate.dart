@@ -4,17 +4,17 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/activity.dart';
 
 class CalculateWhoopData {
-  final Gender gender;
-  final double strainValue;
-
-  final int recoveryScore;
-  final int sleepPerformance;
   CalculateWhoopData({
     required this.gender,
     required this.strainValue,
     required this.recoveryScore,
     required this.sleepPerformance,
   });
+  final Gender gender;
+  final double strainValue;
+
+  final int recoveryScore;
+  final int sleepPerformance;
 
   ({double protein, double fats}) calcStrain() {
     final strain = strainValue.toPrecision();
@@ -78,6 +78,7 @@ class CalculateWhoopData {
         } else {
           return (protein: 0.6, fats: 0);
         }
+      // ignore: no_default_cases
       default:
         log('ERROR WHILE CALCULATING activity DATA, incoming was: $gender $activity');
         return (protein: 0, fats: 0);

@@ -1,7 +1,6 @@
 import 'dart:developer';
 import 'dart:math' as math;
 import 'package:adapty_flutter/adapty_flutter.dart';
-import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository.dart';
@@ -48,7 +47,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     // return '';
     try {
       final profile = await Adapty().getProfile();
-      if (profile.accessLevels["premium"]?.isActive ?? false) {
+      if (profile.accessLevels['premium']?.isActive ?? false) {
         return 'ALREADY_EXISTS';
       }
       final res = await Adapty().makePurchase(product: product);
@@ -56,17 +55,21 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       final lvl = res?.accessLevels['premium'];
 
       isActive = lvl?.isActive ?? false;
-      isTrialActive = lvl != null ? await _isTrialPeriodAvailable(lvl) : true;
+      if (lvl != null) {
+        isTrialActive = await _isTrialPeriodAvailable(lvl);
+      } else {
+        isTrialActive = true;
+      }
 
       if (isActive) {
-        print("Subscription purchase successful!");
+        log('Subscription purchase successful!');
         return 'SUCCESS';
       } else {
-        print("Subscription is not active.");
+        log('Subscription is not active.');
         return 'CANCEL';
       }
-    } catch (error) {
-      print("Error during purchase: $error");
+    } on Exception catch (error) {
+      log('Error during purchase: $error');
       return 'Error happened, while processing purchase. Please, try again';
     }
   }
@@ -76,16 +79,21 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     // await Adapty().logout();
     await Adapty().identify(adaptyId);
     final profile = await Adapty().getProfile();
-    AdaptyAccessLevel? lvl = profile.accessLevels["premium"];
+    AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
     _logger(profile.customerUserId.toString());
 
     isActive = lvl?.isActive ?? false;
-    isTrialActive = lvl != null ? await _isTrialPeriodAvailable(lvl) : true;
+    if (lvl != null) {
+      isTrialActive = await _isTrialPeriodAvailable(lvl);
+    } else {
+      isTrialActive = true;
+    }
     // _logger("ACCESS LEVEL $lvl");
     // isActive = true;
     // isTrialActive = true;
     _logger(
-        'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}');
+      'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}',
+    );
     _logger('Is trial available: $isTrialActive');
     _logger('Prof id: $adaptyId');
     _logger('Expires at: ${lvl?.expiresAt}');
@@ -97,7 +105,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
     int randomNum = math.Random().nextInt(1000000);
 
-    String uniqueId = "$directusId-$timestamp-$randomNum";
+    String uniqueId = '$directusId-$timestamp-$randomNum';
     if (uniqueId.length > 255) {
       uniqueId = uniqueId.substring(0, 255);
     }
@@ -111,8 +119,9 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     // _logger(profile.accessLevels.toString());
     // return profile.accessLevels.isEmpty;
     _logger(
-        "Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}");
-    _logger("Expires At: ${accessLevel.expiresAt}");
+      'Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}',
+    );
+    _logger('Expires At: ${accessLevel.expiresAt}');
 
     // Проверяем, использовал ли пользователь вводное предложение
     final hasActiveTrial =
@@ -125,7 +134,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
     // Если активный пробный период уже есть, возвращаем false
     if (hasActiveTrial && !isExpired) {
-      _logger("Trial has already been used and is still active.");
+      _logger('Trial has already been used and is still active.');
       return false;
     }
 
@@ -133,16 +142,16 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     final eligibility = await Adapty()
         .getProductsIntroductoryOfferEligibility(products: products);
 
-    for (var product in products) {
+    for (final product in products) {
       final isEligible =
           eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
       if (isEligible) {
-        _logger("Trial is available for product: ${product.vendorProductId}");
+        _logger('Trial is available for product: ${product.vendorProductId}');
         return true;
       }
     }
 
-    _logger("No trial available for any product.");
+    _logger('No trial available for any product.');
     return false;
   }
 
@@ -155,7 +164,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<String> restorePurchases() async {
     try {
       final profile = await Adapty().restorePurchases();
-      AdaptyAccessLevel? lvl = profile.accessLevels["premium"];
+      AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
       _logger(profile.customerUserId.toString());
 
       isActive = lvl?.isActive ?? false;
@@ -164,7 +173,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       } else {
         return 'NO_ACTIVE';
       }
-    } catch (e) {
+    } on Exception catch (e) {
       _logger('Error while restoring: $e');
       return 'ERROR';
     }

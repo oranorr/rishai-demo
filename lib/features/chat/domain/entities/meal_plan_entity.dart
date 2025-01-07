@@ -30,28 +30,29 @@ class MealPlanEntity extends HiveObject {
     final rnd = m.Random();
 
     return MealPlanEntity(
-        meals: List.generate(
-      rnd.nextInt(4) + 1,
-      (index) => Meal(
-        title: lorem.substring(1, rnd.nextInt(100) + 20),
-        type: lorem.substring(1, rnd.nextInt(25) + 10),
-        description: lorem.substring(1, rnd.nextInt(lorem.length - 1) + 10),
-        macros: MacrosBreakdown(
-          kcal: rnd.nextInt(500) + 150,
-          protein: rnd.nextInt(60) + 10,
-          carbs: rnd.nextInt(40) + 10,
-          fat: rnd.nextInt(40) + 10,
-        ),
-        ingredients: List.generate(
-          rnd.nextInt(10) + 3,
-          (index) => Ingredient(
-            emojiCode: '',
-            title: lorem.substring(1, rnd.nextInt(lorem.length)),
-            amount: '${lorem.substring(1, rnd.nextInt(10) + 1)} pcs',
+      meals: List.generate(
+        rnd.nextInt(4) + 1,
+        (index) => Meal(
+          title: lorem.substring(1, rnd.nextInt(100) + 20),
+          type: lorem.substring(1, rnd.nextInt(25) + 10),
+          description: lorem.substring(1, rnd.nextInt(lorem.length - 1) + 10),
+          macros: MacrosBreakdown(
+            kcal: rnd.nextInt(500) + 150,
+            protein: rnd.nextInt(60) + 10,
+            carbs: rnd.nextInt(40) + 10,
+            fat: rnd.nextInt(40) + 10,
+          ),
+          ingredients: List.generate(
+            rnd.nextInt(10) + 3,
+            (index) => Ingredient(
+              emojiCode: '',
+              title: lorem.substring(1, rnd.nextInt(lorem.length)),
+              amount: '${lorem.substring(1, rnd.nextInt(10) + 1)} pcs',
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   MealPlanEntity copyWith({
@@ -88,7 +89,9 @@ class MealPlanEntity extends HiveObject {
 
   @override
   bool operator ==(covariant MealPlanEntity other) {
-    if (identical(this, other)) return true;
+    if (identical(this, other)) {
+      return true;
+    }
 
     return listEquals(other.meals, meals);
   }
@@ -150,10 +153,11 @@ class Meal {
       description: map['description'] as String,
       macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
       ingredients: List<Ingredient>.from(
-        (List.from(map['ingredients']).cast<Map<String, dynamic>>())
+        List.from(map['ingredients'])
+            .cast<Map<String, dynamic>>()
             .map<Ingredient>(
-          (x) => Ingredient.fromMap(x),
-        ),
+              (x) => Ingredient.fromMap(x),
+            ),
       ),
     );
   }
@@ -170,7 +174,9 @@ class Meal {
 
   @override
   bool operator ==(covariant Meal other) {
-    if (identical(this, other)) return true;
+    if (identical(this, other)) {
+      return true;
+    }
 
     return other.title == title &&
         other.type == type &&
@@ -289,7 +295,9 @@ class MacrosBreakdown {
 
   @override
   bool operator ==(covariant MacrosBreakdown other) {
-    if (identical(this, other)) return true;
+    if (identical(this, other)) {
+      return true;
+    }
 
     return other.kcal == kcal &&
         other.protein == protein &&
@@ -310,7 +318,7 @@ class MacrosBreakdown {
         children: [
           TextSpan(text: ' kcals   ', style: context.styles.regularMedium),
           TextSpan(
-            text: protein.comaThisNumber().toString(),
+            text: protein.comaThisNumber(),
             style: context.styles.numsS.copyWith(color: RishColors.protein),
           ),
           TextSpan(
@@ -319,7 +327,7 @@ class MacrosBreakdown {
                 .copyWith(color: RishColors.protein),
           ),
           TextSpan(
-            text: carbs.comaThisNumber().toString(),
+            text: carbs.comaThisNumber(),
             style: context.styles.numsS.copyWith(color: RishColors.carbs),
           ),
           TextSpan(
@@ -328,7 +336,7 @@ class MacrosBreakdown {
                 context.styles.regularMedium.copyWith(color: RishColors.carbs),
           ),
           TextSpan(
-            text: fat.comaThisNumber().toString(),
+            text: fat.comaThisNumber(),
             style: context.styles.numsS.copyWith(color: RishColors.fat),
           ),
           TextSpan(
@@ -395,7 +403,9 @@ class Ingredient {
 
   @override
   bool operator ==(covariant Ingredient other) {
-    if (identical(this, other)) return true;
+    if (identical(this, other)) {
+      return true;
+    }
 
     return other.emojiCode == emojiCode &&
         other.title == title &&
@@ -425,7 +435,7 @@ class Ingredient {
             amount,
             style: context.styles.regularMedium
                 .copyWith(color: RishColors.textSecondary),
-          )
+          ),
         ],
       ),
     );

@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:bloc/bloc.dart';
 
+import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
@@ -26,9 +27,7 @@ import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-
-import '../../../../core/errors/failure.dart';
-import '../../../whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part 'user_event.dart';
 
@@ -37,9 +36,6 @@ final userBloc = getIt.get<UserBloc>();
 
 @injectable
 class UserBloc extends Bloc<UserEvent, UserState> {
-  final UpdateUserUsecase updateUserUsecase;
-  final GetDaysUsecase getDaysUsecase;
-  final ManageDayUsecase manageDayUsecase;
   UserBloc(
     this.updateUserUsecase,
     this.getDaysUsecase,
@@ -60,17 +56,24 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserGetDays>(_getDays);
   }
 
+  final UpdateUserUsecase updateUserUsecase;
+  final GetDaysUsecase getDaysUsecase;
+  final ManageDayUsecase manageDayUsecase;
+
   FutureOr<void> _updateUser(
-      UpdateUserEvent event, Emitter<UserState> emit) async {
+    UpdateUserEvent event,
+    Emitter<UserState> emit,
+  ) async {
     UserEntity user = event.user;
     if (user.adaptyId == null) {
       user = user.copyWith(
-          adaptyId: adapty.generateAdaptyId(directusId: user.directusId));
+        adaptyId: adapty.generateAdaptyId(directusId: user.directusId),
+      );
     }
 
     emit(state.copyWith(user: user, status: Status.loading));
     final res = await updateUserUsecase.call(user);
-    res.fold((Failure fail) {
+    await res.fold((Failure fail) async {
       log(fail.toString());
       emit(state.copyWith(status: Status.error));
       RishSnackbar().showSnackBar('Updating failed, please try again.');
@@ -82,13 +85,17 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _checkForSavedUser(
-      CheckForSavedUser event, Emitter<UserState> emit) async {
+    CheckForSavedUser event,
+    Emitter<UserState> emit,
+  ) async {
     UserEntity? user = await hive.retrieveSavedUser();
     final watchedOnboard = prefsRepo.checkForWatchedOnboard();
 
     if (user != null) {
       final rawUser = await directus.readOne(
-          collection: usersCollection, id: user.directusId);
+        collection: usersCollection,
+        id: user.directusId,
+      );
       final List<int> ids = List.from(rawUser['days']).cast<int>();
       if (user.daysIds != ids) {
         user = user.copyWith(daysIds: ids);
@@ -107,19 +114,27 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _createUserOnLogin(
-      CreateUserOnLogin event, Emitter<UserState> emit) async {
+    CreateUserOnLogin event,
+    Emitter<UserState> emit,
+  ) async {
     emit(state.copyWith(user: event.user));
   }
 
   FutureOr<void> _deleteAccount(
-      UserDeleteAccount event, Emitter<UserState> emit) async {
+    UserDeleteAccount event,
+    Emitter<UserState> emit,
+  ) async {
     await directus.deleteOne(
-        collection: usersCollection, id: state.user.directusId);
+      collection: usersCollection,
+      id: state.user.directusId,
+    );
     loginBloc.add(LogoutEvent());
   }
 
   FutureOr<void> _checkForRecomp(
-      UserCheckForRecomp event, Emitter<UserState> emit) async {
+    UserCheckForRecomp event,
+    Emitter<UserState> emit,
+  ) async {
     if (state.user.userGoal?.goal != null &&
         state.user.userGoal?.goal == GoalType.recomp) {
       UserGoal goal = state.user.userGoal!;
@@ -128,8 +143,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
       if (recompDifference(diff)) {
         UserGoal updGoal = goal.copyWith(
-            modificator: goal.modificator > 0 ? -0.05 : 0.05,
-            updatedAt: DateTime.now());
+          modificator: goal.modificator > 0 ? -0.05 : 0.05,
+          updatedAt: DateTime.now(),
+        );
         UserEntity userUpd = state.user.copyWith(userGoal: updGoal);
         add(UpdateUserEvent(user: userUpd));
       } else {
@@ -139,12 +155,19 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _manageDay(
-      UserManageDay event, Emitter<UserState> emit) async {
+    UserManageDay event,
+    Emitter<UserState> emit,
+  ) async {
     final day = event.day.copyWith(mealPlanEntity: chatBloc.state.mealPlan);
     final data = day.toDirectus(userId: state.user.directusId);
 
-    await manageDayUsecase.call(ManageDayParams(
-        userId: state.user.directusId, dayMap: data, incomingDay: event.day));
+    await manageDayUsecase.call(
+      ManageDayParams(
+        userId: state.user.directusId,
+        dayMap: data,
+        incomingDay: event.day,
+      ),
+    );
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
@@ -158,6 +181,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     }
     final res = await getDaysUsecase
         .call(GetDaysParams(daysIds: ids, userId: state.user.directusId));
+
     res.fold((l) {
       RishSnackbar()
           .showSnackBar('Error occured while fetching days. Please, restart.');
@@ -188,15 +212,20 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       final searchDay =
           state.days.firstWhere((day) => day.dateTime.isSameDate(date));
       final searchIndex = state.days.reversed.toList().indexOf(searchDay);
-      controller.animateToPage(searchIndex,
-          duration: Durations.medium1, curve: Curves.ease);
+      await controller.animateToPage(
+        searchIndex,
+        duration: Durations.medium1,
+        curve: Curves.ease,
+      );
     }
   }
 
   Future<void> createMockData(DayEntity day) async {
     // print('hi');
     await directus.createMany(
-        collection: daysCollection, data: day.mockDays(length: 30, id: '139'));
+      collection: daysCollection,
+      data: day.mockDays(length: 30, id: '139'),
+    );
     // print('done');
   }
 }

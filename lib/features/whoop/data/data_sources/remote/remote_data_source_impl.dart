@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+
+import 'package:http/http.dart' as http;
+import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
-import 'package:injectable/injectable.dart';
-import 'package:http/http.dart' as http;
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/endpoints.dart';
 import 'package:rishai/features/whoop/data/models/cycle_model.dart';
@@ -17,7 +19,6 @@ import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
 
-import '../../../../../core/services/whoop_token_service.dart/token_service_impl.dart';
 part './remote_data_source.dart';
 
 final whoopRemote = getIt.get<WhoopRemoteDataSource>();
@@ -59,14 +60,15 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           .toList();
       log('CYCLES LENGTH: ${cycles.length}');
       return (cycles, (currentCycle['id'] as int));
-    } catch (e) {
+    } on Exception catch (__) {
       rethrow;
     }
   }
 
   @override
-  Future<List<WorkoutModel>> getWorkoutsOfCycle(
-      {required CycleModel cycle}) async {
+  Future<List<WorkoutModel>> getWorkoutsOfCycle({
+    required CycleModel cycle,
+  }) async {
     final data = await _requestData(endpoint: WhoopEndpoints().workouts);
 
     List<Map<String, dynamic>> rawWorkouts =
@@ -126,8 +128,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     }
   }
 
-  Future<Map<String, dynamic>?> _requestData(
-      {required String endpoint, bool? needsLimit}) async {
+  Future<Map<String, dynamic>?> _requestData({
+    required String endpoint,
+    bool? needsLimit,
+  }) async {
     final uri = Uri.parse(endpoint);
     late http.Response response;
 
@@ -176,7 +180,9 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<WhoopDataEntity?> fetchDirectusData() async {
     final res = await directus.readOne(
-        collection: usersCollection, id: userBloc.state.user.directusId);
+      collection: usersCollection,
+      id: userBloc.state.user.directusId,
+    );
     if (res.isNotEmpty) {
       final data = res['whoopData'];
       if (data != null && data.isNotEmpty) {
@@ -193,7 +199,8 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<bool> pingCurrentCycle({required int cycleId}) async {
     final raw = await _requestData(
-        endpoint: WhoopEndpoints().cycleById(cycleId: cycleId));
+      endpoint: WhoopEndpoints().cycleById(cycleId: cycleId),
+    );
     return raw!['end'] != null;
   }
 
@@ -203,11 +210,12 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       final res =
           await directus.readOne(collection: usersCollection, id: userId);
       await directus.updateOne(
-          collection: daysCollection,
-          itemId: res['days'].last.toString(),
-          updateData: {'mealPlan': null});
+        collection: daysCollection,
+        itemId: res['days'].last.toString(),
+        updateData: {'mealPlan': null},
+      );
       return true;
-    } catch (e) {
+    } on Exception catch (e) {
       log('Error: $e', name: 'Diconnect Whoop RDS');
       return false;
     }
@@ -222,7 +230,9 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       return true;
     }
     final rawLast = await directus.readOne(
-        collection: daysCollection, id: daysIds.last.toString());
+      collection: daysCollection,
+      id: daysIds.last.toString(),
+    );
     final dateOfLast =
         DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
 

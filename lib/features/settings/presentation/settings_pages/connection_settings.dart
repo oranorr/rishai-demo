@@ -25,7 +25,7 @@ class ConnectionSettings extends StatelessWidget {
         children: [
           for (int i = 0; i < 6; i++)
             Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
+              padding: const EdgeInsets.only(bottom: 16),
               child: Row(
                 children: [
                   Text(
@@ -42,29 +42,37 @@ class ConnectionSettings extends StatelessWidget {
                                 whoopBloc.add(WhoopDisconnect());
                               }
                             : null,
-                        child: Builder(builder: (context) {
-                          ConnectionStatus status = data[i]['status'];
+                        child: Builder(
+                          builder: (context) {
+                            ConnectionStatus status = data[i]['status'];
 
-                          return Container(
-                            decoration: BoxDecoration(
+                            return DecoratedBox(
+                              decoration: BoxDecoration(
                                 border: Border.all(
-                                    color: resolveColor(status, context)),
-                                borderRadius: BorderRadius.circular(20)),
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                  vertical: 12.h, horizontal: 16.w),
-                              child: state.status == Status.loading && i == 0
-                                  ? CircularProgressIndicator(
-                                      color: context.theme.colorScheme.error,
-                                    )
-                                  : Text(
-                                      resolveLabel(status),
-                                      style: context.styles.boldMedium.copyWith(
-                                          color: resolveColor(status, context)),
-                                    ),
-                            ),
-                          );
-                        }),
+                                  color: resolveColor(status, context),
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: 12.h,
+                                  horizontal: 16.w,
+                                ),
+                                child: state.status == Status.loading && i == 0
+                                    ? CircularProgressIndicator(
+                                        color: context.theme.colorScheme.error,
+                                      )
+                                    : Text(
+                                        resolveLabel(status),
+                                        style:
+                                            context.styles.boldMedium.copyWith(
+                                          color: resolveColor(status, context),
+                                        ),
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
                       );
                     },
                   ),
@@ -84,8 +92,6 @@ class ConnectionSettings extends StatelessWidget {
         return RishColors.success;
       case ConnectionStatus.disabled:
         return RishColors.stroke;
-      default:
-        return Colors.pink;
     }
   }
 
@@ -97,8 +103,6 @@ class ConnectionSettings extends StatelessWidget {
         return 'Connect';
       case ConnectionStatus.disabled:
         return 'Connect (soon)';
-      default:
-        return 'error';
     }
   }
 }

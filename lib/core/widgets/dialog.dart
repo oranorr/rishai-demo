@@ -1,6 +1,7 @@
+// ignore_for_file: use_full_hex_values_for_flutter_colors
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
@@ -11,17 +12,17 @@ import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 class RishiDialog {
-  static void showCustomDialog(
+  static Future<void> showCustomDialog(
     BuildContext context, {
     required DialogType type,
     required ActionDialogType? actionDialogType,
     required VoidCallback? action,
-    final bool? isDissmissable,
-    final String? text,
-  }) {
-    showGeneralDialog(
+    bool? isDissmissable,
+    String? text,
+  }) async {
+    await showGeneralDialog(
       context: context,
-      barrierLabel: "",
+      barrierLabel: '',
       barrierDismissible: isDissmissable ?? true,
       barrierColor: const Color(0xff1717253d).withOpacity(0.25),
       transitionDuration: const Duration(milliseconds: 300),
@@ -37,7 +38,10 @@ class RishiDialog {
                   )
                 : type == DialogType.info
                     ? _buildWarningDialog(
-                        text: text!, context: context, action: action)
+                        text: text!,
+                        context: context,
+                        action: action,
+                      )
                     : Container(),
           ),
         );
@@ -58,14 +62,13 @@ class RishiDialog {
     );
   }
 
-  static void whoopDisclaimer(
+  static Future<void> whoopDisclaimer(
     BuildContext context, {
-    final String? text,
-  }) {
-    showGeneralDialog(
+    String? text,
+  }) async {
+    await showGeneralDialog(
       context: context,
-      barrierLabel: "",
-      barrierDismissible: false,
+      barrierLabel: '',
       barrierColor: const Color(0xff1717253d).withOpacity(0.25),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) {
@@ -75,9 +78,10 @@ class RishiDialog {
             child: Container(
               margin: EdgeInsets.symmetric(horizontal: 24.w),
               decoration: BoxDecoration(
-                  color: context.theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: RishColors.stroke)),
+                color: context.theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: RishColors.stroke),
+              ),
               child: Padding(
                 padding: EdgeInsets.zero,
                 child: ListView(
@@ -101,14 +105,15 @@ class RishiDialog {
                       height: 20.h,
                     ),
                     RishButton.primary(
-                        title: 'Accept',
-                        enabled: true,
-                        isLoading: false,
-                        action: () async {
-                          await prefsRepo.disclaimerAccpeted();
-                          context.pop();
-                          whoopBloc.add(WhoopConnectEvent(context));
-                        }),
+                      title: 'Accept',
+                      enabled: true,
+                      isLoading: false,
+                      action: () async {
+                        await prefsRepo.disclaimerAccpeted();
+                        context.pop();
+                        whoopBloc.add(WhoopConnectEvent(context));
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -132,12 +137,12 @@ class RishiDialog {
     );
   }
 
-  static void infoPopup(
+  static Future<void> infoPopup(
     BuildContext context,
-  ) {
-    showGeneralDialog(
+  ) async {
+    await showGeneralDialog(
       context: context,
-      barrierLabel: "",
+      barrierLabel: '',
       barrierDismissible: true,
       barrierColor: const Color(0xff1717253d).withOpacity(0.25),
       transitionDuration: const Duration(milliseconds: 300),
@@ -150,12 +155,12 @@ class RishiDialog {
               width: double.infinity,
               margin: EdgeInsets.symmetric(horizontal: 24.w),
               decoration: BoxDecoration(
-                  color: context.theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: RishColors.stroke)),
+                color: context.theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: RishColors.stroke),
+              ),
               child: Padding(
-                padding:
-                    const EdgeInsets.all(16.0).copyWith(top: 16, bottom: 0),
+                padding: const EdgeInsets.all(16).copyWith(top: 16, bottom: 0),
                 child: Scrollbar(
                   thumbVisibility: true,
                   trackVisibility: true,
@@ -201,13 +206,13 @@ class RishiDialog {
       width: double.infinity,
       margin: EdgeInsets.symmetric(horizontal: 24.w),
       decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: RishColors.stroke)),
+        color: context.theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: RishColors.stroke),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 41),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
@@ -257,13 +262,13 @@ class RishiDialog {
       width: double.infinity,
       margin: EdgeInsets.symmetric(horizontal: 24.w),
       decoration: BoxDecoration(
-          color: context.theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: RishColors.stroke)),
+        color: context.theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: RishColors.stroke),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 41),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
@@ -297,13 +302,14 @@ class RishiDialog {
             ),
             SizedBox(height: 20.h),
             RishButton.teritary(
-                height: 48.h,
-                title: isLogout ? 'Log out' : 'Delete account',
-                textColor: context.theme.colorScheme.error,
-                action: () {
-                  action();
-                  context.pop();
-                }),
+              height: 48.h,
+              title: isLogout ? 'Log out' : 'Delete account',
+              textColor: context.theme.colorScheme.error,
+              action: () {
+                action();
+                context.pop();
+              },
+            ),
           ],
         ),
       ),

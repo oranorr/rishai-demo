@@ -3,19 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:go_router/go_router.dart';
-
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
-import 'package:rishai/core/router/app_routes.dart';
-import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
 
-part './mixins/auto_prompts_mixin.dart';
 part './widgets/auto_prompts.dart';
 part './widgets/chat_widget.dart';
 part './widgets/header.dart';
@@ -23,11 +18,11 @@ part './widgets/input_send.dart';
 part './widgets/message.dart';
 
 class ChatPage extends StatefulWidget {
-  final PageController controller;
   const ChatPage({
-    super.key,
     required this.controller,
+    super.key,
   });
+  final PageController controller;
 
   @override
   State<ChatPage> createState() => _ChatPageState();

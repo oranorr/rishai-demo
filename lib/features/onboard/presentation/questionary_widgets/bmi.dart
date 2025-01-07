@@ -1,4 +1,3 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
 part of '../questionary.dart';
 
 class BmiWidget extends StatelessWidget {
@@ -33,7 +32,7 @@ class BmiWidget extends StatelessWidget {
             _BmiCard(
               weight: weight,
               height: height,
-            )
+            ),
           ],
         );
       },
@@ -42,13 +41,12 @@ class BmiWidget extends StatelessWidget {
 }
 
 class _BmiCard extends StatelessWidget {
-  final double height;
-  final double weight;
   const _BmiCard({
-    super.key,
     required this.height,
     required this.weight,
   });
+  final double height;
+  final double weight;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +61,6 @@ class _BmiCard extends StatelessWidget {
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation(getColor(bmi)),
@@ -74,25 +71,28 @@ class _BmiCard extends StatelessWidget {
           ),
           SizedBox(height: 12.h),
           SizedBox(
-              width: 285.w,
-              child: Text(
-                'According to your height and weight your BMI is ${bmi.toString().substring(0, 4)}',
-                style: context.styles.regularMedium,
-                textAlign: TextAlign.center,
-              )),
+            width: 285.w,
+            child: Text(
+              'According to your height and weight your BMI is ${bmi.toString().substring(0, 4)}',
+              style: context.styles.regularMedium,
+              textAlign: TextAlign.center,
+            ),
+          ),
           SizedBox(height: 12.h),
           Container(
             width: 117.w,
             height: 30.h,
             decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: getColor(bmi))),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: getColor(bmi)),
+            ),
             child: Center(
-                child: Text(
-              bmi.toString().substring(0, 4),
-              // '',
-              style: context.styles.boldSmall.copyWith(color: getColor(bmi)),
-            )),
+              child: Text(
+                bmi.toString().substring(0, 4),
+                // '',
+                style: context.styles.boldSmall.copyWith(color: getColor(bmi)),
+              ),
+            ),
           ),
         ],
       ),
@@ -136,13 +136,12 @@ class _BmiCard extends StatelessWidget {
 // Ожирение III степени (морбидное ожирение): BMI ≥ 40.0
 
 class _RulerWidget extends StatelessWidget {
-  final String title;
-  final double value;
   const _RulerWidget({
-    super.key,
     required this.title,
     required this.value,
   });
+  final String title;
+  final double value;
 
   @override
   Widget build(BuildContext context) {
@@ -157,10 +156,12 @@ class _RulerWidget extends StatelessWidget {
           height: 185,
           width: 25.w,
           decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.transparent,
-              border: Border.all(
-                  width: 1, color: context.theme.colorScheme.primary)),
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.transparent,
+            border: Border.all(
+              color: context.theme.colorScheme.primary,
+            ),
+          ),
           child: RotatedBox(
             quarterTurns: -1,
             child: LinearProgressIndicator(
@@ -179,9 +180,11 @@ class _RulerWidget extends StatelessWidget {
         SizedBox(height: 12.h),
         Text(value.round().toString(), style: context.styles.numsL),
         SizedBox(height: 4.h),
-        Text(getName(),
-            style: context.styles.regularLarge
-                .copyWith(color: const Color(0xffA8A8A8))),
+        Text(
+          getName(),
+          style: context.styles.regularLarge
+              .copyWith(color: const Color(0xffA8A8A8)),
+        ),
       ],
     );
   }
@@ -203,10 +206,8 @@ class _RulerWidget extends StatelessWidget {
     switch (title) {
       case 'Height':
         maxValue = 215;
-        break;
       case 'Weight':
         maxValue = 150;
-        break;
       default:
         maxValue = 0;
     }

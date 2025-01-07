@@ -59,10 +59,12 @@ mixin ProfileMixin on State<ProfileSettings> {
 
   void changeModificator(double incMod) {
     final upd = updUser.copyWith(
-        userGoal: UserGoal(
-            goal: updUser.userGoal!.goal,
-            modificator: incMod,
-            updatedAt: DateTime.now()));
+      userGoal: UserGoal(
+        goal: updUser.userGoal!.goal,
+        modificator: incMod,
+        updatedAt: DateTime.now(),
+      ),
+    );
     setUser(upd);
   }
 

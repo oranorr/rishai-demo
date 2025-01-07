@@ -22,10 +22,10 @@ class CycleModel {
     required this.id,
     required this.userId,
     required this.createdAt,
-    this.updatedAt,
     required this.start,
-    this.end,
     required this.scoreState,
+    this.updatedAt,
+    this.end,
     this.score,
   });
 

@@ -49,10 +49,11 @@ class UserDataEntity {
 
   int calcProteins() {
     final calc = CalculateWhoopData(
-        gender: gender,
-        strainValue: strainValue,
-        recoveryScore: recoveryScore,
-        sleepPerformance: sleepPerformance);
+      gender: gender,
+      strainValue: strainValue,
+      recoveryScore: recoveryScore,
+      sleepPerformance: sleepPerformance,
+    );
 
     double proteins = 0;
     if (workouts.isEmpty) {
@@ -69,7 +70,8 @@ class UserDataEntity {
       proteins = ((0.5 *
                   calc
                       .calcActivity(
-                          activity: getActivity(workouts.first.sportId))
+                        activity: getActivity(workouts.first.sportId),
+                      )
                       .protein) +
               (0.3 * calc.calcStrain().protein) +
               (0.1 * calc.calculateRecovery().protein) +
@@ -77,7 +79,7 @@ class UserDataEntity {
           userWeightLbs;
       return proteins.round();
     } else if (workouts.length > 1) {
-      for (WorkoutModel workout in workouts) {
+      for (final WorkoutModel workout in workouts) {
         proteins += ((0.5 *
                     calc
                         .calcActivity(activity: getActivity(workout.sportId))
@@ -97,21 +99,23 @@ class UserDataEntity {
 
   int clacFats() {
     final calc = CalculateWhoopData(
-        gender: gender,
-        strainValue: strainValue,
-        recoveryScore: recoveryScore,
-        sleepPerformance: 0);
+      gender: gender,
+      strainValue: strainValue,
+      recoveryScore: recoveryScore,
+      sleepPerformance: 0,
+    );
 
-    final res = (((0.5 * calc.calcStrain().fats) +
+    final res = ((0.5 * calc.calcStrain().fats) +
             (0.5 * calc.calculateRecovery().fats)) *
-        userWeightLbs);
+        userWeightLbs;
     return res.round();
   }
 
-  int calcCarbs(
-      {required int kalorieGoal,
-      required int proteinsInKcal,
-      required int fatsInKcal}) {
+  int calcCarbs({
+    required int kalorieGoal,
+    required int proteinsInKcal,
+    required int fatsInKcal,
+  }) {
     int carbsInCals = kalorieGoal - proteinsInKcal - fatsInKcal;
     double carbs = carbsInCals / 4;
     return carbs.round();
@@ -121,9 +125,10 @@ class UserDataEntity {
     final protein = calcProteins();
     final fats = clacFats();
     final carbs = calcCarbs(
-        kalorieGoal: calorieGoal,
-        proteinsInKcal: protein * 4,
-        fatsInKcal: fats * 9);
+      kalorieGoal: calorieGoal,
+      proteinsInKcal: protein * 4,
+      fatsInKcal: fats * 9,
+    );
 
     return MacrosBreakdown(
       kcal: calorieGoal,
@@ -138,27 +143,29 @@ class UserDataEntity {
     return 'UserDataEntity(workouts: $workouts, userWeightLbs: $userWeightLbs, gender: $gender, strainValue: $strainValue, recoveryScore: $recoveryScore, sleepPerformance: $sleepPerformance, calorieGoal: $calorieGoal, askTime: $askTime)';
   }
 
-  UserDataEntity copyWith(
-      {List<WorkoutModel>? workouts,
-      double? userWeightLbs,
-      Gender? gender,
-      double? strainValue,
-      int? recoveryScore,
-      int? sleepPerformance,
-      int? calorieGoal,
-      DateTime? askTime,
-      String? userId,
-      int? currentCycleId}) {
+  UserDataEntity copyWith({
+    List<WorkoutModel>? workouts,
+    double? userWeightLbs,
+    Gender? gender,
+    double? strainValue,
+    int? recoveryScore,
+    int? sleepPerformance,
+    int? calorieGoal,
+    DateTime? askTime,
+    String? userId,
+    int? currentCycleId,
+  }) {
     return UserDataEntity(
-        workouts: workouts ?? this.workouts,
-        userWeightLbs: userWeightLbs ?? this.userWeightLbs,
-        gender: gender ?? this.gender,
-        strainValue: strainValue ?? this.strainValue,
-        recoveryScore: recoveryScore ?? this.recoveryScore,
-        sleepPerformance: sleepPerformance ?? this.sleepPerformance,
-        calorieGoal: calorieGoal ?? this.calorieGoal,
-        askTime: askTime ?? this.askTime,
-        userId: userId ?? this.userId,
-        currentCycleId: currentCycleId ?? this.currentCycleId);
+      workouts: workouts ?? this.workouts,
+      userWeightLbs: userWeightLbs ?? this.userWeightLbs,
+      gender: gender ?? this.gender,
+      strainValue: strainValue ?? this.strainValue,
+      recoveryScore: recoveryScore ?? this.recoveryScore,
+      sleepPerformance: sleepPerformance ?? this.sleepPerformance,
+      calorieGoal: calorieGoal ?? this.calorieGoal,
+      askTime: askTime ?? this.askTime,
+      userId: userId ?? this.userId,
+      currentCycleId: currentCycleId ?? this.currentCycleId,
+    );
   }
 }

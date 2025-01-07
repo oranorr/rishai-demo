@@ -2,7 +2,7 @@
   "project_info": {
     "project_number": "586052816326",
     "project_id": "pivot-85ea0",
-    "storage_bucket": "pivot-85ea0.appspot.com"
+    "storage_bucket": "pivot-85ea0.firebasestorage.app"
   },
   "client": [
     {
@@ -13,6 +13,14 @@
         }
       },
       "oauth_client": [
+        {
+          "client_id": "586052816326-a8l4ddnt3smarompac1kdmf864prnfim.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.HealthspanCulture.Pivot",
+            "certificate_hash": "c7a1e0efb8ac89f1a3d934e4f5187b60d4a98413"
+          }
+        },
         {
           "client_id": "586052816326-ag11hps0i0414l6rrurq4rk9fv64kgtd.apps.googleusercontent.com",
           "client_type": 1,

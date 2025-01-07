@@ -243,7 +243,7 @@ https://www.nhlbi.nih.gov/health/educational/lose_wt/BMI/bmicalc.htm
 Note: Rishi Dhingra is certified nutritionist and functional medicine practitioner, consulting under his privately owned and licensed practice at Healthspan Culture FZCO, IFZA Authority, in Dubai, United Arab Emirates, and has developed the custom algorithm to align with recognized international nutritional standards.
   ''';
 
-  String get infoPopup =>
-      '''All calculations are based on data from WHOOP, established government nutritional guidelines, and our custom in-house algorithm. These sources provide reliable standards for nutritional insights & dietary guidance, but they are not substitutes for professional medical advice. For further details, please read the CITATIONS, REFERENCES & SOURCES document under the OTHERS section.
+  String get infoPopup => '''
+All calculations are based on data from WHOOP, established government nutritional guidelines, and our custom in-house algorithm. These sources provide reliable standards for nutritional insights & dietary guidance, but they are not substitutes for professional medical advice. For further details, please read the CITATIONS, REFERENCES & SOURCES document under the OTHERS section.
   ''';
 }

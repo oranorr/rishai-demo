@@ -1,8 +1,6 @@
 import 'dart:developer';
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:directus/directus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_repository.dart';
@@ -43,14 +41,15 @@ class DirectusRepositoryImpl implements DirectusService {
         );
 
         isConnected = true; // Успешное подключение
-        print('Подключение успешно на попытке $attempt');
-      } catch (e) {
+        log('Подключение успешно на попытке $attempt');
+      } on Exception catch (e) {
         log('Ошибка подключения на попытке $attempt: $e');
         if (attempt < maxRetries) {
           await Future.delayed(
-              const Duration(seconds: 2)); // Ожидание перед следующей попыткой
+            const Duration(seconds: 2),
+          ); // Ожидание перед следующей попыткой
         } else {
-          print('Все попытки подключения исчерпаны');
+          log('Все попытки подключения исчерпаны');
           rethrow; // Переброс ошибки, если все попытки исчерпаны
         }
       }
@@ -58,10 +57,11 @@ class DirectusRepositoryImpl implements DirectusService {
   }
 
   @override
-  Future<Map<String, dynamic>> updateOne(
-      {required String collection,
-      required String itemId,
-      required Map<String, dynamic> updateData}) async {
+  Future<Map<String, dynamic>> updateOne({
+    required String collection,
+    required String itemId,
+    required Map<String, dynamic> updateData,
+  }) async {
     try {
       log('UPDATE DATA: $updateData');
 
@@ -69,76 +69,67 @@ class DirectusRepositoryImpl implements DirectusService {
           await sdk.items(collection).updateOne(data: updateData, id: itemId);
       return res.data;
     } on DirectusError catch (e) {
-      log(e.message.toString());
+      log(e.message);
       return {};
     }
   }
 
   @override
-  Future<Map<String, dynamic>> createOne(
-      {required String collection, required Map<String, dynamic> data}) async {
+  Future<Map<String, dynamic>> createOne({
+    required String collection,
+    required Map<String, dynamic> data,
+  }) async {
     try {
       final res = await sdk.items(collection).createOne(data);
       return res.data;
     } on DirectusError catch (e) {
-      log(e.message.toString());
+      log(e.message);
       rethrow;
     }
   }
 
   @override
-  Future<List<Map<String, dynamic>>> readMany(
-      {required String collection, Filters? filters}) async {
+  Future<List<Map<String, dynamic>>> readMany({
+    required String collection,
+    Filters? filters,
+  }) async {
     try {
       final res = await sdk.items(collection).readMany(filters: filters);
       return res.data;
     } on DirectusError catch (e) {
-      log(e.message.toString());
+      log(e.message);
       return [];
     }
   }
 
   @override
-  Future<void> deleteOne(
-      {required String collection, required String id}) async {
+  Future<void> deleteOne({
+    required String collection,
+    required String id,
+  }) async {
     await sdk.items(collection).deleteOne(id);
   }
 
   @override
-  Future<Map<String, dynamic>> readOne(
-      {required String collection, required String id}) async {
+  Future<Map<String, dynamic>> readOne({
+    required String collection,
+    required String id,
+  }) async {
     final res = await sdk.items(collection).readOne(id);
 
     return res.data;
   }
 
   @override
-  Future<void> createMany(
-      {required String collection,
-      required List<Map<String, dynamic>> data}) async {
+  Future<void> createMany({
+    required String collection,
+    required List<Map<String, dynamic>> data,
+  }) async {
     try {
       await sdk.items(collection).createMany(data);
     } on DirectusError catch (e) {
-      log(e.message.toString());
+      log(e.message);
       rethrow;
     }
-  }
-
-  @override
-  Future<String?> getPicByUUID({required String uuid}) {
-    // TODO: implement getPicByUUID
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<List<String>> sendMultiPics(List<String> paths) {
-    // TODO: implement sendMultiPics
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<String> uploadUserPic({required int directusId, required File image}) {
-    // TODO: implement uploadUserPic
-    throw UnimplementedError();
   }
 }

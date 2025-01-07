@@ -10,7 +10,7 @@ import 'package:rishai/features/chat/data/chat_repository_impl.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
-import 'package:rishai/features/chat/domain/usecases/fetch_savedSnap_usecase.dart';
+import 'package:rishai/features/chat/domain/usecases/fetch_saved_snap_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/init_gpt_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart';
@@ -90,10 +90,6 @@ int totalRequests = 5;
 
 @injectable
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
-  final InitGptUsecase initGptUsecase;
-  final RequestPlanUsecase requestMealPlan;
-  final SendMessageGptUsecase sendMessageGptUsecase;
-  final FetchSavedSnapUsecase fetchSavedSnapUsecase;
   ChatBloc(
     this.initGptUsecase,
     this.requestMealPlan,
@@ -116,6 +112,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatOnLogout>(_chatOnLogout);
     on<ChatRefreshChat>(_refreshChat);
   }
+  final InitGptUsecase initGptUsecase;
+  final RequestPlanUsecase requestMealPlan;
+  final SendMessageGptUsecase sendMessageGptUsecase;
+  final FetchSavedSnapUsecase fetchSavedSnapUsecase;
   FutureOr<void> _init(InitChatBloc event, Emitter<ChatState> emit) async {
     final res = await fetchSavedSnapUsecase.call(
       FetchSavedSnapParams(directusId: userBloc.state.user.directusId),
@@ -130,11 +130,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       (snap) {
         if (snap != null) {
           log('requests left: ${snap.requestsLeft}');
-          emit(state.copyWith(
-            messages: snap.messages,
-            requestsLeft: snap.requestsLeft,
-            mealPlan: snap.mealPlan,
-          ));
+          emit(
+            state.copyWith(
+              messages: snap.messages,
+              requestsLeft: snap.requestsLeft,
+              mealPlan: snap.mealPlan,
+            ),
+          );
           threadId = snap.threadId;
           log('requests left: ${state.requestsLeft}');
         }
@@ -145,7 +147,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   FutureOr<void> _sendMessage(
-      ChatSendMessage event, Emitter<ChatState> emit) async {
+    ChatSendMessage event,
+    Emitter<ChatState> emit,
+  ) async {
     MessageEntity msg =
         MessageEntity(text: event.text, isMe: event.isMe ?? true);
 
@@ -166,16 +170,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         final msg = MessageEntity(text: result, isMe: false);
         list.add(msg);
         emit(state.copyWith(requestsLeft: state.requestsLeft - 1));
-        userBloc.add(UserManageDay(
-          day: whoopBloc.state.day.copyWith(
-            snap: ChatSnapshotEntity(
-              messages: [],
-              date: DateTime.now(),
-              requestsLeft: state.requestsLeft,
-              threadId: chatRemoteSrc.threadId,
+        userBloc.add(
+          UserManageDay(
+            day: whoopBloc.state.day.copyWith(
+              snap: ChatSnapshotEntity(
+                messages: [],
+                date: DateTime.now(),
+                requestsLeft: state.requestsLeft,
+                threadId: chatRemoteSrc.threadId,
+              ),
             ),
           ),
-        ));
+        );
       });
     }
 
@@ -184,7 +190,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   FutureOr<void> _createMealPlan(
-      CreateMealPlan event, Emitter<ChatState> emit) async {
+    CreateMealPlan event,
+    Emitter<ChatState> emit,
+  ) async {
     emit(state.copyWith(status: Status.loading));
     final user = userBloc.state.user;
     final res = await requestMealPlan.call(
@@ -201,13 +209,19 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     res.fold((failure) {
       emit(state.copyWith(status: Status.error));
     }, (plan) {
-      emit(state.copyWith(
-        mealPlan: plan,
-        requestsLeft: state.requestsLeft - 1,
-        status: Status.success,
-      ));
-      add(const ChatSendMessage(
-          text: 'Your meal plan is ready. Check it out.', isMe: false));
+      emit(
+        state.copyWith(
+          mealPlan: plan,
+          requestsLeft: state.requestsLeft - 1,
+          status: Status.success,
+        ),
+      );
+      add(
+        const ChatSendMessage(
+          text: 'Your meal plan is ready. Check it out.',
+          isMe: false,
+        ),
+      );
       whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: plan));
     });
     add(ChatSaveSnap());
@@ -215,16 +229,19 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   FutureOr<void> _saveSnap(ChatSaveSnap event, Emitter<ChatState> emit) async {
     final chatSnap = ChatSnapshotEntity(
-        messages: state.messages,
-        date: DateTime.now(),
-        requestsLeft: state.requestsLeft,
-        mealPlan: state.mealPlan,
-        threadId: chatRemoteSrc.threadId);
+      messages: state.messages,
+      date: DateTime.now(),
+      requestsLeft: state.requestsLeft,
+      mealPlan: state.mealPlan,
+      threadId: chatRemoteSrc.threadId,
+    );
     await chatRepo.saveChatSnapShot(chatSnap: chatSnap);
   }
 
   FutureOr<void> _deleteMealPlan(
-      ChatDeleteMealPlan event, Emitter<ChatState> emit) async {
+    ChatDeleteMealPlan event,
+    Emitter<ChatState> emit,
+  ) async {
     // emit(state.copyWith(
     //   mealPlan: null,
     //   requestsLeft: state.requestsLeft + 1,
@@ -234,26 +251,36 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   FutureOr<void> _fetchLatsPlan(
-      ChatFetchLastMealPlan event, Emitter<ChatState> emit) async {
+    ChatFetchLastMealPlan event,
+    Emitter<ChatState> emit,
+  ) async {
     emit(state.copyWith(mealPlan: event.day.mealPlanEntity));
   }
 
   FutureOr<void> _chatOnLogout(
-      ChatOnLogout event, Emitter<ChatState> emit) async {
-    emit(state.copyWith(
-      messages: [],
-      requestsLeft: event.needsCounterClear ? 5 : state.requestsLeft,
-      mealPlan: null,
-    ));
+    ChatOnLogout event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        messages: [],
+        requestsLeft: event.needsCounterClear ? 5 : state.requestsLeft,
+        mealPlan: null,
+      ),
+    );
   }
 
   FutureOr<void> _refreshChat(
-      ChatRefreshChat event, Emitter<ChatState> emit) async {
+    ChatRefreshChat event,
+    Emitter<ChatState> emit,
+  ) async {
     await hive.refreshChat();
-    emit(state.copyWith(
-      messages: event.needsRequestsAmountRefresh ? [] : state.messages,
-      requestsLeft: event.needsRequestsAmountRefresh ? 5 : state.requestsLeft,
-      mealPlan: null,
-    ));
+    emit(
+      state.copyWith(
+        messages: event.needsRequestsAmountRefresh ? [] : state.messages,
+        requestsLeft: event.needsRequestsAmountRefresh ? 5 : state.requestsLeft,
+        mealPlan: null,
+      ),
+    );
   }
 }

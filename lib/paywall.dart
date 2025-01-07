@@ -71,30 +71,32 @@ class _PaywallState extends State<Paywall> {
               textAlign: TextAlign.center,
             ),
           SizedBox(height: 16.h),
-          ...nices.map((nice) => Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.h).copyWith(top: 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4.0),
-                      child: Icon(
-                        Icons.check,
-                        color: RishColors.primary,
-                      ),
+          ...nices.map(
+            (nice) => Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.h).copyWith(top: 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Icon(
+                      Icons.check,
+                      color: RishColors.primary,
                     ),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: Text(
-                        nice,
-                        maxLines: 10,
-                        softWrap: true,
-                        style: context.styles.regularLarge,
-                      ),
-                    )
-                  ],
-                ),
-              )),
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      nice,
+                      maxLines: 10,
+                      softWrap: true,
+                      style: context.styles.regularLarge,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           SizedBox(height: 16.h),
           Text(
             'Your subscription will automatically renew at $price per ${selectedProduct!.subscriptionDetails!.subscriptionPeriod.unit.name}, after the 1-month trial ends.',
@@ -105,11 +107,13 @@ class _PaywallState extends State<Paywall> {
             maxLines: 4,
           ),
           SizedBox(height: 28.h),
-          _SubButtons(callback: (product) {
-            setState(() {
-              selectedProduct = product;
-            });
-          }),
+          _SubButtons(
+            callback: (product) {
+              setState(() {
+                selectedProduct = product;
+              });
+            },
+          ),
           SizedBox(height: 16.h),
           if (!isFreeTrialAvailable)
             Text(
@@ -129,7 +133,7 @@ class _PaywallState extends State<Paywall> {
                     decoration: TextDecoration.underline,
                   ),
                   recognizer: TapGestureRecognizer()
-                    ..onTap = () async => await restore(),
+                    ..onTap = () async => restore(),
                 ),
               ],
             ),
@@ -138,61 +142,63 @@ class _PaywallState extends State<Paywall> {
           RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
-                text: 'By subscribing you agree to our ',
-                style: context.styles.regularMedium
-                    .copyWith(color: RishColors.textSecondary),
-                children: [
-                  TextSpan(
-                    text: Platform.isAndroid
-                        ? 'Terms of Service '
-                        : 'Terms of Use ',
-                    style: context.styles.boldMedium.copyWith(
-                        color: RishColors.primary,
-                        decoration: TextDecoration.underline),
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () => launchUrl(
-                            Uri.parse(
-                              Platform.isAndroid
-                                  ? 'https://thepivotapp.ai/terms-of-service'
-                                  : 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
-                            ),
+              text: 'By subscribing you agree to our ',
+              style: context.styles.regularMedium
+                  .copyWith(color: RishColors.textSecondary),
+              children: [
+                TextSpan(
+                  text: Platform.isAndroid
+                      ? 'Terms of Service '
+                      : 'Terms of Use ',
+                  style: context.styles.boldMedium.copyWith(
+                    color: RishColors.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () async => launchUrl(
+                          Uri.parse(
+                            Platform.isAndroid
+                                ? 'https://thepivotapp.ai/terms-of-service'
+                                : 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
                           ),
+                        ),
+                ),
+                TextSpan(
+                  text: '& ',
+                  style: context.styles.boldMedium
+                      .copyWith(color: RishColors.textSecondary),
+                ),
+                TextSpan(
+                  text: 'Privacy Policy',
+                  style: context.styles.boldMedium.copyWith(
+                    color: RishColors.primary,
+                    decoration: TextDecoration.underline,
                   ),
-                  TextSpan(
-                    text: '& ',
-                    style: context.styles.boldMedium
-                        .copyWith(color: RishColors.textSecondary),
-                  ),
-                  TextSpan(
-                    text: 'Privacy Policy',
-                    style: context.styles.boldMedium.copyWith(
-                      color: RishColors.primary,
-                      decoration: TextDecoration.underline,
-                    ),
-                    recognizer: TapGestureRecognizer()
-                      ..onTap = () => launchUrl(
-                            Uri.parse(
-                              'https://thepivotapp.ai/privacy-policy',
-                            ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () async => launchUrl(
+                          Uri.parse(
+                            'https://thepivotapp.ai/privacy-policy',
                           ),
-                  ),
-                ]),
+                        ),
+                ),
+              ],
+            ),
           ),
           SizedBox(height: 16.h),
           RishButton.primary(
-              title: isFreeTrialAvailable
-                  ? 'Start free trial!'
-                  : 'Purchase subscription',
-              enabled: !processing,
-              isLoading: processing,
-              action: () async {
-                setState(() {
-                  processing = true;
-                });
-                final res =
-                    await adapty.makePurchase(product: selectedProduct!);
-                processPurchaseResult(res);
-              }),
+            title: isFreeTrialAvailable
+                ? 'Start free trial!'
+                : 'Purchase subscription',
+            enabled: !processing,
+            isLoading: processing,
+            action: () async {
+              setState(() {
+                processing = true;
+              });
+              final res = await adapty.makePurchase(product: selectedProduct!);
+              processPurchaseResult(res);
+            },
+          ),
           if (kDebugMode) ...[
             SizedBox(height: 20.h),
             Center(
@@ -237,9 +243,9 @@ class _PaywallState extends State<Paywall> {
             'pivot-monthly') {
       return '1 month for free, then $price per month.';
       // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per month.';
-    } else if ((selectedProduct!.vendorProductId == 'pivot_annual' ||
+    } else if (selectedProduct!.vendorProductId == 'pivot_annual' ||
         selectedProduct!.subscriptionDetails!.androidBasePlanId ==
-            'pivot-annual')) {
+            'pivot-annual') {
       return '1 month for free, then $price per year.';
       // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per year.';
     } else {
@@ -251,7 +257,7 @@ class _PaywallState extends State<Paywall> {
     'Daily calorie and macronutrient targets inline with your fitness goal, calculated using our proprietary algorithm based on WHOOP data.',
     'Create daily meal plans tailored to your taste profile and dietary preferences, aligned with your goals.',
     // 'Regeneration of any 1 meal per day of your choice.',
-    'Chat with our AI coach on anything nutrition related. (limited to 5 questions a day)'
+    'Chat with our AI coach on anything nutrition related. (limited to 5 questions a day)',
   ];
 
   void processPurchaseResult(String res) {
@@ -272,11 +278,10 @@ class _PaywallState extends State<Paywall> {
 }
 
 class _SubButtons extends StatefulWidget {
-  final Function(AdaptyPaywallProduct) callback;
   const _SubButtons({
-    super.key,
     required this.callback,
   });
+  final Function(AdaptyPaywallProduct) callback;
 
   @override
   State<_SubButtons> createState() => __SubButtonsState();
@@ -299,52 +304,52 @@ class __SubButtonsState extends State<_SubButtons> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                      height: 106.h,
-                      width: 152.w,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          width: 2,
-                          color: i == indexSelected
-                              ? RishColors.primary
-                              : RishColors.textSecondary,
-                        ),
+                    height: 106.h,
+                    width: 152.w,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        width: 2,
+                        color: i == indexSelected
+                            ? RishColors.primary
+                            : RishColors.textSecondary,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              Platform.isIOS
-                                  ? _getTitleIOs(
-                                      adapty.products[i].vendorProductId)
-                                  : _getTitleAndroid(adapty
-                                          .products[i]
-                                          .subscriptionDetails!
-                                          .androidBasePlanId!
-                                      // adapty.products[i].subscriptionDetails!
-                                      //     .androidBasePlanId!,
-                                      ),
-                              style: context.styles.boldMedium,
-                            ),
-                            FittedBox(
-                                child:
-                                    _getPrice(i, context, i == indexSelected)),
-                            // if (i == 1)
-                            //   FittedBox(
-                            //     child: Text(
-                            //       '${adapty.products[i].price.currencySymbol}${(adapty.products[i].price.amount / 12).toStringAsFixed(2)} per month.\nSave 20%',
-                            //       textAlign: TextAlign.center,
-                            //       style: context.styles.regularMedium.copyWith(
-                            //         color: RishColors.primary,
-                            //       ),
-                            //     ),
-                            //   )
-                          ],
-                        ),
-                      )),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            Platform.isIOS
+                                ? _getTitleIOs(
+                                    adapty.products[i].vendorProductId,
+                                  )
+                                : _getTitleAndroid(
+                                    adapty.products[i].subscriptionDetails!
+                                        .androidBasePlanId!,
+                                    // adapty.products[i].subscriptionDetails!
+                                    //     .androidBasePlanId!,
+                                  ),
+                            style: context.styles.boldMedium,
+                          ),
+                          FittedBox(
+                            child: _getPrice(i, context, i == indexSelected),
+                          ),
+                          // if (i == 1)
+                          //   FittedBox(
+                          //     child: Text(
+                          //       '${adapty.products[i].price.currencySymbol}${(adapty.products[i].price.amount / 12).toStringAsFixed(2)} per month.\nSave 20%',
+                          //       textAlign: TextAlign.center,
+                          //       style: context.styles.regularMedium.copyWith(
+                          //         color: RishColors.primary,
+                          //       ),
+                          //     ),
+                          //   )
+                        ],
+                      ),
+                    ),
+                  ),
                   if (i == 1)
                     Positioned(
                       top: -15,
@@ -362,7 +367,9 @@ class __SubButtonsState extends State<_SubButtons> {
                         child: Text(
                           Platform.isAndroid ? 'Best offer' : 'Save 20%',
                           style: context.styles.boldSmall.copyWith(
-                              color: RishColors.formBackgroun, height: 1.5.h),
+                            color: RishColors.formBackgroun,
+                            height: 1.5.h,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -388,38 +395,38 @@ class __SubButtonsState extends State<_SubButtons> {
       );
     } else {
       return RichText(
-          maxLines: 2,
-          softWrap: true,
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            text: adapty.products[i].price.localizedString!,
-            // '${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
-            style: context.styles.h3.copyWith(
-                decoration: TextDecoration.none,
-                color: isSelected ? null : RishColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
-                height: 1.5),
-          )
-          // TextSpan(
-          //     text:
-          //         '${adapty.products[i].price.currencySymbol}${(adapty.products[0].price.amount * 12).toStringAsFixed(2)}',
-          //     style: context.styles.boldLarge.copyWith(
-          //       decoration: TextDecoration.lineThrough,
-          //       color: RishColors.textSecondary,
-          //       height: 1.5,
-          //     ),
-          //     children: [
-          //       TextSpan(
-          //         text:
-          //             '\n${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
-          //         style: context.styles.h3.copyWith(
-          //             decoration: TextDecoration.none,
-          //             color: isSelected ? null : RishColors.textSecondary,
-          //             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
-          //             height: 1.5),
-          //       ),
-          //     ]),
-          );
+        maxLines: 2,
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          text: adapty.products[i].price.localizedString,
+          // '${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
+          style: context.styles.h3.copyWith(
+            decoration: TextDecoration.none,
+            color: isSelected ? null : RishColors.textSecondary,
+            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
+            height: 1.5,
+          ),
+        ),
+        // TextSpan(
+        //     text:
+        //         '${adapty.products[i].price.currencySymbol}${(adapty.products[0].price.amount * 12).toStringAsFixed(2)}',
+        //     style: context.styles.boldLarge.copyWith(
+        //       decoration: TextDecoration.lineThrough,
+        //       color: RishColors.textSecondary,
+        //       height: 1.5,
+        //     ),
+        //     children: [
+        //       TextSpan(
+        //         text:
+        //             '\n${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
+        //         style: context.styles.h3.copyWith(
+        //             decoration: TextDecoration.none,
+        //             color: isSelected ? null : RishColors.textSecondary,
+        //             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
+        //             height: 1.5),
+        //       ),
+        //     ]),
+      );
     }
   }
 

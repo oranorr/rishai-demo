@@ -1,14 +1,12 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
 part of '../chat_page.dart';
 
 class _AutoPrompts extends StatefulWidget {
-  final PageController controller;
-  final bool isThereText;
   const _AutoPrompts({
-    super.key,
     required this.controller,
     required this.isThereText,
   });
+  final PageController controller;
+  final bool isThereText;
 
   @override
   State<_AutoPrompts> createState() => __AutoPromptsState();
@@ -28,20 +26,26 @@ class __AutoPromptsState extends State<_AutoPrompts>
     List steps = [
       //start
       RishButton.primary(
-          height: 48.h,
-          title: 'Create meal plan',
-          enabled: true,
-          isLoading: false,
-          action: () {
-            chatBloc.add(
-                const ChatSendMessage(text: 'Create meal plan', isMe: true));
-            chatBloc.add(const ChatSendMessage(
+        height: 48.h,
+        title: 'Create meal plan',
+        enabled: true,
+        isLoading: false,
+        action: () {
+          chatBloc
+            ..add(
+              const ChatSendMessage(text: 'Create meal plan', isMe: true),
+            )
+            ..add(
+              const ChatSendMessage(
                 text: 'How many meals would you like to have today?',
-                isMe: false));
-            setState(() {
-              currentStep++;
-            });
-          }),
+                isMe: false,
+              ),
+            );
+          setState(() {
+            currentStep++;
+          });
+        },
+      ),
       //amount
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -55,10 +59,14 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 enabled: true,
                 isLoading: false,
                 action: () {
-                  chatBloc.add(ChatSendMessage(text: '${i + 2}', isMe: true));
-                  chatBloc.add(const ChatSendMessage(
-                      text: 'Would you also like to add a snack?',
-                      isMe: false));
+                  chatBloc
+                    ..add(ChatSendMessage(text: '${i + 2}', isMe: true))
+                    ..add(
+                      const ChatSendMessage(
+                        text: 'Would you also like to add a snack?',
+                        isMe: false,
+                      ),
+                    );
                   setState(() {
                     mealsAmount = i + 2;
                     currentStep++;
@@ -80,10 +88,16 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 enabled: true,
                 isLoading: false,
                 action: () {
-                  chatBloc.add(
-                      ChatSendMessage(text: i == 0 ? 'Yes' : 'No', isMe: true));
-                  chatBloc.add(const ChatSendMessage(
-                      text: 'Do you plan to exercise today?', isMe: false));
+                  chatBloc
+                    ..add(
+                      ChatSendMessage(text: i == 0 ? 'Yes' : 'No', isMe: true),
+                    )
+                    ..add(
+                      const ChatSendMessage(
+                        text: 'Do you plan to exercise today?',
+                        isMe: false,
+                      ),
+                    );
                   setState(() {
                     snackToday = i == 0;
                     currentStep++;
@@ -105,27 +119,34 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 isLoading: false,
                 height: 48.h,
                 action: () {
-                  chatBloc.add(
-                      ChatSendMessage(text: i == 0 ? 'Yes' : 'No', isMe: true));
-                  chatBloc.add(const ChatSendMessage(
-                      text:
-                          'Hold on, I\'m creating a personalized meal plan for you',
-                      isMe: false));
+                  chatBloc
+                    ..add(
+                      ChatSendMessage(text: i == 0 ? 'Yes' : 'No', isMe: true),
+                    )
+                    ..add(
+                      const ChatSendMessage(
+                        text:
+                            "Hold on, I'm creating a personalized meal plan for you",
+                        isMe: false,
+                      ),
+                    );
                   setState(() {
-                    trainingToday = i == 0 ? true : false;
+                    trainingToday = i == 0;
                     // currentStep = 0;
                     currentStep++;
-                    chatBloc.add(CreateMealPlan(
-                      trainingToday: trainingToday,
-                      // workoutTime:
-                      //     workoutTime == 'No Workout' ? 'NONE' : workoutTime,
-                      mealsAmount: mealsAmount,
-                      snackToday: snackToday,
-                    ));
+                    chatBloc.add(
+                      CreateMealPlan(
+                        trainingToday: trainingToday,
+                        // workoutTime:
+                        //     workoutTime == 'No Workout' ? 'NONE' : workoutTime,
+                        mealsAmount: mealsAmount,
+                        snackToday: snackToday,
+                      ),
+                    );
                   });
                 },
               ),
-            )
+            ),
         ],
       ),
       //View Meal Plan
@@ -139,7 +160,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 title: 'View meal plan',
                 enabled: true,
                 isLoading: false,
-                action: () {
+                action: () async {
                   setState(() {
                     currentStep++;
                     FocusManager.instance.primaryFocus?.unfocus();
@@ -152,22 +173,26 @@ class __AutoPromptsState extends State<_AutoPrompts>
           } else if (state.status == Status.error) {
             return Text.rich(
               TextSpan(
-                  text: 'Error occured while generating. It\'s ok.',
-                  style: context.styles.regularMedium,
-                  children: [
-                    TextSpan(
-                        text: '\nJust try again.',
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () {
-                            chatBloc.add(CreateMealPlan(
-                              trainingToday: trainingToday,
-                              mealsAmount: mealsAmount,
-                              snackToday: snackToday,
-                            ));
-                          },
-                        style: context.styles.boldMedium
-                            .copyWith(color: RishColors.primary))
-                  ]),
+                text: "Error occured while generating. It's ok.",
+                style: context.styles.regularMedium,
+                children: [
+                  TextSpan(
+                    text: '\nJust try again.',
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        chatBloc.add(
+                          CreateMealPlan(
+                            trainingToday: trainingToday,
+                            mealsAmount: mealsAmount,
+                            snackToday: snackToday,
+                          ),
+                        );
+                      },
+                    style: context.styles.boldMedium
+                        .copyWith(color: RishColors.primary),
+                  ),
+                ],
+              ),
               textAlign: TextAlign.center,
             );
           } else {
@@ -185,15 +210,16 @@ class __AutoPromptsState extends State<_AutoPrompts>
       bloc: chatBloc,
       builder: (context, state) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12.0, top: 12),
+          padding: const EdgeInsets.only(bottom: 12, top: 12),
           child: SizedBox(
-              child: state.status == Status.loading
-                  ? const CircularProgressIndicator()
-                  : state.requestsLeft == 0
-                      ? const SizedBox.shrink()
-                      : state.mealPlan == null || currentStep == 4
-                          ? steps[currentStep]
-                          : steps.last),
+            child: state.status == Status.loading
+                ? const CircularProgressIndicator()
+                : state.requestsLeft == 0
+                    ? const SizedBox.shrink()
+                    : state.mealPlan == null || currentStep == 4
+                        ? steps[currentStep]
+                        : steps.last,
+          ),
         );
       },
     );
@@ -212,11 +238,10 @@ class __AutoPromptsState extends State<_AutoPrompts>
 }
 
 class _PromptQuestions extends StatefulWidget {
-  final bool isVisible;
   const _PromptQuestions({
-    super.key,
     required this.isVisible,
   });
+  final bool isVisible;
 
   @override
   State<_PromptQuestions> createState() => _PromptQuestionsState();
@@ -226,7 +251,7 @@ class _PromptQuestionsState extends State<_PromptQuestions> {
   final List<String> questions = [
     'Is protein essential to build muscle and lose fat?',
     'What are good sources of fats?',
-    'Does intermittent fasting help with body compostition?'
+    'Does intermittent fasting help with body compostition?',
   ];
 
   bool bodyVisible = true;
@@ -237,38 +262,37 @@ class _PromptQuestionsState extends State<_PromptQuestions> {
       bloc: chatBloc,
       builder: (context, state) {
         return AnimatedOpacity(
-            opacity: !widget.isVisible &&
-                    state.status != Status.loading &&
-                    state.requestsLeft != 0
-                ? 1
-                : 0,
+          opacity: !widget.isVisible &&
+                  state.status != Status.loading &&
+                  state.requestsLeft != 0
+              ? 1
+              : 0,
+          duration: Durations.short4,
+          onEnd: () {
+            setState(() {
+              bodyVisible = !bodyVisible;
+            });
+          },
+          child: AnimatedContainer(
             duration: Durations.short4,
-            onEnd: () {
-              setState(() {
-                bodyVisible = !bodyVisible;
-              });
-            },
-            child: AnimatedContainer(
-              duration: Durations.short4,
-              height: bodyVisible ? null : 0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: questions
-                    .map((q) => _QuestionPromptButton(text: q))
-                    .toList(),
-              ),
-            ));
+            height: bodyVisible ? null : 0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children:
+                  questions.map((q) => _QuestionPromptButton(text: q)).toList(),
+            ),
+          ),
+        );
       },
     );
   }
 }
 
 class _QuestionPromptButton extends StatelessWidget {
-  final String text;
   const _QuestionPromptButton({
-    super.key,
     required this.text,
   });
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -282,14 +306,14 @@ class _QuestionPromptButton extends StatelessWidget {
               ChatSendMessage(text: text, isRequest: true, isMe: true),
             );
           },
-          child: Container(
+          child: DecoratedBox(
             decoration: BoxDecoration(
-                color: RishColors.formBackgroun,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(width: 1, color: RishColors.primary)),
+              color: RishColors.formBackgroun,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: RishColors.primary),
+            ),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               child: Text(
                 text,
                 textAlign: TextAlign.end,

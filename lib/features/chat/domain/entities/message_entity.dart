@@ -6,14 +6,14 @@ part 'message_entity.g.dart';
 
 @HiveType(typeId: 5)
 class MessageEntity {
-  @HiveField(0)
-  final String text;
-  @HiveField(1)
-  final bool isMe;
   MessageEntity({
     required this.text,
     required this.isMe,
   });
+  @HiveField(0)
+  final String text;
+  @HiveField(1)
+  final bool isMe;
 
   MessageEntity copyWith({
     String? text,

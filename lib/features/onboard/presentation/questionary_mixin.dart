@@ -69,6 +69,7 @@ mixin QuestionaryMixin on State<Questionary> {
     });
   }
 
+  // ignore: use_setters_to_change_properties
   void setAge(int incAge) {
     age = incAge;
     // setState(() {
@@ -97,13 +98,15 @@ mixin QuestionaryMixin on State<Questionary> {
     });
   }
 
-  void buttonAction() async {
+  Future<void> buttonAction() async {
     if (!isLastPage) {
-      pageController.nextPage(
-          duration: const Duration(milliseconds: 200), curve: Curves.easeIn);
+      await pageController.nextPage(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeIn,
+      );
     } else {
       UserEntity updUser = user.copyWith(
-        gender: gender!,
+        gender: gender,
         age: age,
         foodPreferences: FoodPreferences(
           diets: diets.map((diet) => diet.name).toList(),

@@ -1,57 +1,56 @@
 part of '../login_screen.dart';
 
 class _LowerPart extends StatelessWidget {
-  final bool isFromCreate;
-  final VoidCallback buttonAction;
-  final TabController tabController;
   const _LowerPart({
-    super.key,
     required this.isFromCreate,
     required this.buttonAction,
     required this.tabController,
   });
+  final bool isFromCreate;
+  final VoidCallback buttonAction;
+  final TabController tabController;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.max,
       children: [
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
-              text:
-                  'By ${isFromCreate ? 'signing up' : 'logging in'}, you agree to our ',
-              style: context.styles.regularMedium
-                  .copyWith(color: RishColors.textSecondary),
-              children: [
-                TextSpan(
-                  text: 'Terms of Service ',
-                  style: context.styles.boldMedium
-                      .copyWith(color: RishColors.textSecondary),
-                  recognizer: TapGestureRecognizer()
-                    ..onTap = () => launchUrl(
-                          Uri.parse(
-                            'https://thepivotapp.ai/terms-of-service',
-                          ),
+            text:
+                'By ${isFromCreate ? 'signing up' : 'logging in'}, you agree to our ',
+            style: context.styles.regularMedium
+                .copyWith(color: RishColors.textSecondary),
+            children: [
+              TextSpan(
+                text: 'Terms of Service ',
+                style: context.styles.boldMedium
+                    .copyWith(color: RishColors.textSecondary),
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () async => launchUrl(
+                        Uri.parse(
+                          'https://thepivotapp.ai/terms-of-service',
                         ),
-                ),
-                TextSpan(
-                  text: '& ',
-                  style: context.styles.boldMedium
-                      .copyWith(color: RishColors.textSecondary),
-                ),
-                TextSpan(
-                  text: 'Privacy Policy',
-                  style: context.styles.boldMedium
-                      .copyWith(color: RishColors.textSecondary),
-                  recognizer: TapGestureRecognizer()
-                    ..onTap = () => launchUrl(
-                          Uri.parse(
-                            'https://thepivotapp.ai/privacy-policy',
-                          ),
+                      ),
+              ),
+              TextSpan(
+                text: '& ',
+                style: context.styles.boldMedium
+                    .copyWith(color: RishColors.textSecondary),
+              ),
+              TextSpan(
+                text: 'Privacy Policy',
+                style: context.styles.boldMedium
+                    .copyWith(color: RishColors.textSecondary),
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () async => launchUrl(
+                        Uri.parse(
+                          'https://thepivotapp.ai/privacy-policy',
                         ),
-                ),
-              ]),
+                      ),
+              ),
+            ],
+          ),
         ),
         SizedBox(
           height: 24.h,
@@ -82,7 +81,7 @@ class _LowerPart extends StatelessWidget {
             children: [
               const Expanded(
                 child: Divider(
-                  thickness: 1.0,
+                  thickness: 1,
                   color: RishColors.stroke,
                 ),
               ),
@@ -96,7 +95,7 @@ class _LowerPart extends StatelessWidget {
               ),
               const Expanded(
                 child: Divider(
-                  thickness: 1.0,
+                  thickness: 1,
                   color: RishColors.stroke,
                 ),
               ),

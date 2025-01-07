@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:numberpicker/numberpicker.dart';
-
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/modal_sheet.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
-
-import '../../../../core/widgets/modal_sheet.dart';
 
 class ModificatorSelectorSheet {
   final UserGoal goal;
@@ -21,8 +19,8 @@ class ModificatorSelectorSheet {
     required this.context,
   });
 
-  void show() {
-    ModalSheet.showSingleChildSheet(
+  Future<void> show() async {
+    await ModalSheet.showSingleChildSheet(
       context: context,
       title: _getStrings().$1,
       height: _getHeight(),
@@ -45,8 +43,6 @@ class ModificatorSelectorSheet {
         return 300.h;
       case GoalType.optimize:
         return 250.h;
-      default:
-        return 300.h;
     }
   }
 
@@ -78,11 +74,11 @@ class ModificatorSelector extends StatefulWidget {
   final String? subtitle;
 
   const ModificatorSelector({
-    super.key,
     required this.setModificator,
     required this.defaultModificator,
     required this.modificators,
     required this.type,
+    super.key,
     this.subtitle,
   });
 
@@ -98,7 +94,8 @@ class _ModificatorSelectorState extends State<ModificatorSelector> {
   void initState() {
     // isAethtetics = widget.
     modificators = List<int>.from(
-        widget.modificators.map((mod) => (mod * 100).round()).toList());
+      widget.modificators.map((mod) => (mod * 100).round()).toList(),
+    );
     // if (widget.needsPreselected ?? false) {
     setState(() {
       selected = widget.type == GoalType.aesthetics
@@ -117,7 +114,6 @@ class _ModificatorSelectorState extends State<ModificatorSelector> {
     bool needsText =
         widget.type == GoalType.recomp || widget.type == GoalType.optimize;
     return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         if (!needsText)
           Text(
@@ -140,8 +136,9 @@ class _ModificatorSelectorState extends State<ModificatorSelector> {
                           height: 70.h,
                           width: 343.w,
                           decoration: BoxDecoration(
-                              color: RishColors.stroke,
-                              borderRadius: BorderRadius.circular(16)),
+                            color: RishColors.stroke,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
                       NumberPicker(
@@ -173,30 +170,30 @@ class _ModificatorSelectorState extends State<ModificatorSelector> {
             ],
             if (needsText) ...[
               Align(
-                alignment: Alignment.center,
                 child: Text(
                   widget.subtitle!,
                   style: context.styles.regularLarge,
                   textAlign: TextAlign.center,
                 ),
               ),
-            ]
+            ],
           ],
         ),
         const Spacer(),
         Padding(
-          padding: const EdgeInsets.only(top: 32.0, bottom: 32),
+          padding: const EdgeInsets.only(top: 32, bottom: 32),
           child: SizedBox(
-              height: 56.h,
-              child: RishButton.primary(
-                title: 'Save changes',
-                action: () {
-                  widget.setModificator((selected / 100).toDouble());
-                  context.pop();
-                },
-                isLoading: false,
-                enabled: true,
-              )),
+            height: 56.h,
+            child: RishButton.primary(
+              title: 'Save changes',
+              action: () {
+                widget.setModificator(selected / 100);
+                context.pop();
+              },
+              isLoading: false,
+              enabled: true,
+            ),
+          ),
         ),
       ],
     );

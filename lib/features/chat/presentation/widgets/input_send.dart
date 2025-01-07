@@ -2,13 +2,12 @@ part of '../chat_page.dart';
 
 // ignore: must_be_immutable
 class _InputAndSend extends StatefulWidget {
-  final TextEditingController textEditingController;
-  bool sendActive;
   _InputAndSend({
-    super.key,
     required this.textEditingController,
     required this.sendActive,
   });
+  final TextEditingController textEditingController;
+  bool sendActive;
 
   @override
   State<_InputAndSend> createState() => __InputAndSendState();
@@ -60,10 +59,12 @@ class __InputAndSendState extends State<_InputAndSend> {
             GestureDetector(
               onTap: widget.sendActive
                   ? () {
-                      chatBloc.add(ChatSendMessage(
-                        text: widget.textEditingController.text.trim(),
-                        isRequest: state.mealPlan != null,
-                      ));
+                      chatBloc.add(
+                        ChatSendMessage(
+                          text: widget.textEditingController.text.trim(),
+                          isRequest: state.mealPlan != null,
+                        ),
+                      );
                       widget.textEditingController.clear();
                     }
                   : () {},
@@ -82,8 +83,8 @@ class __InputAndSendState extends State<_InputAndSend> {
                   width: 24,
                   height: 24,
                   fit: BoxFit.scaleDown,
+                  // ignore: deprecated_member_use
                   color: !widget.sendActive ? Colors.black : Colors.white,
-                  // fit: BoxFit.fitHeight,
                 ),
               ),
             ),

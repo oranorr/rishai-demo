@@ -10,10 +10,10 @@ class RishDropdownMenu extends StatelessWidget {
   final VoidCallback action;
   final bool? needsTrailing;
   const RishDropdownMenu({
-    super.key,
     required this.title,
     required this.preSelectedData,
     required this.action,
+    super.key,
     this.needsTrailing = true,
   });
 
@@ -21,7 +21,6 @@ class RishDropdownMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         if (title.isNotEmpty) ...[
           Text(
@@ -42,7 +41,7 @@ class RishDropdownMenu extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Expanded(
@@ -55,8 +54,9 @@ class RishDropdownMenu extends StatelessWidget {
                   ),
                   if (needsTrailing ?? true)
                     const RotatedBox(
-                        quarterTurns: -1,
-                        child: Icon(Icons.chevron_left_rounded))
+                      quarterTurns: -1,
+                      child: Icon(Icons.chevron_left_rounded),
+                    ),
                 ],
               ),
             ),

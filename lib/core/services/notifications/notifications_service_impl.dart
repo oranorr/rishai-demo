@@ -1,15 +1,16 @@
 import 'dart:developer';
 import 'dart:io';
-import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:rishai/core/di/injectable.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:injectable/injectable.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/notifications/notifications_service.dart';
-import 'dart:math' as math;
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 final notes = getIt.get<NotificationsService>();
 
@@ -23,7 +24,6 @@ class NotificationsServiceImpl implements NotificationsService {
     description: 'Channel for scheduled notifications',
     importance: Importance.max,
     enableLights: true,
-    enableVibration: true,
   );
   @override
   Future<void> initNotificationsService() async {
@@ -45,7 +45,7 @@ class NotificationsServiceImpl implements NotificationsService {
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
-      flutterLocalNotificationsPlugin
+      await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(
@@ -57,9 +57,6 @@ class NotificationsServiceImpl implements NotificationsService {
       InitializationSettings initializationSettings = InitializationSettings(
         android: initializationSettingsAndroid,
         iOS: DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
           onDidReceiveLocalNotification: onDidReceiveLocalNotification,
         ),
       );
@@ -69,9 +66,9 @@ class NotificationsServiceImpl implements NotificationsService {
         onDidReceiveNotificationResponse: _onSelectNotification,
       );
 
-      print("Notifications initialized successfully");
-    } catch (e) {
-      print("Error initializing notifications: $e");
+      log('Notifications initialized successfully');
+    } on Exception catch (e) {
+      log('Error initializing notifications: $e');
     }
   }
 
@@ -80,19 +77,23 @@ class NotificationsServiceImpl implements NotificationsService {
       tz.initializeTimeZones();
       final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(currentTimeZone));
-      print("Time zone initialized to $currentTimeZone");
-    } catch (e) {
-      print("Error initializing time zone: $e");
+      log('Time zone initialized to $currentTimeZone');
+    } on Exception catch (e) {
+      log('Error initializing time zone: $e');
     }
   }
 
   Future<void> onDidReceiveLocalNotification(
-      int id, String? title, String? body, String? payload) async {
-    print("Notification received while app in foreground: $title");
+    int id,
+    String? title,
+    String? body,
+    String? payload,
+  ) async {
+    log('Notification received while app in foreground: $title');
   }
 
   void _onSelectNotification(NotificationResponse details) {
-    print('Notification selected: ${details.payload}');
+    log('Notification selected: ${details.payload}');
   }
 
   @override
@@ -106,8 +107,6 @@ class NotificationsServiceImpl implements NotificationsService {
         channelDescription: channel.description,
         importance: Importance.max,
         priority: Priority.max,
-        showWhen: true,
-        channelAction: AndroidNotificationChannelAction.createIfNotExists,
       );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -124,7 +123,13 @@ class NotificationsServiceImpl implements NotificationsService {
 
       final now = tz.TZDateTime.now(tz.local);
       final scheduleTime = tz.TZDateTime(
-          tz.local, now.year, now.month, now.day, time.hour, time.minute);
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
 
       final notificationTime = scheduleTime.isBefore(now)
           ? scheduleTime.add(const Duration(days: 1))
@@ -141,7 +146,6 @@ class NotificationsServiceImpl implements NotificationsService {
         "It's time to create your new meal plan for today",
         notificationTime,
         platformChannelSpecifics,
-        androidAllowWhileIdle: true,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
@@ -152,8 +156,8 @@ class NotificationsServiceImpl implements NotificationsService {
       }).catchError((error) {
         log('Ошибка при планировании уведомления: $error');
       });
-    } catch (e) {
-      log("Ошибка при планировании уведомления: $e");
+    } on Exception catch (e) {
+      log('Ошибка при планировании уведомления: $e');
     }
   }
 
@@ -167,7 +171,6 @@ class NotificationsServiceImpl implements NotificationsService {
         channelDescription: channel.description,
         importance: Importance.max,
         priority: Priority.high,
-        showWhen: true,
       );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -184,7 +187,13 @@ class NotificationsServiceImpl implements NotificationsService {
 
       final now = tz.TZDateTime.now(tz.local);
       final scheduleTime = tz.TZDateTime(
-          tz.local, now.year, now.month, now.day, now.hour, now.minute + 1);
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        now.hour,
+        now.minute + 1,
+      );
       final notificationTime = scheduleTime.isBefore(now)
           ? scheduleTime.add(const Duration(days: 1))
           : scheduleTime;
@@ -217,9 +226,9 @@ class NotificationsServiceImpl implements NotificationsService {
       //   platformChannelSpecifics,
       // );
 
-      print('Немедленное уведомление отправлено');
-    } catch (e) {
-      print("Ошибка при отправке немедленного уведомления: $e");
+      log('Немедленное уведомление отправлено');
+    } on Exception catch (e) {
+      log('Ошибка при отправке немедленного уведомления: $e');
     }
   }
 
@@ -227,9 +236,9 @@ class NotificationsServiceImpl implements NotificationsService {
   Future<void> cancelNotifications() async {
     try {
       await flutterLocalNotificationsPlugin.cancelAll();
-      print('Notification cancelled');
-    } catch (e) {
-      print("Error cancelling notification: $e");
+      log('Notification cancelled');
+    } on Exception catch (e) {
+      log('Error cancelling notification: $e');
     }
   }
 
@@ -245,16 +254,17 @@ class NotificationsServiceImpl implements NotificationsService {
         }
 
         if (await Permission.scheduleExactAlarm.isDenied) {
-          log("scheduleExactAlarm permission denied. Requesting permission...");
+          log('scheduleExactAlarm permission denied. Requesting permission...');
           await Permission.scheduleExactAlarm.request();
         }
-        print(
-            "Permissions granted, note: ${await Permission.notification.status}, alarm: ${await Permission.scheduleExactAlarm.status}");
-      } catch (e) {
-        print("Error requesting permissions: $e");
+        log(
+          'Permissions granted, note: ${await Permission.notification.status}, alarm: ${await Permission.scheduleExactAlarm.status}',
+        );
+      } on Exception catch (e) {
+        log('Error requesting permissions: $e');
       }
     } else if (Platform.isIOS) {
-      flutterLocalNotificationsPlugin
+      await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>()
           ?.requestPermissions(

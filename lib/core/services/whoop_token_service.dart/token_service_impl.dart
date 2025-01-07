@@ -33,9 +33,10 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
       refreshToken: _refreshToken,
     );
     final res = await directus.updateOne(
-        collection: usersCollection,
-        itemId: userBloc.state.user.directusId,
-        updateData: {'whoopRefreshToken': _refreshToken});
+      collection: usersCollection,
+      itemId: userBloc.state.user.directusId,
+      updateData: {'whoopRefreshToken': _refreshToken},
+    );
 
     log('DIRECTUS UPDATE TOKEN DATA: $res');
     // Timer.periodic(response.expiresIn, (t) {
@@ -56,9 +57,10 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
         refreshToken: res.refreshToken,
       );
       await directus.updateOne(
-          collection: usersCollection,
-          itemId: userBloc.state.user.directusId,
-          updateData: {'whoopRefreshToken': _refreshToken});
+        collection: usersCollection,
+        itemId: userBloc.state.user.directusId,
+        updateData: {'whoopRefreshToken': _refreshToken},
+      );
       return true;
     } else {
       return false;
@@ -77,7 +79,9 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
     // else {
     try {
       final directusUser = await directus.readOne(
-          collection: usersCollection, id: userBloc.state.user.directusId);
+        collection: usersCollection,
+        id: userBloc.state.user.directusId,
+      );
       final refToken = directusUser['whoopRefreshToken'];
 
       if (refToken != null && refToken!.isNotEmpty) {
@@ -113,7 +117,8 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
       //   await directus.deleteOne(
       //       collection: daysCollection, id: updUser['days'].last.toString());
       // }
-    } catch (e) {
+    } on Exception catch (e) {
+      log(e.toString());
       rethrow;
     }
   }

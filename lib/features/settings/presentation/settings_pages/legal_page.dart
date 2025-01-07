@@ -1,17 +1,17 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
-import 'package:flutter/gestures.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/other.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LegalPage extends StatelessWidget {
-  final OtherEntity entity;
   const LegalPage({
-    super.key,
     required this.entity,
+    super.key,
   });
+  final OtherEntity entity;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +19,6 @@ class LegalPage extends StatelessWidget {
       implyLeading: true,
       appBar: AppBar(
         centerTitle: true,
-        automaticallyImplyLeading: true,
         title: Text(
           entity.title,
           style: context.styles.h3,
@@ -38,7 +37,7 @@ class LegalPage extends StatelessWidget {
             Text(
               entity.body,
               style: context.styles.regularMedium,
-            )
+            ),
         ],
       ),
     );
@@ -55,34 +54,42 @@ class LegalPage extends StatelessWidget {
 
     for (final match in matches) {
       if (match.start > currentIndex) {
-        spans.add(TextSpan(
-          text: text.substring(currentIndex, match.start),
-        ));
+        spans.add(
+          TextSpan(
+            text: text.substring(currentIndex, match.start),
+          ),
+        );
       }
 
       final String link = match.group(0)!;
-      spans.add(TextSpan(
-        text: link,
-        style: const TextStyle(
-            color: RishColors.primary, decoration: TextDecoration.underline),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () async {
-            final Uri url = Uri.parse(link);
-            if (await canLaunchUrl(url)) {
-              await launchUrl(url, mode: LaunchMode.externalApplication);
-            } else {
-              throw "Could not launch $link";
-            }
-          },
-      ));
+      spans.add(
+        TextSpan(
+          text: link,
+          style: const TextStyle(
+            color: RishColors.primary,
+            decoration: TextDecoration.underline,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              final Uri url = Uri.parse(link);
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              } else {
+                throw Exception('Could not launch $link');
+              }
+            },
+        ),
+      );
 
       currentIndex = match.end;
     }
 
     if (currentIndex < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(currentIndex),
-      ));
+      spans.add(
+        TextSpan(
+          text: text.substring(currentIndex),
+        ),
+      );
     }
 
     return spans;

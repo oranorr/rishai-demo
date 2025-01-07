@@ -1,12 +1,4 @@
 class RecoveryModel {
-  final int cycleId;
-  final int sleepId;
-  final int userId;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final String scoreState;
-  final RecoveryScoreModel? score;
-
   RecoveryModel({
     required this.cycleId,
     required this.sleepId,
@@ -30,6 +22,13 @@ class RecoveryModel {
           : null,
     );
   }
+  final int cycleId;
+  final int sleepId;
+  final int userId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String scoreState;
+  final RecoveryScoreModel? score;
 
   // RecoveryEntity toEntity() {
   //   return RecoveryEntity(
@@ -50,13 +49,6 @@ class RecoveryModel {
 }
 
 class RecoveryScoreModel {
-  final bool userCalibrating;
-  final double recoveryScore;
-  final double restingHeartRate;
-  final Duration hrvRmssd;
-  final double? spo2Percentage;
-  final double? skinTemp;
-
   RecoveryScoreModel({
     required this.userCalibrating,
     required this.recoveryScore,
@@ -77,6 +69,12 @@ class RecoveryScoreModel {
       skinTemp: (json['skin_temp_celsius'] as num?)?.toDouble(),
     );
   }
+  final bool userCalibrating;
+  final double recoveryScore;
+  final double restingHeartRate;
+  final Duration hrvRmssd;
+  final double? spo2Percentage;
+  final double? skinTemp;
 
   @override
   String toString() {

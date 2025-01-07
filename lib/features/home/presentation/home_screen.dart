@@ -68,8 +68,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           needsAppBar: false,
           bottomNavigationBar: RishiBottonNavigationBar(
             currentPage: currentPage,
-            jump: (page) {
-              pageController.rAnimate(page);
+            jump: (page) async {
+              await pageController.rAnimate(page);
             },
           ),
           child: Padding(

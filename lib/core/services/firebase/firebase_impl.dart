@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -50,8 +51,8 @@ class FirebaseImplementation implements FirebaseRepository {
       final User? user = userCredential.user;
 
       return user;
-    } catch (e) {
-      print('Error signing in with Google: $e');
+    } on Exception catch (e) {
+      log('Error signing in with Google: $e');
       rethrow;
     }
   }
@@ -69,7 +70,7 @@ class FirebaseImplementation implements FirebaseRepository {
           AppleIDAuthorizationScopes.fullName,
         ],
       );
-      final oauthCredential = OAuthProvider("apple.com").credential(
+      final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: appleCredential.identityToken,
         accessToken: appleCredential.authorizationCode,
       );
@@ -79,11 +80,12 @@ class FirebaseImplementation implements FirebaseRepository {
       if (userCredential.user?.displayName == null) {
         // log(userCredential.toString());
         await userCredential.user!.updateDisplayName(
-            userCredential.user!.providerData.last.displayName);
+          userCredential.user!.providerData.last.displayName,
+        );
       }
       return userCredential.user;
-    } catch (e) {
-      print('Error signing in with Apple: $e');
+    } on Exception catch (e) {
+      log('Error signing in with Apple: $e');
       rethrow;
     }
   }

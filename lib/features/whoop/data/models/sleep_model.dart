@@ -1,16 +1,6 @@
 import 'dart:convert';
 
 class SleepModel {
-  final int id;
-  final int userId;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final DateTime start;
-  final DateTime end;
-  final bool nap;
-  final String scoreState;
-  final SleepScoreModel? score;
-
   SleepModel({
     required this.id,
     required this.userId,
@@ -39,6 +29,15 @@ class SleepModel {
           : null,
     );
   }
+  final int id;
+  final int userId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime start;
+  final DateTime end;
+  final bool nap;
+  final String scoreState;
+  final SleepScoreModel? score;
 
   @override
   String toString() {
@@ -47,13 +46,6 @@ class SleepModel {
 }
 
 class SleepScoreModel {
-  final StageSummaryModel? stageSummary;
-  final SleepNeededModel? sleepNeeded;
-  final double? respiratoryRate;
-  final double? sleepPerformancePercentage;
-  final double? sleepConsistencyPercentage;
-  final double? sleepEfficiencyPercentage;
-
   SleepScoreModel({
     required this.stageSummary,
     required this.sleepNeeded,
@@ -67,11 +59,13 @@ class SleepScoreModel {
     return SleepScoreModel(
       stageSummary: map['stage_summary'] != null
           ? StageSummaryModel.fromMap(
-              map['stage_summary'] as Map<String, dynamic>)
+              map['stage_summary'] as Map<String, dynamic>,
+            )
           : null,
       sleepNeeded: map['sleep_needed'] != null
           ? SleepNeededModel.fromMap(
-              map['sleep_needed'] as Map<String, dynamic>)
+              map['sleep_needed'] as Map<String, dynamic>,
+            )
           : null,
       respiratoryRate: map['respiratory_rate'] != null
           ? map['respiratory_rate'] as double
@@ -87,6 +81,12 @@ class SleepScoreModel {
           : null,
     );
   }
+  final StageSummaryModel? stageSummary;
+  final SleepNeededModel? sleepNeeded;
+  final double? respiratoryRate;
+  final double? sleepPerformancePercentage;
+  final double? sleepConsistencyPercentage;
+  final double? sleepEfficiencyPercentage;
 
   @override
   String toString() {
@@ -95,15 +95,6 @@ class SleepScoreModel {
 }
 
 class StageSummaryModel {
-  final Duration totalInBedTime;
-  final Duration totalAwakeTime;
-  final Duration totalNoDataTime;
-  final Duration totalLightSleepTime;
-  final Duration totalSlowWaveSleepTime;
-  final Duration totalRemSleepTime;
-  final int sleepCycleCount;
-  final int disturbanceCount;
-
   StageSummaryModel({
     required this.totalInBedTime,
     required this.totalAwakeTime,
@@ -130,6 +121,14 @@ class StageSummaryModel {
       disturbanceCount: json['disturbance_count'],
     );
   }
+  final Duration totalInBedTime;
+  final Duration totalAwakeTime;
+  final Duration totalNoDataTime;
+  final Duration totalLightSleepTime;
+  final Duration totalSlowWaveSleepTime;
+  final Duration totalRemSleepTime;
+  final int sleepCycleCount;
+  final int disturbanceCount;
 
   @override
   String toString() {
@@ -138,11 +137,6 @@ class StageSummaryModel {
 }
 
 class SleepNeededModel {
-  final Duration baseline;
-  final Duration needFromSleepDebt;
-  final Duration needFromRecentStrain;
-  final Duration needFromRecentNap;
-
   SleepNeededModel({
     required this.baseline,
     required this.needFromSleepDebt,
@@ -164,6 +158,10 @@ class SleepNeededModel {
 
   factory SleepNeededModel.fromJson(String source) =>
       SleepNeededModel.fromMap(json.decode(source) as Map<String, dynamic>);
+  final Duration baseline;
+  final Duration needFromSleepDebt;
+  final Duration needFromRecentStrain;
+  final Duration needFromRecentNap;
 
   @override
   String toString() {

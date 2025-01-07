@@ -1,7 +1,4 @@
 class RefreshTokenModel {
-  final String accessToken;
-  final String refreshToken;
-  final Duration expiresIn;
   RefreshTokenModel({
     required this.accessToken,
     required this.refreshToken,
@@ -15,4 +12,7 @@ class RefreshTokenModel {
       expiresIn: Duration(seconds: map['expires_in']),
     );
   }
+  final String accessToken;
+  final String refreshToken;
+  final Duration expiresIn;
 }

@@ -1,18 +1,16 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
 part of '../home_page.dart';
 
 class _MealPlanWidget extends StatelessWidget {
+  const _MealPlanWidget({
+    required this.controller,
+    required this.isToday,
+    required this.enoughRequests,
+    this.plan,
+  });
   final PageController controller;
   final MealPlanEntity? plan;
   final bool isToday;
   final bool enoughRequests;
-  const _MealPlanWidget({
-    super.key,
-    required this.controller,
-    this.plan,
-    required this.isToday,
-    required this.enoughRequests,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +21,8 @@ class _MealPlanWidget extends StatelessWidget {
             title: 'Create Meal Plan',
             enabled: true,
             isLoading: false,
-            action: () {
-              controller.rAnimate(0);
+            action: () async {
+              await controller.rAnimate(0);
             },
           );
         } else {
@@ -68,12 +66,13 @@ class _MealPlanWidget extends StatelessWidget {
                 height: 20.h,
               ),
               RishButton.primary(
-                  title: 'Clear plan',
-                  enabled: true,
-                  isLoading: false,
-                  action: () {
-                    chatBloc.add(ChatDeleteMealPlan());
-                  }),
+                title: 'Clear plan',
+                enabled: true,
+                isLoading: false,
+                action: () {
+                  chatBloc.add(ChatDeleteMealPlan());
+                },
+              ),
             ],
           ],
         ),
@@ -88,7 +87,7 @@ class _MealPlanWidget extends StatelessWidget {
 
     final nonSnackMeals = [
       for (int i = 0; i < mealEntities.length; i++)
-        if (mealEntities[i].type != 'Snack') (i, mealEntities[i])
+        if (mealEntities[i].type != 'Snack') (i, mealEntities[i]),
     ];
 
     if (nonSnackMeals.isEmpty) {
@@ -123,19 +122,18 @@ class _MealPlanWidget extends StatelessWidget {
 }
 
 class _MealTile extends StatelessWidget {
-  final Meal meal;
-  final bool isPostWorkout;
   const _MealTile({
-    super.key,
     required this.meal,
     required this.isPostWorkout,
   });
+  final Meal meal;
+  final bool isPostWorkout;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
+      onTap: () async {
+        await Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (BuildContext context) => MealScreen(
               meal: meal,

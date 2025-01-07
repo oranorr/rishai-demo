@@ -17,7 +17,7 @@ class PrefsRepository {
     await _prefs.setBool(onboardWatched, true);
   }
 
-  Future<void> setLogin(bool result) async {
+  Future<void> setLogin(result) async {
     await _prefs.setBool(isLoggedIn, result);
   }
 

@@ -8,6 +8,39 @@ part 'user_entity.g.dart';
 
 @HiveType(typeId: 0)
 class UserEntity extends HiveObject {
+  UserEntity({
+    required this.directusId,
+    required this.whoopId,
+    required this.email,
+    required this.name,
+    required this.daysIds,
+    required this.adaptyId,
+    this.age,
+    this.gender,
+    this.foodPreferences,
+    this.bodyMeasurements,
+    this.userGoal,
+  });
+
+  factory UserEntity.unauthorized() => UserEntity(
+        directusId: '-1',
+        whoopId: 0,
+        email: '',
+        name: '',
+        bodyMeasurements: const BodyMeasurementsEntity(
+          height: 0,
+          weight: 0,
+          maxHeartRate: 0,
+        ),
+        foodPreferences: FoodPreferences(
+          diets: [],
+          cuisines: [],
+        ),
+        age: 0,
+        gender: Gender.male,
+        daysIds: [],
+        adaptyId: null,
+      );
   @HiveField(0)
   final String directusId;
   @HiveField(1)
@@ -30,20 +63,6 @@ class UserEntity extends HiveObject {
   final List<int> daysIds;
   @HiveField(10)
   final String? adaptyId;
-
-  UserEntity({
-    required this.directusId,
-    required this.whoopId,
-    required this.email,
-    required this.name,
-    required this.daysIds,
-    required this.adaptyId,
-    this.age,
-    this.gender,
-    this.foodPreferences,
-    this.bodyMeasurements,
-    this.userGoal,
-  });
 
   UserEntity copyWith({
     String? directusId,
@@ -78,26 +97,6 @@ class UserEntity extends HiveObject {
     return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, daysIds: $daysIds, adaptyId: $adaptyId)';
   }
 
-  factory UserEntity.unauthorized() => UserEntity(
-        directusId: '-1',
-        whoopId: 0,
-        email: '',
-        name: '',
-        bodyMeasurements: const BodyMeasurementsEntity(
-          height: 0,
-          weight: 0,
-          maxHeartRate: 0,
-        ),
-        foodPreferences: FoodPreferences(
-          diets: [],
-          cuisines: [],
-        ),
-        age: 0,
-        gender: Gender.male,
-        daysIds: [],
-        adaptyId: null,
-      );
-
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'directusId': directusId,
@@ -110,7 +109,7 @@ class UserEntity extends HiveObject {
       'diets': foodPreferences?.diets,
       'cuisines': foodPreferences?.cuisines,
       'userGoal': userGoal?.toMap(),
-      'adaptyId': adaptyId
+      'adaptyId': adaptyId,
     };
   }
 
@@ -126,7 +125,9 @@ class UserEntity extends HiveObject {
 
   @override
   bool operator ==(covariant UserEntity other) {
-    if (identical(this, other)) return true;
+    if (identical(this, other)) {
+      return true;
+    }
 
     return other.directusId == directusId &&
         other.whoopId == whoopId &&

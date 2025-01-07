@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:ui';
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
+import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -24,22 +25,20 @@ import 'package:rishai/features/whoop/domain/entities/auth_response_entity.dart'
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
-import 'package:rishai/features/whoop/domain/usecases/change_modificatorOrSex_usecase.dart';
+import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
-import '../../../../core/services/envied/envied.dart';
 
 final wRepo = getIt.get<WhoopRepository>();
 
 @Singleton(as: WhoopRepository)
 class WhoopRepositoryImpl implements WhoopRepository {
-  final WhoopRemoteDataSource remoteDataSource;
-  final WhoopLocalDataSource localDataSource;
-
   WhoopRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
   });
+  final WhoopRemoteDataSource remoteDataSource;
+  final WhoopLocalDataSource localDataSource;
 
   final String authorizeUrl = 'https://api.prod.whoop.com/oauth/oauth2/auth';
   final String tokenUrl = 'https://api.prod.whoop.com/oauth/oauth2/token';
@@ -74,16 +73,16 @@ class WhoopRepositoryImpl implements WhoopRepository {
           url: authUrl,
           callbackUrlScheme: 'com.rishai',
         );
-      } catch (e) {
+      } on Exception catch (e) {
         // Обрабатываем случай отмены или ошибки при аутентификации
-        print("Authentification failed or error occured:: $e");
+        log('Authentification failed or error occured:: $e');
         return const Left(WhoopAuthenticationFailure());
       }
 
-      log("Returned result URL: $result");
+      log('Returned result URL: $result');
 
       final code = Uri.parse(result).queryParameters['code'];
-      print("Authorization code: $code");
+      log('Authorization code: $code');
 
       if (code == null) {
         return const Left(WhoopDidNotReturnAuthCodeFailure());
@@ -98,7 +97,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
           'redirect_uri': 'com.rishai://redirect',
           'client_id': clientId,
           'client_secret': clientSecret,
-          'state': 'randomGeneratedState'
+          'state': 'randomGeneratedState',
         },
       );
 
@@ -106,22 +105,22 @@ class WhoopRepositoryImpl implements WhoopRepository {
         final tokenData = jsonDecode(response.body);
         aT = tokenData['access_token'];
         log(tokenData.toString());
-        wTokenService.createTokenService(
+        await wTokenService.createTokenService(
           AuthResponseEntity(
             accessToken: tokenData['access_token'],
             refreshToken: tokenData['refresh_token'],
             expiresIn: Duration(seconds: tokenData['expires_in']),
           ),
         );
-        print('Access Token: $aT');
+        log('Access Token: $aT');
         return const Right(null);
       } else {
-        print('Failed to get access token: ${response.body}');
+        log('Failed to get access token: ${response.body}');
         return const Left(WhoopFailedToReturnAccessToken());
       }
-    } catch (e) {
+    } on Exception catch (e) {
       // Обработка других возможных исключений
-      print('Error during authentication: $e');
+      log('Error during authentication: $e');
       return const Left(WhoopFailedToReturnAccessToken());
     }
   }
@@ -140,10 +139,10 @@ class WhoopRepositoryImpl implements WhoopRepository {
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
           body: {
             'grant_type': 'refresh_token',
-            "refresh_token": refreshToken,
-            "client_id": clientId,
-            "client_secret": clientSecret,
-            "scope": "offline"
+            'refresh_token': refreshToken,
+            'client_id': clientId,
+            'client_secret': clientSecret,
+            'scope': 'offline',
           },
         );
 
@@ -155,7 +154,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
         } else {
           attempts++;
         }
-      } catch (e) {
+      } on Exception catch (e) {
         log('Error during token refresh attempt: $e');
         attempts++; // Увеличиваем счётчик при возникновении ошибки
       }
@@ -181,8 +180,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   @override
-  Future<Either<Failure, WhoopDataEntity>> getData(
-      {required GetDataParams params}) async {
+  Future<Either<Failure, WhoopDataEntity>> getData({
+    required GetDataParams params,
+  }) async {
     try {
       // Получаем сохранённые данные пользователя из локального хранилища
       UserDataEntity? savedUserData =
@@ -194,10 +194,13 @@ class WhoopRepositoryImpl implements WhoopRepository {
       }
 
       // Проверяем, завершился ли текущий цикл
-      final isCurrentCycleEnded = await tryFetch(() => remoteDataSource
-          .pingCurrentCycle(cycleId: savedUserData.currentCycleId));
+      final isCurrentCycleEnded = await tryFetch(
+        () => remoteDataSource.pingCurrentCycle(
+          cycleId: savedUserData.currentCycleId,
+        ),
+      );
 
-      print('Cycle is finished: $isCurrentCycleEnded');
+      log('Cycle is finished: $isCurrentCycleEnded');
 
       // Если цикл не завершён, проверяем данные в локальном хранилище
       if (isCurrentCycleEnded == false) {
@@ -214,11 +217,15 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
 // Вспомогательная функция для загрузки свежих данных и их сохранения
   Future<Either<Failure, WhoopDataEntity>> _fetchAndSaveFreshData(
-      GetDataParams params) async {
-    final res = await tryFetch(() => _fetchFreshData(
+    GetDataParams params,
+  ) async {
+    final res = await tryFetch(
+      () => _fetchFreshData(
         modificator: params.goal.modificator,
         gender: params.gender,
-        userId: params.userId));
+        userId: params.userId,
+      ),
+    );
     return res!.fold((l) {
       return Left(l);
     }, (r) async {
@@ -263,7 +270,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
   //     final isCurrentCycleEnded = await tryFetch(() => remoteDataSource
   //         .pingCurrentCycle(cycleId: savedUserData.currentCycleId));
 
-  //     print('Cycle is finished: $isCurrentCycleEnded');
+  //     log('Cycle is finished: $isCurrentCycleEnded');
 
   //     if (!isCurrentCycleEnded!) {
   //       final localData = await localDataSource.fetchSavedData();
@@ -298,10 +305,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
   //   }
   // }
 
-  Future<Either<Failure, WhoopDataEntity>> _fetchFreshData(
-      {required double modificator,
-      required Gender gender,
-      required String userId}) async {
+  Future<Either<Failure, WhoopDataEntity>> _fetchFreshData({
+    required double modificator,
+    required Gender gender,
+    required String userId,
+  }) async {
     try {
       final BodyMeasurementsEntity? body =
           await tryFetch(() => remoteDataSource.getBodyData());
@@ -318,8 +326,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
             await remoteDataSource.getWorkoutsOfCycle(cycle: cycles.first);
         log('workouts are: $workouts\n\n');
 
-        recovery = await tryFetch(() =>
-            remoteDataSource.getRecoveryOfCycle(cycleId: cycles.first.id));
+        recovery = await tryFetch(
+          () => remoteDataSource.getRecoveryOfCycle(cycleId: cycles.first.id),
+        );
         log('recovery is: $recovery\n\n');
       }
 
@@ -362,9 +371,10 @@ class WhoopRepositoryImpl implements WhoopRepository {
         final int proteins = userData.calcProteins();
         final int fats = userData.clacFats();
         final int carbs = userData.calcCarbs(
-            kalorieGoal: calorieGoal,
-            proteinsInKcal: proteins * 4,
-            fatsInKcal: fats * 9);
+          kalorieGoal: calorieGoal,
+          proteinsInKcal: proteins * 4,
+          fatsInKcal: fats * 9,
+        );
 
         final data = WhoopDataEntity(
           weekTdeeAverage: tdeeAverage,
@@ -395,20 +405,22 @@ class WhoopRepositoryImpl implements WhoopRepository {
       } else {
         return const Left(WhoopNoDataFailure());
       }
-    } catch (e) {
-      log('EROR WHILE FETCHING FRESHDATA, ${e.toString()}');
+    } on Exception catch (e) {
+      log('EROR WHILE FETCHING FRESHDATA, $e');
       return const Left(WhoopNoDataFailure());
     }
   }
 
-  double calculateCalorieGoal(
-      {required double tdeeAvrage, required double modificator}) {
-    return ((1 + modificator) * tdeeAvrage);
+  double calculateCalorieGoal({
+    required double tdeeAvrage,
+    required double modificator,
+  }) {
+    return (1 + modificator) * tdeeAvrage;
   }
 
   double calculateTDEEAverage(List<CycleModel> cycles) {
     double sum = 0;
-    for (var cyc in cycles) {
+    for (final cyc in cycles) {
       sum += cyc.score!.kilojoule;
     }
     sum = sum * kjToKcal;
@@ -416,8 +428,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   @override
-  Future<Either<Failure, MacrosBreakdown>> changeModificatorOfSex(
-      {required ChangeModificatorOrSexParams params}) async {
+  Future<Either<Failure, MacrosBreakdown>> changeModificatorOfSex({
+    required ChangeModificatorOrSexParams params,
+  }) async {
     try {
       final res =
           await localDataSource.changeModificatorOrSexLocal(params: params);
@@ -428,7 +441,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
         await remoteDataSource.updateDirectus(data: r.$2);
         return Right(r.$1);
       });
-    } catch (e) {
+    } on Exception catch (__) {
       rethrow;
     }
   }
@@ -440,7 +453,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
       try {
         final result = await fetchFunction();
         if (result != null) return result;
-      } catch (e) {
+      } on Exception catch (e) {
         log('Attempt ${attempt + 1} failed: $e');
         if (attempt == maxRetries - 1) rethrow;
         await Future.delayed(retryDelay);
@@ -450,15 +463,17 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   @override
-  Future<Either<Failure, void>> disconnectWhoop(
-      {required DisconnecWhoopParams params}) async {
+  Future<Either<Failure, void>> disconnectWhoop({
+    required DisconnecWhoopParams params,
+  }) async {
     try {
       await remoteDataSource.clearWhoopUserDataOnDisconnect(
-          userId: params.userId);
+        userId: params.userId,
+      );
       await wTokenService.diconnect(params.userId);
       await hive.disconnectWhoop();
       return const Right(null);
-    } catch (e) {
+    } on Exception catch (e) {
       log('Error: $e', name: 'DiconnectWhoop Repo');
       return const Left(UnknownFailure());
     }

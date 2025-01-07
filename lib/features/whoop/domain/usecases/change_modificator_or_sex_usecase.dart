@@ -17,7 +17,8 @@ class ChangeModificatorOrSexUsecase
 
   @override
   Future<Either<Failure, MacrosBreakdown>> call(
-      ChangeModificatorOrSexParams params) async {
+    ChangeModificatorOrSexParams params,
+  ) async {
     return whoopRepository.changeModificatorOfSex(params: params);
   }
 }

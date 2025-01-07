@@ -16,60 +16,60 @@ class ModalSheet {
     String? subtitle,
   }) {
     // int selected;
-    return StatefulBuilder(builder: (context, setter) {
-      return Container(
-        height: height,
-        // color: context.colors.white,
-        decoration: BoxDecoration(
-          color: RishColors.formBackgroun,
-          borderRadius: BorderRadius.circular(20),
-        ),
+    return StatefulBuilder(
+      builder: (context, setter) {
+        return Container(
+          height: height,
+          // color: context.colors.white,
+          decoration: BoxDecoration(
+            color: RishColors.formBackgroun,
+            borderRadius: BorderRadius.circular(20),
+          ),
 
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top: 16.h, bottom: 16.h),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80.w,
-                      height: 4.h,
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFFCDCDCD),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0.w),
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 16.h, bottom: 16.h),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 80.w,
+                        height: 4.h,
+                        decoration: ShapeDecoration(
+                          color: const Color(0xFFCDCDCD),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
-                    )
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.h),
-                child: Column(
-                  children: [
-                    Text(
-                      text,
-                      style: context.styles.h2,
-                    ),
-                    if (subtitle != null) ...[
-                      Text(
-                        subtitle,
-                        style: context.styles.regularLarge,
-                      ),
-                    ]
-                  ],
-                ),
-              ),
-              Expanded(child: child),
-              if (needsButton ?? true)
                 Padding(
-                  padding: const EdgeInsets.only(top: 16.0, bottom: 16),
-                  child: SizedBox(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Column(
+                    children: [
+                      Text(
+                        text,
+                        style: context.styles.h2,
+                      ),
+                      if (subtitle != null) ...[
+                        Text(
+                          subtitle,
+                          style: context.styles.regularLarge,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Expanded(child: child),
+                if (needsButton ?? true)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16, bottom: 16),
+                    child: SizedBox(
                       height: 56.h,
                       child: RishButton.primary(
                         title: 'Save changes',
@@ -79,16 +79,18 @@ class ModalSheet {
                         },
                         isLoading: false,
                         enabled: true,
-                      )),
-                ),
-            ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
-  static void showSingleChildSheet({
+  static Future<void> showSingleChildSheet({
     required BuildContext context,
     required String title,
     required Widget child,
@@ -96,28 +98,29 @@ class ModalSheet {
     bool? needsButton,
     String? subtitle,
   }) async {
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (context) {
         return _buildSheet(
-            context: context,
-            height: height,
-            text: title,
-            child: child,
-            subtitle: subtitle,
-            needsButton: needsButton);
+          context: context,
+          height: height,
+          text: title,
+          child: child,
+          subtitle: subtitle,
+          needsButton: needsButton,
+        );
       },
     );
   }
 
-  static void showQuestionarySheet({
+  static Future<void> showQuestionarySheet({
     required String title,
     required BuildContext context,
     required List<Question> data,
     required Function(List<Question>) onSave,
   }) async {
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (context) {
@@ -146,144 +149,146 @@ class ModalSheet {
     List<Question> selected = [];
     FitnessGoal? goalSelected;
 
-    return StatefulBuilder(builder: (
-      BuildContext context,
-      StateSetter setter,
-    ) {
-      return Container(
-        height: height,
-        // color: context.colors.white,
-        decoration: BoxDecoration(
-          color: RishColors.formBackgroun,
-          borderRadius: BorderRadius.circular(20),
-        ),
-
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top: 16.h, bottom: 24.h),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80.w,
-                      height: 4.h,
-                      decoration: ShapeDecoration(
-                        color: RishColors.textPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-              if (needsTitle ?? true)
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24.h),
-                  child: Text(
-                    text,
-                    style: context.styles.h2,
-                  ),
-                ),
-              Expanded(
-                child: (data.runtimeType != List<FitnessGoal>)
-                    ? ListView(
-                        physics: needsChildrenScroll ?? false
-                            ? null
-                            : const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
-                        children: data.map((q) {
-                          bool isSelected = selected.contains(q);
-                          return q.buildWidget(
-                            context: context,
-                            needsLightBack: true,
-                            action: (q) {
-                              setter(() {
-                                if (q.runtimeType == Dietary) {
-                                  if (selected.isNotEmpty) {
-                                    selected.remove(selected.first);
-                                  }
-                                  selected.add(q);
-                                } else {
-                                  isSelected
-                                      ? selected.remove(q)
-                                      : selected.add(q);
-                                }
-                                // if(selected)
-                              });
-                            },
-                            isSelected: isSelected,
-                          );
-                        }).toList())
-                    : GridView.builder(
-                        shrinkWrap: true,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 0.85,
-                        ),
-                        itemCount: data.length,
-                        itemBuilder: (context, index) {
-                          final goal = data[index];
-                          bool isSelected = goal == goalSelected;
-                          return goal.buildWidget(
-                            context: context,
-                            needsLightBack: true,
-                            preSelectCard: (g) {
-                              setter(() {
-                                goalSelected = g as FitnessGoal;
-                              });
-                            },
-                            action: (goal) {
-                              setter(() {
-                                goalSelected = goal as FitnessGoal;
-                              });
-                            },
-                            isSelected: isSelected,
-                          );
-                        },
-                      ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 16.0, bottom: 16),
-                child: SizedBox(
-                  height: 56.h,
-                  child: RishButton.primary(
-                    title: 'Save changes',
-                    action: () {
-                      if (data.runtimeType != List<FitnessGoal>) {
-                        onSave(selected);
-                      } else {
-                        onSave([goalSelected!]);
-                      }
-                      context.pop();
-                    },
-                    enabled: selected.isNotEmpty || goalSelected != null,
-                    isLoading: false,
-                  ),
-
-                  // RishButton(
-                  //   action: () {
-
-                  //   },
-                  //   isLoading: false,
-                  //   ),
-                  //   type: selected.isNotEmpty || goalSelected != null
-                  //       ? ButtonType.primary
-                  //       : ButtonType.disabled,
-                  // ),
-                ),
-              ),
-            ],
+    return StatefulBuilder(
+      builder: (
+        BuildContext context,
+        StateSetter setter,
+      ) {
+        return Container(
+          height: height,
+          // color: context.colors.white,
+          decoration: BoxDecoration(
+            color: RishColors.formBackgroun,
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-      );
-    });
+
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0.w),
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 16.h, bottom: 24.h),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 80.w,
+                        height: 4.h,
+                        decoration: ShapeDecoration(
+                          color: RishColors.textPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (needsTitle ?? true)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24.h),
+                    child: Text(
+                      text,
+                      style: context.styles.h2,
+                    ),
+                  ),
+                Expanded(
+                  child: (data.runtimeType != List<FitnessGoal>)
+                      ? ListView(
+                          physics: needsChildrenScroll ?? false
+                              ? null
+                              : const NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          children: data.map((q) {
+                            bool isSelected = selected.contains(q);
+                            return q.buildWidget(
+                              context: context,
+                              needsLightBack: true,
+                              action: (q) {
+                                setter(() {
+                                  if (q.runtimeType == Dietary) {
+                                    if (selected.isNotEmpty) {
+                                      selected.remove(selected.first);
+                                    }
+                                    selected.add(q);
+                                  } else {
+                                    isSelected
+                                        ? selected.remove(q)
+                                        : selected.add(q);
+                                  }
+                                  // if(selected)
+                                });
+                              },
+                              isSelected: isSelected,
+                            );
+                          }).toList(),
+                        )
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 0.85,
+                          ),
+                          itemCount: data.length,
+                          itemBuilder: (context, index) {
+                            final goal = data[index];
+                            bool isSelected = goal == goalSelected;
+                            return goal.buildWidget(
+                              context: context,
+                              needsLightBack: true,
+                              preSelectCard: (g) {
+                                setter(() {
+                                  goalSelected = g as FitnessGoal;
+                                });
+                              },
+                              action: (goal) {
+                                setter(() {
+                                  goalSelected = goal as FitnessGoal;
+                                });
+                              },
+                              isSelected: isSelected,
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 16, bottom: 16),
+                  child: SizedBox(
+                    height: 56.h,
+                    child: RishButton.primary(
+                      title: 'Save changes',
+                      action: () {
+                        if (data.runtimeType != List<FitnessGoal>) {
+                          onSave(selected);
+                        } else {
+                          onSave([goalSelected!]);
+                        }
+                        context.pop();
+                      },
+                      enabled: selected.isNotEmpty || goalSelected != null,
+                      isLoading: false,
+                    ),
+
+                    // RishButton(
+                    //   action: () {
+
+                    //   },
+                    //   isLoading: false,
+                    //   ),
+                    //   type: selected.isNotEmpty || goalSelected != null
+                    //       ? ButtonType.primary
+                    //       : ButtonType.disabled,
+                    // ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

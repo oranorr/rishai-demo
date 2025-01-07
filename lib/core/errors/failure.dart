@@ -2,8 +2,8 @@ import 'package:equatable/equatable.dart';
 // import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 sealed class Failure extends Equatable {
-  final String message;
   const Failure(this.message);
+  final String message;
 
   // String getMessage();
 }
@@ -38,7 +38,8 @@ class FailureUserAlreadyExists extends Failure {
 class FailureNoUserWithEmail extends Failure {
   const FailureNoUserWithEmail()
       : super(
-            'We could not find any user with matching email. Please check spelling or create new account.');
+          'We could not find any user with matching email. Please check spelling or create new account.',
+        );
   @override
   List<Object?> get props => [];
 }
@@ -67,7 +68,6 @@ class WhoopNoDataFailure extends Failure {
   const WhoopNoDataFailure() : super('There is no data.');
 
   @override
-  // TODO: implement props
   List<Object?> get props => throw UnimplementedError();
 }
 
@@ -82,7 +82,6 @@ class FailedUpdateUser extends Failure {
   const FailedUpdateUser(String e) : super('User updating was failed with: $e');
 
   @override
-  // TODO: implement props
   List<Object?> get props => throw UnimplementedError();
 }
 
@@ -90,7 +89,6 @@ class FailedToGetUserData extends Failure {
   const FailedToGetUserData(String e) : super('Failed to get user data: $e');
 
   @override
-  // TODO: implement props
   List<Object?> get props => throw UnimplementedError();
 }
 
@@ -112,6 +110,5 @@ class WhoopDataDueToRefresh extends Failure {
       : super('It seems, that WHOOP Data needs to be refreshed.');
 
   @override
-  // TODO: implement props
   List<Object?> get props => throw UnimplementedError();
 }
