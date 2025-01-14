@@ -3,8 +3,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/onboard/domain/entities.dart';
+import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
 
 class ModalSheet {
   static Widget _buildSheet({
@@ -14,6 +16,7 @@ class ModalSheet {
     required Widget child,
     bool? needsButton,
     String? subtitle,
+    String? infoText,
   }) {
     // int selected;
     return StatefulBuilder(
@@ -52,9 +55,30 @@ class ModalSheet {
                   padding: EdgeInsets.symmetric(vertical: 8.h),
                   child: Column(
                     children: [
-                      Text(
-                        text,
-                        style: context.styles.h2,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              text,
+                              style: context.styles.h2,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          if (infoText != null) ...[
+                            GestureDetector(
+                              onTap: () async => RishiDialog.infoPopup(
+                                context,
+                                infoText,
+                              ),
+                              child: const Icon(
+                                Icons.info,
+                                size: 25,
+                                color: RishColors.primary,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (subtitle != null) ...[
                         Text(
@@ -97,6 +121,7 @@ class ModalSheet {
     required double height,
     bool? needsButton,
     String? subtitle,
+    String? infoText,
   }) async {
     await showModalBottomSheet(
       context: context,
@@ -109,6 +134,7 @@ class ModalSheet {
           child: child,
           subtitle: subtitle,
           needsButton: needsButton,
+          infoText: infoText,
         );
       },
     );

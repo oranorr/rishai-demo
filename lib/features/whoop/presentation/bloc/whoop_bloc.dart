@@ -158,7 +158,9 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           status: Status.success,
         ),
       );
+      return;
     });
+    return;
   }
 
   FutureOr<void> _initWhoopOnLogin(
@@ -178,10 +180,10 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         return;
       }
 
-      if (user.bodyMeasurements == null) {
-        log('retrieveing BODY data');
-        await _getBodyData(WhoopRetrieveBodyData(), emit);
-      }
+      // if (user.bodyMeasurements == null) {
+      log('retrieveing BODY data');
+      await _getBodyData(WhoopRetrieveBodyData(), emit);
+      // }
 
       if (!user.needsQuestionary) {
         log('retrieveing data');

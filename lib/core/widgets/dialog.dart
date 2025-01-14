@@ -139,6 +139,7 @@ class RishiDialog {
 
   static Future<void> infoPopup(
     BuildContext context,
+    String text,
   ) async {
     await showGeneralDialog(
       context: context,
@@ -160,7 +161,7 @@ class RishiDialog {
                 border: Border.all(color: RishColors.stroke),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16).copyWith(top: 16, bottom: 0),
+                padding: const EdgeInsets.all(16).copyWith(top: 16, bottom: 16),
                 child: Scrollbar(
                   thumbVisibility: true,
                   trackVisibility: true,
@@ -169,7 +170,7 @@ class RishiDialog {
                     padding: EdgeInsets.zero,
                     children: [
                       Text(
-                        LegalTextsRepo().infoPopup,
+                        text,
                         style: context.styles.regularMedium,
                       ),
                     ],

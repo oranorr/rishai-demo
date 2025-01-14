@@ -252,58 +252,6 @@ class WhoopRepositoryImpl implements WhoopRepository {
       return const Left(FailedToGetUserData('Remote data is empty'));
     }
   }
-  // @override
-  // Future<Either<Failure, WhoopDataEntity>> getData(
-  //     {required GetDataParams params}) async {
-  //   try {
-  //     UserDataEntity? savedUserData =
-  //         await hive.fetchUserDataEntity(userId: params.userId);
-
-  //     if (savedUserData == null) {
-  //       final freshData = await _fetchFreshData(
-  //           modificator: params.goal.modificator,
-  //           gender: params.gender,
-  //           userId: params.userId);
-  //       return freshData;
-  //     }
-
-  //     final isCurrentCycleEnded = await tryFetch(() => remoteDataSource
-  //         .pingCurrentCycle(cycleId: savedUserData.currentCycleId));
-
-  //     log('Cycle is finished: $isCurrentCycleEnded');
-
-  //     if (!isCurrentCycleEnded!) {
-  //       final localData = await localDataSource.fetchSavedData();
-  //       if (localData != null) {
-  //         return Right(localData);
-  //       } else {
-  //         final remoteData =
-  //             await tryFetch(() => remoteDataSource.fetchDirectusData());
-
-  //         if (remoteData != null) {
-  //           await localDataSource.saveData(data: remoteData);
-  //           return Right(remoteData);
-  //         } else {
-  //           log('remote data empty, fetching any data now.');
-  //           final freshData = await _fetchFreshData(
-  //               modificator: params.goal.modificator,
-  //               gender: params.gender,
-  //               userId: params.userId);
-  //           return freshData;
-  //         }
-  //       }
-  //     } else {
-  //       final freshData = await tryFetch(() => _fetchFreshData(
-  //           modificator: params.goal.modificator,
-  //           gender: params.gender,
-  //           userId: params.userId));
-  //       return freshData!;
-  //     }
-  //   } on Exception catch (e) {
-  //     log('ERROR WHILE FETCHING WHOOP DATA: $e');
-  //     return Left(FailedToGetUserData('$e'));
-  //   }
-  // }
 
   Future<Either<Failure, WhoopDataEntity>> _fetchFreshData({
     required double modificator,

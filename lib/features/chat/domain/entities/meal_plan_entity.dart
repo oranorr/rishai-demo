@@ -313,7 +313,7 @@ class MacrosBreakdown {
   Widget buildTextMacros({required BuildContext context}) {
     return Text.rich(
       TextSpan(
-        text: kcal.toString(),
+        text: kcal.comaThisNumber(),
         style: context.styles.numsS,
         children: [
           TextSpan(text: ' kcals   ', style: context.styles.regularMedium),

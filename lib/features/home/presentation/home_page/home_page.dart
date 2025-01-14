@@ -15,6 +15,7 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
 import 'package:rishai/features/home/presentation/meal_screen.dart';
+import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
@@ -120,9 +121,12 @@ class _HomePageBodyState extends State<_HomePageBody> {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: () async => RishiDialog.infoPopup(context),
+              onTap: () async => RishiDialog.infoPopup(
+                context,
+                LegalTextsRepo().infoPopup,
+              ),
               child: const Icon(
-                Icons.info,
+                Icons.info_outline,
                 size: 30,
                 color: RishColors.primary,
               ),
@@ -134,9 +138,25 @@ class _HomePageBodyState extends State<_HomePageBody> {
           day: widget.day,
         ),
         SizedBox(height: 20.h),
-        Text(
-          "Today's macros goal",
-          style: context.styles.h3,
+        Row(
+          children: [
+            Text(
+              "Today's macros goal",
+              style: context.styles.h3,
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () async => RishiDialog.infoPopup(
+                context,
+                'Your daily consumption goal of calories is broken up into its macronutrient constituents of proteins, carbs, and fats. This gives you individualised targets for each macronutrient, and they sum up to your daily calorie consumption goal.',
+              ),
+              child: const Icon(
+                Icons.info_outline,
+                size: 30,
+                color: RishColors.primary,
+              ),
+            ),
+          ],
         ),
         SizedBox(height: 12.h),
         _MacrosBreakdownWidget(
@@ -153,9 +173,25 @@ class _HomePageBodyState extends State<_HomePageBody> {
           health: widget.day.healthMetrics,
         ),
         SizedBox(height: 20.h),
-        Text(
-          'Meal plan',
-          style: context.styles.h3,
+        Row(
+          children: [
+            Text(
+              'Meal plan',
+              style: context.styles.h3,
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () async => RishiDialog.infoPopup(
+                context,
+                'You can ask for cooking instructions for any meal, replacement of individual ingredients in any meal, or even ask for meal alternatives in the AI chat.',
+              ),
+              child: const Icon(
+                Icons.info_outline,
+                size: 30,
+                color: RishColors.primary,
+              ),
+            ),
+          ],
         ),
         SizedBox(height: 12.h),
         BlocBuilder<ChatBloc, ChatState>(

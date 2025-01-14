@@ -112,26 +112,6 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                           },
                           context: context,
                         ).show();
-                        // ModalSheet.showSingleChildSheet(
-                        //   needsButton: false,
-                        //   context: context,
-                        //   title: 'Select Modificator',
-                        //   height: 400.h,
-                        //   child: ModificatorSelector(
-                        //     type: updUser.userGoal!.goal,
-                        //     setModificator: (value) {
-                        //       changeModificator(value);
-                        //     },
-                        //     defaultModificator:
-                        //         updUser.userGoal!.modificator,
-                        //     modificators:
-                        //         updUser.userGoal!.getModificators(),
-                        //     subtitle: updUser.userGoal!.goal ==
-                        //             GoalType.recomp
-                        //         ? 'Your calorie intake will be changing automatically every two weeks'
-                        //         : 'You calories will match your TDEE',
-                        //   ),
-                        // );
                       }
                     : _showDialog,
             needsTrailing: modificatorChangable,

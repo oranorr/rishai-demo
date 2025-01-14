@@ -25,6 +25,7 @@ class ModificatorSelectorSheet {
       title: _getStrings().$1,
       height: _getHeight(),
       needsButton: false,
+      infoText: _getInfoText(),
       child: ModificatorSelector(
         subtitle: _getStrings().$2,
         setModificator: setModificator,
@@ -33,6 +34,24 @@ class ModificatorSelectorSheet {
         type: goal.goal,
       ),
     );
+  }
+
+  String? _getInfoText() {
+    switch (goal.goal) {
+      case GoalType.aesthetics:
+        return 'The deficit % represents the percentage of calories you will be asked to consume UNDER your average weekly calorie burn. If your deficit is 10%, and your average weekly calories burnt is 2,000 kcals, then your meals will total to 1,800 kcals to be consumed. This is ideally for weight loss.';
+      case GoalType.performance:
+        return 'The surplus % represents the percentage of calories you will be asked to consume OVER your average weekly calorie burn. If your surplus is 10%, and your average weekly calories burnt is 2,000 kcals, then your meals will total to 2,200 kcals to be consumed. This is ideally for muscle gain.';
+      case GoalType.recomp || GoalType.optimize:
+        return null;
+
+      // case GoalType.aesthetics || GoalType.performance:
+      //   return '410.h';
+      // case GoalType.recomp:
+      //   return '300.h';
+      // case GoalType.optimize:
+      //   return '250.h';
+    }
   }
 
   double _getHeight() {
@@ -49,13 +68,13 @@ class ModificatorSelectorSheet {
   (String title, String subtitle) _getStrings() {
     switch (goal.goal) {
       case GoalType.aesthetics:
-        return ('Select deficit %', '(-20% to -1%)');
+        return ('Select calorie deficit %', '(-20% to -1%)');
       case GoalType.performance:
-        return ('Select surplus %', '(+1% to +15%)');
+        return ('Select calorie surplus %', '(+1% to +15%)');
       case GoalType.recomp:
         return (
           '',
-          'The deficit % and surplus % will rotate between -5% and +5% every two weeks, automatically'
+          'The calorie deficit % and surplus % will rotate between -5% and +5% every two weeks, automatically'
         );
       case GoalType.optimize:
         return (
