@@ -202,7 +202,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         calorieTarget: whoopBloc.state.day.macros.kcal,
         macros: whoopBloc.state.day.macros,
         trainingToday: event.trainingToday,
-        mealsAmount: event.mealsAmount,
+        mealTypes: event.meals,
         snackForToday: event.snackToday,
       ),
     );
@@ -242,12 +242,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ChatDeleteMealPlan event,
     Emitter<ChatState> emit,
   ) async {
-    // emit(state.copyWith(
-    //   mealPlan: null,
-    //   requestsLeft: state.requestsLeft + 1,
-    //   messages: [],
-    // ));
-    // add(ChatSaveSnap());
+    emit(
+      state.copyWith(
+        mealPlan: null,
+        requestsLeft: 5,
+        messages: [],
+      ),
+    );
+    add(ChatSaveSnap());
   }
 
   FutureOr<void> _fetchLatsPlan(

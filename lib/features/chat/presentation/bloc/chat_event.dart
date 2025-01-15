@@ -20,18 +20,18 @@ class ChatSendMessage extends ChatEvent {
 }
 
 class CreateMealPlan extends ChatEvent {
-  final int mealsAmount;
+  final List<String> meals;
   final bool snackToday;
   final bool trainingToday;
   const CreateMealPlan({
-    required this.mealsAmount,
+    required this.meals,
     required this.snackToday,
     required this.trainingToday,
   });
 
   @override
   String toString() =>
-      'CreateMealPlan(mealsAmount: $mealsAmount, snackToday: $snackToday, trainingToday: $trainingToday)';
+      'CreateMealPlan(meals: $meals, snackToday: $snackToday, trainingToday: $trainingToday)';
 }
 
 class InitChatBloc extends ChatEvent {
