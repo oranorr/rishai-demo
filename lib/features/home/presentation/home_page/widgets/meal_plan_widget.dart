@@ -52,7 +52,8 @@ class _MealPlanWidget extends StatelessWidget {
                 final meals = plan!.meals;
                 return _MealTile(
                   meal: meals[index],
-                  isPostWorkout: false,
+                  isToday: isToday,
+                  // isPostWorkout: false,
                 );
               },
               separatorBuilder: (BuildContext context, int index) {
@@ -124,10 +125,10 @@ class _MealPlanWidget extends StatelessWidget {
 class _MealTile extends StatelessWidget {
   const _MealTile({
     required this.meal,
-    required this.isPostWorkout,
+    required this.isToday,
   });
   final Meal meal;
-  final bool isPostWorkout;
+  final bool isToday;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +138,7 @@ class _MealTile extends StatelessWidget {
           MaterialPageRoute<void>(
             builder: (BuildContext context) => MealScreen(
               meal: meal,
+              isToday: isToday,
             ),
           ),
         );

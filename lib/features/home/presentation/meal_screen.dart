@@ -1,6 +1,8 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
@@ -13,9 +15,11 @@ import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
 class MealScreen extends StatelessWidget {
   const MealScreen({
     required this.meal,
+    required this.isToday,
     super.key,
   });
   final Meal meal;
+  final bool isToday;
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
@@ -83,30 +87,46 @@ class MealScreen extends StatelessWidget {
           SizedBox(height: 20.h),
           Text('Cooking instructions', style: context.styles.h3),
           SizedBox(height: 12.h),
-          ...meal.cookingInstructions.map(
-            (step) => Text(
-              '$step\n',
-              style: context.styles.regularMedium
-                  .copyWith(color: RishColors.textSecondary),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: RishColors.formBackgroun,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16).copyWith(bottom: 0, top: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...meal.cookingInstructions.map(
+                    (step) => Text(
+                      '$step\n',
+                      style: context.styles.regularMedium
+                          .copyWith(color: RishColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          SizedBox(height: 20.h),
-          RishButton.primary(
-            title: 'I want a replacement',
-            enabled: chatBloc.isRegenAvailable,
-            isLoading: false,
-            action: () async {
-              await showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                showDragHandle: true,
-                backgroundColor: RishColors.formBackgroun,
-                builder: (BuildContext context) {
-                  return ReplacementWidget(meal: meal);
-                },
-              );
-            },
-          ),
+          if (isToday) ...[
+            SizedBox(height: 20.h),
+            RishButton.primary(
+              title: 'I want a replacement',
+              enabled: chatBloc.isRegenAvailable,
+              isLoading: false,
+              action: () async {
+                await showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  backgroundColor: RishColors.formBackgroun,
+                  builder: (BuildContext context) {
+                    return ReplacementWidget(meal: meal);
+                  },
+                );
+              },
+            ),
+          ],
         ],
       ),
     );

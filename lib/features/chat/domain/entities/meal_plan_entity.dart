@@ -1,6 +1,4 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:math' as m;
 
 import 'package:fl_chart/fl_chart.dart';
@@ -23,8 +21,6 @@ String lorem =
 
 @HiveType(typeId: 6)
 class MealPlanEntity extends HiveObject {
-  @HiveField(0)
-  List<Meal> meals;
   MealPlanEntity({
     required this.meals,
   });
@@ -60,6 +56,22 @@ class MealPlanEntity extends HiveObject {
     );
   }
 
+  factory MealPlanEntity.fromMap(Map<String, dynamic> map) {
+    // log(map.toString());
+    return MealPlanEntity(
+      meals: List<Meal>.from(
+        (map['meals'] as List<dynamic>).map<Meal>(
+          (x) => Meal.fromMap(x as Map<String, dynamic>),
+        ),
+      ),
+    );
+  }
+
+  factory MealPlanEntity.fromJson(String source) =>
+      MealPlanEntity.fromMap(json.decode(source) as Map<String, dynamic>);
+  @HiveField(0)
+  List<Meal> meals;
+
   MealPlanEntity copyWith({
     List<Meal>? meals,
   }) {
@@ -74,21 +86,7 @@ class MealPlanEntity extends HiveObject {
     };
   }
 
-  factory MealPlanEntity.fromMap(Map<String, dynamic> map) {
-    // log(map.toString());
-    return MealPlanEntity(
-      meals: List<Meal>.from(
-        (map['meals'] as List<dynamic>).map<Meal>(
-          (x) => Meal.fromMap(x as Map<String, dynamic>),
-        ),
-      ),
-    );
-  }
-
   String toJson() => json.encode(toMap());
-
-  factory MealPlanEntity.fromJson(String source) =>
-      MealPlanEntity.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
   String toString() => 'MealPlanEntity(meals: $meals)';
@@ -108,6 +106,34 @@ class MealPlanEntity extends HiveObject {
 
 @HiveType(typeId: 7)
 class Meal {
+  Meal({
+    required this.title,
+    required this.type,
+    required this.description,
+    required this.macros,
+    required this.ingredients,
+    required this.cookingInstructions,
+    required this.isRegenerated,
+  });
+
+  factory Meal.fromMap(Map<String, dynamic> map) {
+    return Meal(
+      title: map['title'] as String,
+      type: map['type'] as String,
+      description: map['description'] as String,
+      macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
+      ingredients: List<Ingredient>.from(
+        (map['ingredients'] as List<dynamic>).map<Ingredient>(
+          (x) => Ingredient.fromMap(x as Map<String, dynamic>),
+        ),
+      ),
+      cookingInstructions: (map['cooking_instructions'] ?? []).cast<String>(),
+      isRegenerated: map['isRegenerated'] ?? false,
+    );
+  }
+
+  factory Meal.fromJson(String source) =>
+      Meal.fromMap(json.decode(source) as Map<String, dynamic>);
   @HiveField(0)
   String title;
   @HiveField(1)
@@ -122,15 +148,6 @@ class Meal {
   List<String> cookingInstructions;
   @HiveField(6)
   bool isRegenerated;
-  Meal({
-    required this.title,
-    required this.type,
-    required this.description,
-    required this.macros,
-    required this.ingredients,
-    required this.cookingInstructions,
-    required this.isRegenerated,
-  });
 
   Meal copyWith({
     String? title,
@@ -153,27 +170,18 @@ class Meal {
   }
 
   ServingType get servingType {
-    switch (type) {
-      case 'Savoury Breakfast' ||
-            'Sweet Breakfast' ||
-            'Breakfast' ||
-            'Savory Breakfast' ||
-            'Savory breakfast':
-        return ServingType.breakfast;
-      case 'Lunch' || 'lunch':
-        return ServingType.lunch;
-      case 'Dinner' || 'dinner':
-        return ServingType.dinner;
-      case 'Supper' || 'supper':
-        return ServingType.supper;
-      case 'Savoury Snack' ||
-            'Sweet Snack' ||
-            'Snack' ||
-            'Savory Snack' ||
-            'Savory snack':
-        return ServingType.snack;
-      default:
-        throw ArgumentError('Invalid meal type: $type');
+    if (type.contains('breakfast') || type.contains('Breakfast')) {
+      return ServingType.breakfast;
+    } else if (type.contains('lunch') || type.contains('Lunch')) {
+      return ServingType.lunch;
+    } else if (type.contains('dinner') || type.contains('Dinner')) {
+      return ServingType.dinner;
+    } else if (type.contains('supper') || type.contains('Supper')) {
+      return ServingType.supper;
+    } else if (type.contains('snack') || type.contains('Snack')) {
+      return ServingType.snack;
+    } else {
+      throw ArgumentError('Invalid meal type: $type');
     }
   }
 
@@ -189,26 +197,7 @@ class Meal {
     };
   }
 
-  factory Meal.fromMap(Map<String, dynamic> map) {
-    return Meal(
-      title: map['title'] as String,
-      type: map['type'] as String,
-      description: map['description'] as String,
-      macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
-      ingredients: List<Ingredient>.from(
-        (map['ingredients'] as List<dynamic>).map<Ingredient>(
-          (x) => Ingredient.fromMap(x as Map<String, dynamic>),
-        ),
-      ),
-      cookingInstructions: (map['cooking_instructions'] ?? []).cast<String>(),
-      isRegenerated: map['isRegenerated'] ?? false,
-    );
-  }
-
   String toJson() => json.encode(toMap());
-
-  factory Meal.fromJson(String source) =>
-      Meal.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
   String toString() {
@@ -279,6 +268,24 @@ class Meal {
 
 @HiveType(typeId: 8)
 class MacrosBreakdown {
+  MacrosBreakdown({
+    required this.kcal,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
+
+  factory MacrosBreakdown.fromMap(Map<String, dynamic> map) {
+    return MacrosBreakdown(
+      kcal: map['kcal'] as int,
+      protein: map['protein'] as int,
+      carbs: map['carbs'] as int,
+      fat: map['fat'] as int,
+    );
+  }
+
+  factory MacrosBreakdown.fromJson(String source) =>
+      MacrosBreakdown.fromMap(json.decode(source) as Map<String, dynamic>);
   @HiveField(0)
   int kcal;
   @HiveField(1)
@@ -287,12 +294,6 @@ class MacrosBreakdown {
   int carbs;
   @HiveField(3)
   int fat;
-  MacrosBreakdown({
-    required this.kcal,
-    required this.protein,
-    required this.carbs,
-    required this.fat,
-  });
 
   MacrosBreakdown copyWith({
     int? kcal,
@@ -317,19 +318,7 @@ class MacrosBreakdown {
     };
   }
 
-  factory MacrosBreakdown.fromMap(Map<String, dynamic> map) {
-    return MacrosBreakdown(
-      kcal: map['kcal'] as int,
-      protein: map['protein'] as int,
-      carbs: map['carbs'] as int,
-      fat: map['fat'] as int,
-    );
-  }
-
   String toJson() => json.encode(toMap());
-
-  factory MacrosBreakdown.fromJson(String source) =>
-      MacrosBreakdown.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
   String toString() {
@@ -394,18 +383,28 @@ class MacrosBreakdown {
 
 @HiveType(typeId: 9)
 class Ingredient {
+  Ingredient({
+    required this.emojiCode,
+    required this.title,
+    required this.amount,
+  });
+
+  factory Ingredient.fromMap(Map<String, dynamic> map) {
+    return Ingredient(
+      emojiCode: map['emojiCode'] as String,
+      title: map['title'] as String,
+      amount: map['amount'] as String,
+    );
+  }
+
+  factory Ingredient.fromJson(String source) =>
+      Ingredient.fromMap(json.decode(source) as Map<String, dynamic>);
   @HiveField(0)
   String emojiCode;
   @HiveField(1)
   String title;
   @HiveField(2)
   String amount;
-
-  Ingredient({
-    required this.emojiCode,
-    required this.title,
-    required this.amount,
-  });
 
   Ingredient copyWith({
     String? emojiCode,
@@ -427,18 +426,7 @@ class Ingredient {
     };
   }
 
-  factory Ingredient.fromMap(Map<String, dynamic> map) {
-    return Ingredient(
-      emojiCode: map['emojiCode'] as String,
-      title: map['title'] as String,
-      amount: map['amount'] as String,
-    );
-  }
-
   String toJson() => json.encode(toMap());
-
-  factory Ingredient.fromJson(String source) =>
-      Ingredient.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
   String toString() =>
