@@ -22,11 +22,11 @@ class WorkoutModelAdapter extends TypeAdapter<WorkoutModel> {
       createdAt: fields[2] as DateTime,
       updatedAt: fields[3] as DateTime,
       start: fields[4] as DateTime,
-      end: fields[5] as DateTime?,
       timezoneOffset: fields[6] as String,
       sportId: fields[7] as int,
       scoreState: fields[8] as String,
       score: fields[9] as WorkoutScore?,
+      end: fields[5] as DateTime?,
     );
   }
 

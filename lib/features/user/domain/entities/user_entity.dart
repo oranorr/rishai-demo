@@ -35,6 +35,7 @@ class UserEntity extends HiveObject {
         foodPreferences: FoodPreferences(
           diets: [],
           cuisines: [],
+          restrictions: [],
         ),
         age: 0,
         gender: Gender.male,
@@ -106,6 +107,7 @@ class UserEntity extends HiveObject {
       'age': age,
       'gender': gender?.name,
       'bodyMeasurements': bodyMeasurements?.toMap(),
+      'restrictions': foodPreferences?.restrictions,
       'diets': foodPreferences?.diets,
       'cuisines': foodPreferences?.cuisines,
       'userGoal': userGoal?.toMap(),
@@ -117,6 +119,7 @@ class UserEntity extends HiveObject {
     return foodPreferences == null ||
         foodPreferences!.cuisines.isEmpty ||
         foodPreferences!.diets.isEmpty ||
+        foodPreferences!.restrictions.isEmpty ||
         userGoal == null ||
         bodyMeasurements == null ||
         gender == null ||

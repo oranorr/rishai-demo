@@ -9,6 +9,7 @@ mixin QuestionaryMixin on State<Questionary> {
   int? age;
   List<Dietary> diets = [];
   List<Cuisine> cuisines = [];
+  List<Restriction> restrictions = [];
   FitnessGoal? fitnessGoal;
   UserEntity user = userBloc.state.user;
 
@@ -26,7 +27,7 @@ mixin QuestionaryMixin on State<Questionary> {
 
   void resolveType(int page) {
     // print(gender);
-    if (page == 6) {
+    if (page == 7) {
       setState(() {
         isLastPage = true;
       });
@@ -91,6 +92,13 @@ mixin QuestionaryMixin on State<Questionary> {
     });
   }
 
+  void setRestrictions(List<Question> incRestrictions) {
+    setState(() {
+      restrictions = incRestrictions.cast<Restriction>();
+      buttonEnabled = restrictions.isNotEmpty;
+    });
+  }
+
   void setGoal(List<Question> incGoal) {
     setState(() {
       fitnessGoal = incGoal.first as FitnessGoal;
@@ -111,6 +119,8 @@ mixin QuestionaryMixin on State<Questionary> {
         foodPreferences: FoodPreferences(
           diets: diets.map((diet) => diet.name).toList(),
           cuisines: cuisines.map((cuisine) => cuisine.name).toList(),
+          restrictions:
+              restrictions.map((restriction) => restriction.name).toList(),
         ),
         userGoal: fitnessGoal!.toUseGoal(),
         // bodyMeasurements: whoopBloc.state.day.bodyMeasurements,

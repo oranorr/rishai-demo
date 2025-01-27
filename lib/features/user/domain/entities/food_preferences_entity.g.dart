@@ -19,17 +19,20 @@ class FoodPreferencesAdapter extends TypeAdapter<FoodPreferences> {
     return FoodPreferences(
       diets: (fields[0] as List).cast<String>(),
       cuisines: (fields[1] as List).cast<String>(),
+      restrictions: (fields[2] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, FoodPreferences obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(3)
       ..writeByte(0)
       ..write(obj.diets)
       ..writeByte(1)
-      ..write(obj.cuisines);
+      ..write(obj.cuisines)
+      ..writeByte(2)
+      ..write(obj.restrictions);
   }
 
   @override

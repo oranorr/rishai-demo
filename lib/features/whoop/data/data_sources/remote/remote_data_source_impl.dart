@@ -198,6 +198,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
   @override
   Future<bool> pingCurrentCycle({required int cycleId}) async {
+    await wTokenService.initService();
     final raw = await _requestData(
       endpoint: WhoopEndpoints().cycleById(cycleId: cycleId),
     );

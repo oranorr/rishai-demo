@@ -156,10 +156,21 @@ class _MealTile extends StatelessWidget {
                   maxLines: 1,
                 ),
                 SizedBox(height: 4.h),
-                Text(
-                  isPostWorkout ? '💪 Post-Workout Meal 💪' : meal.type,
-                  style: context.styles.regularSmall
-                      .copyWith(color: RishColors.primary),
+                Row(
+                  children: [
+                    Text(
+                      meal.type,
+                      style: context.styles.regularSmall
+                          .copyWith(color: RishColors.primary),
+                    ),
+                    const Spacer(),
+                    if (meal.isRegenerated)
+                      Text(
+                        '(regen)',
+                        style: context.styles.regularSmall
+                            .copyWith(color: Colors.amber),
+                      ),
+                  ],
                 ),
                 SizedBox(height: 4.h),
                 FittedBox(

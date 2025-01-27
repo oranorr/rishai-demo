@@ -10,6 +10,7 @@ class FoodPreferences {
   FoodPreferences({
     required this.diets,
     required this.cuisines,
+    required this.restrictions,
   });
 
   // Map<String, dynamic> toMap() {
@@ -24,6 +25,7 @@ class FoodPreferences {
     return FoodPreferences(
       diets: List<String>.from(map['diets'] as List<dynamic>),
       cuisines: List<String>.from(map['cuisines'] as List<dynamic>),
+      restrictions: List<String>.from(map['restrictions'] as List<dynamic>),
     );
   }
 
@@ -31,18 +33,23 @@ class FoodPreferences {
 
   factory FoodPreferences.fromJson(String source) =>
       FoodPreferences.fromMap(json.decode(source) as Map<String, dynamic>);
+
   @HiveField(0)
   final List<String> diets;
   @HiveField(1)
   final List<String> cuisines;
+  @HiveField(2)
+  final List<String> restrictions;
 
   FoodPreferences copyWith({
     List<String>? diets,
     List<String>? cuisines,
+    List<String>? restrictions,
   }) {
     return FoodPreferences(
       diets: diets ?? this.diets,
       cuisines: cuisines ?? this.cuisines,
+      restrictions: restrictions ?? this.restrictions,
     );
   }
 

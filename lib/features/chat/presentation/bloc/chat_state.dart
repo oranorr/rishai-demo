@@ -14,6 +14,4 @@ sealed class ChatState with _$ChatState {
     required int requestsLeft,
     required MealPlanEntity? mealPlan,
   }) = ChatMainState;
-
-  // List<MessageEntity> get chat => messages.reversed.toList();
 }

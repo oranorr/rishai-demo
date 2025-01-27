@@ -69,6 +69,7 @@ class UserModel extends Equatable {
       'diets': map['diets'],
       'cuisines': map['cuisines'],
       'goal': map['goal'],
+      'restrictions': map['restrictions'] ?? [],
     };
 
     return UserModel(

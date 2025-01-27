@@ -208,6 +208,34 @@ class _HomePageBodyState extends State<_HomePageBody> {
             );
           },
         ),
+        SizedBox(height: 20.h),
+        Row(
+          children: [
+            Text(
+              '5-day Meal Plan Prep',
+              style: context.styles.h3,
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () async => RishiDialog.infoPopup(
+                context,
+                'When you choose to do a 5-day meal prep, the combination of meals you pick will apply to all 5 days. If you choose to skip breakfast, then you will not see a breakfast option across all 5 days.',
+              ),
+              child: const Icon(
+                Icons.info_outline,
+                size: 30,
+                color: RishColors.primary,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 12.h),
+        RishButton.primary(
+          title: '5-day meal prep',
+          enabled: false,
+          isLoading: false,
+          action: () {},
+        ),
       ],
     );
   }

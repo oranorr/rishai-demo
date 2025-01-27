@@ -56,13 +56,15 @@ class MealAdapter extends TypeAdapter<Meal> {
       description: fields[2] as String,
       macros: fields[3] as MacrosBreakdown,
       ingredients: (fields[4] as List).cast<Ingredient>(),
+      cookingInstructions: (fields[5] as List).cast<String>(),
+      isRegenerated: fields[6] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Meal obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
@@ -72,7 +74,11 @@ class MealAdapter extends TypeAdapter<Meal> {
       ..writeByte(3)
       ..write(obj.macros)
       ..writeByte(4)
-      ..write(obj.ingredients);
+      ..write(obj.ingredients)
+      ..writeByte(5)
+      ..write(obj.cookingInstructions)
+      ..writeByte(6)
+      ..write(obj.isRegenerated);
   }
 
   @override

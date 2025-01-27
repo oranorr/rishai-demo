@@ -39,9 +39,13 @@ import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart'
     as _i831;
 import 'package:rishai/features/chat/domain/usecases/fetch_saved_snap_usecase.dart'
-    as _i222;
+    as _i975;
 import 'package:rishai/features/chat/domain/usecases/init_gpt_usecase.dart'
     as _i241;
+import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart'
+    as _i208;
+import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart'
+    as _i799;
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart'
     as _i176;
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart'
@@ -95,7 +99,7 @@ import 'package:rishai/features/whoop/data/repository/whoop_repository_impl.dart
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart'
     as _i897;
 import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart'
-    as _i741;
+    as _i1055;
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart'
     as _i513;
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart'
@@ -168,8 +172,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i914.LoginViaAppleUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i1035.WhoopGetBodyData>(
         () => _i1035.WhoopGetBodyData(gh<_i897.WhoopRepository>()));
-    gh.factory<_i741.ChangeModificatorOrSexUsecase>(
-        () => _i741.ChangeModificatorOrSexUsecase(gh<_i897.WhoopRepository>()));
+    gh.factory<_i1055.ChangeModificatorOrSexUsecase>(() =>
+        _i1055.ChangeModificatorOrSexUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i757.WhoopGetDataUsecase>(
         () => _i757.WhoopGetDataUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i62.DisconnectWhoopUsecase>(
@@ -181,32 +185,38 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i547.GetDaysUsecase>(),
           gh<_i892.ManageDayUsecase>(),
         ));
-    gh.factory<_i222.FetchSavedSnapUsecase>(
-        () => _i222.FetchSavedSnapUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i241.InitGptUsecase>(
         () => _i241.InitGptUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i786.SendMessageGptUsecase>(
         () => _i786.SendMessageGptUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i799.ReplaceMealUsecase>(
+        () => _i799.ReplaceMealUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i975.FetchSavedSnapUsecase>(
+        () => _i975.FetchSavedSnapUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i176.RequestPlanUsecase>(
         () => _i176.RequestPlanUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i208.ReplaceIngredientUsecase>(
+        () => _i208.ReplaceIngredientUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i1051.WhoopBloc>(() => _i1051.WhoopBloc(
           gh<_i513.ConnectWhoopUsecase>(),
           gh<_i757.WhoopGetDataUsecase>(),
           gh<_i1035.WhoopGetBodyData>(),
-          gh<_i741.ChangeModificatorOrSexUsecase>(),
+          gh<_i1055.ChangeModificatorOrSexUsecase>(),
           gh<_i62.DisconnectWhoopUsecase>(),
+        ));
+    gh.factory<_i666.ChatBloc>(() => _i666.ChatBloc(
+          gh<_i241.InitGptUsecase>(),
+          gh<_i176.RequestPlanUsecase>(),
+          gh<_i786.SendMessageGptUsecase>(),
+          gh<_i975.FetchSavedSnapUsecase>(),
+          gh<_i799.ReplaceMealUsecase>(),
+          gh<_i208.ReplaceIngredientUsecase>(),
         ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
           gh<_i1003.LoginViaGoogleUsecase>(),
           gh<_i734.CreateNewUserUsecase>(),
           gh<_i248.LoginViaEmailUsecase>(),
           gh<_i914.LoginViaAppleUsecase>(),
-        ));
-    gh.factory<_i666.ChatBloc>(() => _i666.ChatBloc(
-          gh<_i241.InitGptUsecase>(),
-          gh<_i176.RequestPlanUsecase>(),
-          gh<_i786.SendMessageGptUsecase>(),
-          gh<_i222.FetchSavedSnapUsecase>(),
         ));
     return this;
   }

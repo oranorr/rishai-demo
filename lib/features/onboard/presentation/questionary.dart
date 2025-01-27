@@ -50,6 +50,10 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
         setSomething: setCuisines,
       ),
       SelectableList(
+        data: QuestionaryRepository().restrictions,
+        setSomething: setRestrictions,
+      ),
+      SelectableList(
         data: QuestionaryRepository().goals,
         setSomething: setGoal,
       ),
@@ -62,7 +66,7 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
           SizedBox(height: 60.h),
           Expanded(
             child: PageView.builder(
-              physics: const NeverScrollableScrollPhysics(),
+              // physics: const NeverScrollableScrollPhysics(),
               onPageChanged: (value) {
                 resolveType(value);
               },
@@ -70,7 +74,7 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
               itemCount: data.length,
               itemBuilder: (context, index) {
                 return SizedBox(
-                  height: 540.h,
+                  // height: 540.h,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -84,8 +88,8 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
                         style: context.styles.regularLarge
                             .copyWith(color: const Color(0xffA8A8A8)),
                       ),
-                      SizedBox(height: 24.h),
-                      bodies[index],
+                      // SizedBox(height: 24.h),
+                      Expanded(child: bodies[index]),
                       // const Spacer(),
                     ],
                   ),

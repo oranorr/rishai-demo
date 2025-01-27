@@ -2,7 +2,7 @@ import Flutter
 import UIKit
 // import flutter_web_auth_2
 
-@UIApplicationMain
+@main
 @objc class AppDelegate: FlutterAppDelegate {
   override func application(
     _ application: UIApplication,

@@ -22,6 +22,10 @@ class QuestionaryRepository {
       subtitle: 'You can select multiple cuisines:',
     ),
     QuestionaryData(
+      title: 'Food Restrictions',
+      subtitle: 'Please, select any:',
+    ),
+    QuestionaryData(
       title: 'Fitness Goal',
       subtitle:
           "Please select one:\nEach goal works on a specific surplus or deficit percentage of one's total energy expenditure",
@@ -125,5 +129,53 @@ class QuestionaryRepository {
       goal: GoalType.optimize,
       modificator: 0,
     ),
+  ];
+
+  final List<Restriction> restrictions = [
+    Restriction(
+      name: 'No Beef',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noBeef,
+    ),
+    Restriction(
+      name: 'No Pork',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noPork,
+    ),
+    Restriction(
+      name: 'No Gluten',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noGluten,
+    ),
+    Restriction(
+      name: 'No Dairy',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noDairy,
+    ),
+    Restriction(
+      name: 'No Nuts',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noNuts,
+    ),
+    Restriction(
+      name: 'No Shellfish',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noShellfish,
+    ),
+    Restriction(
+      name: 'No Eggs',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noEggs,
+    ),
+    Restriction(
+      name: 'No Soy',
+      assetPath: 'assets/diet/vegan.svg',
+      restrictionEnum: RestrictionEnum.noSoy,
+    ),
+    // Restriction(
+    //   name: 'No Mushrooms',
+    //   assetPath: 'assets/diet/vegan.svg',
+    //   restrictionEnum: RestrictionEnum.noShrooms,
+    // ),
   ];
 }

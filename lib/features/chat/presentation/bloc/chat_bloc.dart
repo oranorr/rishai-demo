@@ -2,16 +2,24 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/status.dart';
+import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/chat/data/chat_repository_impl.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
+import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/fetch_saved_snap_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/init_gpt_usecase.dart';
+import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
+import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
@@ -24,69 +32,6 @@ part 'chat_event.dart';
 final chatBloc = getIt.get<ChatBloc>();
 
 int totalRequests = 5;
-// int totalRequests = kDebugMode ? 5000 : 5;
-// Map<String, dynamic> map = {
-//   "meals": [
-//     {
-//       "title": "Scrambled Eggs with Spinach and Avocado",
-//       "type": "Meal 1",
-//       "description":
-//           "Start your day with a hearty breakfast of scrambled eggs mixed with fresh spinach and creamy avocado. This meal provides a great source of protein, healthy fats and leafy greens to fuel your morning. The eggs are rich in essential nutrients while the spinach adds fiber and vitamins. Slice up half an avocado to enjoy the buttery texture alongside your eggs, completing a nutritious and satisfying start to your day.",
-//       "macros": {"kcal": 780, "protein": 36, "carbs": 30, "fat": 60},
-//       "ingredients": [
-//         {"emojiCode": "🥚", "title": "Eggs", "amount": "4 pcs"},
-//         {"emojiCode": "🥬", "title": "Spinach", "amount": "1 cup"},
-//         {"emojiCode": "🥑", "title": "Avocado", "amount": "1/2 piece"},
-//         {"emojiCode": "🧂", "title": "Salt", "amount": "1 pinch"},
-//         {"emojiCode": "🧄", "title": "Garlic powder", "amount": "1 tsp"}
-//       ]
-//     },
-//     {
-//       "title": "Grilled Chicken Salad with Olive Oil Dressing",
-//       "type": "Meal 2",
-//       "description":
-//           "Enjoy a refreshing grilled chicken salad for lunch. The salad includes mixed greens topped with juicy grilled chicken, cherry tomatoes, cucumber slices, and a light drizzle of olive oil. This meal is rich in protein from the chicken, providing energy and supporting muscle recovery. The fresh vegetables add essential vitamins and hydration. The addition of olive oil enhances the flavor while supplying healthy fat for a balanced meal.",
-//       "macros": {"kcal": 900, "protein": 52, "carbs": 30, "fat": 60},
-//       "ingredients": [
-//         {
-//           "emojiCode": "🍗",
-//           "title": "Grilled Chicken Breast",
-//           "amount": "200g"
-//         },
-//         {"emojiCode": "🥗", "title": "Mixed Greens", "amount": "3 cups"},
-//         {"emojiCode": "🍅", "title": "Cherry Tomatoes", "amount": "1/2 cup"},
-//         {"emojiCode": "🥒", "title": "Cucumber", "amount": "1/2 piece"},
-//         {"emojiCode": "🫒", "title": "Olive Oil", "amount": "2 tbsp"}
-//       ]
-//     },
-//     {
-//       "title": "Baked Salmon with Asparagus",
-//       "type": "Meal 3",
-//       "description":
-//           "Savor a delicious baked salmon for dinner paired with tender asparagus. This meal is packed with protein and omega-3 fatty acids from the salmon which supports heart health. The asparagus is rich in vitamins and adds a nice crunch. Season the salmon with lemon juice and herbs to enhance the flavors without extra calories, making this meal both satisfying and nutritious.",
-//       "macros": {"kcal": 800, "protein": 50, "carbs": 12, "fat": 50},
-//       "ingredients": [
-//         {"emojiCode": "🐟", "title": "Salmon Fillet", "amount": "200g"},
-//         {"emojiCode": "🌿", "title": "Asparagus", "amount": "1 bunch"},
-//         {"emojiCode": "🍋", "title": "Lemon", "amount": "1 piece"},
-//         {"emojiCode": "🧂", "title": "Salt", "amount": "1 pinch"},
-//         {"emojiCode": "🕳️", "title": "Black pepper", "amount": "1 pinch"}
-//       ]
-//     },
-//     {
-//       "title": "Nuts and Seeds Snack Mix",
-//       "type": "Snack",
-//       "description":
-//           "Enjoy a handful of mixed nuts and seeds as a satisfying snack. This mix can include almonds, walnuts, and sunflower seeds for a boost of energy and healthy fats. Nuts are a great source of protein while the seeds provide fiber, making it a perfect mid-afternoon snack to keep you full until dinner.",
-//       "macros": {"kcal": 300, "protein": 15, "carbs": 5, "fat": 25},
-//       "ingredients": [
-//         {"emojiCode": "🌰", "title": "Almonds", "amount": "1/4 cup"},
-//         {"emojiCode": "🌰", "title": "Walnuts", "amount": "1/4 cup"},
-//         {"emojiCode": "🌻", "title": "Sunflower Seeds", "amount": "1/4 cup"}
-//       ]
-//     }
-//   ]
-// };
 
 @injectable
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
@@ -95,6 +40,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     this.requestMealPlan,
     this.sendMessageGptUsecase,
     this.fetchSavedSnapUsecase,
+    this.replaceMealUsecase,
+    this.replaceIngredientUsecase,
   ) : super(
           ChatMainState(
             status: Status.initial,
@@ -111,11 +58,21 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatFetchLastMealPlan>(_fetchLatsPlan);
     on<ChatOnLogout>(_chatOnLogout);
     on<ChatRefreshChat>(_refreshChat);
+    on<ChatReplaceMeal>(_replaceMeal);
+    on<ChatReplaceIngredient>(_replaceIngredient);
   }
   final InitGptUsecase initGptUsecase;
   final RequestPlanUsecase requestMealPlan;
   final SendMessageGptUsecase sendMessageGptUsecase;
   final FetchSavedSnapUsecase fetchSavedSnapUsecase;
+  final ReplaceMealUsecase replaceMealUsecase;
+  final ReplaceIngredientUsecase replaceIngredientUsecase;
+
+  bool get isRegenAvailable => kDebugMode
+      ? true
+      : (state.mealPlan != null &&
+          !state.mealPlan!.meals.any((meal) => meal.isRegenerated));
+
   FutureOr<void> _init(InitChatBloc event, Emitter<ChatState> emit) async {
     final res = await fetchSavedSnapUsecase.call(
       FetchSavedSnapParams(directusId: userBloc.state.user.directusId),
@@ -197,12 +154,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final user = userBloc.state.user;
     final res = await requestMealPlan.call(
       RequestPlanParams(
+        restrictions: user.foodPreferences!.restrictions,
         dietary: user.foodPreferences!.diets,
         cuisines: user.foodPreferences!.cuisines,
         calorieTarget: whoopBloc.state.day.macros.kcal,
         macros: whoopBloc.state.day.macros,
         trainingToday: event.trainingToday,
-        mealTypes: event.meals,
+        servings: event.meals,
         snackForToday: event.snackToday,
       ),
     );
@@ -283,6 +241,118 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         requestsLeft: event.needsRequestsAmountRefresh ? 5 : state.requestsLeft,
         mealPlan: null,
       ),
+    );
+  }
+
+  FutureOr<void> _replaceMeal(
+    ChatReplaceMeal event,
+    Emitter<ChatState> emit,
+  ) async {
+    add(
+      ChatSendMessage(
+        text: 'I want to replace ${event.meal.title} to something else',
+        isMe: true,
+      ),
+    );
+    emit(state.copyWith(status: Status.loading));
+    final user = userBloc.state.user;
+    final res = await replaceMealUsecase.call(
+      ReplaceMealParams(
+        meal: event.meal,
+        foodPreferences: user.foodPreferences!,
+      ),
+    );
+
+    res.fold((failure) {
+      emit(state.copyWith(status: Status.error));
+      add(
+        ChatSendMessage(
+          text:
+              'Sorry, failed to replace ${event.meal.title}. Please try again.',
+          isMe: false,
+        ),
+      );
+      appNavigationService.go(path: AppRoutes.homeScreen.path);
+      RishSnackbar().showSnackBar('Failed to replace meal, try again.');
+    }, (meal) {
+      final updatedMeals = state.mealPlan!.meals.map((m) {
+        return m.servingType == meal.servingType ? meal : m;
+      }).toList();
+
+      final updatedMealPlan = state.mealPlan!.copyWith(meals: updatedMeals);
+
+      emit(
+        state.copyWith(
+          mealPlan: updatedMealPlan,
+          status: Status.success,
+        ),
+      );
+      add(
+        const ChatSendMessage(
+          text: 'Your meal plan is updated. Check it out.',
+          isMe: false,
+        ),
+      );
+      whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
+      appNavigationService
+        ..pop(path: AppRoutes.homeScreen.path)
+        ..pop(path: AppRoutes.homeScreen.path);
+    });
+  }
+
+  FutureOr<void> _replaceIngredient(
+    ChatReplaceIngredient event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(state.copyWith(status: Status.loading));
+    final res = await replaceIngredientUsecase.call(
+      ReplaceIngredientParams(
+        meal: event.meal,
+        ingredients: event.ingredients,
+        preferences: userBloc.state.user.foodPreferences!,
+      ),
+    );
+
+    res.fold(
+      (l) {
+        emit(state.copyWith(status: Status.error));
+        add(
+          const ChatSendMessage(
+            text: 'Sorry, failed to replace ingredients. Please try again.',
+            isMe: false,
+          ),
+        );
+        appNavigationService
+          ..pop(path: AppRoutes.homeScreen.path)
+          ..pop(path: AppRoutes.homeScreen.path);
+        RishSnackbar()
+            .showSnackBar('Failed to replace ingredient, please try again.');
+      },
+      (meal) {
+        final updatedMeals = state.mealPlan!.meals.map((m) {
+          return m.servingType == meal.servingType ? meal : m;
+        }).toList();
+
+        final updatedMealPlan = state.mealPlan!.copyWith(meals: updatedMeals);
+
+        emit(
+          state.copyWith(
+            mealPlan: updatedMealPlan,
+            status: Status.success,
+          ),
+        );
+        add(
+          const ChatSendMessage(
+            text: 'Your meal is updated. Check it out.',
+            isMe: false,
+          ),
+        );
+        whoopBloc
+            .add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
+        appNavigationService
+          ..pop(path: AppRoutes.homeScreen.path)
+          ..pop(path: AppRoutes.homeScreen.path);
+      },
     );
   }
 }

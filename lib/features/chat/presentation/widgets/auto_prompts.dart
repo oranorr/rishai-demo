@@ -24,7 +24,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
     2,
     3,
   ];
-  List<String> selectedMeals = [];
+  List<ServingEntity> selectedMeals = [];
 
   @override
   Widget build(BuildContext context) {
@@ -56,16 +56,19 @@ class __AutoPromptsState extends State<_AutoPrompts>
         // return _buildMealAmountButtons();
         return _MealSelectionWidget(
           callback: (list) {
+            List<String> names = List.from(
+              list.map((serv) => '${serv.comment ?? ''} ${serv.type.name}'),
+            );
             setState(() {
               selectedMeals = list;
-              snackToday = selectedMeals.contains('Savoury Snack') ||
-                  selectedMeals.contains('Sweet Snack');
+              snackToday =
+                  selectedMeals.any((meal) => meal.type == ServingType.snack);
               currentStep++;
             });
             chatBloc
               ..add(
                 ChatSendMessage(
-                  text: 'Would like to have ${list.join(', ')} today',
+                  text: 'Would like to have ${names.join(', ')} today',
                   isMe: true,
                 ),
               )
@@ -367,21 +370,41 @@ class _QuestionPromptButton extends StatelessWidget {
 
 class _MealSelectionWidget extends StatefulWidget {
   const _MealSelectionWidget({required this.callback});
-  final Function(List<String>) callback;
+  final Function(List<ServingEntity>) callback;
   @override
   _MealSelectionWidgetState createState() => _MealSelectionWidgetState();
 }
 
 class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
-  final List<String> mealOptions = [
-    'Breakfast',
-    'Lunch',
-    'Dinner',
-    'Supper',
-    'Snack',
+  final List<ServingEntity> mealOrder = [
+    ServingEntity(
+      type: ServingType.breakfast,
+      weight: 0,
+      prompt: '',
+    ),
+    ServingEntity(
+      type: ServingType.lunch,
+      weight: 1,
+      prompt: '',
+    ),
+    ServingEntity(
+      type: ServingType.dinner,
+      weight: 2,
+      prompt: '',
+    ),
+    ServingEntity(
+      type: ServingType.supper,
+      weight: 3,
+      prompt: '',
+    ),
+    ServingEntity(
+      type: ServingType.snack,
+      weight: 4,
+      prompt: '',
+    ),
   ];
-  final List<String> selectedMeals = [];
-  final Map<String, String> mealPreferences = {};
+
+  List<ServingEntity> selectedMeals = [];
 
   @override
   Widget build(BuildContext context) {
@@ -395,34 +418,35 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
             style: context.styles.regularMedium
                 .copyWith(color: RishColors.textPrimary),
           ),
-          ...mealOptions.map((meal) {
+          ...mealOrder.map((meal) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Чекбокс для выбора приема пищи
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    meal,
+                    meal.type.name,
                     style: context.styles.regularLarge
                         .copyWith(color: RishColors.textPrimary),
                   ),
                   visualDensity: VisualDensity.compact,
-                  value: selectedMeals.contains(meal),
+                  value: _isMealSelected(meal.type),
                   onChanged: (bool? value) {
                     setState(() {
-                      if (selectedMeals.contains(meal)) {
-                        selectedMeals.remove(meal);
-                        mealPreferences.remove(meal);
+                      if (value!) {
+                        _addOrUpdateMeal(meal);
                       } else {
-                        selectedMeals.add(meal);
+                        _removeMeal(meal.type);
                       }
                     });
                   },
                 ),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child: selectedMeals.contains(meal) &&
-                          (meal == 'Breakfast' || meal == 'Snack')
+                  child: _isMealSelected(meal.type) &&
+                          (meal.type == ServingType.breakfast ||
+                              meal.type == ServingType.snack)
                       ? Padding(
                           padding: const EdgeInsets.only(left: 16),
                           child: Column(
@@ -435,12 +459,12 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
                                       .copyWith(color: RishColors.textPrimary),
                                 ),
                                 value: 'Savoury',
-                                groupValue: mealPreferences[meal],
+                                groupValue: _getMealPreference(meal.type),
                                 contentPadding: EdgeInsets.zero,
                                 visualDensity: VisualDensity.compact,
                                 onChanged: (String? value) {
                                   setState(() {
-                                    mealPreferences[meal] = value!;
+                                    _updateMealPreference(meal.type, value);
                                   });
                                 },
                               ),
@@ -451,12 +475,12 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
                                       .copyWith(color: RishColors.textPrimary),
                                 ),
                                 value: 'Sweet',
+                                groupValue: _getMealPreference(meal.type),
                                 contentPadding: EdgeInsets.zero,
                                 visualDensity: VisualDensity.compact,
-                                groupValue: mealPreferences[meal],
                                 onChanged: (String? value) {
                                   setState(() {
-                                    mealPreferences[meal] = value!;
+                                    _updateMealPreference(meal.type, value);
                                   });
                                 },
                               ),
@@ -472,32 +496,66 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
           RishButton.primary(
             height: 48.h,
             title: 'Next',
-            enabled: selectedMeals.length >= 2 &&
-                selectedMeals.every(
-                  (meal) =>
-                      !(meal == 'Breakfast' || meal == 'Snack') ||
-                      mealPreferences.containsKey(meal),
-                ),
+            enabled: _isNextButtonEnabled(),
             isLoading: false,
             action: () {
-              if (selectedMeals.length >= 2 &&
-                  selectedMeals.every(
-                    (meal) =>
-                        !(meal == 'Breakfast' || meal == 'Snack') ||
-                        mealPreferences.containsKey(meal),
-                  )) {
-                final List<String> finalMeals = selectedMeals.map((meal) {
-                  if (mealPreferences.containsKey(meal)) {
-                    return '${mealPreferences[meal]} $meal';
-                  }
-                  return meal;
-                }).toList();
-                widget.callback(finalMeals);
+              if (_isNextButtonEnabled()) {
+                selectedMeals.sort((a, b) => a.weight.compareTo(b.weight));
+                widget.callback(selectedMeals);
               }
             },
           ),
         ],
       ),
     );
+  }
+
+  /// Проверяет, активна ли кнопка "Next"
+  bool _isNextButtonEnabled() {
+    return selectedMeals.length >= 2 &&
+        selectedMeals.every(
+          (meal) =>
+              !(meal.type == ServingType.breakfast ||
+                  meal.type == ServingType.snack) ||
+              meal.comment != null,
+        );
+  }
+
+  /// Проверяет, выбран ли данный приём пищи
+  bool _isMealSelected(ServingType type) {
+    return selectedMeals.any((meal) => meal.type == type);
+  }
+
+  /// Добавляет или обновляет приём пищи
+  void _addOrUpdateMeal(ServingEntity meal) {
+    final index = selectedMeals.indexWhere((m) => m.type == meal.type);
+    if (index != -1) {
+      selectedMeals[index] =
+          meal.copyWith(comment: selectedMeals[index].comment);
+    } else {
+      selectedMeals.add(meal);
+    }
+  }
+
+  /// Удаляет приём пищи
+  void _removeMeal(ServingType type) {
+    selectedMeals.removeWhere((meal) => meal.type == type);
+  }
+
+  /// Получает предпочтение для приёма пищи (Savoury/Sweet)
+  String? _getMealPreference(ServingType type) {
+    final meal = selectedMeals.firstWhere(
+      (meal) => meal.type == type,
+      orElse: () => ServingEntity(type: type, weight: 0, prompt: ''),
+    );
+    return meal.comment;
+  }
+
+  /// Обновляет предпочтение для приёма пищи
+  void _updateMealPreference(ServingType type, String? preference) {
+    final index = selectedMeals.indexWhere((meal) => meal.type == type);
+    if (index != -1) {
+      selectedMeals[index] = selectedMeals[index].copyWith(comment: preference);
+    }
   }
 }

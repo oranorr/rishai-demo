@@ -20,7 +20,7 @@ class ChatSendMessage extends ChatEvent {
 }
 
 class CreateMealPlan extends ChatEvent {
-  final List<String> meals;
+  final List<ServingEntity> meals;
   final bool snackToday;
   final bool trainingToday;
   const CreateMealPlan({
@@ -65,5 +65,21 @@ class ChatRefreshChat extends ChatEvent {
   const ChatRefreshChat({
     required this.needsRequestsAmountRefresh,
     required this.messagesRefresh,
+  });
+}
+
+class ChatReplaceMeal extends ChatEvent {
+  final Meal meal;
+  const ChatReplaceMeal({
+    required this.meal,
+  });
+}
+
+class ChatReplaceIngredient extends ChatEvent {
+  final Meal meal;
+  final List<Ingredient> ingredients;
+  const ChatReplaceIngredient({
+    required this.meal,
+    required this.ingredients,
   });
 }

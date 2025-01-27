@@ -112,3 +112,10 @@ class WhoopDataDueToRefresh extends Failure {
   @override
   List<Object?> get props => throw UnimplementedError();
 }
+
+class FailureReplaceMeal extends Failure {
+  const FailureReplaceMeal() : super('Error replacing meal');
+
+  @override
+  List<Object?> get props => throw UnimplementedError();
+}

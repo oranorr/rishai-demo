@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:math' as m;
 
 import 'package:fl_chart/fl_chart.dart';
@@ -9,9 +10,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 
 part 'meal_plan_entity.g.dart';
 
@@ -33,6 +36,8 @@ class MealPlanEntity extends HiveObject {
       meals: List.generate(
         rnd.nextInt(4) + 1,
         (index) => Meal(
+          isRegenerated: false,
+          cookingInstructions: [],
           title: lorem.substring(1, rnd.nextInt(100) + 20),
           type: lorem.substring(1, rnd.nextInt(25) + 10),
           description: lorem.substring(1, rnd.nextInt(lorem.length - 1) + 10),
@@ -70,6 +75,7 @@ class MealPlanEntity extends HiveObject {
   }
 
   factory MealPlanEntity.fromMap(Map<String, dynamic> map) {
+    // log(map.toString());
     return MealPlanEntity(
       meals: List<Meal>.from(
         (map['meals'] as List<dynamic>).map<Meal>(
@@ -112,12 +118,18 @@ class Meal {
   MacrosBreakdown macros;
   @HiveField(4)
   List<Ingredient> ingredients;
+  @HiveField(5)
+  List<String> cookingInstructions;
+  @HiveField(6)
+  bool isRegenerated;
   Meal({
     required this.title,
     required this.type,
     required this.description,
     required this.macros,
     required this.ingredients,
+    required this.cookingInstructions,
+    required this.isRegenerated,
   });
 
   Meal copyWith({
@@ -126,6 +138,8 @@ class Meal {
     String? description,
     MacrosBreakdown? macros,
     List<Ingredient>? ingredients,
+    List<String>? cookingInstructions,
+    bool? isRegenerated,
   }) {
     return Meal(
       title: title ?? this.title,
@@ -133,7 +147,34 @@ class Meal {
       description: description ?? this.description,
       macros: macros ?? this.macros,
       ingredients: ingredients ?? this.ingredients,
+      cookingInstructions: cookingInstructions ?? this.cookingInstructions,
+      isRegenerated: isRegenerated ?? this.isRegenerated,
     );
+  }
+
+  ServingType get servingType {
+    switch (type) {
+      case 'Savoury Breakfast' ||
+            'Sweet Breakfast' ||
+            'Breakfast' ||
+            'Savory Breakfast' ||
+            'Savory breakfast':
+        return ServingType.breakfast;
+      case 'Lunch' || 'lunch':
+        return ServingType.lunch;
+      case 'Dinner' || 'dinner':
+        return ServingType.dinner;
+      case 'Supper' || 'supper':
+        return ServingType.supper;
+      case 'Savoury Snack' ||
+            'Sweet Snack' ||
+            'Snack' ||
+            'Savory Snack' ||
+            'Savory snack':
+        return ServingType.snack;
+      default:
+        throw ArgumentError('Invalid meal type: $type');
+    }
   }
 
   Map<String, dynamic> toMap() {
@@ -143,6 +184,8 @@ class Meal {
       'description': description,
       'macros': macros.toMap(),
       'ingredients': ingredients.map((x) => x.toMap()).toList(),
+      'cooking_instructions': cookingInstructions,
+      'isRegenerated': isRegenerated,
     };
   }
 
@@ -153,12 +196,12 @@ class Meal {
       description: map['description'] as String,
       macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
       ingredients: List<Ingredient>.from(
-        List.from(map['ingredients'])
-            .cast<Map<String, dynamic>>()
-            .map<Ingredient>(
-              (x) => Ingredient.fromMap(x),
-            ),
+        (map['ingredients'] as List<dynamic>).map<Ingredient>(
+          (x) => Ingredient.fromMap(x as Map<String, dynamic>),
+        ),
       ),
+      cookingInstructions: (map['cooking_instructions'] ?? []).cast<String>(),
+      isRegenerated: map['isRegenerated'] ?? false,
     );
   }
 
@@ -169,20 +212,19 @@ class Meal {
 
   @override
   String toString() {
-    return 'Meal(title: $title, type: $type, description: $description, macros: $macros, ingredients: $ingredients)';
+    return 'Meal(title: $title, type: $type, description: $description, macros: $macros, ingredients: $ingredients, cookingInstructions: $cookingInstructions, isRegenerated: $isRegenerated)';
   }
 
   @override
   bool operator ==(covariant Meal other) {
-    if (identical(this, other)) {
-      return true;
-    }
+    if (identical(this, other)) return true;
 
     return other.title == title &&
         other.type == type &&
         other.description == description &&
         other.macros == macros &&
-        listEquals(other.ingredients, ingredients);
+        listEquals(other.ingredients, ingredients) &&
+        other.cookingInstructions == cookingInstructions;
   }
 
   @override
@@ -191,7 +233,8 @@ class Meal {
         type.hashCode ^
         description.hashCode ^
         macros.hashCode ^
-        ingredients.hashCode;
+        ingredients.hashCode ^
+        cookingInstructions.hashCode;
   }
 
   Widget buildPieChart({
