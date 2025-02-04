@@ -33,10 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     t = Timer.periodic(const Duration(hours: 1), (t) {
       whoopBloc.add(
-        WhoopGetUserData(
-          userBloc.state.user.gender!,
-          userBloc.state.user.userGoal!,
-        ),
+        InitWhoopOnLogin(),
       );
     });
     super.initState();

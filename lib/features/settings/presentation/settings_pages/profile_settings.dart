@@ -78,6 +78,25 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
+            title: 'Food restrictions',
+            preSelectedData: updUser.foodPreferences!.restrictions.join(', '),
+            action: planCreated
+                ? _showDialog
+                : () async {
+                    await ModalSheet.showQuestionarySheet(
+                      title: 'Food restrictions',
+                      context: context,
+                      data: QuestionaryRepository().restrictions,
+                      onSave: (List<Question> selectedRestrictions) {
+                        updateRestrinctions(
+                          selectedRestrictions.cast<Restriction>(),
+                        );
+                      },
+                    );
+                  },
+          ),
+          SizedBox(height: 16.h),
+          RishDropdownMenu(
             title: 'Fitness goal',
             preSelectedData: updUser.userGoal!.getGoalTypeName(),
             action:

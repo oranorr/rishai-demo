@@ -42,6 +42,17 @@ mixin ProfileMixin on State<ProfileSettings> {
     setUser(upd);
   }
 
+  void updateRestrinctions(List<Restriction> restrictions) {
+    final upd = updUser.copyWith(
+      foodPreferences: updUser.foodPreferences!.copyWith(
+        restrictions:
+            restrictions.map((restriction) => restriction.name).toList(),
+      ),
+    );
+
+    setUser(upd);
+  }
+
   void updateGoal(FitnessGoal incGoal) {
     final upd = updUser.copyWith(userGoal: incGoal.toUseGoal());
     setUser(upd);

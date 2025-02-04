@@ -20,22 +20,31 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   @override
   late bool isTrialActive;
 
+  late AdaptyPaywall paywall;
+
   @override
   Future<void> initAdapty() async {
-    // isActive = true;
-    // isTrialActive = false;
     try {
-      await Adapty().activate(apiKey: Env.adaptyKey);
+      final bool isActivated = await Adapty().isActivated();
+
+      if (!isActivated) {
+        await Adapty().activate(
+          configuration: AdaptyConfiguration(
+            apiKey: Env.adaptyKey,
+          ),
+        );
+      }
+      // .activate(apiKey: Env.adaptyKey);
 
       await Adapty().setLogLevel(AdaptyLogLevel.error);
       _logger('Adapty initialized successfully');
-      final paywall = await Adapty().getPaywall(
+      paywall = await Adapty().getPaywall(
         placementId: 'onboard_placement',
       );
-      final adaptyProducts = await Adapty().getPaywallProducts(
+      products = await Adapty().getPaywallProducts(
         paywall: paywall,
       );
-      products = adaptyProducts;
+      // products = adaptyProducts;
       _logger('Products are set');
     } on AdaptyError catch (adaptyError) {
       _logger(adaptyError.toString());
@@ -46,15 +55,18 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<String> makePurchase({required AdaptyPaywallProduct product}) async {
     // return '';
     try {
-      final profile = await Adapty().getProfile();
-      if (profile.accessLevels['premium']?.isActive ?? false) {
+      final prof = await Adapty().getProfile();
+      if (prof.accessLevels['premium']?.isActive ?? false) {
         return 'ALREADY_EXISTS';
       }
-      final res = await Adapty().makePurchase(product: product);
-      // if (res.runtimeType == AdaptyPurchaseResultSuccess) {
-      final lvl = res?.accessLevels['premium'];
+      AdaptyPurchaseResult res = await Adapty().makePurchase(product: product);
+      final profile = await Adapty().getProfile();
 
-      isActive = lvl?.isActive ?? false;
+      final lvl = profile.accessLevels['premium'];
+      // es.accessLevels['premium'];
+
+      isActive = (lvl?.isActive ?? false) &&
+          res.runtimeType == AdaptyPurchaseResultSuccess;
       if (lvl != null) {
         isTrialActive = await _isTrialPeriodAvailable(lvl);
       } else {
@@ -115,9 +127,6 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<bool> _isTrialPeriodAvailable(
     AdaptyAccessLevel? accessLevel,
   ) async {
-    // final profile = await Adapty().getProfile();
-    // _logger(profile.accessLevels.toString());
-    // return profile.accessLevels.isEmpty;
     _logger(
       'Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}',
     );
@@ -139,16 +148,18 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     }
 
     // Проверяем через API, если данные не позволяют точно определить статус
-    final eligibility = await Adapty()
-        .getProductsIntroductoryOfferEligibility(products: products);
+    // final eligibility = await Adapty().getPaywallProducts(paywall: paywall);
+
+    // .getProductsIntroductoryOfferEligibility(products: products);
 
     for (final product in products) {
-      final isEligible =
-          eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
-      if (isEligible) {
-        _logger('Trial is available for product: ${product.vendorProductId}');
-        return true;
-      }
+      log(product.toString());
+      // final isEligible = product.subscription.offer
+      // eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
+      // if (isEligible) {
+      //   _logger('Trial is available for product: ${product.vendorProductId}');
+      //   return true;
+      // }
     }
 
     _logger('No trial available for any product.');
