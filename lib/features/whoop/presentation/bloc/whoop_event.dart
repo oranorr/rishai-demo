@@ -54,3 +54,5 @@ class WhoopUpdateDayByMealPlan extends WhoopEvent {
 }
 
 class WhoopDisconnect extends WhoopEvent {}
+
+class WhoopCheckForRefresh extends WhoopEvent {}

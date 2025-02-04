@@ -3,14 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/presentation/chat_page.dart';
 import 'package:rishai/features/home/presentation/bottom_navigation.dart';
 import 'package:rishai/features/home/presentation/home_page/home_page.dart';
 import 'package:rishai/features/settings/presentation/settings_page.dart';
-import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 
@@ -31,10 +29,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     pageController = PageController(initialPage: currentPage)
       ..addListener(listener);
     WidgetsBinding.instance.addObserver(this);
-    t = Timer.periodic(const Duration(hours: 1), (t) {
-      whoopBloc.add(
-        InitWhoopOnLogin(),
-      );
+    t = Timer.periodic(const Duration(minutes: 10), (t) {
+      whoopBloc.add(WhoopCheckForRefresh());
     });
     super.initState();
   }
@@ -50,9 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (!whoopBloc.state.day.dateTime.isSameDate(DateTime.now())) {
-        whoopBloc.add(InitWhoopOnLogin());
-      }
+      whoopBloc.add(WhoopCheckForRefresh());
     }
   }
 

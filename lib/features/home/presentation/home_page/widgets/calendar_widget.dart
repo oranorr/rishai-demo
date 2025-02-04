@@ -24,7 +24,7 @@ class _CalendarWidget extends StatelessWidget {
                 ? const SizedBox.square(
                     dimension: 25,
                     child: CircularProgressIndicator(
-                      color: RishColors.stroke,
+                      color: RishColors.primary,
                       strokeWidth: 1,
                     ),
                   )

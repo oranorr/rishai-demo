@@ -10,6 +10,7 @@ import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/hive/hive_impl.dart' show hive;
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -22,8 +23,11 @@ import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
+    show whoopRemote;
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
@@ -74,6 +78,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     on<WhoopChangeModificatorOrSex>(_changedModificatorOrSex);
     on<WhoopUpdateDayByMealPlan>(_updateDayByMeal);
     on<WhoopDisconnect>(_disconnect);
+    on<WhoopCheckForRefresh>(_checkForRefresh);
   }
   final ConnectWhoopUsecase connectWhoopUsecase;
   final WhoopGetDataUsecase getDataUsecase;
@@ -412,5 +417,27 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         'Error disconnecting your WHOOP account. Please, try again. Error: $e',
       );
     }
+  }
+
+  FutureOr<void> _checkForRefresh(
+    WhoopCheckForRefresh event,
+    Emitter<WhoopState> emit,
+  ) async {
+    emit(state.copyWith(status: Status.loading));
+    UserDataEntity? savedUserData =
+        await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
+    if (savedUserData == null) {
+      add(InitWhoopOnLogin());
+      return;
+    }
+    final isThereFreshData = await whoopRemote.pingCurrentCycle(
+      cycleId: savedUserData.currentCycleId,
+    );
+    if (isThereFreshData) {
+      add(InitWhoopOnLogin());
+    } else {
+      print('no fresh data yet');
+    }
+    emit(state.copyWith(status: Status.initial));
   }
 }

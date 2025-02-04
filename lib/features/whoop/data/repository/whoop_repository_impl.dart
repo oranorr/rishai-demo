@@ -193,7 +193,6 @@ class WhoopRepositoryImpl implements WhoopRepository {
         return await _fetchAndSaveFreshData(params);
       }
 
-      // Проверяем, завершился ли текущий цикл
       final isCurrentCycleEnded = await tryFetch(
         () => remoteDataSource.pingCurrentCycle(
           cycleId: savedUserData.currentCycleId,
