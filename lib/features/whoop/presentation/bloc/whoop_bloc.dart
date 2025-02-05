@@ -427,14 +427,14 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     UserDataEntity? savedUserData =
         await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
     if (savedUserData == null) {
-      add(InitWhoopOnLogin());
+      userBloc.add(CheckForSavedUser());
       return;
     }
     final isThereFreshData = await whoopRemote.pingCurrentCycle(
       cycleId: savedUserData.currentCycleId,
     );
     if (isThereFreshData) {
-      add(InitWhoopOnLogin());
+      userBloc.add(CheckForSavedUser());
     } else {
       print('no fresh data yet');
     }
