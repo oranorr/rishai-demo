@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:injectable/injectable.dart';
-import 'package:openai_dart/openai_dart.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
@@ -10,7 +9,6 @@ import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/features/chat/data/local_data_source.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
-import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 // import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
@@ -22,12 +20,6 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   late GenerativeModel chatModel;
   late GenerativeModel mealPlanModel;
   late ChatSession chatSession;
-  // late OpenAIClient client;
-  // late AssistantObject assistantChat;
-  // late AssistantObject assistantBreakfast;
-  // late AssistantObject assistantGeneralMeals;
-  // late AssistantObject assistantSnack;
-  // late ThreadObject thread;
 
   @override
   String? get threadId => '';
@@ -44,6 +36,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
           ),
         ]),
       );
+      chatSession = chatModel.startChat();
 
       mealPlanModel = GenerativeModel(
         apiKey: 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI',
@@ -82,16 +75,24 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         log('PROMPT: $prompt');
 
         if (isChat) {
-          chatSession = model.startChat();
           response = await chatSession.sendMessage(Content.text(prompt));
         } else {
-          response = await model.generateContent([Content.text(prompt)]);
+          final chat = model.startChat();
+          response = await chat.sendMessage(Content.text(prompt));
+          // response = await model.generateContent([Content.text(prompt)]);
+          // response = await model.generateContent([Content.text(prompt)]);
         }
 
         log('Ответ ассистента: ${response.text}');
 
         if (response.text != null && response.text!.isNotEmpty) {
-          return jsonDecode(response.text!);
+          if (isChat) {
+            return {
+              'answer': response.text,
+            };
+          } else {
+            return jsonDecode(response.text!);
+          }
         } else {
           return {'error': 'Пустой ответ от ассистента'};
         }
@@ -107,49 +108,62 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<Map<String, dynamic>> requestMealPlan(
-    List<Map<ServingType, String>> prompts,
+    String prompt,
   ) async {
-    final results = <String, dynamic>{};
+    final result = await requestAssistant(
+      prompt: prompt,
+      isChat: false,
+      model: mealPlanModel,
+    );
 
-    for (final prompt in prompts) {
-      final entry = prompt.entries.first;
-      final mealType = entry.key; // Ключ — тип приёма пищи (ServingType)
-      final mealPrompt = entry.value; // Значение — строка (prompt)
+    await requestAssistant(
+      prompt: 'My meal plan is: $result',
+      isChat: true,
+      model: chatModel,
+    );
+    return result;
+    // final results = <String, dynamic>{};
+    // log(prompts.toString());
 
-      // Переключение по mealType
-      switch (mealType) {
-        case ServingType.breakfast:
-          results['breakfast'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: mealPlanModel,
-            isChat: false,
-          );
-          break;
-        case ServingType.dinner:
-          results['generalMeals'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: mealPlanModel,
-            isChat: false,
-          );
-          break;
-        case ServingType.snack:
-          results['snack'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: mealPlanModel,
-            isChat: false,
-          );
-          break;
-        default:
-          throw ArgumentError('Invalid meal type: $mealType');
-      }
-    }
+    // for (final prompt in prompts) {
+    //   final entry = prompt.entries.first;
+    //   final mealType = entry.key; // Ключ — тип приёма пищи (ServingType)
+    //   final mealPrompt = entry.value; // Значение — строка (prompt)
+
+    //   // Переключение по mealType
+    //   switch (mealType) {
+    //     case ServingType.breakfast:
+    //       results['breakfast'] = await requestAssistant(
+    //         prompt: mealPrompt,
+    //         model: mealPlanModel,
+    //         isChat: false,
+    //       );
+    //       break;
+    //     case ServingType.dinner:
+    //       results['generalMeals'] = await requestAssistant(
+    //         prompt: mealPrompt,
+    //         model: mealPlanModel,
+    //         isChat: false,
+    //       );
+    //       break;
+    //     case ServingType.snack:
+    //       results['snack'] = await requestAssistant(
+    //         prompt: mealPrompt,
+    //         model: mealPlanModel,
+    //         isChat: false,
+    //       );
+    //       break;
+    //     default:
+    //       throw ArgumentError('Invalid meal type: $mealType');
+    //   }
+    // }
 
     // Объединяем все блюда в один массив
-    final meals = [
-      ...results['breakfast']?['meals'] ?? [],
-      ...results['generalMeals']?['meals'] ?? [],
-      ...results['snack']?['meals'] ?? [],
-    ];
+    // final meals = [
+    //   ...results['breakfast']?['meals'] ?? [],
+    //   ...results['generalMeals']?['meals'] ?? [],
+    //   ...results['snack']?['meals'] ?? [],
+    // ];
 
     // final dot = await requestAssistant(
     //   prompt: meals.toString(),
@@ -157,14 +171,16 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     //   model: chatModel,
     // );
     // log('CHAT ASSISTANT: $dot');
-
-    return {'meals': meals};
   }
 
   @override
   Future<String?> sendMessage(String userMessage) async {
-    return null;
-
+    final res = await requestAssistant(
+      prompt: userMessage,
+      isChat: true,
+      model: chatModel,
+    );
+    return res['answer'];
     // try {
     //   final run = await client.createThreadRun(
     //     threadId: thread.id,
