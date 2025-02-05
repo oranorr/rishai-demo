@@ -5,13 +5,12 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/features/chat/data/local_data_source.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
-// import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
@@ -30,13 +29,21 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       chatModel = GenerativeModel(
         apiKey: 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI',
         model: 'models/gemini-1.5-flash',
-        systemInstruction: Content('system', [
-          TextPart(
-            ChatLocalDataSoucre.chatPrompt,
-          ),
-        ]),
+        systemInstruction: Content(
+          'system',
+          [
+            TextPart(
+              ChatLocalDataSoucre.chatPrompt,
+            ),
+          ],
+        ),
       );
-      chatSession = chatModel.startChat();
+      chatSession = chatModel.startChat(
+        history: [
+          if (chatBloc.state.mealPlan != null)
+            Content.text(chatBloc.state.mealPlan!.toMap().toString()),
+        ],
+      );
 
       mealPlanModel = GenerativeModel(
         apiKey: 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI',
@@ -276,59 +283,40 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<Meal?> replaceMeal(ReplaceMealParams params) async {
-    return null;
-
-    // final type = params.meal.servingType;
-    // Map<String, dynamic> newMeal;
-    // final prompt =
-    //     'I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}';
-    // try {
-    //   switch (type) {
-    //     case ServingType.breakfast:
-    //       newMeal = await _requestAssistant(prompt, assistantBreakfast);
-    //       break;
-    //     case ServingType.lunch || ServingType.dinner || ServingType.supper:
-    //       newMeal = await _requestAssistant(prompt, assistantGeneralMeals);
-    //       break;
-    //     case ServingType.snack:
-    //       newMeal = await _requestAssistant(prompt, assistantSnack);
-    //       break;
-    //   }
-    //   log('RESPONSE IS: $newMeal');
-    //   return Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
-    // } on Exception catch (e) {
-    //   log('EXCEPTION: $e');
-    //   return null;
-    // }
+    Map<String, dynamic> newMeal;
+    final prompt =
+        'I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}';
+    try {
+      newMeal = await requestAssistant(
+        prompt: prompt,
+        isChat: false,
+        model: mealPlanModel,
+      );
+      return Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
+    } on Exception catch (e) {
+      log('EXCEPTION: $e');
+      return null;
+    }
   }
 
   @override
   Future<Meal?> replaceIngredient(ReplaceIngredientParams params) async {
-    return null;
-
-    // Map<String, dynamic> res;
-    // List<String> ingredientsNames =
-    //     List.from(params.ingredients.map((e) => e.title));
-    // final prompt =
-    //     'Replace please ${ingredientsNames.join(', ')} in this meal: ${params.meal.title}, type is: ${params.meal.type}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions}';
-    // // 'I dont like this meal: ${params.mealTitle}, please replace this ${params.servingType} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}';
-    // try {
-    //   switch (params.meal.servingType) {
-    //     case ServingType.breakfast:
-    //       res = await _requestAssistant(prompt, assistantBreakfast);
-    //       break;
-    //     case ServingType.lunch || ServingType.dinner || ServingType.supper:
-    //       res = await _requestAssistant(prompt, assistantGeneralMeals);
-    //       break;
-    //     case ServingType.snack:
-    //       res = await _requestAssistant(prompt, assistantSnack);
-    //       break;
-    //   }
-    //   log('RESPONSE IS: $res');
-    //   return Meal.fromMap(res['meals'].first).copyWith(isRegenerated: true);
-    // } on Exception catch (e) {
-    //   log('EXCEPTION: $e');
-    //   return null;
-    // }
+    Map<String, dynamic> res;
+    List<String> ingredientsNames =
+        List.from(params.ingredients.map((e) => e.title));
+    final prompt =
+        'Replace please ${ingredientsNames.join(', ')} in this meal: ${params.meal.title}, type is: ${params.meal.type}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions}';
+    try {
+      res = await requestAssistant(
+        prompt: prompt,
+        isChat: false,
+        model: mealPlanModel,
+      );
+      log('RESPONSE IS: $res');
+      return Meal.fromMap(res['meals'].first).copyWith(isRegenerated: true);
+    } on Exception catch (e) {
+      log('EXCEPTION: $e');
+      return null;
+    }
   }
 }
