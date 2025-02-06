@@ -66,7 +66,7 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
           SizedBox(height: 60.h),
           Expanded(
             child: PageView.builder(
-              // physics: const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               onPageChanged: (value) {
                 resolveType(value);
               },

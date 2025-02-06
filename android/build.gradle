@@ -23,7 +23,7 @@ tasks.register("clean", Delete) {
 
 buildscript {
     // ext.kotlin_version = '2.0.0'
-    // ext.kotlin_version = '1.9.22'
+    // ext.kotlin_version = '1.9.10'
 
     repositories {
         google()
@@ -31,13 +31,8 @@ buildscript {
     }
 
     dependencies {
-        // classpath 'com.android.tools.build:gradle:8.0.0'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.10'
         classpath 'com.google.gms:google-services:4.3.15'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+        classpath 'com.android.tools.build:gradle:8.2.1'
     }
 }
-configurations.all {
-    resolutionStrategy.force 'androidx.lifecycle:lifecycle-livedata-core:2.6.1'
-    // resolutionStrategy.force 'androidx.fragment:fragment:1.6.1'
-}
- 
