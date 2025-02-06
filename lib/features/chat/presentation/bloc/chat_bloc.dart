@@ -31,7 +31,7 @@ part 'chat_event.dart';
 
 final chatBloc = getIt.get<ChatBloc>();
 
-int totalRequests = 5;
+int totalRequests = kDebugMode ? 10000 : 5;
 
 @injectable
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
@@ -123,7 +123,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       res.fold((failure) {
         emit(state.copyWith(status: Status.error));
       }, (result) {
-        emit(state.copyWith(status: Status.success));
+        emit(state.copyWith(status: Status.initial));
         final msg = MessageEntity(text: result, isMe: false);
         list.add(msg);
         emit(state.copyWith(requestsLeft: state.requestsLeft - 1));

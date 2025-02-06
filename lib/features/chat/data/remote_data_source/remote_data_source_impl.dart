@@ -1,57 +1,63 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:injectable/injectable.dart';
-import 'package:openai_dart/openai_dart.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/envied/envied.dart';
+import 'package:rishai/features/chat/data/local_data_source.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
-import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
-// import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
 @Singleton(as: ChatRemoteDataSource)
 class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
-  late OpenAIClient client;
-  late AssistantObject assistantChat;
-  late AssistantObject assistantBreakfast;
-  late AssistantObject assistantGeneralMeals;
-  late AssistantObject assistantSnack;
-  late ThreadObject thread;
+  late GenerativeModel chatModel;
+  late GenerativeModel mealPlanModel;
+  late ChatSession chatSession;
 
   @override
-  String? get threadId => thread.id;
+  String? get threadId => '';
 
   @override
   Future<bool> initGpt(String? savedThreadId) async {
     try {
-      client = OpenAIClient(apiKey: Env.apiKey);
+      chatModel = GenerativeModel(
+        apiKey: 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI',
+        model: 'models/gemini-1.5-flash',
+        systemInstruction: Content(
+          'system',
+          [
+            TextPart(
+              ChatLocalDataSoucre.chatPrompt,
+            ),
+          ],
+        ),
+      );
+      chatSession = chatModel.startChat(
+        history: [
+          if (chatBloc.state.mealPlan != null)
+            Content.text(chatBloc.state.mealPlan!.toMap().toString()),
+        ],
+      );
 
-      // Инициализация ассистентов
-      assistantChat = await client.getAssistant(
-        assistantId: 'asst_uBQHFwmIWMaxwuqMw3SQtitM',
+      mealPlanModel = GenerativeModel(
+        apiKey: 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI',
+        model: 'models/gemini-1.5-flash',
+        systemInstruction: Content('system', [
+          TextPart(
+            ChatLocalDataSoucre.generativePrompt,
+          ),
+        ]),
+        generationConfig: GenerationConfig(
+          responseMimeType: 'application/json',
+          // responseSchema: ChatLocalDataSoucre.schema,
+        ),
       );
-      assistantBreakfast = await client.getAssistant(
-        assistantId: 'asst_KCDNDXfNAlPFYOTd8DAWLALd',
-      );
-      assistantGeneralMeals = await client.getAssistant(
-        assistantId: 'asst_XIRJS9iqPSoGTct7KdOPDfFr',
-      );
-      assistantSnack = await client.getAssistant(
-        assistantId: 'asst_0aEt1y0IyD8oi7EKNcrSqoGK',
-      );
-
-      if (savedThreadId != null) {
-        thread = await client.getThread(threadId: savedThreadId);
-      } else {
-        thread =
-            await client.createThread(request: const CreateThreadRequest());
-      }
 
       return true;
     } on Exception catch (e) {
@@ -61,192 +67,187 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   }
 
 // @override
-  Future<Map<String, dynamic>> _requestAssistant(
-    String prompt,
-    AssistantObject assistant,
-  ) async {
+//TODO надо добавить сюда историю чата
+  Future<Map<String, dynamic>> requestAssistant({
+    required String prompt,
+    required bool isChat,
+    required GenerativeModel model,
+  }) async {
     int retryCount = 0;
-    const maxRetries = 3;
+    const int maxRetries = 3;
+    GenerateContentResponse? response;
 
     while (retryCount < maxRetries) {
       try {
         log('PROMPT: $prompt');
-        thread =
-            await client.createThread(request: const CreateThreadRequest());
 
-        final run = await client.createThreadRun(
-          threadId: thread.id,
-          request: CreateRunRequest(
-            assistantId: assistant.id,
-            model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
-            instructions: assistant.instructions,
-            additionalInstructions: prompt,
-          ),
-        );
-
-        log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
-
-        const maxAttempts = 10;
-        int attempts = 0;
-        bool foundResponse = false;
-        MessageObject? assistantResponse;
-
-        while (attempts < maxAttempts && !foundResponse) {
-          await Future.delayed(const Duration(seconds: 2));
-          final responseMessages =
-              await client.listThreadMessages(threadId: thread.id);
-
-          for (final message in responseMessages.data) {
-            if (message.role == MessageRole.assistant &&
-                message.content.isNotEmpty) {
-              assistantResponse = message;
-              foundResponse = true;
-              break;
-            }
-          }
-
-          attempts++;
-        }
-
-        if (assistantResponse != null) {
-          final content = assistantResponse.content.first;
-          final json = content.toJson();
-          log('Ответ ассистента: $json');
-          final map = json['text']['value'];
-          if (map == '.') {
-            // threadId = run.threadId;
-            return {'chat': 'Assistant is ready'};
-          }
-          return jsonDecode(map);
+        if (isChat) {
+          response = await chatSession.sendMessage(Content.text(prompt));
         } else {
-          log('Ответ ассистента не был получен.');
-          await client.cancelThreadRun(threadId: thread.id, runId: run.id);
-          return {
-            'error': 'Ассистент не смог предоставить ответ. Попробуйте позже.',
-          };
+          final chat = model.startChat();
+          response = await chat.sendMessage(Content.text(prompt));
+          // response = await model.generateContent([Content.text(prompt)]);
+          // response = await model.generateContent([Content.text(prompt)]);
         }
-      } on Exception catch (e) {
-        log('Ошибка при запросе к ассистенту: $e');
-        return {'error': 'Произошла ошибка при запросе к ассистенту: $e'};
+
+        log('Ответ ассистента: ${response.text}');
+
+        if (response.text != null && response.text!.isNotEmpty) {
+          if (isChat) {
+            return {
+              'answer': response.text,
+            };
+          } else {
+            return jsonDecode(response.text!);
+          }
+        } else {
+          return {'error': 'Пустой ответ от ассистента'};
+        }
+      } catch (e) {
+        log('Ошибка запроса к Gemini: $e');
+        retryCount++;
+        await Future.delayed(const Duration(seconds: 1));
       }
     }
+
     return {'error': 'Произошла ошибка при запросе к ассистенту.'};
   }
 
   @override
   Future<Map<String, dynamic>> requestMealPlan(
-    List<Map<ServingType, String>> prompts,
+    String prompt,
   ) async {
-    final results = <String, dynamic>{};
+    final result = await requestAssistant(
+      prompt: prompt,
+      isChat: false,
+      model: mealPlanModel,
+    );
 
-    for (final prompt in prompts) {
-      // Извлекаем первый ключ и значение из Map
-      final entry = prompt.entries.first;
-      final mealType = entry.key; // Ключ — тип приёма пищи (ServingType)
-      final mealPrompt = entry.value; // Значение — строка (prompt)
+    await requestAssistant(
+      prompt: 'My meal plan is: $result',
+      isChat: true,
+      model: chatModel,
+    );
+    return result;
+    // final results = <String, dynamic>{};
+    // log(prompts.toString());
 
-      // Переключение по mealType
-      switch (mealType) {
-        case ServingType.breakfast:
-          results['breakfast'] = await _requestAssistant(
-            mealPrompt,
-            assistantBreakfast,
-          );
-          break;
-        case ServingType.dinner:
-          results['generalMeals'] = await _requestAssistant(
-            mealPrompt,
-            assistantGeneralMeals,
-          );
-          break;
-        case ServingType.snack:
-          results['snack'] = await _requestAssistant(
-            mealPrompt,
-            assistantSnack,
-          );
-          break;
-        default:
-          throw ArgumentError('Invalid meal type: $mealType');
-      }
-    }
+    // for (final prompt in prompts) {
+    //   final entry = prompt.entries.first;
+    //   final mealType = entry.key; // Ключ — тип приёма пищи (ServingType)
+    //   final mealPrompt = entry.value; // Значение — строка (prompt)
+
+    //   // Переключение по mealType
+    //   switch (mealType) {
+    //     case ServingType.breakfast:
+    //       results['breakfast'] = await requestAssistant(
+    //         prompt: mealPrompt,
+    //         model: mealPlanModel,
+    //         isChat: false,
+    //       );
+    //       break;
+    //     case ServingType.dinner:
+    //       results['generalMeals'] = await requestAssistant(
+    //         prompt: mealPrompt,
+    //         model: mealPlanModel,
+    //         isChat: false,
+    //       );
+    //       break;
+    //     case ServingType.snack:
+    //       results['snack'] = await requestAssistant(
+    //         prompt: mealPrompt,
+    //         model: mealPlanModel,
+    //         isChat: false,
+    //       );
+    //       break;
+    //     default:
+    //       throw ArgumentError('Invalid meal type: $mealType');
+    //   }
+    // }
 
     // Объединяем все блюда в один массив
-    final meals = [
-      ...results['breakfast']?['meals'] ?? [],
-      ...results['generalMeals']?['meals'] ?? [],
-      ...results['snack']?['meals'] ?? [],
-    ];
-    final dot = await _requestAssistant(
-      'My meal plan for today: $meals',
-      assistantChat,
-    );
-    log('CHAT ASSISTANT: $dot');
+    // final meals = [
+    //   ...results['breakfast']?['meals'] ?? [],
+    //   ...results['generalMeals']?['meals'] ?? [],
+    //   ...results['snack']?['meals'] ?? [],
+    // ];
 
-    return {'meals': meals};
+    // final dot = await requestAssistant(
+    //   prompt: meals.toString(),
+    //   isChat: true,
+    //   model: chatModel,
+    // );
+    // log('CHAT ASSISTANT: $dot');
   }
 
   @override
   Future<String?> sendMessage(String userMessage) async {
-    try {
-      final run = await client.createThreadRun(
-        threadId: thread.id,
-        request: CreateRunRequest(
-          assistantId: assistantChat.id,
-          model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
-          additionalInstructions: userMessage,
-        ),
-      );
+    final res = await requestAssistant(
+      prompt: userMessage,
+      isChat: true,
+      model: chatModel,
+    );
+    return res['answer'];
+    // try {
+    //   final run = await client.createThreadRun(
+    //     threadId: thread.id,
+    //     request: CreateRunRequest(
+    //       assistantId: assistantChat.id,
+    //       model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
+    //       additionalInstructions: userMessage,
+    //     ),
+    //   );
 
-      log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
+    //   log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
 
-      bool runCompleted = false;
-      const maxAttempts = 10;
-      int attempts = 0;
+    //   bool runCompleted = false;
+    //   const maxAttempts = 10;
+    //   int attempts = 0;
 
-      while (!runCompleted && attempts < maxAttempts) {
-        await Future.delayed(const Duration(seconds: 2));
+    //   while (!runCompleted && attempts < maxAttempts) {
+    //     await Future.delayed(const Duration(seconds: 2));
 
-        final runStatus =
-            await client.getThreadRun(threadId: thread.id, runId: run.id);
-        if (runStatus.status == RunStatus.completed) {
-          runCompleted = true;
-          log('Прогон ассистента завершен');
-        }
+    //     final runStatus =
+    //         await client.getThreadRun(threadId: thread.id, runId: run.id);
+    //     if (runStatus.status == RunStatus.completed) {
+    //       runCompleted = true;
+    //       log('Прогон ассистента завершен');
+    //     }
 
-        attempts++;
-      }
+    //     attempts++;
+    //   }
 
-      if (!runCompleted) {
-        log('Прогон не завершился за отведенное время, отменяем.');
-        await client.cancelThreadRun(threadId: thread.id, runId: run.id);
-        return null;
-      }
+    //   if (!runCompleted) {
+    //     log('Прогон не завершился за отведенное время, отменяем.');
+    //     await client.cancelThreadRun(threadId: thread.id, runId: run.id);
+    //     return null;
+    //   }
 
-      final responseMessages =
-          await client.listThreadMessages(threadId: thread.id);
-      MessageObject? assistantResponse;
+    //   final responseMessages =
+    //       await client.listThreadMessages(threadId: thread.id);
+    //   MessageObject? assistantResponse;
 
-      for (final message in responseMessages.data.reversed) {
-        if (message.role == MessageRole.assistant &&
-            message.runId == run.id &&
-            message.content.isNotEmpty) {
-          assistantResponse = message;
-          break;
-        }
-      }
+    //   for (final message in responseMessages.data.reversed) {
+    //     if (message.role == MessageRole.assistant &&
+    //         message.runId == run.id &&
+    //         message.content.isNotEmpty) {
+    //       assistantResponse = message;
+    //       break;
+    //     }
+    //   }
 
-      if (assistantResponse != null) {
-        final content = assistantResponse.content.first;
-        log('Ответ ассистента: ${content.toJson()}');
-        return content.text;
-      } else {
-        log('Ответ ассистента не был получен.');
-        return null;
-      }
-    } on Exception catch (e) {
-      log('Ошибка при отправке сообщения: $e');
-      return null;
-    }
+    //   if (assistantResponse != null) {
+    //     final content = assistantResponse.content.first;
+    //     log('Ответ ассистента: ${content.toJson()}');
+    //     return content.text;
+    //   } else {
+    //     log('Ответ ассистента не был получен.');
+    //     return null;
+    //   }
+    // } on Exception catch (e) {
+    //   log('Ошибка при отправке сообщения: $e');
+    //   return null;
+    // }
   }
 
   @override
@@ -282,23 +283,15 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<Meal?> replaceMeal(ReplaceMealParams params) async {
-    final type = params.meal.servingType;
     Map<String, dynamic> newMeal;
     final prompt =
         'I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}';
     try {
-      switch (type) {
-        case ServingType.breakfast:
-          newMeal = await _requestAssistant(prompt, assistantBreakfast);
-          break;
-        case ServingType.lunch || ServingType.dinner || ServingType.supper:
-          newMeal = await _requestAssistant(prompt, assistantGeneralMeals);
-          break;
-        case ServingType.snack:
-          newMeal = await _requestAssistant(prompt, assistantSnack);
-          break;
-      }
-      log('RESPONSE IS: $newMeal');
+      newMeal = await requestAssistant(
+        prompt: prompt,
+        isChat: false,
+        model: mealPlanModel,
+      );
       return Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
     } on Exception catch (e) {
       log('EXCEPTION: $e');
@@ -313,19 +306,12 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         List.from(params.ingredients.map((e) => e.title));
     final prompt =
         'Replace please ${ingredientsNames.join(', ')} in this meal: ${params.meal.title}, type is: ${params.meal.type}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions}';
-    // 'I dont like this meal: ${params.mealTitle}, please replace this ${params.servingType} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}';
     try {
-      switch (params.meal.servingType) {
-        case ServingType.breakfast:
-          res = await _requestAssistant(prompt, assistantBreakfast);
-          break;
-        case ServingType.lunch || ServingType.dinner || ServingType.supper:
-          res = await _requestAssistant(prompt, assistantGeneralMeals);
-          break;
-        case ServingType.snack:
-          res = await _requestAssistant(prompt, assistantSnack);
-          break;
-      }
+      res = await requestAssistant(
+        prompt: prompt,
+        isChat: false,
+        model: mealPlanModel,
+      );
       log('RESPONSE IS: $res');
       return Meal.fromMap(res['meals'].first).copyWith(isRegenerated: true);
     } on Exception catch (e) {

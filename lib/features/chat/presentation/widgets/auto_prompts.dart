@@ -23,6 +23,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
     1,
     2,
     3,
+    4,
   ];
   List<ServingEntity> selectedMeals = [];
 
@@ -85,7 +86,8 @@ class __AutoPromptsState extends State<_AutoPrompts>
       case 3:
         // return _buildTrainingButtons();
         return _buildViewMealPlanButton();
-      // case 4:
+      case 4:
+        return const _PromptQuestions(isVisible: true);
       default:
         return const SizedBox.shrink();
     }
@@ -267,7 +269,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
             textAlign: TextAlign.center,
           );
         } else {
-          return const CircularProgressIndicator();
+          return const SizedBox.shrink();
         }
       },
     );
@@ -302,15 +304,16 @@ class _PromptQuestionsState extends State<_PromptQuestions> {
       bloc: chatBloc,
       builder: (context, state) {
         return AnimatedOpacity(
-          opacity: !widget.isVisible &&
-                  state.status != Status.loading &&
-                  state.requestsLeft != 0
-              ? 1
-              : 0,
+          opacity: 1,
+          // opacity: !widget.isVisible &&
+          //         state.status != Status.loading &&
+          //         state.requestsLeft != 0
+          //     ? 1
+          //     : 0,
           duration: Durations.short4,
           onEnd: () {
             setState(() {
-              bodyVisible = !bodyVisible;
+              // bodyVisible = !bodyVisible;
             });
           },
           child: AnimatedContainer(
