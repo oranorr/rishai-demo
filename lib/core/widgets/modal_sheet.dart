@@ -6,7 +6,6 @@ import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/onboard/domain/entities.dart';
-import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
 
 class ModalSheet {
   static Widget _buildSheet({

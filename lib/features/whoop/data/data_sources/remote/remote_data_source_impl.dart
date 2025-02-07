@@ -59,7 +59,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           .map((map) => CycleModel.fromMap(map))
           .toList();
       log('CYCLES LENGTH: ${cycles.length}');
-      return (cycles, (currentCycle['id'] as int));
+      return (cycles, currentCycle['id'] as int);
     } on Exception catch (__) {
       rethrow;
     }

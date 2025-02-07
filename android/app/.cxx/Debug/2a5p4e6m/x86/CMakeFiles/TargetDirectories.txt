@@ -1,0 +1,2 @@
+/Users/iaroslav/dev/rishai/android/app/.cxx/Debug/2a5p4e6m/x86/CMakeFiles/rebuild_cache.dir
+/Users/iaroslav/dev/rishai/android/app/.cxx/Debug/2a5p4e6m/x86/CMakeFiles/edit_cache.dir

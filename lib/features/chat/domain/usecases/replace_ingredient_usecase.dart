@@ -5,7 +5,6 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
-import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 
