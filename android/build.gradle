@@ -1,26 +1,18 @@
-// plugins {
-//     id 'com.android.application' version '8.8.0' apply false
-
-// }
-
 allprojects {
-    // repositories {
-    //     google()
-    //     maven{url "https://storage.googleapis.com/download.flutter.io"}
-    //     mavenCentral()
-    //     gradlePluginPortal()
-    // }
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
 
-
-
 rootProject.buildDir = "../build"
-
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
 }
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
-
