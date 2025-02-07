@@ -93,15 +93,17 @@ class MealScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16).copyWith(bottom: 0, top: 16),
+              padding: const EdgeInsets.all(16).copyWith(bottom: 16, top: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ...meal.cookingInstructions.map(
                     (step) => Text(
-                      '$step\n',
-                      style: context.styles.regularMedium
-                          .copyWith(color: RishColors.textSecondary),
+                      step,
+                      style: context.styles.regularMedium.copyWith(
+                        color: RishColors.textSecondary,
+                        // height: 2,
+                      ),
                     ),
                   ),
                 ],

@@ -134,42 +134,42 @@ class QuestionaryRepository {
   final List<Restriction> restrictions = [
     Restriction(
       name: 'No Beef',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🥩',
       restrictionEnum: RestrictionEnum.noBeef,
     ),
     Restriction(
       name: 'No Pork',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🐷',
       restrictionEnum: RestrictionEnum.noPork,
     ),
     Restriction(
       name: 'No Gluten',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🌾',
       restrictionEnum: RestrictionEnum.noGluten,
     ),
     Restriction(
       name: 'No Dairy',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🥛',
       restrictionEnum: RestrictionEnum.noDairy,
     ),
     Restriction(
       name: 'No Nuts',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🥜',
       restrictionEnum: RestrictionEnum.noNuts,
     ),
     Restriction(
       name: 'No Shellfish',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🦞',
       restrictionEnum: RestrictionEnum.noShellfish,
     ),
     Restriction(
       name: 'No Eggs',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🥚',
       restrictionEnum: RestrictionEnum.noEggs,
     ),
     Restriction(
       name: 'No Soy',
-      assetPath: 'assets/diet/vegan.svg',
+      assetPath: '🌱',
       restrictionEnum: RestrictionEnum.noSoy,
     ),
     // Restriction(

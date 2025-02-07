@@ -97,7 +97,11 @@ class Restriction extends Question {
             ? RishColors.stroke
             : RishColors.formBackgroun,
         // tileColor:  const Color(0xff242239),
-        leading: SvgPicture.asset(assetPath),
+        leading: Text(
+          assetPath,
+          style: const TextStyle(fontSize: 20),
+        ),
+        // leading: SvgPicture.asset(assetPath),
         title: Text(name, style: context.styles.regularLarge),
         trailing: Checkbox(
           shape: const CircleBorder(),

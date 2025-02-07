@@ -202,8 +202,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         if (state.status != Status.loading && state.status != Status.error) {
           userBloc.add(UserGetDays());
           appNavigationService.go(
-            // path: true
-            path: adapty.isActive
+            path: true
+                // path: adapty.isActive
                 ? AppRoutes.homeScreen.path
                 : AppRoutes.paywall.path,
           );

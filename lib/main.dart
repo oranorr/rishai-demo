@@ -22,7 +22,7 @@ void main() async {
   await Firebase.initializeApp();
   await configureDependencies();
   await dotenv.load();
-  await adapty.initAdapty();
+  // await adapty.initAdapty();
   await hive.initHive();
   await prefsRepo.init();
   await directus.initDirectus();

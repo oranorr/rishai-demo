@@ -29,18 +29,23 @@ class __AutoPromptsState extends State<_AutoPrompts>
 
   @override
   Widget build(BuildContext context) {
+    // print(currentStep);
+
     super.build(context);
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
+        // print(state.mealPlan == null);
         return Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 12),
           child: SizedBox(
+            // height: 350.h,
+            // color: RishColors.textSecondary,
             child: state.status == Status.loading
                 ? const CircularProgressIndicator()
                 : state.requestsLeft == 0
                     ? const SizedBox.shrink()
-                    : state.mealPlan == null || currentStep == 4
+                    : state.mealPlan == null || currentStep == 3
                         ? _buildStep(currentStep)
                         : _buildStep(steps.length - 1),
           ),
@@ -84,6 +89,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
       case 2:
         return _buildWorkoutButtons();
       case 3:
+
         // return _buildTrainingButtons();
         return _buildViewMealPlanButton();
       case 4:
@@ -114,37 +120,6 @@ class __AutoPromptsState extends State<_AutoPrompts>
       },
     );
   }
-
-  // Widget _buildMealAmountButtons() {
-  //   return Row(
-  //     mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //     children: List.generate(3, (i) {
-  //       return SizedBox(
-  //         width: 110.w,
-  //         child: RishButton.primary(
-  //           title: '${i + 2}',
-  //           height: 48.h,
-  //           enabled: true,
-  //           isLoading: false,
-  //           action: () {
-  //             chatBloc
-  //               ..add(ChatSendMessage(text: '${i + 2}', isMe: true))
-  //               ..add(
-  //                 const ChatSendMessage(
-  //                   text: 'Would you also like to add a snack?',
-  //                   isMe: false,
-  //                 ),
-  //               );
-  //             setState(() {
-  //               mealsAmount = i + 2;
-  //               currentStep++;
-  //             });
-  //           },
-  //         ),
-  //       );
-  //     }),
-  //   );
-  // }
 
   Widget _buildWorkoutButtons() {
     return Row(
@@ -226,6 +201,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
+        print('hello!');
         if (state.status == Status.success) {
           return SizedBox(
             height: 45.h,
@@ -411,105 +387,103 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: ListView(
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-        children: [
-          Text(
-            'Choose meals',
-            style: context.styles.regularMedium
-                .copyWith(color: RishColors.textPrimary),
-          ),
-          ...mealOrder.map((meal) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Чекбокс для выбора приема пищи
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    meal.type.name,
-                    style: context.styles.regularLarge
-                        .copyWith(color: RishColors.textPrimary),
-                  ),
-                  visualDensity: VisualDensity.compact,
-                  value: _isMealSelected(meal.type),
-                  onChanged: (bool? value) {
-                    setState(() {
-                      if (value!) {
-                        _addOrUpdateMeal(meal);
-                      } else {
-                        _removeMeal(meal.type);
-                      }
-                    });
-                  },
+    return ListView(
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      children: [
+        Text(
+          'Choose meals',
+          style:
+              context.styles.boldLarge.copyWith(color: RishColors.textPrimary),
+        ),
+        ...mealOrder.map((meal) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Чекбокс для выбора приема пищи
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  meal.type.name,
+                  style: context.styles.regularLarge
+                      .copyWith(color: RishColors.textPrimary),
                 ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: _isMealSelected(meal.type) &&
-                          (meal.type == ServingType.breakfast ||
-                              meal.type == ServingType.snack)
-                      ? Padding(
-                          padding: const EdgeInsets.only(left: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              RadioListTile<String>(
-                                title: Text(
-                                  'Savoury',
-                                  style: context.styles.regularMedium
-                                      .copyWith(color: RishColors.textPrimary),
-                                ),
-                                value: 'Savoury',
-                                groupValue: _getMealPreference(meal.type),
-                                contentPadding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                                onChanged: (String? value) {
-                                  setState(() {
-                                    _updateMealPreference(meal.type, value);
-                                  });
-                                },
+                visualDensity: VisualDensity.compact,
+                value: _isMealSelected(meal.type),
+                onChanged: (bool? value) {
+                  setState(() {
+                    if (value!) {
+                      _addOrUpdateMeal(meal);
+                    } else {
+                      _removeMeal(meal.type);
+                    }
+                  });
+                },
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _isMealSelected(meal.type) &&
+                        (meal.type == ServingType.breakfast ||
+                            meal.type == ServingType.snack)
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RadioListTile<String>(
+                              title: Text(
+                                'Savoury',
+                                style: context.styles.regularMedium
+                                    .copyWith(color: RishColors.textPrimary),
                               ),
-                              RadioListTile<String>(
-                                title: Text(
-                                  'Sweet',
-                                  style: context.styles.regularMedium
-                                      .copyWith(color: RishColors.textPrimary),
-                                ),
-                                value: 'Sweet',
-                                groupValue: _getMealPreference(meal.type),
-                                contentPadding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                                onChanged: (String? value) {
-                                  setState(() {
-                                    _updateMealPreference(meal.type, value);
-                                  });
-                                },
+                              value: 'Savoury',
+                              groupValue: _getMealPreference(meal.type),
+                              contentPadding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              onChanged: (String? value) {
+                                setState(() {
+                                  _updateMealPreference(meal.type, value);
+                                });
+                              },
+                            ),
+                            RadioListTile<String>(
+                              title: Text(
+                                'Sweet',
+                                style: context.styles.regularMedium
+                                    .copyWith(color: RishColors.textPrimary),
                               ),
-                            ],
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            );
-          }),
-          const SizedBox(height: 4),
-          RishButton.primary(
-            height: 48.h,
-            title: 'Next',
-            enabled: _isNextButtonEnabled(),
-            isLoading: false,
-            action: () {
-              if (_isNextButtonEnabled()) {
-                selectedMeals.sort((a, b) => a.weight.compareTo(b.weight));
-                widget.callback(selectedMeals);
-              }
-            },
-          ),
-        ],
-      ),
+                              value: 'Sweet',
+                              groupValue: _getMealPreference(meal.type),
+                              contentPadding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              onChanged: (String? value) {
+                                setState(() {
+                                  _updateMealPreference(meal.type, value);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          );
+        }),
+        const SizedBox(height: 4),
+        RishButton.primary(
+          height: 48.h,
+          title: 'Next',
+          enabled: _isNextButtonEnabled(),
+          isLoading: false,
+          action: () {
+            if (_isNextButtonEnabled()) {
+              selectedMeals.sort((a, b) => a.weight.compareTo(b.weight));
+              widget.callback(selectedMeals);
+            }
+          },
+        ),
+      ],
     );
   }
 

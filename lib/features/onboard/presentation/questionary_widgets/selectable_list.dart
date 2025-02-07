@@ -27,17 +27,6 @@ class _SelectableListState extends State<SelectableList> {
       } else {
         selected.contains(diet) ? selected.remove(diet) : selected.add(diet);
       }
-      // if (selected.contains(diet)) {
-      //   selected.remove(diet);
-      // } else {
-      //   if (diet.runtimeType == Dietary) {
-      //     if (selected.isEmpty) {
-      //       selected.add(diet);
-      //     }
-      //   } else {
-      //     selected.add(diet);
-      //   }
-      // }
     });
     widget.setSomething(selected);
   }
