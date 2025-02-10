@@ -330,7 +330,7 @@ class __SubButtonsState extends State<_SubButtons> {
                                 ? _getTitleIOs(
                                     adapty.products[i].vendorProductId,
                                   )
-                                : '',
+                                : '1 ${adapty.products[i].subscription!.period.unit.name}',
                             // _getTitleAndroid(
                             //     adapty.products[i].subscriptionDetails!
                             //         .androidBasePlanId!,
@@ -444,18 +444,6 @@ class __SubButtonsState extends State<_SubButtons> {
     widget.callback(
       adapty.products[i],
     );
-  }
-
-  String _getTitleAndroid(String androidBasePlanId) {
-    switch (androidBasePlanId) {
-      case 'pivot-monthly':
-        return '1 month';
-      case 'pivot-annual':
-        return '1 year';
-
-      default:
-        return 'Some error?';
-    }
   }
 
   String _getTitleIOs(String vendorId) {

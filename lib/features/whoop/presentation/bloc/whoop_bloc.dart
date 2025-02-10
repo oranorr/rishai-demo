@@ -436,7 +436,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     final isThereFreshData = await whoopRemote.pingCurrentCycle(
       cycleId: savedUserData.currentCycleId,
     );
-    if (!isThereFreshData) {
+    if (isThereFreshData) {
       appNavigationService.go(path: AppRoutes.redirect.path);
       userBloc.add(CheckForSavedUser());
     } else {
