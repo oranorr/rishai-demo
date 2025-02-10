@@ -202,6 +202,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     final raw = await _requestData(
       endpoint: WhoopEndpoints().cycleById(cycleId: cycleId),
     );
+    log(raw.toString());
     return raw!['end'] != null;
   }
 
@@ -240,4 +241,12 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     //if same date — we don't need to refresh chat
     return !dateOfLast.isSameDate(DateTime.now());
   }
+
+  // @override
+  // Future<Map<String, dynamic>?> getCycleById({required int cycleId}) async {
+  //   final raw = await _requestData(
+  //     endpoint: WhoopEndpoints().cycleById(cycleId: cycleId),
+  //   );
+  //   return raw;
+  // }
 }

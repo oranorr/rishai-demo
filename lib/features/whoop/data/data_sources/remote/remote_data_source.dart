@@ -11,4 +11,5 @@ abstract class WhoopRemoteDataSource {
   Future<bool> pingCurrentCycle({required int cycleId});
   Future<bool> clearWhoopUserDataOnDisconnect({required String userId});
   Future<bool> doesChatNeedsRefreshment({required String userId});
+  // Future<Map<String, dynamic>?> getCycleById({required int cycleId});
 }

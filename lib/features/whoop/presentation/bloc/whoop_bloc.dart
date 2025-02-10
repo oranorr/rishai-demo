@@ -202,8 +202,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         if (state.status != Status.loading && state.status != Status.error) {
           userBloc.add(UserGetDays());
           appNavigationService.go(
-            path: true
-                // path: adapty.isActive
+            // path: true
+            path: adapty.isActive
                 ? AppRoutes.homeScreen.path
                 : AppRoutes.paywall.path,
           );
@@ -426,17 +426,22 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     emit(state.copyWith(status: Status.loading));
     UserDataEntity? savedUserData =
         await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
+
     if (savedUserData == null) {
       userBloc.add(CheckForSavedUser());
+      emit(state.copyWith(status: Status.initial));
       return;
     }
+
     final isThereFreshData = await whoopRemote.pingCurrentCycle(
       cycleId: savedUserData.currentCycleId,
     );
-    if (isThereFreshData) {
+    if (!isThereFreshData) {
+      appNavigationService.go(path: AppRoutes.redirect.path);
       userBloc.add(CheckForSavedUser());
     } else {
       print('no fresh data yet');
+      RishSnackbar().showSnackBar('There is no fresh data yet');
     }
     emit(state.copyWith(status: Status.initial));
   }

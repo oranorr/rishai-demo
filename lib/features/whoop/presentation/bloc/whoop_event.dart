@@ -55,4 +55,9 @@ class WhoopUpdateDayByMealPlan extends WhoopEvent {
 
 class WhoopDisconnect extends WhoopEvent {}
 
-class WhoopCheckForRefresh extends WhoopEvent {}
+class WhoopCheckForRefresh extends WhoopEvent {
+  final bool needsErrorSnack;
+  const WhoopCheckForRefresh({
+    required this.needsErrorSnack,
+  });
+}

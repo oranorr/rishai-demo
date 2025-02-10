@@ -88,27 +88,27 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
   @override
   Future<void> identify({required String adaptyId}) async {
-    // // await Adapty().logout();
-    // await Adapty().identify(adaptyId);
-    // final profile = await Adapty().getProfile();
-    // AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
-    // _logger(profile.customerUserId.toString());
+    // await Adapty().logout();
+    await Adapty().identify(adaptyId);
+    final profile = await Adapty().getProfile();
+    AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
+    _logger(profile.customerUserId.toString());
 
-    // isActive = lvl?.isActive ?? false;
-    // if (lvl != null) {
-    //   isTrialActive = await _isTrialPeriodAvailable(lvl);
-    // } else {
-    //   isTrialActive = true;
-    // }
-    // // _logger("ACCESS LEVEL $lvl");
-    // // isActive = true;
-    // // isTrialActive = true;
-    // _logger(
-    //   'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}',
-    // );
-    // _logger('Is trial available: $isTrialActive');
-    // _logger('Prof id: $adaptyId');
-    // _logger('Expires at: ${lvl?.expiresAt}');
+    isActive = lvl?.isActive ?? false;
+    if (lvl != null) {
+      isTrialActive = await _isTrialPeriodAvailable(lvl);
+    } else {
+      isTrialActive = true;
+    }
+    // _logger("ACCESS LEVEL $lvl");
+    // isActive = true;
+    // isTrialActive = true;
+    _logger(
+      'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}',
+    );
+    _logger('Is trial available: $isTrialActive');
+    _logger('Prof id: $adaptyId');
+    _logger('Expires at: ${lvl?.expiresAt}');
   }
 
   @override

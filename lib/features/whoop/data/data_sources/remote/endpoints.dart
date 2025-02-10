@@ -1,5 +1,9 @@
+const useMock = false;
+
 class WhoopEndpoints {
-  String get whoopCycles => 'https://api.prod.whoop.com/developer/v1/cycle';
+  String get whoopCycles => useMock
+      ? 'http://localhost:3000/v1/cycle'
+      : 'https://api.prod.whoop.com/developer/v1/cycle';
   String get bodyMeasurements =>
       'https://api.prod.whoop.com/developer/v1/user/measurement/body';
   String get workouts =>

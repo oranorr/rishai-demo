@@ -30,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ..addListener(listener);
     WidgetsBinding.instance.addObserver(this);
     t = Timer.periodic(const Duration(minutes: 10), (t) {
-      whoopBloc.add(WhoopCheckForRefresh());
+      whoopBloc.add(const WhoopCheckForRefresh(needsErrorSnack: false));
     });
     super.initState();
   }
@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      whoopBloc.add(WhoopCheckForRefresh());
+      whoopBloc.add(const WhoopCheckForRefresh(needsErrorSnack: false));
     }
   }
 

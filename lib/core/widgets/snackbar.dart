@@ -8,9 +8,11 @@ class RishSnackbar {
     final snackBar = SnackBar(
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // if (needsTitle ?? true)
           const Text(
-            'Error!',
+            'Oops...',
             style: TextStyle(
               fontFamily: 'ProximaNova',
               color: Color(0xffED544E),
@@ -29,14 +31,15 @@ class RishSnackbar {
           ),
         ],
       ),
+      // animation: CurvedAnimation(parent: parent, curve: curve),
       padding: const EdgeInsets.all(25),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         side: const BorderSide(color: Color(0xffED544E)),
         borderRadius: BorderRadius.circular(20),
       ),
-      backgroundColor: const Color(0xff060327),
-      duration: const Duration(seconds: 3),
+      backgroundColor: const Color.fromRGBO(6, 3, 39, 1),
+      duration: const Duration(seconds: 2),
     );
     if (scaffoldKey.currentContext != null) {
       scaffoldKey.currentState?.showSnackBar(snackBar);

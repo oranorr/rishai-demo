@@ -105,7 +105,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       add(const UserCheckForRecomp());
       whoopBloc.add(InitWhoopOnLogin());
       chatBloc.add(const InitChatBloc());
-      // await _getDays(UserGetDays(), emit);
+      await _getDays(UserGetDays(), emit);
     } else {
       appNavigationService.go(
         path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,

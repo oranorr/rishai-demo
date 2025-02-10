@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -42,6 +44,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late PageController pageController;
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -62,7 +65,6 @@ class _HomePageState extends State<HomePage> {
     return BlocBuilder<UserBloc, UserState>(
       bloc: userBloc,
       builder: (context, state) {
-        // userBloc.createMockData(state.days.first);
         return PageView.builder(
           controller: pageController,
           physics: const NeverScrollableScrollPhysics(),
@@ -105,138 +107,165 @@ class _HomePageBody extends StatefulWidget {
 }
 
 class _HomePageBodyState extends State<_HomePageBody> {
+  Completer<void>? _refreshCompleter;
+
+  Future<void> _onRefresh() {
+    _refreshCompleter = Completer<void>();
+    context
+        .read<WhoopBloc>()
+        .add(const WhoopCheckForRefresh(needsErrorSnack: true));
+    return _refreshCompleter!.future;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      children: [
-        _CalendarWidget(widget: widget),
-        SizedBox(height: 20.h),
-        Row(
+    return BlocListener<WhoopBloc, WhoopState>(
+      listener: (context, state) {
+        if ((state.status != Status.loading) &&
+            _refreshCompleter != null &&
+            !_refreshCompleter!.isCompleted) {
+          _refreshCompleter!.complete();
+        }
+      },
+      child: RefreshIndicator(
+        color: RishColors.primary,
+        backgroundColor: RishColors.stroke,
+        displacement: 50,
+        onRefresh: () async {
+          await _onRefresh();
+        },
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
           children: [
-            Text(
-              'Calories',
-              style: context.styles.h3,
+            _CalendarWidget(widget: widget),
+            SizedBox(height: 20.h),
+            Row(
+              children: [
+                Text(
+                  'Calories',
+                  style: context.styles.h3,
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () async => RishiDialog.infoPopup(
+                    context,
+                    LegalTextsRepo().infoPopup,
+                  ),
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 30,
+                    color: RishColors.primary,
+                  ),
+                ),
+              ],
             ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () async => RishiDialog.infoPopup(
-                context,
-                LegalTextsRepo().infoPopup,
-              ),
-              child: const Icon(
-                Icons.info_outline,
-                size: 30,
-                color: RishColors.primary,
-              ),
+            SizedBox(height: 12.h),
+            _CaloriesWidget(
+              day: widget.day,
             ),
-          ],
-        ),
-        SizedBox(height: 12.h),
-        _CaloriesWidget(
-          day: widget.day,
-        ),
-        SizedBox(height: 20.h),
-        Row(
-          children: [
-            Text(
-              "Today's macros goal",
-              style: context.styles.h3,
+            SizedBox(height: 20.h),
+            Row(
+              children: [
+                Text(
+                  "Today's macros goal",
+                  style: context.styles.h3,
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () async => RishiDialog.infoPopup(
+                    context,
+                    'Your daily consumption goal of calories is broken up into its macronutrient constituents of proteins, carbs, and fats. This gives you individualised targets for each macronutrient, and they sum up to your daily calorie consumption goal.',
+                  ),
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 30,
+                    color: RishColors.primary,
+                  ),
+                ),
+              ],
             ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () async => RishiDialog.infoPopup(
-                context,
-                'Your daily consumption goal of calories is broken up into its macronutrient constituents of proteins, carbs, and fats. This gives you individualised targets for each macronutrient, and they sum up to your daily calorie consumption goal.',
-              ),
-              child: const Icon(
-                Icons.info_outline,
-                size: 30,
-                color: RishColors.primary,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 12.h),
-        _MacrosBreakdownWidget(
-          isToday: widget.day.isToday,
-          day: widget.day,
-        ),
-        SizedBox(height: 20.h),
-        Text(
-          'Health metrics',
-          style: context.styles.h3,
-        ),
-        SizedBox(height: 12.h),
-        _HealthMetricsWidget(
-          health: widget.day.healthMetrics,
-        ),
-        SizedBox(height: 20.h),
-        Row(
-          children: [
-            Text(
-              'Meal plan',
-              style: context.styles.h3,
-            ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () async => RishiDialog.infoPopup(
-                context,
-                'You can ask for cooking instructions for any meal, replacement of individual ingredients in any meal, or even ask for meal alternatives in the AI chat.',
-              ),
-              child: const Icon(
-                Icons.info_outline,
-                size: 30,
-                color: RishColors.primary,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 12.h),
-        BlocBuilder<ChatBloc, ChatState>(
-          bloc: chatBloc,
-          builder: (context, state) {
-            // print(widget.day.mealPlanEntity);
-            return _MealPlanWidget(
-              enoughRequests: state.requestsLeft != 0,
-              controller: widget.controller,
+            SizedBox(height: 12.h),
+            _MacrosBreakdownWidget(
               isToday: widget.day.isToday,
-              plan: widget.day.isToday
-                  ? state.mealPlan
-                  : widget.day.mealPlanEntity,
-            );
-          },
-        ),
-        SizedBox(height: 20.h),
-        Row(
-          children: [
+              day: widget.day,
+            ),
+            SizedBox(height: 20.h),
             Text(
-              '5-day Meal Plan Prep',
+              'Health metrics',
               style: context.styles.h3,
             ),
-            const Spacer(),
-            GestureDetector(
-              onTap: () async => RishiDialog.infoPopup(
-                context,
-                'When you choose to do a 5-day meal prep, the combination of meals you pick will apply to all 5 days. If you choose to skip breakfast, then you will not see a breakfast option across all 5 days.',
-              ),
-              child: const Icon(
-                Icons.info_outline,
-                size: 30,
-                color: RishColors.primary,
-              ),
+            SizedBox(height: 12.h),
+            _HealthMetricsWidget(
+              health: widget.day.healthMetrics,
+            ),
+            SizedBox(height: 20.h),
+            Row(
+              children: [
+                Text(
+                  'Meal plan',
+                  style: context.styles.h3,
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () async => RishiDialog.infoPopup(
+                    context,
+                    'You can ask for cooking instructions for any meal, replacement of individual ingredients in any meal, or even ask for meal alternatives in the AI chat.',
+                  ),
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 30,
+                    color: RishColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            BlocBuilder<ChatBloc, ChatState>(
+              bloc: chatBloc,
+              builder: (context, state) {
+                // print(widget.day.mealPlanEntity);
+                return _MealPlanWidget(
+                  enoughRequests: state.requestsLeft != 0,
+                  controller: widget.controller,
+                  isToday: widget.day.isToday,
+                  plan: widget.day.isToday
+                      ? state.mealPlan
+                      : widget.day.mealPlanEntity,
+                );
+              },
+            ),
+            SizedBox(height: 20.h),
+            Row(
+              children: [
+                Text(
+                  '5-day Meal Plan Prep',
+                  style: context.styles.h3,
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () async => RishiDialog.infoPopup(
+                    context,
+                    'When you choose to do a 5-day meal prep, the combination of meals you pick will apply to all 5 days. If you choose to skip breakfast, then you will not see a breakfast option across all 5 days.',
+                  ),
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 30,
+                    color: RishColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            RishButton.primary(
+              title: '5-day meal prep',
+              enabled: false,
+              isLoading: false,
+              action: () {},
             ),
           ],
         ),
-        SizedBox(height: 12.h),
-        RishButton.primary(
-          title: '5-day meal prep',
-          enabled: false,
-          isLoading: false,
-          action: () {},
-        ),
-      ],
+      ),
     );
   }
 }
