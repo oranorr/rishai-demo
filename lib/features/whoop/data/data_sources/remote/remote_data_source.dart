@@ -8,7 +8,7 @@ abstract class WhoopRemoteDataSource {
   Future<SleepModel?> getLastSleep();
   Future<void> updateDirectus({required WhoopDataEntity data});
   Future<WhoopDataEntity?> fetchDirectusData();
-  Future<bool> pingCurrentCycle({required int cycleId});
+  Future<bool> pingCurrentCycle();
   Future<bool> clearWhoopUserDataOnDisconnect({required String userId});
   Future<bool> doesChatNeedsRefreshment({required String userId});
   // Future<Map<String, dynamic>?> getCycleById({required int cycleId});

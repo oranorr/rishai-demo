@@ -277,10 +277,10 @@ class MacrosBreakdown {
 
   factory MacrosBreakdown.fromMap(Map<String, dynamic> map) {
     return MacrosBreakdown(
-      kcal: map['kcal'] as int,
-      protein: map['protein'] as int,
-      carbs: map['carbs'] as int,
-      fat: map['fat'] as int,
+      kcal: (map['kcal'] as num).toInt(),
+      protein: (map['protein'] as num).toInt(),
+      carbs: (map['carbs'] as num).toInt(),
+      fat: (map['fat'] as num).toInt(),
     );
   }
 
@@ -391,7 +391,7 @@ class Ingredient {
 
   factory Ingredient.fromMap(Map<String, dynamic> map) {
     return Ingredient(
-      emojiCode: map['emojiCode'] as String,
+      emojiCode: (map['emojicode'] ?? '') as String,
       title: map['title'] as String,
       amount: map['amount'] as String,
     );

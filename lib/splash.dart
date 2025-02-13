@@ -9,7 +9,7 @@ class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   Future<void> initStuff() async {
-    Future.delayed(Durations.medium2, () async {
+    Future.delayed(Durations.medium1, () async {
       userBloc.add(CheckForSavedUser());
     });
   }

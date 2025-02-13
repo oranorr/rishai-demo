@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer';
-
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
@@ -31,6 +30,10 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
     await prefsRepo.writeTokens(
       accessToken: _accessToken,
       refreshToken: _refreshToken,
+      expiresAt: DateTime.now()
+          .add(response.expiresIn)
+          // .subtract(const Duration(seconds: 3595))
+          .toIso8601String(),
     );
     final res = await directus.updateOne(
       collection: usersCollection,
@@ -38,33 +41,57 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
       updateData: {'whoopRefreshToken': _refreshToken},
     );
 
-    log('DIRECTUS UPDATE TOKEN DATA: $res');
-    // Timer.periodic(response.expiresIn, (t) {
+    _logger('DIRECTUS UPDATE TOKEN DATA: $res');
 
     Timer.periodic(response.expiresIn, (t) async {
-      log('Token should be dead, refreshing now!');
+      _logger('Token should be dead, refreshing now!');
       await refreshToken(_refreshToken);
     });
   }
 
   Future<bool> refreshToken(String refToken) async {
-    final res = await wRepo.refreshToken(refToken);
-    if (res != null) {
-      _accessToken = res.accessToken;
-      _refreshToken = res.refreshToken;
-      await prefsRepo.writeTokens(
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-      );
-      await directus.updateOne(
-        collection: usersCollection,
-        itemId: userBloc.state.user.directusId,
-        updateData: {'whoopRefreshToken': _refreshToken},
-      );
+    if (await isAccessTokenValid()) {
+      _accessToken = prefsRepo.fetchSavedAccessToken();
+      _refreshToken = prefsRepo.fetchSavedRefreshToken();
+      if (_accessToken.isEmpty || _refreshToken.isEmpty) {
+        _logger('Locally stored tokens are empty');
+        return false;
+      }
+      _logger('Tokens are valid');
       return true;
     } else {
-      return false;
+      _logger('Tokens are refreshing now.');
+      final res = await wRepo.refreshToken(refToken);
+
+      if (res != null) {
+        _accessToken = res.accessToken;
+        _refreshToken = res.refreshToken;
+        await prefsRepo.writeTokens(
+          accessToken: res.accessToken,
+          refreshToken: res.refreshToken,
+          expiresAt: DateTime.now().add(res.expiresIn).toIso8601String(),
+        );
+        await directus.updateOne(
+          collection: usersCollection,
+          itemId: userBloc.state.user.directusId,
+          updateData: {'whoopRefreshToken': _refreshToken},
+        );
+        return true;
+      } else {
+        return false;
+      }
     }
+  }
+
+  Future<bool> isAccessTokenValid() async {
+    final expiresAt = await prefsRepo.getTokenExpiryDate();
+
+    if (expiresAt == null) return false;
+
+    final now = DateTime.now();
+
+    // return false;
+    return now.isBefore(expiresAt.subtract(const Duration(seconds: 10)));
   }
 
   @override
@@ -90,7 +117,9 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
         return false;
       }
     } on Exception catch (e) {
-      log('There are no saved refresh tokens anywhere. Should login user again. Error was: $e');
+      _logger(
+        'There are no saved refresh tokens anywhere. Should _loggerin user again. Error was: $e',
+      );
       return false;
     }
     // }
@@ -110,7 +139,7 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
           'bodyMeasurements': {},
         },
       );
-      // log('Cleared user: $updUser');
+      // _logger('Cleared user: $updUser');
 
       // if (updUser['days'] != null && updUser['days'].isNotEmpty) {
       //   print('days were: ${updUser['days']}');
@@ -118,8 +147,12 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
       //       collection: daysCollection, id: updUser['days'].last.toString());
       // }
     } on Exception catch (e) {
-      log(e.toString());
+      _logger(e.toString());
       rethrow;
     }
+  }
+
+  void _logger(String message) {
+    log(message, name: 'WhoopTokenService');
   }
 }

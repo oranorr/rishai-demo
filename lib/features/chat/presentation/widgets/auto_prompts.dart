@@ -201,7 +201,6 @@ class __AutoPromptsState extends State<_AutoPrompts>
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
-        print('hello!');
         if (state.status == Status.success) {
           return SizedBox(
             height: 45.h,
@@ -477,8 +476,10 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
           enabled: _isNextButtonEnabled(),
           isLoading: false,
           action: () {
+            // print(selectedMeals);
             if (_isNextButtonEnabled()) {
               selectedMeals.sort((a, b) => a.weight.compareTo(b.weight));
+              // print(selectedMeals);
               widget.callback(selectedMeals);
             }
           },
@@ -487,7 +488,6 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
     );
   }
 
-  /// Проверяет, активна ли кнопка "Next"
   bool _isNextButtonEnabled() {
     return selectedMeals.length >= 2 &&
         selectedMeals.every(
@@ -498,12 +498,10 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
         );
   }
 
-  /// Проверяет, выбран ли данный приём пищи
   bool _isMealSelected(ServingType type) {
     return selectedMeals.any((meal) => meal.type == type);
   }
 
-  /// Добавляет или обновляет приём пищи
   void _addOrUpdateMeal(ServingEntity meal) {
     final index = selectedMeals.indexWhere((m) => m.type == meal.type);
     if (index != -1) {

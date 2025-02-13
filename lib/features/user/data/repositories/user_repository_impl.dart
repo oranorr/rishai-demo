@@ -14,6 +14,7 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
@@ -53,18 +54,26 @@ class UserRepositoryImpl implements UserRepository {
       );
       final days = rawList.map((map) => DayEntity.fromMap(map)).toList();
 
-      if (days.last.dateTime.isSameDate(DateTime.now())) {
-        if (days.last.mealPlanEntity != null) {
-          chatBloc.add(ChatFetchLastMealPlan(day: days.last));
-        }
-        days.removeLast();
-      } else {
+      final isThereFreshData = await whoopRemote.pingCurrentCycle();
+
+      if (isThereFreshData) {
         await directus.createOne(
           collection: daysCollection,
           data: currentDay.toDirectus(userId: params.userId),
         );
+        days.add(currentDay);
+      } else {
+        if (days.last.mealPlanEntity != null) {
+          chatBloc.add(ChatFetchLastMealPlan(day: days.last));
+        }
+
+        if (days.last.dateTime.isBefore(DateTime.now())) {
+          currentDay = days.last;
+        }
+        days
+          ..removeLast()
+          ..add(currentDay);
       }
-      days.add(currentDay);
       return Right(days);
     } on Exception catch (e) {
       log('Error getting days: $e');

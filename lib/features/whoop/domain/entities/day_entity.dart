@@ -24,6 +24,26 @@ class DayEntity {
     this.mealPlanEntity,
   });
 
+  factory DayEntity.empty({required int requestsLeft}) {
+    return DayEntity(
+      snap: ChatSnapshotEntity(
+        messages: [],
+        date: DateTime.now(),
+        requestsLeft: requestsLeft,
+      ),
+      directusId: 0,
+      dateTime: DateTime.now(),
+      weekTdeeAverage: 0,
+      macros: MacrosBreakdown(kcal: 0, protein: 0, carbs: 0, fat: 0),
+      healthMetrics: HealthMetricsEntity(
+        bmi: 0,
+        lastTdee: 0,
+        bmr: 0,
+        bodyFatPerc: 0,
+      ),
+    );
+  }
+
   DayEntity copyWith({
     int? directusId,
     double? weekTdeeAverage,

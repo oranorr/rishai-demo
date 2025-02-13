@@ -32,13 +32,19 @@ class PrefsRepository {
   Future<void> writeTokens({
     required String accessToken,
     required String refreshToken,
+    required String expiresAt,
   }) async {
     await _prefs.setString(whoopAccessToken, accessToken);
     await _prefs.setString(whoopRefreshToken, refreshToken);
+    await _prefs.setString(whoopExpiresAt, expiresAt);
   }
 
   String fetchSavedRefreshToken() {
     return _prefs.getString(whoopRefreshToken) ?? '';
+  }
+
+  String fetchSavedAccessToken() {
+    return _prefs.getString(whoopAccessToken) ?? '';
   }
 
   Future<void> flush() async {
@@ -78,6 +84,7 @@ class PrefsRepository {
   Future<void> clearTokens() async {
     await _prefs.setString(whoopAccessToken, '');
     await _prefs.setString(whoopRefreshToken, '');
+    await _prefs.setString(whoopExpiresAt, '');
   }
 
   Future<bool> checkForWhoopDisclaimerAccpeted() async {
@@ -86,5 +93,14 @@ class PrefsRepository {
 
   Future<void> disclaimerAccpeted() async {
     await _prefs.setBool(acceptedWhoopDisclaimer, true);
+  }
+
+  Future<DateTime?> getTokenExpiryDate() async {
+    final expiresAt = _prefs.getString(whoopExpiresAt);
+    if (expiresAt != null) {
+      return DateTime.parse(expiresAt);
+    } else {
+      return null;
+    }
   }
 }

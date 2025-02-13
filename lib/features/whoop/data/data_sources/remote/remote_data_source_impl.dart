@@ -9,6 +9,7 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
@@ -17,6 +18,7 @@ import 'package:rishai/features/whoop/data/models/cycle_model.dart';
 import 'package:rishai/features/whoop/data/models/recovery_model.dart';
 import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
+import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
 
 part './remote_data_source.dart';
@@ -140,7 +142,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     }
     const maxAttempts = 3;
     int attempts = 0;
-
+    // print(wTokenService.accessToken);
     while (attempts <= maxAttempts) {
       await Future.delayed(const Duration(seconds: 1));
       final thisResponse = await http.get(
@@ -197,13 +199,19 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   }
 
   @override
-  Future<bool> pingCurrentCycle({required int cycleId}) async {
+  Future<bool> pingCurrentCycle() async {
     await wTokenService.initService();
+    UserDataEntity? savedUserData =
+        await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
+    if (savedUserData == null) {
+      return false;
+    }
     final raw = await _requestData(
-      endpoint: WhoopEndpoints().cycleById(cycleId: cycleId),
+      endpoint:
+          WhoopEndpoints().cycleById(cycleId: savedUserData.currentCycleId),
     );
     log(raw.toString());
-    return raw!['end'] != null;
+    return raw!['end'] != null && raw['score_state'] == 'SCORED';
   }
 
   @override

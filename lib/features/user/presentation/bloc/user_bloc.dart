@@ -27,6 +27,7 @@ import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part 'user_event.dart';
@@ -105,7 +106,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       add(const UserCheckForRecomp());
       whoopBloc.add(InitWhoopOnLogin());
       chatBloc.add(const InitChatBloc());
-      await _getDays(UserGetDays(), emit);
+      // await _getDays(UserGetDays(), emit);
     } else {
       appNavigationService.go(
         path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,

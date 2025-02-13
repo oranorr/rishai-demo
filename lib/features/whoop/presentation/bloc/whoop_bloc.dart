@@ -50,23 +50,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   ) : super(
           WhoopMainState(
             status: Status.initial,
-            day: DayEntity(
-              snap: ChatSnapshotEntity(
-                messages: [],
-                date: DateTime.now(),
-                requestsLeft: chatBloc.state.requestsLeft,
-              ),
-              directusId: 0,
-              dateTime: DateTime.now(),
-              weekTdeeAverage: 0,
-              macros: MacrosBreakdown(kcal: 0, protein: 0, carbs: 0, fat: 0),
-              healthMetrics: HealthMetricsEntity(
-                bmi: 0,
-                lastTdee: 0,
-                bmr: 0,
-                bodyFatPerc: 0,
-              ),
-            ),
+            day: DayEntity.empty(requestsLeft: chatBloc.state.requestsLeft),
             whoopConnected: false,
           ),
         ) {
@@ -115,7 +99,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         appNavigationService.go(
           path: needsQuestionary
               ? AppRoutes.questionary.path
-              : adapty.isActive
+              // : adapty.isActive
+              : true
                   ? AppRoutes.homeScreen.path
                   : AppRoutes.paywall.path,
         );
@@ -202,8 +187,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         if (state.status != Status.loading && state.status != Status.error) {
           userBloc.add(UserGetDays());
           appNavigationService.go(
-            // path: true
-            path: adapty.isActive
+            path: true
+                // path: adapty.isActive
                 ? AppRoutes.homeScreen.path
                 : AppRoutes.paywall.path,
           );
@@ -433,15 +418,23 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       return;
     }
 
-    final isThereFreshData = await whoopRemote.pingCurrentCycle(
-      cycleId: savedUserData.currentCycleId,
-    );
+    final isThereFreshData = await whoopRemote.pingCurrentCycle();
+
     if (isThereFreshData) {
       appNavigationService.go(path: AppRoutes.redirect.path);
+      await Future.delayed(Durations.short4, () {
+        emit(
+          state.copyWith(
+            day: DayEntity.empty(requestsLeft: chatBloc.state.requestsLeft),
+          ),
+        );
+      });
       userBloc.add(CheckForSavedUser());
     } else {
-      print('no fresh data yet');
-      RishSnackbar().showSnackBar('There is no fresh data yet');
+      if (event.needsErrorSnack) {
+        RishSnackbar().showWarningSnackBar(message: 'Your data is up to date');
+        // RishSnackbar().showSnackBar('There is no fresh data yet');
+      }
     }
     emit(state.copyWith(status: Status.initial));
   }

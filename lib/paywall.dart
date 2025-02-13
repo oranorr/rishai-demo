@@ -118,7 +118,10 @@ class _PaywallState extends State<Paywall> {
           SizedBox(height: 16.h),
           if (!isFreeTrialAvailable)
             Text(
-              _getSubtitle(price),
+              _getSubtitle(
+                selectedProduct!.subscription!.period.unit.name,
+                price,
+              ),
               style: context.styles.boldLarge,
               textAlign: TextAlign.center,
             ),
@@ -238,24 +241,8 @@ class _PaywallState extends State<Paywall> {
     });
   }
 
-  String _getSubtitle(String price) {
-    if (selectedProduct!.vendorProductId == 'pivot_sub'
-        // ||
-        //     selectedProduct!.subscriptionDetails!.androidBasePlanId ==
-        //         'pivot-monthly'
-        ) {
-      return '1 month for free, then $price per month.';
-      // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per month.';
-    } else if (selectedProduct!.vendorProductId == 'pivot_annual'
-        // ||
-        //     selectedProduct!.subscriptionDetails!.androidBasePlanId ==
-        //         'pivot-annual'
-        ) {
-      return '1 month for free, then $price per year.';
-      // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per year.';
-    } else {
-      return 'ERRROr';
-    }
+  String _getSubtitle(String duration, String price) {
+    return '1 month for free, then $price per $duration.';
   }
 
   List<String> nices = [
@@ -331,12 +318,6 @@ class __SubButtonsState extends State<_SubButtons> {
                                     adapty.products[i].vendorProductId,
                                   )
                                 : '1 ${adapty.products[i].subscription!.period.unit.name}',
-                            // _getTitleAndroid(
-                            //     adapty.products[i].subscriptionDetails!
-                            //         .androidBasePlanId!,
-                            //     // adapty.products[i].subscriptionDetails!
-                            //     //     .androidBasePlanId!,
-                            //   ),
                             style:
                                 context.styles.boldMedium.copyWith(height: 0),
                           ),

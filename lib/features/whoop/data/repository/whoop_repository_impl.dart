@@ -194,9 +194,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
       }
 
       final isCurrentCycleEnded = await tryFetch(
-        () => remoteDataSource.pingCurrentCycle(
-          cycleId: savedUserData.currentCycleId,
-        ),
+        () => remoteDataSource.pingCurrentCycle(),
       );
 
       log('Cycle is finished: $isCurrentCycleEnded');

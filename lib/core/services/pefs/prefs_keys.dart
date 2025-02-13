@@ -5,3 +5,4 @@ const String whoopRefreshToken = 'whoopRefreshToken';
 const String calibrating = 'calibratingCompleteDate';
 const String notesTime = 'notesTime';
 const String acceptedWhoopDisclaimer = 'acceptedWhoopDisclaimer';
+const String whoopExpiresAt = 'whoopExpiresAt';
