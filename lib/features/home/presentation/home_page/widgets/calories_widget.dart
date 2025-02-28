@@ -47,7 +47,7 @@ class _CaloriesWidget extends StatelessWidget {
                           Expanded(
                             child: _SimpleBarChart(
                               xValue: kcal.toDouble(),
-                              yValue: day.weekTdeeAverage,
+                              yValue: day.weekTdeeAverage.toDouble(),
                             ),
                           ),
                         ],
@@ -101,7 +101,7 @@ class _CaloriesWidget extends StatelessWidget {
                                 ),
                                 SizedBox(height: 10.h),
                                 Text(
-                                  '${day.weekTdeeAverage.round().comaThisNumber()} kcal',
+                                  '${day.weekTdeeAverage.comaThisNumber()} kcal',
                                   style: context.styles.numsM
                                       .copyWith(color: RishColors.protein),
                                 ),

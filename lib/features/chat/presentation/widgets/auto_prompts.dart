@@ -489,7 +489,15 @@ class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
   }
 
   bool _isNextButtonEnabled() {
-    return selectedMeals.length >= 2 &&
+    // Подсчитываем количество приемов пищи без учета снеков
+    final mealsWithoutSnacks = selectedMeals
+        .where(
+          (meal) => meal.type != ServingType.snack,
+        )
+        .length;
+
+    return mealsWithoutSnacks >=
+            2 && // Минимум 2 приема пищи (без учета снеков)
         selectedMeals.every(
           (meal) =>
               !(meal.type == ServingType.breakfast ||

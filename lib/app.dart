@@ -15,7 +15,7 @@ class App extends StatelessWidget {
       designSize: const Size(375, 812),
       builder: (_, child) {
         return MaterialApp.router(
-          title: 'RishAI',
+          title: 'Pivot App',
           theme: AppTheme.dark,
           themeMode: ThemeMode.dark,
           routerConfig: _routerConfig,

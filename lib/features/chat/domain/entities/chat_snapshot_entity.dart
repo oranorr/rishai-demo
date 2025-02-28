@@ -22,7 +22,9 @@ class ChatSnapshotEntity {
       date: DateTime.fromMillisecondsSinceEpoch(map['dateTime']),
       requestsLeft: map['requestsLeft'],
       threadId: map['threadId'],
-      mealPlan: map['mealPlan'],
+      mealPlan: map['mealPlan'] != null
+          ? MealPlanEntity.fromMap(map['mealPlan'])
+          : null,
     );
   }
   @HiveField(0)

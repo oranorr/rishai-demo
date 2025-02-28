@@ -132,4 +132,10 @@ class DirectusRepositoryImpl implements DirectusService {
       rethrow;
     }
   }
+
+  @override
+  Future<void> deleteMany(
+      {required String collection, required List<String> ids}) async {
+    await sdk.items(collection).deleteMany(ids);
+  }
 }

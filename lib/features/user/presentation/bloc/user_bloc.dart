@@ -16,6 +16,7 @@ import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
+import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
@@ -26,6 +27,7 @@ import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -93,6 +95,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     final watchedOnboard = prefsRepo.checkForWatchedOnboard();
 
     if (user != null) {
+      // print(user);
       final rawUser = await directus.readOne(
         collection: usersCollection,
         id: user.directusId,
@@ -105,8 +108,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       emit(state.copyWith(user: user));
       add(const UserCheckForRecomp());
       whoopBloc.add(InitWhoopOnLogin());
-      chatBloc.add(const InitChatBloc());
-      // await _getDays(UserGetDays(), emit);
     } else {
       appNavigationService.go(
         path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,
@@ -173,7 +174,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
     emit(state.copyWith(status: Status.loading));
-    DayEntity currentDay = whoopBloc.state.day;
+    DayEntity currentDay = event.newDay;
     final ids = state.user.daysIds;
 
     if (ids.isEmpty) {
@@ -183,10 +184,28 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     final res = await getDaysUsecase
         .call(GetDaysParams(daysIds: ids, userId: state.user.directusId));
 
-    res.fold((l) {
+    await res.fold((l) async {
       RishSnackbar()
           .showSnackBar('Error occured while fetching days. Please, restart.');
-    }, (r) {
+    }, (List<DayEntity> r) async {
+      // final isThereFreshData = await whoopRemote.pingCurrentCycle();
+      // log(r.last.toString());
+      // log(currentDay.toString());
+
+      if (!r.any(
+        (day) =>
+            day.cycleId == currentDay.cycleId &&
+            day.dateTime.isSameDate(currentDay.dateTime),
+      )) {
+        log('day is added');
+        r = List.from(r)
+          ..add(currentDay)
+          ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+        emit(state.copyWith(status: Status.success, days: r));
+        return;
+      }
+      log('day is NOT added');
+      r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
       emit(state.copyWith(status: Status.success, days: r));
     });
   }

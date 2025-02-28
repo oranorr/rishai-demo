@@ -31,7 +31,7 @@ part 'chat_event.dart';
 
 final chatBloc = getIt.get<ChatBloc>();
 
-int totalRequests = kDebugMode ? 10000 : 5;
+int totalRequests = 5;
 
 @injectable
 class ChatBloc extends Bloc<ChatEvent, ChatState> {

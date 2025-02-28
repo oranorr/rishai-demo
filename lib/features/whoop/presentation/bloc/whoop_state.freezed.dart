@@ -59,7 +59,9 @@ mixin _$WhoopState {
   }) =>
       throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of WhoopState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $WhoopStateCopyWith<WhoopState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -87,6 +89,8 @@ class _$WhoopStateCopyWithImpl<$Res, $Val extends WhoopState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of WhoopState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -139,6 +143,8 @@ class __$$WhoopMainStateImplCopyWithImpl<$Res>
       _$WhoopMainStateImpl _value, $Res Function(_$WhoopMainStateImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of WhoopState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -209,7 +215,9 @@ class _$WhoopMainStateImpl implements WhoopMainState {
   int get hashCode => Object.hash(
       runtimeType, status, day, whoopConnected, calibratingCompleteDate);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of WhoopState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$WhoopMainStateImplCopyWith<_$WhoopMainStateImpl> get copyWith =>
@@ -294,8 +302,11 @@ abstract class WhoopMainState implements WhoopState {
   bool get whoopConnected;
   @override
   DateTime? get calibratingCompleteDate;
+
+  /// Create a copy of WhoopState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$WhoopMainStateImplCopyWith<_$WhoopMainStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

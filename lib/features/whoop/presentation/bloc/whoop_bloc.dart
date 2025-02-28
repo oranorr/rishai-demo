@@ -9,7 +9,7 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
-import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+
 import 'package:rishai/core/services/hive/hive_impl.dart' show hive;
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
@@ -26,7 +26,6 @@ import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
     show whoopRemote;
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart';
@@ -140,11 +139,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       log('GET USER DATA RES: $r');
       emit(
         state.copyWith(
-          day: state.day.copyWith(
-            macros: r.macros,
-            weekTdeeAverage: r.weekTdeeAverage,
-            healthMetrics: calcHealthMetrics(r.lastTdee),
-          ),
+          day: r,
           status: Status.success,
         ),
       );
@@ -161,6 +156,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       emit(state.copyWith(status: Status.loading));
       UserEntity user = userBloc.state.user;
       final isTokenOk = await wTokenService.initService();
+
       emit(state.copyWith(whoopConnected: isTokenOk));
       log('INIT TOKEN SERVICE RES: $isTokenOk');
 
@@ -185,7 +181,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         );
 
         if (state.status != Status.loading && state.status != Status.error) {
-          userBloc.add(UserGetDays());
+          chatBloc.add(const InitChatBloc());
+          userBloc.add(UserGetDays(newDay: state.day));
           appNavigationService.go(
             path: true
                 // path: adapty.isActive
@@ -287,31 +284,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       );
       await _initWhoopOnLogin(InitWhoopOnLogin(), emit);
     }
-  }
-
-  HealthMetricsEntity calcHealthMetrics(int lastTdee) {
-    int calcBMI() {
-      BodyMeasurementsEntity bm = userBloc.state.user.bodyMeasurements!;
-      return (bm.weight / (bm.height * bm.height)).round();
-    }
-
-    int calcBMR() {
-      final user = userBloc.state.user;
-      final s = user.gender == Gender.male ? 5 : -161;
-      final res = (10 * user.bodyMeasurements!.weight) +
-          (6.25 * (user.bodyMeasurements!.height * 100)) -
-          (5 * user.age!) +
-          s;
-
-      return res.round();
-    }
-
-    return HealthMetricsEntity(
-      bmi: calcBMI(),
-      lastTdee: lastTdee,
-      bmr: calcBMR(),
-      bodyFatPerc: 0,
-    );
   }
 
   (double proteinPer, double carbsPer, double fatsPer) calculatePercentage() {
@@ -418,22 +390,15 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       return;
     }
 
-    final isThereFreshData = await whoopRemote.pingCurrentCycle();
+    final isThereFreshData =
+        await whoopRemote.pingLastCycle(cycleId: state.day.cycleId);
 
     if (isThereFreshData) {
       appNavigationService.go(path: AppRoutes.redirect.path);
-      await Future.delayed(Durations.short4, () {
-        emit(
-          state.copyWith(
-            day: DayEntity.empty(requestsLeft: chatBloc.state.requestsLeft),
-          ),
-        );
-      });
       userBloc.add(CheckForSavedUser());
     } else {
       if (event.needsErrorSnack) {
         RishSnackbar().showWarningSnackBar(message: 'Your data is up to date');
-        // RishSnackbar().showSnackBar('There is no fresh data yet');
       }
     }
     emit(state.copyWith(status: Status.initial));

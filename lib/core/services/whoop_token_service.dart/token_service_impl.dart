@@ -30,23 +30,35 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
     await prefsRepo.writeTokens(
       accessToken: _accessToken,
       refreshToken: _refreshToken,
-      expiresAt: DateTime.now()
-          .add(response.expiresIn)
-          // .subtract(const Duration(seconds: 3595))
-          .toIso8601String(),
+      expiresAt: DateTime.now().add(response.expiresIn).toIso8601String(),
     );
-    final res = await directus.updateOne(
+    await directus.updateOne(
       collection: usersCollection,
       itemId: userBloc.state.user.directusId,
       updateData: {'whoopRefreshToken': _refreshToken},
     );
 
-    _logger('DIRECTUS UPDATE TOKEN DATA: $res');
+    await scheduleTokenRefresh();
+  }
 
-    Timer.periodic(response.expiresIn, (t) async {
-      _logger('Token should be dead, refreshing now!');
-      await refreshToken(_refreshToken);
-    });
+  Future<void> scheduleTokenRefresh() async {
+    final expiresAt = await prefsRepo.getTokenExpiryDate();
+    if (expiresAt == null) return;
+
+    final now = DateTime.now();
+    final timeUntilExpiry = expiresAt.difference(now);
+
+    _logger('Token expires in: $timeUntilExpiry');
+
+    if (timeUntilExpiry.isNegative) {
+      _logger('Token already expired, refreshing now!');
+      await refreshToken(prefsRepo.fetchSavedRefreshToken());
+    } else {
+      Future.delayed(timeUntilExpiry - const Duration(minutes: 1), () async {
+        _logger('Refreshing token 1 minute before expiration...');
+        await refreshToken(prefsRepo.fetchSavedRefreshToken());
+      });
+    }
   }
 
   Future<bool> refreshToken(String refToken) async {
@@ -61,7 +73,8 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
       return true;
     } else {
       _logger('Tokens are refreshing now.');
-      final res = await wRepo.refreshToken(refToken);
+      final latestRefreshToken = prefsRepo.fetchSavedRefreshToken();
+      final res = await wRepo.refreshToken(latestRefreshToken);
 
       if (res != null) {
         _accessToken = res.accessToken;
@@ -76,6 +89,7 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
           itemId: userBloc.state.user.directusId,
           updateData: {'whoopRefreshToken': _refreshToken},
         );
+        await scheduleTokenRefresh();
         return true;
       } else {
         return false;
@@ -85,25 +99,26 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
 
   Future<bool> isAccessTokenValid() async {
     final expiresAt = await prefsRepo.getTokenExpiryDate();
-
+    print('Token expires at: $expiresAt');
     if (expiresAt == null) return false;
 
     final now = DateTime.now();
+    if (now.isAfter(expiresAt)) {
+      _logger('Access token already expired!');
+      return false;
+    }
 
-    // return false;
-    return now.isBefore(expiresAt.subtract(const Duration(seconds: 10)));
+    return now.isBefore(expiresAt.subtract(const Duration(minutes: 2)));
   }
 
   @override
   Future<bool> initService() async {
     final String savedRefreshToken = prefsRepo.fetchSavedRefreshToken();
-    if (savedRefreshToken.isNotEmpty) {
-      final res = await refreshToken(savedRefreshToken);
-      if (res) {
-        return res;
-      }
+    if (savedRefreshToken.isNotEmpty && !(await isAccessTokenValid())) {
+      _logger('We have locally stored tokens');
+      return refreshToken(savedRefreshToken);
     }
-    // else {
+
     try {
       final directusUser = await directus.readOne(
         collection: usersCollection,
@@ -111,25 +126,21 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
       );
       final refToken = directusUser['whoopRefreshToken'];
 
-      if (refToken != null && refToken!.isNotEmpty) {
+      if (refToken != null && refToken.isNotEmpty) {
         return await refreshToken(refToken);
       } else {
         return false;
       }
     } on Exception catch (e) {
-      _logger(
-        'There are no saved refresh tokens anywhere. Should _loggerin user again. Error was: $e',
-      );
+      _logger('No saved refresh tokens. User should log in again. Error: $e');
       return false;
     }
-    // }
   }
 
   @override
   Future<void> diconnect(String userId) async {
     try {
       await prefsRepo.clearTokens();
-      // final updUser =
       await directus.updateOne(
         collection: usersCollection,
         itemId: userId,
@@ -139,13 +150,6 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
           'bodyMeasurements': {},
         },
       );
-      // _logger('Cleared user: $updUser');
-
-      // if (updUser['days'] != null && updUser['days'].isNotEmpty) {
-      //   print('days were: ${updUser['days']}');
-      //   await directus.deleteOne(
-      //       collection: daysCollection, id: updUser['days'].last.toString());
-      // }
     } on Exception catch (e) {
       _logger(e.toString());
       rethrow;

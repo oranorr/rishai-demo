@@ -11,6 +11,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
+import 'package:rishai/core/services/emoji_parser.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 
@@ -391,7 +392,7 @@ class Ingredient {
 
   factory Ingredient.fromMap(Map<String, dynamic> map) {
     return Ingredient(
-      emojiCode: (map['emojicode'] ?? '') as String,
+      emojiCode: (map['emoji'] ?? '') as String,
       title: map['title'] as String,
       amount: map['amount'] as String,
     );
@@ -420,7 +421,7 @@ class Ingredient {
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
-      'emojiCode': emojiCode,
+      'emoji': emojiCode,
       'title': title,
       'amount': amount,
     };

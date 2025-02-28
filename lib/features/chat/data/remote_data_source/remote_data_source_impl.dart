@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/features/chat/data/local_data_source.dart';
@@ -12,6 +13,7 @@ import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
@@ -28,7 +30,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   String? get threadId => '';
 
   static String key = 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI';
-  static String model = 'models/gemini-1.5-flash';
+  static String model = 'models/gemini-2.0-flash';
 
   @override
   Future<bool> initGpt(String? savedThreadId) async {
@@ -78,7 +80,6 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
           // responseSchema: ChatLocalDataSoucre.schema,
         ),
       );
-
       snackModel = GenerativeModel(
         apiKey: key,
         model: model,
@@ -100,7 +101,6 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     }
   }
 
-// @override
   Future<Map<String, dynamic>> requestAssistant({
     required String prompt,
     required bool isChat,
@@ -112,7 +112,8 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
     while (retryCount < maxRetries) {
       try {
-        log('PROMPT: $prompt');
+        log('❗PROMPT: $prompt');
+        // log('🔍 Chat history: ${chatSession.history.map((e) => e.toJson()).toList()}');
 
         if (isChat) {
           response = await chatSession.sendMessage(Content.text(prompt));
@@ -121,19 +122,13 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
           response = await chat.sendMessage(Content.text(prompt));
         }
 
-        log('Ответ ассистента: ${response.text}');
-
-        if (response.text != null && response.text!.isNotEmpty) {
-          if (isChat) {
-            return {
-              'answer': response.text,
-            };
-          } else {
-            return jsonDecode(response.text!);
-          }
-        } else {
+        if (response.text == null || response.text!.isEmpty) {
+          log('⚠️ Пустой ответ от ассистента, пересоздаю chatSession');
+          chatSession = chatModel.startChat();
           return {'error': 'Пустой ответ от ассистента'};
         }
+        log('GEMINI RESPONSE: ${response.text}');
+        return isChat ? {'answer': response.text} : jsonDecode(response.text!);
       } catch (e) {
         log('Ошибка запроса к Gemini: $e');
         retryCount++;
@@ -149,7 +144,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     List<Map<ServingType, String>> prompts,
   ) async {
     final results = <String, dynamic>{};
-    log(prompts.toString());
+    // log(prompts.toString());
 
     for (final prompt in prompts) {
       final entry = prompt.entries.first;
@@ -209,82 +204,39 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       model: chatModel,
     );
     return res['answer'];
-    // try {
-    //   final run = await client.createThreadRun(
-    //     threadId: thread.id,
-    //     request: CreateRunRequest(
-    //       assistantId: assistantChat.id,
-    //       model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
-    //       additionalInstructions: userMessage,
-    //     ),
-    //   );
-
-    //   log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
-
-    //   bool runCompleted = false;
-    //   const maxAttempts = 10;
-    //   int attempts = 0;
-
-    //   while (!runCompleted && attempts < maxAttempts) {
-    //     await Future.delayed(const Duration(seconds: 2));
-
-    //     final runStatus =
-    //         await client.getThreadRun(threadId: thread.id, runId: run.id);
-    //     if (runStatus.status == RunStatus.completed) {
-    //       runCompleted = true;
-    //       log('Прогон ассистента завершен');
-    //     }
-
-    //     attempts++;
-    //   }
-
-    //   if (!runCompleted) {
-    //     log('Прогон не завершился за отведенное время, отменяем.');
-    //     await client.cancelThreadRun(threadId: thread.id, runId: run.id);
-    //     return null;
-    //   }
-
-    //   final responseMessages =
-    //       await client.listThreadMessages(threadId: thread.id);
-    //   MessageObject? assistantResponse;
-
-    //   for (final message in responseMessages.data.reversed) {
-    //     if (message.role == MessageRole.assistant &&
-    //         message.runId == run.id &&
-    //         message.content.isNotEmpty) {
-    //       assistantResponse = message;
-    //       break;
-    //     }
-    //   }
-
-    //   if (assistantResponse != null) {
-    //     final content = assistantResponse.content.first;
-    //     log('Ответ ассистента: ${content.toJson()}');
-    //     return content.text;
-    //   } else {
-    //     log('Ответ ассистента не был получен.');
-    //     return null;
-    //   }
-    // } on Exception catch (e) {
-    //   log('Ошибка при отправке сообщения: $e');
-    //   return null;
-    // }
   }
 
   @override
   Future<Map<String, dynamic>?> fetchLastChatSnap(String directusId) async {
     try {
-      final rawUser =
-          await directus.readOne(collection: usersCollection, id: directusId);
+      final rawUser = await directus.readOne(
+        collection: usersCollection,
+        id: directusId,
+      );
       if (rawUser['days'].isEmpty) {
         return null;
       } else {
-        final last = rawUser['days'].last;
-        final rawLastDay = await directus.readOne(
+        final lastDay = await directus.readOne(
           collection: daysCollection,
-          id: last.toString(),
+          id: rawUser['days'].last.toString(),
+          // id: userBloc.state.days.last.directusId.toString(),
         );
-        return rawLastDay['chatSnap'];
+        if (lastDay['cycleId'] == null) return null;
+
+        final isCycleEnded = await whoopRemote.pingLastCycle(
+          cycleId: int.parse(lastDay['cycleId']),
+        );
+
+        if (isCycleEnded) {
+          return null;
+        }
+
+        return (lastDay['chatSnap'] as Map<String, dynamic>)
+          ..addAll(
+            {
+              'mealPlan': lastDay['mealPlan'],
+            },
+          );
       }
     } on Exception catch (e) {
       log('failed to fetch last Chat snap, with error: $e');
@@ -307,7 +259,11 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     final prompt =
         'I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}';
     try {
-      return await regenerate(type: params.meal.servingType, prompt: prompt);
+      final meal =
+          await regenerate(type: params.meal.servingType, prompt: prompt);
+      await updateChatHistory('from ${params.meal.title} to $meal');
+      return meal;
+      // return await regenerate(type: params.meal.servingType, prompt: prompt);
     } on Exception catch (e) {
       log('EXCEPTION: $e');
       return null;
@@ -319,7 +275,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     List<String> ingredientsNames =
         List.from(params.ingredients.map((e) => e.title));
     final prompt =
-        'Replace please ${ingredientsNames.join(', ')} in this meal: ${params.meal.title}, type is: ${params.meal.type}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions}';
+        "In the meal ${params.meal.title} with such ingredients: ${params.meal.ingredients.map((e) => e.title).join(', ')} please replace this ingrdients: $ingredientsNames. Type of meal is: ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions} I prefer: ${params.preferences.cuisines}. I have following restrictions: ${params.preferences.restrictions}";
     try {
       return await regenerate(type: params.meal.servingType, prompt: prompt);
     } on Exception catch (e) {
@@ -360,5 +316,15 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     }
 
     return Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
+  }
+
+  Future<void> updateChatHistory(String message) async {
+    final prompt =
+        'Meal plan has been changed: $message. Please, answer to this message with "You have changed $message"';
+    await requestAssistant(
+      prompt: prompt,
+      isChat: true,
+      model: chatModel,
+    );
   }
 }

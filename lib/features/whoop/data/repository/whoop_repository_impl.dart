@@ -2,18 +2,23 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
+import 'package:directus/directus.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
+import 'package:rishai/core/services/directus/directus_collections.dart';
+import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
+import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
+import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/data/models/cycle_model.dart';
@@ -22,8 +27,9 @@ import 'package:rishai/features/whoop/data/models/refresh_token_model.dart';
 import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/auth_response_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
 import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
@@ -180,67 +186,96 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   @override
-  Future<Either<Failure, WhoopDataEntity>> getData({
+  Future<Either<Failure, DayEntity>> getData({
     required GetDataParams params,
   }) async {
     try {
-      // Получаем сохранённые данные пользователя из локального хранилища
-      UserDataEntity? savedUserData =
-          await hive.fetchUserDataEntity(userId: params.userId);
-
-      // Если данных пользователя нет, загружаем свежие данные и возвращаем
-      if (savedUserData == null) {
-        return await _fetchAndSaveFreshData(params);
-      }
-
       final isCurrentCycleEnded = await tryFetch(
-        () => remoteDataSource.pingCurrentCycle(),
+        () async => remoteDataSource.pingLastCycle(
+          cycleId: await getLastCycleId(userId: params.userId),
+        ),
       );
 
       log('Cycle is finished: $isCurrentCycleEnded');
+      // Получаем сохранённые данные пользователя из локального хранилища
+      if (isCurrentCycleEnded == false) {
+        print('cycle IS NOT finished, pulling old data');
+        final res = await _getLocalOrRemoteData();
+        return res.fold(
+          (l) async {
+            print('stored data came null, fetching fresh data');
+            return _fetchAndSaveFreshData(params, isCurrentCycleEnded!);
+          },
+          (r) {
+            return Right(r);
+          },
+        );
+      }
+      // UserDataEntity? savedUserData =
+      //     await hive.fetchUserDataEntity(userId: params.userId);
 
       // Если цикл не завершён, проверяем данные в локальном хранилище
-      if (isCurrentCycleEnded == false) {
-        return await _getLocalOrRemoteData();
-      }
+      // if (isCurrentCycleEnded == false) {
+      //   return await _getLocalOrRemoteData();
+      // }
 
       // Если цикл завершился или данные в локальном хранилище отсутствуют, загружаем свежие данные
-      return await _fetchAndSaveFreshData(params);
+      return await _fetchAndSaveFreshData(params, isCurrentCycleEnded!);
     } on Exception catch (e) {
       log('ERROR WHILE FETCHING WHOOP DATA: $e');
       return Left(FailedToGetUserData('$e'));
     }
   }
 
+  Future<int?> getLastCycleId({required String userId}) async {
+    final rawUser =
+        await directus.readOne(collection: usersCollection, id: userId);
+    final List<int> days = List.from(rawUser['days']).cast<int>();
+    if (days.isEmpty) return null;
+    final rawLastDay = await directus.readOne(
+      collection: daysCollection,
+      id: days.last.toString(),
+    );
+    return rawLastDay['cycleId'] != null
+        ? int.parse(rawLastDay['cycleId'])
+        : null;
+  }
+
 // Вспомогательная функция для загрузки свежих данных и их сохранения
-  Future<Either<Failure, WhoopDataEntity>> _fetchAndSaveFreshData(
+  Future<Either<Failure, DayEntity>> _fetchAndSaveFreshData(
     GetDataParams params,
+    bool needsCreateNewDay,
   ) async {
     final res = await tryFetch(
       () => _fetchFreshData(
         modificator: params.goal.modificator,
         gender: params.gender,
         userId: params.userId,
+        needsCreateNewDay: needsCreateNewDay,
       ),
     );
     return res!.fold((l) {
       return Left(l);
     }, (r) async {
       await localDataSource.saveData(data: r);
-      return Right(r);
+      return Right(
+        r,
+      );
     });
   }
 
 // Вспомогательная функция для получения локальных данных или загрузки удалённых данных
-  Future<Either<Failure, WhoopDataEntity>> _getLocalOrRemoteData() async {
-    final localData = await localDataSource.fetchSavedData();
-    if (localData != null) {
-      return Right(localData);
+  Future<Either<Failure, DayEntity>> _getLocalOrRemoteData() async {
+    final localData = await localDataSource.retrieveSavedDays();
+    if (localData.isNotEmpty) {
+      print('local data is: $localData');
+      return Right(localData.last);
     }
 
     // Если локальные данные отсутствуют, пытаемся загрузить данные с удалённого сервера
     final remoteData =
         await tryFetch(() => remoteDataSource.fetchDirectusData());
+
     if (remoteData != null) {
       await localDataSource.saveData(data: remoteData);
       return Right(remoteData);
@@ -250,10 +285,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
     }
   }
 
-  Future<Either<Failure, WhoopDataEntity>> _fetchFreshData({
+  Future<Either<Failure, DayEntity>> _fetchFreshData({
     required double modificator,
     required Gender gender,
     required String userId,
+    required bool needsCreateNewDay,
   }) async {
     try {
       final BodyMeasurementsEntity? body =
@@ -321,20 +357,26 @@ class WhoopRepositoryImpl implements WhoopRepository {
           fatsInKcal: fats * 9,
         );
 
-        final data = WhoopDataEntity(
-          weekTdeeAverage: tdeeAverage,
-          askTime: askTime,
+        DayEntity newDay = DayEntity(
+          cycleId: indexOfCurrentCycle,
+          directusId: 0,
+          snap: ChatSnapshotEntity(
+            messages: [],
+            date: askTime,
+            requestsLeft: chatBloc.state.requestsLeft,
+          ),
+          healthMetrics: calcHealthMetrics(
+            (cycles.first.score!.kilojoule * kjToKcal).round(),
+          ),
+          dateTime: askTime,
+          weekTdeeAverage: tdeeAverage.toInt(),
           macros: MacrosBreakdown(
             kcal: calorieGoal,
             protein: proteins,
             carbs: carbs,
             fat: fats,
           ),
-          lastTdee: (cycles.first.score!.kilojoule * kjToKcal).round(),
         );
-
-        await tryFetch(() => remoteDataSource.updateDirectus(data: data));
-        await tryFetch(() => localDataSource.saveData(data: data));
 
         final chatNeedsRefresh =
             await remoteDataSource.doesChatNeedsRefreshment(userId: userId);
@@ -345,8 +387,14 @@ class WhoopRepositoryImpl implements WhoopRepository {
             messagesRefresh: chatNeedsRefresh,
           ),
         );
+        print('needs creating fresh day? $needsCreateNewDay');
+        if (needsCreateNewDay) {
+          newDay = await createFreshDay(newDay: newDay, userId: userId);
+        }
+        await tryFetch(() => remoteDataSource.updateDirectus(day: newDay));
+        await tryFetch(() => localDataSource.saveData(data: newDay));
 
-        return Right(data);
+        return Right(newDay);
       } else {
         return const Left(WhoopNoDataFailure());
       }
@@ -354,6 +402,28 @@ class WhoopRepositoryImpl implements WhoopRepository {
       log('EROR WHILE FETCHING FRESHDATA, $e');
       return const Left(WhoopNoDataFailure());
     }
+  }
+
+  Future<DayEntity> createFreshDay({
+    required DayEntity newDay,
+    required String userId,
+  }) async {
+    final existingDay = await directus.readMany(
+      collection: daysCollection,
+      filters: Filters({
+        'cycleId': F.eq(newDay.cycleId),
+      }),
+    );
+
+    if (existingDay.isEmpty) {
+      log('DAY IS CREATING!');
+      final rawNewday = await directus.createOne(
+        collection: daysCollection,
+        data: newDay.toDirectus(userId: userId),
+      );
+      return newDay = newDay.copyWith(directusId: rawNewday['id']);
+    }
+    return newDay;
   }
 
   double calculateCalorieGoal({
@@ -372,6 +442,31 @@ class WhoopRepositoryImpl implements WhoopRepository {
     return sum / cycles.length;
   }
 
+  HealthMetricsEntity calcHealthMetrics(int lastTdee) {
+    int calcBMI() {
+      BodyMeasurementsEntity bm = userBloc.state.user.bodyMeasurements!;
+      return (bm.weight / (bm.height * bm.height)).round();
+    }
+
+    int calcBMR() {
+      final user = userBloc.state.user;
+      final s = user.gender == Gender.male ? 5 : -161;
+      final res = (10 * user.bodyMeasurements!.weight) +
+          (6.25 * (user.bodyMeasurements!.height * 100)) -
+          (5 * user.age!) +
+          s;
+
+      return res.round();
+    }
+
+    return HealthMetricsEntity(
+      bmi: calcBMI(),
+      lastTdee: lastTdee,
+      bmr: calcBMR(),
+      bodyFatPerc: 0,
+    );
+  }
+
   @override
   Future<Either<Failure, MacrosBreakdown>> changeModificatorOfSex({
     required ChangeModificatorOrSexParams params,
@@ -383,8 +478,8 @@ class WhoopRepositoryImpl implements WhoopRepository {
       return res.fold((l) async {
         return Left(l);
       }, (r) async {
-        await remoteDataSource.updateDirectus(data: r.$2);
-        return Right(r.$1);
+        await remoteDataSource.updateDirectus(day: r);
+        return Right(r.macros);
       });
     } on Exception catch (__) {
       rethrow;

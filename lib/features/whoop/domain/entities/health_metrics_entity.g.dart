@@ -1,41 +1,41 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'whoop_data_entity.dart';
+part of 'health_metrics_entity.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class WhoopDataEntityAdapter extends TypeAdapter<WhoopDataEntity> {
+class HealthMetricsEntityAdapter extends TypeAdapter<HealthMetricsEntity> {
   @override
-  final int typeId = 12;
+  final int typeId = 16;
 
   @override
-  WhoopDataEntity read(BinaryReader reader) {
+  HealthMetricsEntity read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return WhoopDataEntity(
-      weekTdeeAverage: fields[0] as double,
-      macros: fields[1] as MacrosBreakdown,
-      askTime: fields[2] as DateTime,
-      lastTdee: fields[3] as int,
+    return HealthMetricsEntity(
+      bmi: fields[0] as int,
+      lastTdee: fields[1] as int,
+      bmr: fields[2] as int,
+      bodyFatPerc: fields[3] as int,
     );
   }
 
   @override
-  void write(BinaryWriter writer, WhoopDataEntity obj) {
+  void write(BinaryWriter writer, HealthMetricsEntity obj) {
     writer
       ..writeByte(4)
       ..writeByte(0)
-      ..write(obj.weekTdeeAverage)
+      ..write(obj.bmi)
       ..writeByte(1)
-      ..write(obj.macros)
+      ..write(obj.lastTdee)
       ..writeByte(2)
-      ..write(obj.askTime)
+      ..write(obj.bmr)
       ..writeByte(3)
-      ..write(obj.lastTdee);
+      ..write(obj.bodyFatPerc);
   }
 
   @override
@@ -44,7 +44,7 @@ class WhoopDataEntityAdapter extends TypeAdapter<WhoopDataEntity> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is WhoopDataEntityAdapter &&
+      other is HealthMetricsEntityAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

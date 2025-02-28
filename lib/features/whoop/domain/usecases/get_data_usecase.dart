@@ -4,16 +4,16 @@ import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
 
 @injectable
-class WhoopGetDataUsecase implements UseCase<WhoopDataEntity, GetDataParams> {
+class WhoopGetDataUsecase implements UseCase<DayEntity, GetDataParams> {
   const WhoopGetDataUsecase(this.whoopRepository);
   final WhoopRepository whoopRepository;
 
   @override
-  Future<Either<Failure, WhoopDataEntity>> call(GetDataParams params) async {
+  Future<Either<Failure, DayEntity>> call(GetDataParams params) async {
     return whoopRepository.getData(params: params);
   }
 }

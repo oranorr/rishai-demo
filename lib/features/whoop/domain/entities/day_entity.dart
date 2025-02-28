@@ -1,18 +1,31 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
+import 'package:hive/hive.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 
+part 'day_entity.g.dart';
+
+@HiveType(typeId: 12)
 class DayEntity {
+  @HiveField(0)
   final int directusId;
-  final double weekTdeeAverage;
+  @HiveField(1)
+  final int weekTdeeAverage;
+  @HiveField(2)
   final MacrosBreakdown macros;
+  @HiveField(3)
   final HealthMetricsEntity healthMetrics;
+  @HiveField(4)
   final MealPlanEntity? mealPlanEntity;
+  @HiveField(5)
   final DateTime dateTime;
+  @HiveField(6)
   final ChatSnapshotEntity snap;
+  @HiveField(7)
+  final int? cycleId;
 
   DayEntity({
     required this.directusId,
@@ -21,6 +34,7 @@ class DayEntity {
     required this.healthMetrics,
     required this.snap,
     required this.dateTime,
+    this.cycleId,
     this.mealPlanEntity,
   });
 
@@ -35,7 +49,7 @@ class DayEntity {
       dateTime: DateTime.now(),
       weekTdeeAverage: 0,
       macros: MacrosBreakdown(kcal: 0, protein: 0, carbs: 0, fat: 0),
-      healthMetrics: HealthMetricsEntity(
+      healthMetrics: const HealthMetricsEntity(
         bmi: 0,
         lastTdee: 0,
         bmr: 0,
@@ -46,12 +60,13 @@ class DayEntity {
 
   DayEntity copyWith({
     int? directusId,
-    double? weekTdeeAverage,
+    int? weekTdeeAverage,
     MacrosBreakdown? macros,
     HealthMetricsEntity? healthMetrics,
     MealPlanEntity? mealPlanEntity,
     DateTime? dateTime,
     ChatSnapshotEntity? snap,
+    int? cycleId,
   }) {
     return DayEntity(
       directusId: directusId ?? this.directusId,
@@ -61,23 +76,14 @@ class DayEntity {
       mealPlanEntity: mealPlanEntity ?? this.mealPlanEntity,
       dateTime: dateTime ?? this.dateTime,
       snap: snap ?? this.snap,
+      cycleId: cycleId ?? this.cycleId,
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'weekTdeeAverage': weekTdeeAverage,
-      'macros': macros.toMap(),
-      'healthMetrics': healthMetrics.toMap(),
-      'mealPlanEntity': mealPlanEntity?.toMap(),
-      'dateTime': dateTime.millisecondsSinceEpoch,
-    };
   }
 
   factory DayEntity.fromMap(Map<String, dynamic> map) {
     return DayEntity(
       directusId: map['id'] as int,
-      weekTdeeAverage: (map['weekTdeeAverage'] as int).toDouble(),
+      weekTdeeAverage: (map['weekTdeeAverage'] as num).toInt(),
       macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
       healthMetrics: HealthMetricsEntity.fromMap(
         map['healthMetrics'] as Map<String, dynamic>,
@@ -89,6 +95,7 @@ class DayEntity {
       snap: ChatSnapshotEntity.fromDirectus(
         map['chatSnap'],
       ),
+      cycleId: map['cycleId'] != null ? int.parse(map['cycleId']) : null,
     );
   }
 
@@ -98,9 +105,10 @@ class DayEntity {
       'macros': macros.toMap(),
       'healthMetrics': healthMetrics.toMap(),
       'dateTime': dateTime.millisecondsSinceEpoch,
-      'weekTdeeAverage': weekTdeeAverage.round(),
+      'weekTdeeAverage': weekTdeeAverage,
       'mealPlan': mealPlanEntity?.toMap(),
       'chatSnap': snap.toDirectus(),
+      'cycleId': cycleId,
     };
   }
 
@@ -111,14 +119,9 @@ class DayEntity {
         dateTime.day == now.day;
   }
 
-  String toJson() => json.encode(toMap());
-
-  factory DayEntity.fromJson(String source) =>
-      DayEntity.fromMap(json.decode(source) as Map<String, dynamic>);
-
   @override
   String toString() {
-    return 'DayEntity(directusId: $directusId, weekTdeeAverage: $weekTdeeAverage, macros: $macros, healthMetrics: $healthMetrics, mealPlanEntity: $mealPlanEntity, dateTime: $dateTime)';
+    return 'DayEntity(cycleId: $cycleId, directusId: $directusId, weekTdeeAverage: $weekTdeeAverage, macros: $macros, healthMetrics: $healthMetrics, mealPlanEntity: $mealPlanEntity, dateTime: $dateTime)';
   }
 
   @override
@@ -151,7 +154,7 @@ class DayEntity {
       DateTime subs = dateTime.subtract(Duration(days: length));
       return DayEntity(
         directusId: index,
-        weekTdeeAverage: 1000.0 - index,
+        weekTdeeAverage: 10000 - index,
         macros: MacrosBreakdown(
           kcal: 100 - index,
           protein: 100 - index,

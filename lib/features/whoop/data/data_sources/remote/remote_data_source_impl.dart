@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-
+import 'package:directus/directus.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
@@ -9,8 +9,9 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
+import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/endpoints.dart';
@@ -18,8 +19,9 @@ import 'package:rishai/features/whoop/data/models/cycle_model.dart';
 import 'package:rishai/features/whoop/data/models/recovery_model.dart';
 import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
-import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part './remote_data_source.dart';
 
@@ -163,33 +165,59 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      log('Failed to get cycle data: ${response.statusCode} - ${response.body}');
+      log('Failed to get cycle data: ${response.statusCode} - ${response.body}, endpoint: $endpoint');
       return null;
     }
   }
 
   @override
-  Future<void> updateDirectus({required WhoopDataEntity data}) async {
+  Future<void> updateDirectus({required DayEntity day}) async {
     await directus.updateOne(
       collection: usersCollection,
       itemId: userBloc.state.user.directusId,
       updateData: {
-        'whoopData': data.toMap(),
+        'whoopData': {
+          'weekTdeeAverage': day.weekTdeeAverage,
+          'macros': day.macros.toMap(),
+          'askTime': day.dateTime.millisecondsSinceEpoch,
+          'lastTdee': day.healthMetrics.lastTdee,
+        },
       },
     );
   }
 
   @override
-  Future<WhoopDataEntity?> fetchDirectusData() async {
+  Future<DayEntity?> fetchDirectusData() async {
     final res = await directus.readOne(
       collection: usersCollection,
       id: userBloc.state.user.directusId,
     );
-    if (res.isNotEmpty) {
+    int lastDayId = res['days'].last;
+    final lastDayRes = await directus.readOne(
+      collection: daysCollection,
+      id: lastDayId.toString(),
+    );
+
+    if (res.isNotEmpty && lastDayRes.isNotEmpty) {
       final data = res['whoopData'];
+
       if (data != null && data.isNotEmpty) {
-        final whoopData = WhoopDataEntity.fromMap(data);
-        return whoopData;
+        final dayEntity = DayEntity(
+          directusId: lastDayId,
+          cycleId: lastDayRes['cycleId'] != null
+              ? int.parse(lastDayRes['cycleId'])
+              : null,
+          weekTdeeAverage: data['weekTdeeAverage'],
+          macros: MacrosBreakdown.fromMap(data['macros']),
+          mealPlanEntity: lastDayRes['mealPlan'] != null
+              ? MealPlanEntity.fromMap(lastDayRes['mealPlan'])
+              : null,
+          healthMetrics:
+              HealthMetricsEntity.fromMap(lastDayRes['healthMetrics']),
+          snap: ChatSnapshotEntity.fromDirectus(lastDayRes['chatSnap']),
+          dateTime: DateTime.fromMillisecondsSinceEpoch(data['askTime']),
+        );
+        return dayEntity;
       } else {
         return null;
       }
@@ -198,31 +226,43 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     }
   }
 
+  // @override
+  // Future<bool> pingCurrentCycle() async {
+  //   await wTokenService.initService();
+  //   UserDataEntity? savedUserData =
+  //       await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
+  //   if (savedUserData == null) {
+  //     return false;
+  //   }
+  //   final raw = await _requestData(
+  //     endpoint:
+  //         WhoopEndpoints().cycleById(cycleId: savedUserData.currentCycleId),
+  //   );
+  //   log(raw.toString());
+  //   return raw!['end'] != null && raw['score_state'] == 'SCORED';
+  // }
+
   @override
-  Future<bool> pingCurrentCycle() async {
+  Future<bool> pingLastCycle({required int? cycleId}) async {
     await wTokenService.initService();
-    UserDataEntity? savedUserData =
-        await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
-    if (savedUserData == null) {
-      return false;
-    }
+    if (cycleId == null) return true;
+
     final raw = await _requestData(
-      endpoint:
-          WhoopEndpoints().cycleById(cycleId: savedUserData.currentCycleId),
+      endpoint: WhoopEndpoints().cycleById(cycleId: cycleId),
     );
     log(raw.toString());
-    return raw!['end'] != null && raw['score_state'] == 'SCORED';
+
+    if (raw == null) return true;
+
+    return raw['end'] != null && raw['score_state'] == 'SCORED';
   }
 
   @override
   Future<bool> clearWhoopUserDataOnDisconnect({required String userId}) async {
     try {
-      final res =
-          await directus.readOne(collection: usersCollection, id: userId);
-      await directus.updateOne(
+      await directus.deleteOne(
         collection: daysCollection,
-        itemId: res['days'].last.toString(),
-        updateData: {'mealPlan': null},
+        id: whoopBloc.state.day.directusId.toString(),
       );
       return true;
     } on Exception catch (e) {
@@ -245,16 +285,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     );
     final dateOfLast =
         DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
-
-    //if same date — we don't need to refresh chat
     return !dateOfLast.isSameDate(DateTime.now());
   }
-
-  // @override
-  // Future<Map<String, dynamic>?> getCycleById({required int cycleId}) async {
-  //   final raw = await _requestData(
-  //     endpoint: WhoopEndpoints().cycleById(cycleId: cycleId),
-  //   );
-  //   return raw;
-  // }
 }

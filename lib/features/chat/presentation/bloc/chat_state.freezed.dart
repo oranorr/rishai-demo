@@ -59,7 +59,9 @@ mixin _$ChatState {
   }) =>
       throw _privateConstructorUsedError;
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ChatState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   $ChatStateCopyWith<ChatState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -86,6 +88,8 @@ class _$ChatStateCopyWithImpl<$Res, $Val extends ChatState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
+  /// Create a copy of ChatState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -138,6 +142,8 @@ class __$$ChatMainStateImplCopyWithImpl<$Res>
       _$ChatMainStateImpl _value, $Res Function(_$ChatMainStateImpl) _then)
       : super(_value, _then);
 
+  /// Create a copy of ChatState
+  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -214,7 +220,9 @@ class _$ChatMainStateImpl implements ChatMainState {
   int get hashCode => Object.hash(runtimeType, status,
       const DeepCollectionEquality().hash(_messages), requestsLeft, mealPlan);
 
-  @JsonKey(ignore: true)
+  /// Create a copy of ChatState
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
   _$$ChatMainStateImplCopyWith<_$ChatMainStateImpl> get copyWith =>
@@ -298,8 +306,11 @@ abstract class ChatMainState implements ChatState {
   int get requestsLeft;
   @override
   MealPlanEntity? get mealPlan;
+
+  /// Create a copy of ChatState
+  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(ignore: true)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ChatMainStateImplCopyWith<_$ChatMainStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

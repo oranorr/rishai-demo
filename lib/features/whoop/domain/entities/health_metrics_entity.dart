@@ -1,17 +1,39 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:convert';
 
+import 'package:hive_flutter/hive_flutter.dart';
+
+part 'health_metrics_entity.g.dart';
+
+@HiveType(typeId: 16)
 class HealthMetricsEntity {
+  @HiveField(0)
   final int bmi;
+  @HiveField(1)
   final int lastTdee;
+  @HiveField(2)
   final int bmr;
+  @HiveField(3)
   final int bodyFatPerc;
-  HealthMetricsEntity({
+
+  const HealthMetricsEntity({
     required this.bmi,
     required this.lastTdee,
     required this.bmr,
     required this.bodyFatPerc,
   });
+
+  factory HealthMetricsEntity.fromMap(Map<String, dynamic> map) {
+    return HealthMetricsEntity(
+      bmi: map['bmi'] as int,
+      lastTdee: map['lastTdee'] as int,
+      bmr: map['bmr'] as int,
+      bodyFatPerc: map['bodyFatPerc'] as int,
+    );
+  }
+
+  factory HealthMetricsEntity.fromJson(String source) =>
+      HealthMetricsEntity.fromMap(json.decode(source) as Map<String, dynamic>);
 
   HealthMetricsEntity copyWith({
     int? bmi,
@@ -42,19 +64,7 @@ class HealthMetricsEntity {
     };
   }
 
-  factory HealthMetricsEntity.fromMap(Map<String, dynamic> map) {
-    return HealthMetricsEntity(
-      bmi: map['bmi'] as int,
-      lastTdee: map['lastTdee'] as int,
-      bmr: map['bmr'] as int,
-      bodyFatPerc: map['bodyFatPerc'] as int,
-    );
-  }
-
   String toJson() => json.encode(toMap());
-
-  factory HealthMetricsEntity.fromJson(String source) =>
-      HealthMetricsEntity.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
   String toString() {

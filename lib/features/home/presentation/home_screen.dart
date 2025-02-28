@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -29,9 +30,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     pageController = PageController(initialPage: currentPage)
       ..addListener(listener);
     WidgetsBinding.instance.addObserver(this);
-    t = Timer.periodic(const Duration(minutes: 10), (t) {
-      whoopBloc.add(const WhoopCheckForRefresh(needsErrorSnack: false));
-    });
+    // t = Timer.periodic(const Duration(minutes: 10), (t) {
+    //   whoopBloc.add(const WhoopCheckForRefresh(needsErrorSnack: false));
+    // });
     super.initState();
   }
 
@@ -45,9 +46,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      whoopBloc.add(const WhoopCheckForRefresh(needsErrorSnack: false));
-    }
+    // if (state == AppLifecycleState.resumed) {
+    //   whoopBloc.add(const WhoopCheckForRefresh(needsErrorSnack: false));
+    // }
   }
 
   void listener() {
@@ -63,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return BlocBuilder<WhoopBloc, WhoopState>(
       bloc: whoopBloc,
       builder: (context, state) {
+        // log(state.da)
         List<Widget> bodies = [
           ChatPage(controller: pageController),
           HomePage(controller: pageController),

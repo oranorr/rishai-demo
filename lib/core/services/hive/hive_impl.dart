@@ -9,8 +9,9 @@ import 'package:rishai/features/user/domain/entities/food_preferences_entity.dar
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
+import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/whoop_data_entity.dart';
 
 part './hive_repo.dart';
 
@@ -21,7 +22,7 @@ class HiveImpl implements HiveRepo {
   late Box<UserEntity> userBox;
   @override
   late Box<ChatSnapshotEntity> chatBox;
-  late Box<WhoopDataEntity> whoopDataBox;
+  late Box<DayEntity> dayBox;
   late Box<UserDataEntity> userDataBox;
   int savedUserIndex = 0;
 
@@ -40,15 +41,16 @@ class HiveImpl implements HiveRepo {
       ..registerAdapter(IngredientAdapter())
       ..registerAdapter(MacrosBreakdownAdapter())
       ..registerAdapter(GoalTypeAdapter())
-      ..registerAdapter(WhoopDataEntityAdapter())
+      ..registerAdapter(DayEntityAdapter())
       ..registerAdapter(UserDataEntityAdapter())
       ..registerAdapter(WorkoutModelAdapter())
       ..registerAdapter(WorkoutScoreAdapter())
-      ..registerAdapter(BodyMeasurementsEntityAdapter());
+      ..registerAdapter(BodyMeasurementsEntityAdapter())
+      ..registerAdapter(HealthMetricsEntityAdapter());
 
     userBox = await Hive.openBox<UserEntity>('user_box');
     chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
-    whoopDataBox = await Hive.openBox<WhoopDataEntity>('whoop_box');
+    dayBox = await Hive.openBox<DayEntity>('day_box');
     userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
   }
 
@@ -80,18 +82,18 @@ class HiveImpl implements HiveRepo {
     // // Полное удаление коробок с диска
     await userBox.clear();
     await chatBox.clear();
-    await whoopDataBox.clear();
+    await dayBox.clear();
     // await userDataBox.clear();
 
     await userBox.close();
     await chatBox.close();
-    await whoopDataBox.close();
+    await dayBox.close();
     // await userDataBox.close();
 
     // // Повторно открываем коробки
     userBox = await Hive.openBox<UserEntity>('user_box');
     chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
-    whoopDataBox = await Hive.openBox<WhoopDataEntity>('whoop_box');
+    dayBox = await Hive.openBox<DayEntity>('day_box');
     // userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
   }
 
@@ -110,17 +112,16 @@ class HiveImpl implements HiveRepo {
   }
 
   @override
-  Future<void> saveWhoopData({required WhoopDataEntity data}) async {
-    await whoopDataBox.add(data);
+  Future<void> saveDay({required DayEntity data}) async {
+    await dayBox.add(data);
   }
 
   @override
-  Future<WhoopDataEntity?> retrieveLastData() async {
-    if (whoopDataBox.isEmpty) {
-      return null;
+  Future<List<DayEntity>> retrieveSavedDays() async {
+    if (dayBox.isEmpty) {
+      return [];
     }
-    final int last = whoopDataBox.length - 1;
-    return whoopDataBox.getAt(last);
+    return dayBox.values.toList();
   }
 
   @override
@@ -168,12 +169,17 @@ class HiveImpl implements HiveRepo {
 
   @override
   Future<void> disconnectWhoop() async {
-    await whoopDataBox.clear();
+    await dayBox.clear();
     await userDataBox.clear();
   }
 
   @override
   Future<void> refreshChat() async {
     await chatBox.clear();
+  }
+
+  @override
+  Future<void> flushSavedDays() async {
+    await dayBox.clear();
   }
 }

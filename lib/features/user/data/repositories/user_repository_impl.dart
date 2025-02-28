@@ -1,22 +1,18 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
-import 'package:directus/directus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/data/data_sources/local/user_local_source.dart';
 import 'package:rishai/features/user/data/data_sources/remote/user_remote_source.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
-import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 @Singleton(as: UserRepository)
 class UserRepositoryImpl implements UserRepository {
@@ -47,34 +43,28 @@ class UserRepositoryImpl implements UserRepository {
     required GetDaysParams params,
   }) async {
     try {
-      DayEntity currentDay = whoopBloc.state.day;
-      final rawList = await directus.readMany(
-        collection: daysCollection,
-        filters: Filters({'id': F.isIn(params.daysIds)}),
-      );
-      final days = rawList.map((map) => DayEntity.fromMap(map)).toList();
+      final localDays = await localDataSource.retrieveSavedDays();
+      final remoteDays =
+          await remoteDataSource.fetchRemoteDays(daysIds: params.daysIds);
 
-      final isThereFreshData = await whoopRemote.pingCurrentCycle();
+      final Map<String, DayEntity> daysMap = {};
 
-      if (isThereFreshData) {
-        await directus.createOne(
-          collection: daysCollection,
-          data: currentDay.toDirectus(userId: params.userId),
-        );
-        days.add(currentDay);
-      } else {
-        if (days.last.mealPlanEntity != null) {
-          chatBloc.add(ChatFetchLastMealPlan(day: days.last));
-        }
-
-        if (days.last.dateTime.isBefore(DateTime.now())) {
-          currentDay = days.last;
-        }
-        days
-          ..removeLast()
-          ..add(currentDay);
+// Добавляем локальные данные
+      for (final day in localDays) {
+        final dateKey = day.dateTime.toIso8601String().substring(0, 10);
+        daysMap[dateKey] = day;
       }
-      return Right(days);
+
+// Обновляем данными с бэка, если они новее
+      for (final day in remoteDays) {
+        final dateKey = day.dateTime.toIso8601String().substring(0, 10);
+        if (!daysMap.containsKey(dateKey) ||
+            day.dateTime.isAfter(daysMap[dateKey]!.dateTime)) {
+          daysMap[dateKey] = day;
+        }
+      }
+
+      return Right(daysMap.values.toList());
     } on Exception catch (e) {
       log('Error getting days: $e');
       return const Left(UnknownFailure());

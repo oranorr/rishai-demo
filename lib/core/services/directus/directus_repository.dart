@@ -30,4 +30,9 @@ abstract interface class DirectusService {
     required String collection,
     required List<Map<String, dynamic>> data,
   });
+
+  Future<void> deleteMany({
+    required String collection,
+    required List<String> ids,
+  });
 }
