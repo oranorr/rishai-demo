@@ -119,3 +119,13 @@ class FailureReplaceMeal extends Failure {
   @override
   List<Object?> get props => throw UnimplementedError();
 }
+
+class WeekPlanGenerationFailure extends Failure {
+  const WeekPlanGenerationFailure(super.message);
+
+  @override
+  List<Object?> get props => [];
+
+  @override
+  String get message => 'Failed to generate week meal plan';
+}

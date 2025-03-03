@@ -19,6 +19,7 @@ class UserModel extends Equatable {
   final UserGoal? userGoal;
   final List<int> daysIds;
   final String? adaptyId;
+  final List<int> weekPlanIds;
 
   const UserModel({
     required this.directusId,
@@ -27,6 +28,7 @@ class UserModel extends Equatable {
     required this.name,
     required this.daysIds,
     required this.adaptyId,
+    required this.weekPlanIds,
     this.age,
     this.gender,
     this.userGoal,
@@ -47,6 +49,7 @@ class UserModel extends Equatable {
     List<int>? daysIds,
     int? userWhoopId,
     String? adaptyId,
+    List<int>? weekPlanIds,
   }) {
     return UserModel(
       directusId: directusId ?? this.directusId,
@@ -61,6 +64,7 @@ class UserModel extends Equatable {
           bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
       daysIds: daysIds ?? this.daysIds,
       adaptyId: adaptyId ?? this.adaptyId,
+      weekPlanIds: weekPlanIds ?? this.weekPlanIds,
     );
   }
 
@@ -93,6 +97,7 @@ class UserModel extends Equatable {
           : null,
       daysIds: List.from(map['days']).cast<int>(),
       adaptyId: map['adaptyId'],
+      weekPlanIds: List.from(map['weekPlanIds']).cast<int>(),
       // userWhoopId: map['userWhoopId'] as int,
     );
   }
@@ -129,6 +134,7 @@ class UserModel extends Equatable {
       userGoal: userGoal,
       daysIds: daysIds,
       adaptyId: adaptyId,
+      weekPlanIds: weekPlanIds,
       // userWhoopId: userWhoopId,
     );
   }

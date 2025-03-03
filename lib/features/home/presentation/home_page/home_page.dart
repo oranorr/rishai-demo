@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +19,7 @@ import 'package:rishai/features/home/presentation/meal_screen.dart';
 import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -50,8 +49,12 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     pageController = PageController();
-
     super.initState();
+  }
+
+  void _resetPageController() {
+    final currentPage = pageController.page?.round() ?? 0;
+    pageController.jumpToPage(currentPage);
   }
 
   @override
@@ -63,26 +66,26 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
+    return BlocConsumer<UserBloc, UserState>(
       bloc: userBloc,
+      listener: (context, state) {
+        if (state.status == Status.success) {
+          _resetPageController();
+        }
+      },
       builder: (context, state) {
-        // log(state.days.first.cycleId.toString());
-        // log(state.days.length.toString());
-
-        // log('WhoopDay: ${whoopBloc.state.day}');
-        // log('Last day in Userbloc: ${state.days.last}');
-        // log('day before last in Userbloc: ${state.days[state.days.length - 2]}');
         return PageView.builder(
           controller: pageController,
           physics: const NeverScrollableScrollPhysics(),
           reverse: true,
           itemCount: state.days.length,
           itemBuilder: (context, index) {
+            final days = state.days.reversed.toList();
             return _HomePageBody(
               homePageController: pageController,
               controller: widget.controller,
               isLoading: state.status == Status.loading,
-              day: state.days.reversed.toList()[index],
+              day: days[index],
               isLastPage: index == state.days.length - 1,
               isFirstPage: index == 0,
             );
@@ -266,11 +269,18 @@ class _HomePageBodyState extends State<_HomePageBody> {
                 ],
               ),
               SizedBox(height: 12.h),
-              RishButton.primary(
-                title: '5-day meal prep',
-                enabled: false,
-                isLoading: false,
-                action: () {},
+              BlocBuilder<WeekPlanBloc, WeekPlanState>(
+                bloc: weekPlanBloc,
+                builder: (context, state) {
+                  return RishButton.primary(
+                    title: '5-day meal prep',
+                    enabled: true,
+                    isLoading: false,
+                    action: () async {
+                      await widget.controller.rAnimate(1);
+                    },
+                  );
+                },
               ),
             ],
           ),

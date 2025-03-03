@@ -7,7 +7,9 @@ abstract class ChatRemoteDataSource {
   Future<bool> initGpt(String? savedThreadId);
   Future<Map<String, dynamic>> requestMealPlan(
     List<Map<ServingType, String>> prompts,
+    bool isWeekPlan,
   );
+
   Future<String?> sendMessage(String userMessage);
   Future<Map<String, dynamic>?> fetchLastChatSnap(String directusId);
   String? get threadId;

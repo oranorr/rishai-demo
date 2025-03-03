@@ -34,7 +34,10 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Either<Failure, MealPlanEntity>> requestMealPlan({
     required RequestPlanParams params,
   }) async {
-    final res = await remote.requestMealPlan(params.generatePrompt());
+    final res = await remote.requestMealPlan(
+      params.generatePrompt(),
+      params.isWeekPlan,
+    );
     if (res.containsKey('error')) {
       return Left(ChatGptRequestMealFailures(res['error']));
     } else {

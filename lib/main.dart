@@ -14,6 +14,7 @@ import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 void main() async {
@@ -50,6 +51,9 @@ class RishAi extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => chatBloc,
+        ),
+        BlocProvider(
+          create: (context) => weekPlanBloc,
         ),
       ],
       child: const App(),

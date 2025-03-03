@@ -1,3 +1,4 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 part of '../chat_page.dart';
 
 class _AutoPrompts extends StatefulWidget {
@@ -60,7 +61,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
         return _buildCreateMealPlanButton();
       case 1:
         // return _buildMealAmountButtons();
-        return _MealSelectionWidget(
+        return MealSelectionWidget(
           callback: (list) {
             List<String> names = List.from(
               list.map((serv) => '${serv.comment ?? ''} ${serv.type.name}'),
@@ -212,7 +213,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 setState(() {
                   currentStep++;
                   FocusManager.instance.primaryFocus?.unfocus();
-                  widget.controller.rAnimate(1);
+                  widget.controller.rAnimate(2);
                 });
               },
               height: 48.h,
@@ -346,14 +347,17 @@ class _QuestionPromptButton extends StatelessWidget {
   }
 }
 
-class _MealSelectionWidget extends StatefulWidget {
-  const _MealSelectionWidget({required this.callback});
+class MealSelectionWidget extends StatefulWidget {
+  const MealSelectionWidget({
+    required this.callback,
+    super.key,
+  });
   final Function(List<ServingEntity>) callback;
   @override
-  _MealSelectionWidgetState createState() => _MealSelectionWidgetState();
+  MealSelectionWidgetState createState() => MealSelectionWidgetState();
 }
 
-class _MealSelectionWidgetState extends State<_MealSelectionWidget> {
+class MealSelectionWidgetState extends State<MealSelectionWidget> {
   final List<ServingEntity> mealOrder = [
     ServingEntity(
       type: ServingType.breakfast,

@@ -27,6 +27,10 @@ List<Map<String, String>> dests = [
     'asset': 'assets/icons/chat.svg',
   },
   {
+    'name': 'Prep',
+    'asset': 'assets/icons/chat.svg',
+  },
+  {
     'name': 'Home',
     'asset': 'assets/icons/home.svg',
   },
@@ -58,7 +62,7 @@ class _RishiBottonNavigationBarState extends State<RishiBottonNavigationBar> {
         unselectedItemColor: RishColors.textSecondary,
         selectedItemColor: context.theme.colorScheme.primary,
         items: [
-          for (int i = 0; i < 3; i++)
+          for (int i = 0; i < dests.length; i++)
             BottomNavigationBarItem(
               icon: SvgPicture.asset(
                 dests[i]['asset']!,

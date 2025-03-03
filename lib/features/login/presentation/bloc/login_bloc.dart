@@ -24,6 +24,7 @@ import 'package:rishai/features/login/domain/usecases/login_via_google_usecase.d
 import 'package:rishai/features/login/presentation/bloc/login_state.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part 'login_event.dart';
@@ -143,6 +144,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     userBloc.add(UpdateUserEvent(user: curUser));
     whoopBloc.add(InitWhoopOnLogin());
     chatBloc.add(const InitChatBloc());
+    weekPlanBloc.add(const WeekPlanLoad());
   }
 
   FutureOr<void> _logout(LogoutEvent event, Emitter<LoginState> emit) async {
@@ -152,6 +154,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     await adapty.logout();
     chatBloc.add(const ChatOnLogout(needsCounterClear: true));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
+    weekPlanBloc.add(const WeekPlanClear());
     appNavigationService.go(path: AppRoutes.login.path);
   }
 

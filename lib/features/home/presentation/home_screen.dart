@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -10,6 +8,10 @@ import 'package:rishai/features/chat/presentation/chat_page.dart';
 import 'package:rishai/features/home/presentation/bottom_navigation.dart';
 import 'package:rishai/features/home/presentation/home_page/home_page.dart';
 import 'package:rishai/features/settings/presentation/settings_page.dart';
+import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
+import 'package:rishai/features/week_plan/presentation/week_plan_screen.dart';
+import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 
@@ -22,8 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late PageController pageController;
-  int currentPage = 1;
-  late Timer t;
+  int currentPage = 2;
 
   @override
   void initState() {
@@ -40,7 +41,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     pageController.dispose();
     WidgetsBinding.instance.removeObserver(this);
-    t.cancel();
     super.dispose();
   }
 
@@ -58,15 +58,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // print(pageController);
   }
 
+  void testMealsGroup() {
+    final days = userBloc.state.days;
+    final meals = DayEntity.getMealHistory(days, daysLimit: 20);
+    log(meals.toString());
+  }
+
   @override
   Widget build(BuildContext context) {
-    //
+    // testMealsGroup();
     return BlocBuilder<WhoopBloc, WhoopState>(
       bloc: whoopBloc,
       builder: (context, state) {
-        // log(state.da)
         List<Widget> bodies = [
           ChatPage(controller: pageController),
+          const WeekPlanScreen(),
           HomePage(controller: pageController),
           const SettingsPage(),
         ];

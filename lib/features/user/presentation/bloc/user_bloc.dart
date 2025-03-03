@@ -27,6 +27,7 @@ import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
@@ -107,6 +108,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       await adapty.identify(adaptyId: user.adaptyId!);
       emit(state.copyWith(user: user));
       add(const UserCheckForRecomp());
+      weekPlanBloc.add(const WeekPlanLoad());
       whoopBloc.add(InitWhoopOnLogin());
     } else {
       appNavigationService.go(

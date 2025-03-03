@@ -8,6 +8,8 @@ import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
+import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
+import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
 @injectable
 class RequestPlanUsecase implements UseCase<MealPlanEntity, RequestPlanParams> {
@@ -31,6 +33,7 @@ class RequestPlanParams {
     required this.trainingToday,
     required this.servings,
     required this.snackForToday,
+    required this.isWeekPlan,
   });
   final List<String> dietary;
   final List<String> cuisines;
@@ -40,7 +43,7 @@ class RequestPlanParams {
   final bool trainingToday;
   final List<ServingEntity> servings;
   final bool snackForToday;
-
+  final bool isWeekPlan;
   String generateSinglePrompt() {
     List<Map<String, dynamic>> meals = [];
     Map<String, String> userPrefs = {
@@ -125,15 +128,20 @@ class RequestPlanParams {
   }
 
   List<Map<ServingType, String>> generatePrompt() {
-    log(toString());
-    List<Map<String, dynamic>> generalMeals = [];
-    Map<String, dynamic>? snack;
-    Map<String, dynamic>? breakfast;
-    Map<String, String> userPrefs = {
+    final days = userBloc.state.days;
+    final alreadyGenereatedMeals =
+        isWeekPlan ? null : DayEntity.getMealHistory(days);
+
+    final userPrefs = {
       'dietary_preferences': dietary.join(', '),
       'cuisine_preferences': cuisines.join(', '),
       'restrictions': restrictions.join(', '),
     };
+
+    log(toString());
+    List<Map<String, dynamic>> generalMeals = [];
+    Map<String, dynamic>? snack;
+    Map<String, dynamic>? breakfast;
 
     // Инициализируем переменные
     List<double> mealDistribution = [];
@@ -168,28 +176,7 @@ class RequestPlanParams {
               ? [24.5, 23.5, 22.5, 19.5, 10]
               : [27, 26, 25, 22]); // без тренировки
     }
-    // else if (servings.length == 5) {
-    //   mealDistribution = hadTraining
-    //       ? (snackRequested
-    //           ? [26.5, 22.5, 21.5, 19.5, 10]
-    //           : [26.5, 22.5, 21.5, 19.5, 10]) // с тренировкой
-    //       : (snackRequested
-    //           ? [24.5, 23.5, 22.5, 19.5, 10]
-    //           : [24.5, 23.5, 22.5, 19.5, 10]); // без тренировки
-    // }
-    // else {
-    //   double percent =
-    //       snackRequested ? (100 - 10) / servings.length : 100 / servings.length;
-    //   mealDistribution = List.filled(servings.length, percent);
-    //   if (snackRequested) {
-    //     mealDistribution = List.filled(servings.length, percent).toList()
-    //       ..add(10);
-    //   } else {
-    //     mealDistribution = List.filled(servings.length, percent).toList();
-    //   }
-    // }
 
-    // Корректируем суммарное распределение (точность до 100%)
     double totalMealDistribution = mealDistribution.reduce((a, b) => a + b);
     double difference = 100 - totalMealDistribution;
     if (difference.abs() > 0.1) {
@@ -241,17 +228,19 @@ class RequestPlanParams {
     return [
       if (breakfast != null)
         {
-          ServingType.breakfast:
-              'generate_meal_plan_for_me. My data is: $breakfast',
+          ServingType.breakfast: 'generate_meal_plan_for_me. My data is: $breakfast'
+              '${!isWeekPlan ? ". Please exclude following meals: ${alreadyGenereatedMeals?["breakfasts"]}" : ""}',
         },
       if (generalMeals.isNotEmpty)
         {
           ServingType.dinner:
-              'generate_meal_plan_for_me. My data is: $userPrefs, meals: $generalMeals',
+              'generate_meal_plan_for_me. My data is: $userPrefs, meals: $generalMeals'
+                  '${!isWeekPlan ? ". Please exclude following meals: ${alreadyGenereatedMeals?["mains"]}" : ""}',
         },
       if (snack != null)
         {
-          ServingType.snack: 'generate_meal_plan_for_me. My data is: $snack',
+          ServingType.snack: 'generate_meal_plan_for_me. My data is: $snack'
+              '${!isWeekPlan ? ". Please exclude following meals: ${alreadyGenereatedMeals?["snacks"]}" : ""}',
         },
     ];
   }

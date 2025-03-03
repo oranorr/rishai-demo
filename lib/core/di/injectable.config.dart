@@ -40,6 +40,8 @@ import 'package:rishai/features/chat/domain/repository/chat_repository.dart'
     as _i831;
 import 'package:rishai/features/chat/domain/usecases/fetch_saved_snap_usecase.dart'
     as _i975;
+import 'package:rishai/features/chat/domain/usecases/generate_week_plan_usecase.dart'
+    as _i1015;
 import 'package:rishai/features/chat/domain/usecases/init_gpt_usecase.dart'
     as _i241;
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart'
@@ -88,6 +90,8 @@ import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart'
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart'
     as _i663;
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart' as _i984;
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart'
+    as _i1018;
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart'
     as _i734;
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source_impl.dart'
@@ -218,6 +222,13 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i248.LoginViaEmailUsecase>(),
           gh<_i914.LoginViaAppleUsecase>(),
         ));
+    gh.factory<_i1015.GenerateWeekPlanUsecase>(
+        () => _i1015.GenerateWeekPlanUsecase(
+              gh<_i831.ChatRepository>(),
+              gh<_i176.RequestPlanUsecase>(),
+            ));
+    gh.factory<_i1018.WeekPlanBloc>(
+        () => _i1018.WeekPlanBloc(gh<_i1015.GenerateWeekPlanUsecase>()));
     return this;
   }
 }

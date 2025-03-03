@@ -9,8 +9,6 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
-
-import 'package:rishai/core/services/hive/hive_impl.dart' show hive;
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -26,7 +24,6 @@ import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
     show whoopRemote;
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
@@ -381,26 +378,33 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     Emitter<WhoopState> emit,
   ) async {
     emit(state.copyWith(status: Status.loading));
-    UserDataEntity? savedUserData =
-        await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
-
-    if (savedUserData == null) {
-      userBloc.add(CheckForSavedUser());
-      emit(state.copyWith(status: Status.initial));
-      return;
-    }
 
     final isThereFreshData =
         await whoopRemote.pingLastCycle(cycleId: state.day.cycleId);
 
     if (isThereFreshData) {
-      appNavigationService.go(path: AppRoutes.redirect.path);
-      userBloc.add(CheckForSavedUser());
+      final result = await getDataUsecase.call(
+        GetDataParams(
+          gender: userBloc.state.user.gender!,
+          goal: userBloc.state.user.userGoal!,
+          userId: userBloc.state.user.directusId,
+        ),
+      );
+
+      result.fold(
+        (failure) {
+          emit(state.copyWith(status: Status.error));
+        },
+        (newDay) {
+          emit(state.copyWith(day: newDay, status: Status.success));
+          userBloc.add(UserGetDays(newDay: newDay));
+        },
+      );
     } else {
       if (event.needsErrorSnack) {
         RishSnackbar().showWarningSnackBar(message: 'Your data is up to date');
       }
+      emit(state.copyWith(status: Status.initial));
     }
-    emit(state.copyWith(status: Status.initial));
   }
 }

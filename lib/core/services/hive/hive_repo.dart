@@ -20,4 +20,9 @@ abstract class HiveRepo {
   Future<void> disconnectWhoop();
 
   Future<void> refreshChat();
+
+  Future<void> saveWeekPlan({required WeekPlanEntity weekPlan});
+  Future<List<WeekPlanEntity>?> retrieveWeekPlan();
+
+  void test();
 }

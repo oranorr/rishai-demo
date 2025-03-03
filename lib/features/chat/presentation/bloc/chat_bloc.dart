@@ -162,6 +162,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         trainingToday: event.trainingToday,
         servings: event.meals,
         snackForToday: event.snackToday,
+        isWeekPlan: false,
       ),
     );
     res.fold((failure) {

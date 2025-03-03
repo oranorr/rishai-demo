@@ -5,6 +5,7 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
+import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -24,6 +25,7 @@ class HiveImpl implements HiveRepo {
   late Box<ChatSnapshotEntity> chatBox;
   late Box<DayEntity> dayBox;
   late Box<UserDataEntity> userDataBox;
+  late Box<WeekPlanEntity> weekPlanBox;
   int savedUserIndex = 0;
 
   @override
@@ -46,12 +48,14 @@ class HiveImpl implements HiveRepo {
       ..registerAdapter(WorkoutModelAdapter())
       ..registerAdapter(WorkoutScoreAdapter())
       ..registerAdapter(BodyMeasurementsEntityAdapter())
+      ..registerAdapter(WeekPlanEntityAdapter())
       ..registerAdapter(HealthMetricsEntityAdapter());
 
     userBox = await Hive.openBox<UserEntity>('user_box');
     chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
     dayBox = await Hive.openBox<DayEntity>('day_box');
     userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
+    weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
   }
 
   @override
@@ -83,17 +87,20 @@ class HiveImpl implements HiveRepo {
     await userBox.clear();
     await chatBox.clear();
     await dayBox.clear();
+    await weekPlanBox.clear();
     // await userDataBox.clear();
 
     await userBox.close();
     await chatBox.close();
     await dayBox.close();
+    await weekPlanBox.close();
     // await userDataBox.close();
 
     // // Повторно открываем коробки
     userBox = await Hive.openBox<UserEntity>('user_box');
     chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
     dayBox = await Hive.openBox<DayEntity>('day_box');
+    weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
     // userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
   }
 
@@ -181,5 +188,21 @@ class HiveImpl implements HiveRepo {
   @override
   Future<void> flushSavedDays() async {
     await dayBox.clear();
+  }
+
+  @override
+  Future<List<WeekPlanEntity>?> retrieveWeekPlan() async {
+    return weekPlanBox.values.toList();
+  }
+
+  @override
+  Future<void> saveWeekPlan({required WeekPlanEntity weekPlan}) async {
+    await weekPlanBox.add(weekPlan);
+  }
+
+  @override
+  void test() {
+    final res = weekPlanBox.values.toList();
+    log(res.toString());
   }
 }

@@ -140,63 +140,6 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>> requestMealPlan(
-    List<Map<ServingType, String>> prompts,
-  ) async {
-    final results = <String, dynamic>{};
-    // log(prompts.toString());
-
-    for (final prompt in prompts) {
-      final entry = prompt.entries.first;
-      final mealType = entry.key; // Ключ — тип приёма пищи (ServingType)
-      final mealPrompt = entry.value; // Значение — строка (prompt)
-
-      // Переключение по mealType
-      switch (mealType) {
-        case ServingType.breakfast:
-          results['breakfast'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: breakfastModel,
-            isChat: false,
-          );
-          break;
-        case ServingType.dinner:
-          results['generalMeals'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: mealsModel,
-            isChat: false,
-          );
-          break;
-        case ServingType.snack:
-          results['snack'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: snackModel,
-            isChat: false,
-          );
-          break;
-        default:
-          throw ArgumentError('Invalid meal type: $mealType');
-      }
-    }
-
-    // Объединяем все блюда в один массив
-    final meals = [
-      ...results['breakfast']?['meals'] ?? [],
-      ...results['generalMeals']?['meals'] ?? [],
-      ...results['snack']?['meals'] ?? [],
-    ];
-
-    final dot = await requestAssistant(
-      prompt: "{'meals': $meals}",
-      isChat: true,
-      model: chatModel,
-    );
-    log('CHAT ASSISTANT: $dot');
-
-    return {'meals': meals};
-  }
-
-  @override
   Future<String?> sendMessage(String userMessage) async {
     final res = await requestAssistant(
       prompt: userMessage,
@@ -326,5 +269,62 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       isChat: true,
       model: chatModel,
     );
+  }
+
+  @override
+  Future<Map<String, dynamic>> requestMealPlan(
+    List<Map<ServingType, String>> prompts,
+    bool isWeekPlan,
+  ) async {
+    final results = <String, dynamic>{};
+
+    for (final prompt in prompts) {
+      final entry = prompt.entries.first;
+      final mealType = entry.key;
+      final mealPrompt = entry.value;
+
+      switch (mealType) {
+        case ServingType.breakfast:
+          results['breakfast'] = await requestAssistant(
+            prompt: mealPrompt,
+            model: breakfastModel,
+            isChat: false,
+          );
+          break;
+        case ServingType.dinner:
+          results['generalMeals'] = await requestAssistant(
+            prompt: mealPrompt,
+            model: mealsModel,
+            isChat: false,
+          );
+          break;
+        case ServingType.snack:
+          results['snack'] = await requestAssistant(
+            prompt: mealPrompt,
+            model: snackModel,
+            isChat: false,
+          );
+          break;
+        default:
+          throw ArgumentError('Invalid meal type: $mealType');
+      }
+    }
+
+    final meals = [
+      ...results['breakfast']?['meals'] ?? [],
+      ...results['generalMeals']?['meals'] ?? [],
+      ...results['snack']?['meals'] ?? [],
+    ];
+
+    // Только для обычного плана питания добавляем в историю чата
+    if (!isWeekPlan) {
+      final dot = await requestAssistant(
+        prompt: "{'meals': $meals}",
+        isChat: true,
+        model: chatModel,
+      );
+      log('CHAT ASSISTANT: $dot');
+    }
+    return {'meals': meals};
   }
 }

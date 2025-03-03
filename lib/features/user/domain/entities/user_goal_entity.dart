@@ -102,13 +102,13 @@ class UserGoal {
   String getSettingsDescription() {
     switch (goal) {
       case GoalType.aesthetics:
-        return 'Calorie modificator of this type could be changed only once per day, and only before meal plan was created.';
+        return 'This variable can only be changed once per day, before meal plan generation.';
       case GoalType.recomp:
-        return 'Modificator of this goal type cannot be changed manually. It changes automatically every two weeks.';
+        return 'his variable cannot be changed manually. It automatically changes every two weeks';
       case GoalType.performance:
-        return 'Calorie modificator of this type could be changed only once per day, and only before meal plan was created.';
+        return 'This variable can only be changed once per day, before meal plan generation';
       case GoalType.optimize:
-        return 'The % stays unchanged for this setting';
+        return 'This variable stays unchanged for this setting.';
     }
   }
 
