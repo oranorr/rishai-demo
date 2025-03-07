@@ -122,6 +122,9 @@ class MealScreen extends StatelessWidget {
                   isScrollControlled: true,
                   showDragHandle: true,
                   backgroundColor: RishColors.formBackgroun,
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.9,
+                  ),
                   builder: (BuildContext context) {
                     return ReplacementWidget(meal: meal);
                   },
@@ -157,106 +160,135 @@ class _ReplacementWidgetState extends State<ReplacementWidget> {
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
-        return Padding(
-          padding: const EdgeInsets.all(16).copyWith(top: 0),
-          child: AnimatedContainer(
-            duration: Durations.short4,
-            // height: isExpanded ? 600.h : 180.h,
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                Text(
-                  'What do you want to replace?',
-                  style: context.styles.h3,
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 12.h),
-                RishButton.primary(
-                  title: 'I want a new meal',
-                  enabled: firstButtonEnabled,
-                  isLoading:
-                      state.status == Status.loading && firstButtonEnabled,
-                  action: () {
-                    setState(() {
-                      secondButtonEnabled = false;
-                      selectedIngredients = [];
-                      isExpanded = false;
-                    });
-                    chatBloc.add(ChatReplaceMeal(meal: widget.meal));
-                  },
-                ),
-                if (!isExpanded) ...[
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: isExpanded ? 0.6 : 0.35,
+          minChildSize: 0.35,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'What do you want to replace?',
+                    style: context.styles.h3,
+                    textAlign: TextAlign.center,
+                  ),
                   SizedBox(height: 12.h),
                   RishButton.primary(
-                    title: 'I want to change an ingredient',
-                    enabled: secondButtonEnabled,
+                    title: 'I want a new meal',
+                    enabled: firstButtonEnabled,
                     isLoading:
-                        state.status == Status.loading && secondButtonEnabled,
+                        state.status == Status.loading && firstButtonEnabled,
                     action: () {
                       setState(() {
-                        isExpanded = true;
+                        secondButtonEnabled = false;
+                        selectedIngredients = [];
+                        isExpanded = false;
                       });
+                      chatBloc.add(ChatReplaceMeal(meal: widget.meal));
                     },
                   ),
-                ],
-                SizedBox(height: 12.h),
-                if (isExpanded)
-                  ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: widget.meal.ingredients.length,
-                    itemBuilder: (context, index) {
-                      return CheckboxListTile(
-                        title: Row(
-                          children: [
-                            Text(
-                              '${widget.meal.ingredients[index].emojiCode} ',
+                  if (!isExpanded) ...[
+                    SizedBox(height: 12.h),
+                    RishButton.primary(
+                      title: 'I want to change an ingredient',
+                      enabled: secondButtonEnabled,
+                      isLoading:
+                          state.status == Status.loading && secondButtonEnabled,
+                      action: () {
+                        setState(() {
+                          isExpanded = true;
+                        });
+                      },
+                    ),
+                  ],
+                  if (isExpanded) ...[
+                    SizedBox(height: 12.h),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          ListView.builder(
+                            controller: scrollController,
+                            padding: EdgeInsets.only(bottom: 100.h),
+                            itemCount: widget.meal.ingredients.length,
+                            itemBuilder: (context, index) {
+                              final ingredient = widget.meal.ingredients[index];
+                              return CheckboxListTile(
+                                title: Row(
+                                  children: [
+                                    Text('${ingredient.emojiCode} '),
+                                    Expanded(
+                                      child: Text(
+                                        ingredient.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: context.styles.regularMedium
+                                            .copyWith(
+                                          color: RishColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                value:
+                                    selectedIngredients!.contains(ingredient),
+                                onChanged: (bool? value) {
+                                  setState(() {
+                                    if (value!) {
+                                      selectedIngredients!.add(ingredient);
+                                    } else {
+                                      selectedIngredients!.remove(ingredient);
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(vertical: 16.h),
+                              decoration: BoxDecoration(
+                                color: RishColors.formBackgroun,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, -2),
+                                  ),
+                                ],
+                              ),
+                              child: RishButton.primary(
+                                title: 'Confirm ingredients to change',
+                                enabled: selectedIngredients!.isNotEmpty,
+                                isLoading: state.status == Status.loading,
+                                action: () {
+                                  setState(() {
+                                    firstButtonEnabled = false;
+                                  });
+                                  chatBloc.add(
+                                    ChatReplaceIngredient(
+                                      meal: widget.meal,
+                                      ingredients: selectedIngredients!,
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                            Text(
-                              widget.meal.ingredients[index].title,
-                              style: context.styles.regularMedium
-                                  .copyWith(color: RishColors.textPrimary),
-                            ),
-                          ],
-                        ),
-                        value: selectedIngredients!.contains(
-                          widget.meal.ingredients[index],
-                        ),
-                        onChanged: (bool? value) {
-                          final Ingredient ingredient =
-                              widget.meal.ingredients[index];
-                          setState(() {
-                            if (value!) {
-                              selectedIngredients!.add(ingredient);
-                            } else {
-                              selectedIngredients!.remove(ingredient);
-                            }
-                          });
-                        },
-                      );
-                    },
-                  ),
-                if (isExpanded) ...[
-                  SizedBox(height: 12.h),
-                  RishButton.primary(
-                    title: 'Confirm ingredients to change',
-                    enabled: selectedIngredients!.isNotEmpty,
-                    isLoading: state.status == Status.loading,
-                    action: () {
-                      setState(() {
-                        firstButtonEnabled = false;
-                      });
-                      chatBloc.add(
-                        ChatReplaceIngredient(
-                          meal: widget.meal,
-                          ingredients: selectedIngredients!,
-                        ),
-                      );
-                    },
-                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

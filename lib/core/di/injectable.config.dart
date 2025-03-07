@@ -156,8 +156,11 @@ extension GetItInjectableX on _i174.GetIt {
           remoteDataSource: gh<_i948.UserRemoteSource>(),
           localDataSource: gh<_i886.UserLocalDataSource>(),
         ));
-    gh.singleton<_i831.ChatRepository>(
-        () => _i246.ChatRepositoryImpl(gh<_i867.ChatRemoteDataSource>()));
+    gh.singleton<_i831.ChatRepository>(() => _i246.ChatRepositoryImpl(
+          hive: gh<_i410.HiveRepo>(),
+          remote: gh<_i867.ChatRemoteDataSource>(),
+          userRepo: gh<_i926.UserRepository>(),
+        ));
     gh.factory<_i892.ManageDayUsecase>(
         () => _i892.ManageDayUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i663.UpdateUserUsecase>(
@@ -201,13 +204,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i176.RequestPlanUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i208.ReplaceIngredientUsecase>(
         () => _i208.ReplaceIngredientUsecase(gh<_i831.ChatRepository>()));
-    gh.factory<_i1051.WhoopBloc>(() => _i1051.WhoopBloc(
-          gh<_i513.ConnectWhoopUsecase>(),
-          gh<_i757.WhoopGetDataUsecase>(),
-          gh<_i1035.WhoopGetBodyData>(),
-          gh<_i1055.ChangeModificatorOrSexUsecase>(),
-          gh<_i62.DisconnectWhoopUsecase>(),
-        ));
     gh.factory<_i666.ChatBloc>(() => _i666.ChatBloc(
           gh<_i241.InitGptUsecase>(),
           gh<_i176.RequestPlanUsecase>(),
@@ -215,6 +211,14 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i975.FetchSavedSnapUsecase>(),
           gh<_i799.ReplaceMealUsecase>(),
           gh<_i208.ReplaceIngredientUsecase>(),
+        ));
+    gh.factory<_i1051.WhoopBloc>(() => _i1051.WhoopBloc(
+          gh<_i513.ConnectWhoopUsecase>(),
+          gh<_i757.WhoopGetDataUsecase>(),
+          gh<_i1035.WhoopGetBodyData>(),
+          gh<_i1055.ChangeModificatorOrSexUsecase>(),
+          gh<_i62.DisconnectWhoopUsecase>(),
+          gh<_i892.ManageDayUsecase>(),
         ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
           gh<_i1003.LoginViaGoogleUsecase>(),

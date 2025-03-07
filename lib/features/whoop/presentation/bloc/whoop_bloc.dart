@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
@@ -15,11 +16,17 @@ import 'package:rishai/core/status.dart';
 import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
+import 'package:rishai/features/chat/data/chat_repository_impl.dart'
+    as chat_repo;
+import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart'
+    as chat_remote;
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
+import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
     show whoopRemote;
@@ -34,6 +41,8 @@ import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 part 'whoop_event.dart';
 
 final whoopBloc = getIt.get<WhoopBloc>();
+final chatRemoteSrc = chat_remote.chatRemoteSrc;
+final chatRepo = chat_repo.chatRepo;
 
 @injectable
 class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
@@ -43,6 +52,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     this.getBodyUsecase,
     this.changeModificatorOrSexUsecase,
     this.disconnectWhoopUsecase,
+    this.manageDayUsecase,
   ) : super(
           WhoopMainState(
             status: Status.initial,
@@ -56,15 +66,17 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     on<WhoopUserCalibrating>(_userCalibrating);
     on<WhoopRetrieveBodyData>(_getBodyData);
     on<WhoopChangeModificatorOrSex>(_changedModificatorOrSex);
-    on<WhoopUpdateDayByMealPlan>(_updateDayByMeal);
+    on<WhoopUpdateDayByMealPlan>(_updateDayByMealPlan);
     on<WhoopDisconnect>(_disconnect);
     on<WhoopCheckForRefresh>(_checkForRefresh);
+    on<WhoopUpdateCurrentDay>(_updateCurrentDay);
   }
   final ConnectWhoopUsecase connectWhoopUsecase;
   final WhoopGetDataUsecase getDataUsecase;
   final WhoopGetBodyData getBodyUsecase;
   final ChangeModificatorOrSexUsecase changeModificatorOrSexUsecase;
   final DisconnectWhoopUsecase disconnectWhoopUsecase;
+  final ManageDayUsecase manageDayUsecase;
 
   FutureOr<void> _connectWhoop(
     WhoopConnectEvent event,
@@ -132,14 +144,28 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         RishSnackbar().showSnackBar(l.message);
         emit(state.copyWith(status: Status.initial));
       }
-    }, (r) {
+    }, (r) async {
       log('GET USER DATA RES: $r');
+
+      // Обновляем состояние
       emit(
         state.copyWith(
           day: r,
           status: Status.success,
         ),
       );
+
+      // Обновляем кэш чата за последние 7 дней только если это не инициализация
+      if (!event.isInitializing) {
+        final now = DateTime.now();
+        final sevenDaysAgo = now.subtract(const Duration(days: 7));
+        await chatRepo.updateChatCache(
+          directusId: userBloc.state.user.directusId,
+          startDate: sevenDaysAgo,
+          endDate: now,
+        );
+      }
+
       return;
     });
     return;
@@ -163,28 +189,29 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         return;
       }
 
-      // if (user.bodyMeasurements == null) {
       log('retrieveing BODY data');
       await _getBodyData(WhoopRetrieveBodyData(), emit);
-      // }
 
       if (!user.needsQuestionary) {
         log('retrieveing data');
         appNavigationService.go(path: AppRoutes.redirect.path);
 
         await _getUserData(
-          WhoopGetUserData(user.gender!, user.userGoal!),
+          WhoopGetUserData(
+            user.gender!,
+            user.userGoal!,
+            isInitializing: true,
+          ),
           emit,
         );
 
         if (state.status != Status.loading && state.status != Status.error) {
-          chatBloc.add(const InitChatBloc());
+          // Инициализируем чат и получаем дни в правильном порядке
+          chatBloc.add(InitChatBloc(directusId: user.directusId));
           userBloc.add(UserGetDays(newDay: state.day));
+
           appNavigationService.go(
-            path: true
-                // path: adapty.isActive
-                ? AppRoutes.homeScreen.path
-                : AppRoutes.paywall.path,
+            path: true ? AppRoutes.homeScreen.path : AppRoutes.paywall.path,
           );
           emit(state.copyWith(status: Status.success));
           return;
@@ -326,26 +353,56 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     return (carbsKcal, proteinKcal, fatsKcal);
   }
 
-  FutureOr<void> _updateDayByMeal(
+  FutureOr<void> _updateDayByMealPlan(
     WhoopUpdateDayByMealPlan event,
     Emitter<WhoopState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        day: state.day.copyWith(mealPlanEntity: event.mealPlanEntity),
+  ) async {
+    log('Updating day by meal:');
+    log('Event meal plan: ${event.mealPlanEntity}');
+    log('Current state meal plan: ${state.day.mealPlanEntity}');
+
+    // Создаем обновленный день
+    final updatedDay = state.day.copyWith(
+      mealPlanEntity: event.mealPlanEntity.copyWith(
+        cycleId: state.day.cycleId,
       ),
-    );
-    userBloc.add(
-      UserManageDay(
-        day: state.day.copyWith(
-          snap: ChatSnapshotEntity(
-            messages: [],
-            date: DateTime.now(),
-            requestsLeft: chatBloc.state.requestsLeft,
-          ),
+      snap: ChatSnapshotEntity(
+        messages: chatBloc.state.messages,
+        date: DateTime.now(),
+        requestsLeft: chatBloc.state.requestsLeft,
+        mealPlan: event.mealPlanEntity.copyWith(
+          cycleId: state.day.cycleId,
         ),
+        threadId: chatRemoteSrc.threadId,
       ),
     );
+
+    // Проверяем необходимость обновления в Directus
+    bool needsDirectusUpdate = false;
+    if (state.day.mealPlanEntity != event.mealPlanEntity ||
+        !listEquals(state.day.snap.messages, chatBloc.state.messages) ||
+        state.day.snap.requestsLeft != chatBloc.state.requestsLeft) {
+      needsDirectusUpdate = true;
+    }
+
+    // Обновляем состояние локально
+    emit(state.copyWith(day: updatedDay));
+
+    // Если нужно, синхронизируем с бэкендом
+    if (needsDirectusUpdate) {
+      final data =
+          updatedDay.toDirectus(userId: userBloc.state.user.directusId);
+      await manageDayUsecase.call(
+        ManageDayParams(
+          userId: userBloc.state.user.directusId,
+          dayMap: data,
+          incomingDay: updatedDay,
+        ),
+      );
+
+      // Обновляем кэш чата
+      await chatRepo.saveChatSnapShot(chatSnap: updatedDay.snap);
+    }
   }
 
   FutureOr<void> _disconnect(
@@ -383,6 +440,9 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         await whoopRemote.pingLastCycle(cycleId: state.day.cycleId);
 
     if (isThereFreshData) {
+      // Сначала делаем редирект на экран загрузки
+      appNavigationService.go(path: AppRoutes.redirect.path);
+
       final result = await getDataUsecase.call(
         GetDataParams(
           gender: userBloc.state.user.gender!,
@@ -391,13 +451,46 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         ),
       );
 
-      result.fold(
+      await result.fold(
         (failure) {
           emit(state.copyWith(status: Status.error));
+          appNavigationService.go(path: AppRoutes.homeScreen.path);
         },
-        (newDay) {
-          emit(state.copyWith(day: newDay, status: Status.success));
-          userBloc.add(UserGetDays(newDay: newDay));
+        (newDay) async {
+          // Сохраняем существующий план питания и снапшот
+          final existingMealPlan = state.day.mealPlanEntity;
+          final existingSnap = state.day.snap;
+
+          // Обновляем день, сохраняя существующие данные
+          final updatedDay = newDay.copyWith(
+            mealPlanEntity: existingMealPlan,
+            snap: existingSnap,
+          );
+
+          // Обновляем состояние блока
+          emit(state.copyWith(day: updatedDay));
+
+          // Обновляем список дней
+          userBloc.add(UserGetDays(newDay: updatedDay));
+
+          // Синхронизируем состояние чата с выбранной датой
+          chatBloc.add(ChatSyncWithSelectedDate());
+
+          // Обновляем кэш чата за последние 7 дней
+          final now = DateTime.now();
+          final sevenDaysAgo = now.subtract(const Duration(days: 7));
+          await chatRepo.updateChatCache(
+            directusId: userBloc.state.user.directusId,
+            startDate: sevenDaysAgo,
+            endDate: now,
+          );
+
+          // Завершаем загрузку и возвращаемся на главный экран
+          emit(state.copyWith(status: Status.success));
+          appNavigationService.go(path: AppRoutes.homeScreen.path);
+
+          // Показываем уведомление об успешном обновлении
+          RishSnackbar().showSnackBar('Your data has been updated');
         },
       );
     } else {
@@ -405,6 +498,36 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         RishSnackbar().showWarningSnackBar(message: 'Your data is up to date');
       }
       emit(state.copyWith(status: Status.initial));
+    }
+  }
+
+  FutureOr<void> _updateCurrentDay(
+    WhoopUpdateCurrentDay event,
+    Emitter<WhoopState> emit,
+  ) async {
+    try {
+      // Обновляем текущий день
+      emit(state.copyWith(day: event.day));
+
+      // Если план питания был очищен, обновляем в Directus
+      if (state.day.mealPlanEntity != null &&
+          event.day.mealPlanEntity == null) {
+        final data =
+            event.day.toDirectus(userId: userBloc.state.user.directusId);
+        await manageDayUsecase.call(
+          ManageDayParams(
+            userId: userBloc.state.user.directusId,
+            dayMap: data,
+            incomingDay: event.day,
+          ),
+        );
+      }
+
+      // Синхронизируем чат с новым днем
+      chatBloc.add(ChatSyncWithSelectedDate());
+    } catch (e) {
+      log('Error updating current day: $e');
+      RishSnackbar().showSnackBar('Failed to update day. Please try again.');
     }
   }
 }

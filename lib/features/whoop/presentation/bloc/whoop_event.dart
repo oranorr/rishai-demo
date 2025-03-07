@@ -18,10 +18,13 @@ class WhoopConnectEvent extends WhoopEvent {
 class WhoopGetUserData extends WhoopEvent {
   final Gender gender;
   final UserGoal goal;
+  final bool isInitializing;
+
   const WhoopGetUserData(
     this.gender,
-    this.goal,
-  );
+    this.goal, {
+    this.isInitializing = false,
+  });
 }
 
 class InitWhoopOnLogin extends WhoopEvent {}
@@ -48,8 +51,10 @@ class WhoopChangeModificatorOrSex extends WhoopEvent {
 
 class WhoopUpdateDayByMealPlan extends WhoopEvent {
   final MealPlanEntity mealPlanEntity;
+  final ChatSnapshotEntity? snapshot;
   const WhoopUpdateDayByMealPlan({
     required this.mealPlanEntity,
+    this.snapshot,
   });
 }
 
@@ -60,4 +65,12 @@ class WhoopCheckForRefresh extends WhoopEvent {
   const WhoopCheckForRefresh({
     required this.needsErrorSnack,
   });
+}
+
+class WhoopUpdateCurrentDay extends WhoopEvent {
+  final DayEntity day;
+  const WhoopUpdateCurrentDay({required this.day});
+
+  @override
+  List<Object> get props => [day];
 }

@@ -12,7 +12,10 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 
 @Singleton(as: UserRepository)
 class UserRepositoryImpl implements UserRepository {
@@ -47,24 +50,31 @@ class UserRepositoryImpl implements UserRepository {
       final remoteDays =
           await remoteDataSource.fetchRemoteDays(daysIds: params.daysIds);
 
-      final Map<String, DayEntity> daysMap = {};
+      final Map<int, DayEntity> daysMap = {};
 
-// Добавляем локальные данные
+      // Добавляем локальные данные
       for (final day in localDays) {
-        final dateKey = day.dateTime.toIso8601String().substring(0, 10);
-        daysMap[dateKey] = day;
-      }
-
-// Обновляем данными с бэка, если они новее
-      for (final day in remoteDays) {
-        final dateKey = day.dateTime.toIso8601String().substring(0, 10);
-        if (!daysMap.containsKey(dateKey) ||
-            day.dateTime.isAfter(daysMap[dateKey]!.dateTime)) {
-          daysMap[dateKey] = day;
+        if (day.cycleId != null) {
+          daysMap[day.cycleId!] = day;
         }
       }
 
-      return Right(daysMap.values.toList());
+      // Обновляем данными с бэка, если они новее
+      for (final day in remoteDays) {
+        if (day.cycleId != null) {
+          if (!daysMap.containsKey(day.cycleId) ||
+              day.dateTime.isAfter(daysMap[day.cycleId!]!.dateTime)) {
+            daysMap[day.cycleId!] = day;
+          }
+        }
+      }
+
+      // Сортируем дни по дате
+      final sortedDays = daysMap.values.toList()
+        ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+      log('LAST DAY: ${sortedDays.last}');
+      return Right(sortedDays);
     } on Exception catch (e) {
       log('Error getting days: $e');
       return const Left(UnknownFailure());
@@ -126,6 +136,67 @@ class UserRepositoryImpl implements UserRepository {
     } on Exception catch (e) {
       log('Error while managing day: $e');
       return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<DayEntity>>> getDaysWithMealPlans(
+    List<int> daysIds,
+  ) async {
+    try {
+      final days = await whoopRemote.getDaysWithMealPlans(daysIds: daysIds);
+      return Right(days);
+    } catch (e) {
+      log('Error getting days with meal plans: $e');
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateDayWithMealPlan({
+    required String userId,
+    required ChatSnapshotEntity snapshot,
+    required MealPlanEntity mealPlan,
+  }) async {
+    try {
+      final rawUser = await directus.readOne(
+        collection: usersCollection,
+        id: userId,
+      );
+
+      final List<int> ids = List.from(rawUser['days']).cast<int>();
+      if (ids.isEmpty) {
+        return const Left(FailedUpdateUser('No days found'));
+      }
+
+      // Ищем день с такой же датой
+      for (final id in ids.reversed) {
+        final day = await directus.readOne(
+          collection: daysCollection,
+          id: id.toString(),
+        );
+
+        final dayDate = DateTime.fromMillisecondsSinceEpoch(
+          int.parse(day['dateTime']),
+        );
+
+        if (dayDate.isSameDate(snapshot.date)) {
+          await directus.updateOne(
+            collection: daysCollection,
+            itemId: id.toString(),
+            updateData: {
+              'mealPlan': mealPlan.toMap(),
+              'chatSnap': snapshot.toDirectus(),
+            },
+          );
+          return const Right(null);
+        }
+      }
+
+      return const Left(FailedUpdateUser('Day not found'));
+    } on Exception catch (e) {
+      log('Error updating day with meal plan: $e');
+      return Left(FailedUpdateUser(e.toString()));
     }
   }
 }

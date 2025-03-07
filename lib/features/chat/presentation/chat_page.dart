@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
@@ -12,6 +14,7 @@ import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part './widgets/auto_prompts.dart';
 part './widgets/chat_widget.dart';
@@ -43,8 +46,8 @@ class _ChatPageState extends State<ChatPage>
     controller = TextEditingController()
       ..addListener(() {
         setState(() {
-          sendActive =
-              controller.text.isNotEmpty && chatBloc.state.mealPlan != null;
+          sendActive = controller.text.isNotEmpty &&
+              whoopBloc.state.day.mealPlanEntity != null;
         });
       });
     super.initState();

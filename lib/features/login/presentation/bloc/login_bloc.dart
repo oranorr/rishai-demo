@@ -141,9 +141,16 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     UserEntity curUser = userBloc.state.user;
     await prefsRepo.setLogin(true);
+
+    // Сначала сохраняем в Hive
+    await hive.saveUser(user: curUser);
+
+    // Затем обновляем в Directus и состоянии
     userBloc.add(UpdateUserEvent(user: curUser));
+
+    // Инициализируем другие блоки
     whoopBloc.add(InitWhoopOnLogin());
-    chatBloc.add(const InitChatBloc());
+    chatBloc.add(InitChatBloc(directusId: curUser.directusId));
     weekPlanBloc.add(const WeekPlanLoad());
   }
 

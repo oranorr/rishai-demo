@@ -11,6 +11,7 @@ class WeekPlanEvent with _$WeekPlanEvent {
     required bool hasTraining,
     required bool hasSnack,
     required List<ServingEntity> servings,
+    required DateTime startDate,
   }) = WeekPlanGenerate;
 
   const factory WeekPlanEvent.reset() = WeekPlanReset;

@@ -29,14 +29,19 @@ class __AutoPromptsState extends State<_AutoPrompts>
   List<ServingEntity> selectedMeals = [];
 
   @override
-  Widget build(BuildContext context) {
-    // print(currentStep);
+  void initState() {
+    _checkForDate();
+    super.initState();
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    // _checkForDate();
     super.build(context);
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
-        // print(state.mealPlan == null);
+        // print(currentStep);
         return Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 12),
           child: SizedBox(
@@ -46,9 +51,10 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 ? const CircularProgressIndicator()
                 : state.requestsLeft == 0
                     ? const SizedBox.shrink()
-                    : state.mealPlan == null || currentStep == 3
-                        ? _buildStep(currentStep)
-                        : _buildStep(steps.length - 1),
+                    // : whoopBloc.state.day.mealPlanEntity != null ||
+                    //         currentStep == 3
+                    : _buildStep(currentStep),
+            // : _buildStep(steps.length - 1),
           ),
         );
       },
@@ -60,7 +66,6 @@ class __AutoPromptsState extends State<_AutoPrompts>
       case 0:
         return _buildCreateMealPlanButton();
       case 1:
-        // return _buildMealAmountButtons();
         return MealSelectionWidget(
           callback: (list) {
             List<String> names = List.from(
@@ -90,8 +95,6 @@ class __AutoPromptsState extends State<_AutoPrompts>
       case 2:
         return _buildWorkoutButtons();
       case 3:
-
-        // return _buildTrainingButtons();
         return _buildViewMealPlanButton();
       case 4:
         return const _PromptQuestions(isVisible: true);
@@ -160,44 +163,6 @@ class __AutoPromptsState extends State<_AutoPrompts>
     );
   }
 
-  // Widget _buildTrainingButtons() {
-  //   return Row(
-  //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //     children: List.generate(2, (i) {
-  //       return Expanded(
-  //         child: RishButton.primary(
-  //           title: i == 0 ? 'Yes' : 'No',
-  //           enabled: true,
-  //           isLoading: false,
-  //           height: 48.h,
-  //           action: () {
-  //             chatBloc
-  //               ..add(ChatSendMessage(text: i == 0 ? 'Yes' : 'No', isMe: true))
-  //               ..add(
-  //                 const ChatSendMessage(
-  //                   text:
-  //                       "Hold on, I'm creating a personalized meal plan for you",
-  //                   isMe: false,
-  //                 ),
-  //               );
-  //             setState(() {
-  //               trainingToday = i == 0;
-  //               currentStep++;
-  //               chatBloc.add(
-  //                 CreateMealPlan(
-  //                   trainingToday: trainingToday,
-  //                   mealsAmount: mealsAmount,
-  //                   snackToday: snackToday,
-  //                 ),
-  //               );
-  //             });
-  //           },
-  //         ),
-  //       );
-  //     }),
-  //   );
-  // }
-
   Widget _buildViewMealPlanButton() {
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
@@ -213,7 +178,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
                 setState(() {
                   currentStep++;
                   FocusManager.instance.primaryFocus?.unfocus();
-                  widget.controller.rAnimate(2);
+                  widget.controller.rAnimate(0);
                 });
               },
               height: 48.h,
@@ -249,6 +214,56 @@ class __AutoPromptsState extends State<_AutoPrompts>
         }
       },
     );
+  }
+
+  void _checkForDate() {
+    final now = DateTime.now();
+    final currentDay = whoopBloc.state.day;
+    final isToday = currentDay.dateTime.isSameDate(now);
+    final isYesterday =
+        currentDay.dateTime.isSameDate(now.subtract(const Duration(days: 1)));
+    final isFuture = currentDay.dateTime.isAfter(now);
+    final isPast =
+        currentDay.dateTime.isBefore(now.subtract(const Duration(days: 1)));
+    final hasMealPlan = currentDay.mealPlanEntity != null;
+
+    if (isToday) {
+      // Если сегодня и нет плана - можно создать
+      if (!hasMealPlan) {
+        setState(() {
+          currentStep = 0;
+        });
+      } else {
+        // Если план уже есть - показываем вопросы
+        setState(() {
+          currentStep = 4;
+        });
+      }
+    } else if (isYesterday) {
+      // Если вчера и нет плана - можно создать
+      if (!hasMealPlan) {
+        setState(() {
+          currentStep = 0;
+        });
+      } else {
+        // Если план уже был - показываем вопросы
+        setState(() {
+          currentStep = 4;
+        });
+      }
+    } else if (isFuture) {
+      // Для будущих дат показываем вопросы
+      setState(() {
+        currentStep = 4;
+      });
+    } else if (isPast) {
+      // Для прошедших дат (позавчера и раньше) показываем вопросы
+      setState(() {
+        currentStep = 4;
+      });
+    }
+
+    print(currentStep);
   }
 
   @override

@@ -26,7 +26,8 @@ mixin _$WeekPlanEvent {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)
+            List<ServingEntity> servings,
+            DateTime startDate)
         generate,
     required TResult Function() reset,
     required TResult Function() load,
@@ -43,7 +44,8 @@ mixin _$WeekPlanEvent {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult? Function()? reset,
     TResult? Function()? load,
@@ -60,7 +62,8 @@ mixin _$WeekPlanEvent {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult Function()? reset,
     TResult Function()? load,
@@ -130,7 +133,8 @@ abstract class _$$WeekPlanGenerateImplCopyWith<$Res> {
       MacrosBreakdown macros,
       bool hasTraining,
       bool hasSnack,
-      List<ServingEntity> servings});
+      List<ServingEntity> servings,
+      DateTime startDate});
 }
 
 /// @nodoc
@@ -154,6 +158,7 @@ class __$$WeekPlanGenerateImplCopyWithImpl<$Res>
     Object? hasTraining = null,
     Object? hasSnack = null,
     Object? servings = null,
+    Object? startDate = null,
   }) {
     return _then(_$WeekPlanGenerateImpl(
       dietary: null == dietary
@@ -188,6 +193,10 @@ class __$$WeekPlanGenerateImplCopyWithImpl<$Res>
           ? _value._servings
           : servings // ignore: cast_nullable_to_non_nullable
               as List<ServingEntity>,
+      startDate: null == startDate
+          ? _value.startDate
+          : startDate // ignore: cast_nullable_to_non_nullable
+              as DateTime,
     ));
   }
 }
@@ -203,7 +212,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
       required this.macros,
       required this.hasTraining,
       required this.hasSnack,
-      required final List<ServingEntity> servings})
+      required final List<ServingEntity> servings,
+      required this.startDate})
       : _dietary = dietary,
         _cuisines = cuisines,
         _restrictions = restrictions,
@@ -250,8 +260,11 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
   }
 
   @override
+  final DateTime startDate;
+
+  @override
   String toString() {
-    return 'WeekPlanEvent.generate(dietary: $dietary, cuisines: $cuisines, restrictions: $restrictions, calorieTarget: $calorieTarget, macros: $macros, hasTraining: $hasTraining, hasSnack: $hasSnack, servings: $servings)';
+    return 'WeekPlanEvent.generate(dietary: $dietary, cuisines: $cuisines, restrictions: $restrictions, calorieTarget: $calorieTarget, macros: $macros, hasTraining: $hasTraining, hasSnack: $hasSnack, servings: $servings, startDate: $startDate)';
   }
 
   @override
@@ -270,7 +283,9 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
                 other.hasTraining == hasTraining) &&
             (identical(other.hasSnack, hasSnack) ||
                 other.hasSnack == hasSnack) &&
-            const DeepCollectionEquality().equals(other._servings, _servings));
+            const DeepCollectionEquality().equals(other._servings, _servings) &&
+            (identical(other.startDate, startDate) ||
+                other.startDate == startDate));
   }
 
   @override
@@ -283,7 +298,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
       macros,
       hasTraining,
       hasSnack,
-      const DeepCollectionEquality().hash(_servings));
+      const DeepCollectionEquality().hash(_servings),
+      startDate);
 
   /// Create a copy of WeekPlanEvent
   /// with the given fields replaced by the non-null parameter values.
@@ -305,14 +321,15 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)
+            List<ServingEntity> servings,
+            DateTime startDate)
         generate,
     required TResult Function() reset,
     required TResult Function() load,
     required TResult Function() clear,
   }) {
     return generate(dietary, cuisines, restrictions, calorieTarget, macros,
-        hasTraining, hasSnack, servings);
+        hasTraining, hasSnack, servings, startDate);
   }
 
   @override
@@ -326,14 +343,15 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult? Function()? reset,
     TResult? Function()? load,
     TResult? Function()? clear,
   }) {
     return generate?.call(dietary, cuisines, restrictions, calorieTarget,
-        macros, hasTraining, hasSnack, servings);
+        macros, hasTraining, hasSnack, servings, startDate);
   }
 
   @override
@@ -347,7 +365,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult Function()? reset,
     TResult Function()? load,
@@ -356,7 +375,7 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
   }) {
     if (generate != null) {
       return generate(dietary, cuisines, restrictions, calorieTarget, macros,
-          hasTraining, hasSnack, servings);
+          hasTraining, hasSnack, servings, startDate);
     }
     return orElse();
   }
@@ -408,7 +427,8 @@ abstract class WeekPlanGenerate implements WeekPlanEvent {
       required final MacrosBreakdown macros,
       required final bool hasTraining,
       required final bool hasSnack,
-      required final List<ServingEntity> servings}) = _$WeekPlanGenerateImpl;
+      required final List<ServingEntity> servings,
+      required final DateTime startDate}) = _$WeekPlanGenerateImpl;
 
   List<String> get dietary;
   List<String> get cuisines;
@@ -418,6 +438,7 @@ abstract class WeekPlanGenerate implements WeekPlanEvent {
   bool get hasTraining;
   bool get hasSnack;
   List<ServingEntity> get servings;
+  DateTime get startDate;
 
   /// Create a copy of WeekPlanEvent
   /// with the given fields replaced by the non-null parameter values.
@@ -475,7 +496,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)
+            List<ServingEntity> servings,
+            DateTime startDate)
         generate,
     required TResult Function() reset,
     required TResult Function() load,
@@ -495,7 +517,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult? Function()? reset,
     TResult? Function()? load,
@@ -515,7 +538,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult Function()? reset,
     TResult Function()? load,
@@ -619,7 +643,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)
+            List<ServingEntity> servings,
+            DateTime startDate)
         generate,
     required TResult Function() reset,
     required TResult Function() load,
@@ -639,7 +664,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult? Function()? reset,
     TResult? Function()? load,
@@ -659,7 +685,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult Function()? reset,
     TResult Function()? load,
@@ -763,7 +790,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)
+            List<ServingEntity> servings,
+            DateTime startDate)
         generate,
     required TResult Function() reset,
     required TResult Function() load,
@@ -783,7 +811,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult? Function()? reset,
     TResult? Function()? load,
@@ -803,7 +832,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
             MacrosBreakdown macros,
             bool hasTraining,
             bool hasSnack,
-            List<ServingEntity> servings)?
+            List<ServingEntity> servings,
+            DateTime startDate)?
         generate,
     TResult Function()? reset,
     TResult Function()? load,

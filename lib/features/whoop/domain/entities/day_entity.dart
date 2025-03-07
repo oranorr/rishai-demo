@@ -50,7 +50,11 @@ class DayEntity {
       mealPlanEntity: map['mealPlan'] != null
           ? MealPlanEntity.fromMap(map['mealPlan'] as Map<String, dynamic>)
           : null,
-      dateTime: DateTime.fromMillisecondsSinceEpoch(int.parse(map['dateTime'])),
+      dateTime: map['dateTime'] is String
+          ? DateTime.fromMillisecondsSinceEpoch(int.parse(map['dateTime']))
+          : map['dateTime'] is int
+              ? DateTime.fromMillisecondsSinceEpoch(map['dateTime'])
+              : DateTime.now(),
       snap: ChatSnapshotEntity.fromDirectus(
         map['chatSnap'],
       ),
@@ -89,7 +93,7 @@ class DayEntity {
       weekTdeeAverage: weekTdeeAverage ?? this.weekTdeeAverage,
       macros: macros ?? this.macros,
       healthMetrics: healthMetrics ?? this.healthMetrics,
-      mealPlanEntity: mealPlanEntity ?? this.mealPlanEntity,
+      mealPlanEntity: mealPlanEntity,
       dateTime: dateTime ?? this.dateTime,
       snap: snap ?? this.snap,
       cycleId: cycleId ?? this.cycleId,
@@ -101,11 +105,11 @@ class DayEntity {
       'userId': userId,
       'macros': macros.toMap(),
       'healthMetrics': healthMetrics.toMap(),
-      'dateTime': dateTime.millisecondsSinceEpoch,
+      'dateTime': dateTime.millisecondsSinceEpoch.toString(),
       'weekTdeeAverage': weekTdeeAverage,
       'mealPlan': mealPlanEntity?.toMap(),
       'chatSnap': snap.toDirectus(),
-      'cycleId': cycleId,
+      'cycleId': cycleId?.toString(),
     };
   }
 
@@ -130,7 +134,8 @@ class DayEntity {
         other.macros == macros &&
         other.healthMetrics == healthMetrics &&
         other.mealPlanEntity == mealPlanEntity &&
-        other.dateTime == dateTime;
+        other.dateTime == dateTime &&
+        other.snap == snap;
   }
 
   @override

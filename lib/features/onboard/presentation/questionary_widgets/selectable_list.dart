@@ -4,10 +4,12 @@ class SelectableList extends StatefulWidget {
   const SelectableList({
     required this.data,
     required this.setSomething,
+    this.isOptional = false,
     super.key,
   });
   final List<Question> data;
   final Function(List<Question>) setSomething;
+  final bool isOptional;
 
   @override
   State<SelectableList> createState() => _SelectableListState();

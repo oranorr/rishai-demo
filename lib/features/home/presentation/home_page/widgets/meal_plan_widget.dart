@@ -5,41 +5,19 @@ class _MealPlanWidget extends StatelessWidget {
     required this.controller,
     required this.isToday,
     required this.enoughRequests,
+    required this.ifNotTodayNeedsCreatePlan,
     this.plan,
   });
   final PageController controller;
   final MealPlanEntity? plan;
   final bool isToday;
   final bool enoughRequests;
+  final bool ifNotTodayNeedsCreatePlan;
 
   @override
   Widget build(BuildContext context) {
-    if (plan == null) {
-      if (isToday) {
-        if (enoughRequests) {
-          return RishButton.primary(
-            title: 'Create Meal Plan',
-            enabled: true,
-            isLoading: false,
-            action: () async {
-              await controller.rAnimate(0);
-            },
-          );
-        } else {
-          return Text(
-            'You already run out of requests for today. Come again tomorrow.',
-            style: context.styles.regularLarge,
-            textAlign: TextAlign.center,
-          );
-        }
-      } else {
-        return Text(
-          'No meal plan was created that day.',
-          style: context.styles.regularLarge,
-          textAlign: TextAlign.center,
-        );
-      }
-    } else {
+    // print(plan == null);
+    if (plan != null) {
       return _Card(
         child: Column(
           children: [
@@ -53,7 +31,6 @@ class _MealPlanWidget extends StatelessWidget {
                 return _MealTile(
                   meal: meals[index],
                   isToday: isToday,
-                  // isPostWorkout: false,
                 );
               },
               separatorBuilder: (BuildContext context, int index) {
@@ -66,17 +43,49 @@ class _MealPlanWidget extends StatelessWidget {
               SizedBox(
                 height: 20.h,
               ),
-              RishButton.primary(
-                title: 'Clear plan',
-                enabled: true,
-                isLoading: false,
-                action: () {
-                  chatBloc.add(ChatDeleteMealPlan());
+              BlocBuilder<WhoopBloc, WhoopState>(
+                builder: (context, state) {
+                  return RishButton.primary(
+                    title: 'Clear plan',
+                    enabled: state.status != Status.loading,
+                    isLoading: state.status == Status.loading,
+                    action: () {
+                      // print('clear plan');
+                      chatBloc.add(ChatDeleteMealPlan());
+                    },
+                  );
                 },
               ),
             ],
           ],
         ),
+      );
+    }
+
+    // План отсутствует
+    print(ifNotTodayNeedsCreatePlan);
+    if (isToday) {
+      if (enoughRequests) {
+        return RishButton.primary(
+          title: 'Create Meal Plan',
+          enabled: true,
+          isLoading: false,
+          action: () async {
+            await controller.rAnimate(2);
+          },
+        );
+      } else {
+        return Text(
+          'You already run out of requests for today. Come again tomorrow.',
+          style: context.styles.regularLarge,
+          textAlign: TextAlign.center,
+        );
+      }
+    } else {
+      return Text(
+        'No meal plan was created that day.',
+        style: context.styles.regularLarge,
+        textAlign: TextAlign.center,
       );
     }
   }

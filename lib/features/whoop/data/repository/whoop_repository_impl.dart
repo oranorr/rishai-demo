@@ -408,22 +408,64 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required DayEntity newDay,
     required String userId,
   }) async {
+    // Получаем начало и конец дня для проверки
+    final startOfDay = DateTime(
+      newDay.dateTime.year,
+      newDay.dateTime.month,
+      newDay.dateTime.day,
+    ).millisecondsSinceEpoch.toString();
+
+    final endOfDay = DateTime(
+      newDay.dateTime.year,
+      newDay.dateTime.month,
+      newDay.dateTime.day,
+      23,
+      59,
+      59,
+    ).millisecondsSinceEpoch.toString();
+
+    // Проверяем существующий день
     final existingDay = await directus.readMany(
       collection: daysCollection,
       filters: Filters({
-        'cycleId': F.eq(newDay.cycleId),
+        'dateTime': F.between(startOfDay, endOfDay),
       }),
     );
 
-    if (existingDay.isEmpty) {
-      log('DAY IS CREATING!');
-      final rawNewday = await directus.createOne(
-        collection: daysCollection,
-        data: newDay.toDirectus(userId: userId),
-      );
-      return newDay = newDay.copyWith(directusId: rawNewday['id']);
+    // Если день существует
+    if (existingDay.isNotEmpty) {
+      final existingId = existingDay.first['id'].toString();
+      final existingCycleId = existingDay.first['cycleId'];
+
+      // Проверяем состояние цикла только если у существующего дня есть cycleId
+      if (existingCycleId != null) {
+        final isCycleEnded = await remoteDataSource.pingLastCycle(
+          cycleId: int.parse(existingCycleId),
+        );
+
+        // Если цикл не завершен, обновляем существующий день
+        if (!isCycleEnded) {
+          log('Existing cycle not ended, updating current day');
+          await directus.updateOne(
+            collection: daysCollection,
+            itemId: existingId,
+            updateData: newDay.toDirectus(userId: userId),
+          );
+          return newDay.copyWith(directusId: int.parse(existingId));
+        }
+      }
     }
-    return newDay;
+
+    // Создаем новый день если:
+    // 1. День не существует
+    // 2. У существующего дня нет cycleId
+    // 3. Существующий цикл завершен
+    log('Creating new day');
+    final rawNewday = await directus.createOne(
+      collection: daysCollection,
+      data: newDay.toDirectus(userId: userId),
+    );
+    return newDay.copyWith(directusId: rawNewday['id']);
   }
 
   double calculateCalorieGoal({

@@ -49,7 +49,8 @@ class HiveImpl implements HiveRepo {
       ..registerAdapter(WorkoutScoreAdapter())
       ..registerAdapter(BodyMeasurementsEntityAdapter())
       ..registerAdapter(WeekPlanEntityAdapter())
-      ..registerAdapter(HealthMetricsEntityAdapter());
+      ..registerAdapter(HealthMetricsEntityAdapter())
+      ..registerAdapter(MeasurementUnitAdapter());
 
     userBox = await Hive.openBox<UserEntity>('user_box');
     chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
@@ -105,8 +106,57 @@ class HiveImpl implements HiveRepo {
   }
 
   @override
-  Future<void> saveChatSnapshot({required ChatSnapshotEntity snapshot}) async {
-    await chatBox.add(snapshot);
+  Future<void> saveChatSnapshot(
+    ChatSnapshotEntity snapshot, [
+    DateTime? date,
+  ]) async {
+    final dateKey = date?.toIso8601String().substring(0, 10) ??
+        snapshot.date.toIso8601String().substring(0, 10);
+    await chatBox.put(dateKey, snapshot);
+  }
+
+  @override
+  Future<void> clearMealPlan() async {
+    final today = DateTime.now();
+    final dateKey = today.toIso8601String().substring(0, 10);
+
+    // Очищаем снапшот чата для текущего дня
+    final currentSnap = await getChatSnapshot(today);
+    if (currentSnap != null) {
+      await saveChatSnapshot(
+        currentSnap.copyWith(
+          messages: [],
+          requestsLeft: 50,
+        ),
+        today,
+      );
+    }
+
+    // Очищаем сохраненный день если он есть
+    final days = await retrieveSavedDays();
+    final todayDay = days
+        .where(
+          (day) => day.dateTime.toIso8601String().substring(0, 10) == dateKey,
+        )
+        .firstOrNull;
+
+    if (todayDay != null) {
+      await saveDay(
+        data: todayDay.copyWith(
+          snap: currentSnap?.copyWith(
+            messages: [],
+            requestsLeft: 50,
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<ChatSnapshotEntity?> getChatSnapshot([DateTime? date]) async {
+    final dateKey = date?.toIso8601String().substring(0, 10) ??
+        DateTime.now().toIso8601String().substring(0, 10);
+    return chatBox.get(dateKey);
   }
 
   @override
@@ -120,7 +170,23 @@ class HiveImpl implements HiveRepo {
 
   @override
   Future<void> saveDay({required DayEntity data}) async {
-    await dayBox.add(data);
+    if (data.cycleId == null) {
+      await dayBox.add(data);
+      return;
+    }
+
+    // Проверяем существующие дни
+    final existingDays = dayBox.values.toList();
+    final existingDayIndex =
+        existingDays.indexWhere((day) => day.cycleId == data.cycleId);
+
+    if (existingDayIndex != -1) {
+      // Обновляем существующий день
+      await dayBox.putAt(existingDayIndex, data);
+    } else {
+      // Добавляем новый день
+      await dayBox.add(data);
+    }
   }
 
   @override

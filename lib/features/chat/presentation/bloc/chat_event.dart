@@ -35,13 +35,14 @@ class CreateMealPlan extends ChatEvent {
 }
 
 class InitChatBloc extends ChatEvent {
-  final int? requestsLeft;
-  const InitChatBloc({
-    this.requestsLeft,
-  });
+  final String directusId;
+  const InitChatBloc({required this.directusId});
 }
 
-class ChatSaveSnap extends ChatEvent {}
+class ChatSaveSnap extends ChatEvent {
+  final String directusId;
+  const ChatSaveSnap({required this.directusId});
+}
 
 class ChatDeleteMealPlan extends ChatEvent {}
 
@@ -83,3 +84,5 @@ class ChatReplaceIngredient extends ChatEvent {
     required this.ingredients,
   });
 }
+
+class ChatSyncWithSelectedDate extends ChatEvent {}

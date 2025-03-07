@@ -26,7 +26,6 @@ mixin QuestionaryMixin on State<Questionary> {
   }
 
   void resolveType(int page) {
-    // print(gender);
     if (page == 7) {
       setState(() {
         isLastPage = true;
@@ -39,20 +38,18 @@ mixin QuestionaryMixin on State<Questionary> {
 
     bool enabled;
     if (page == 0 || page == 3) {
-      // _type = ButtonType.primary;
       enabled = true;
     } else if (page == 2) {
       enabled = gender != null;
-      // _type = gender == null ? ButtonType.disabled : ButtonType.primary;
     } else if (page == 3) {
       enabled = diets.isNotEmpty;
-      // _type = diets.isEmpty ? ButtonType.disabled : ButtonType.primary;
+    } else if (page == 6) {
+      enabled = true;
     } else {
       enabled = false;
-      // _type = ButtonType.disabled;
     }
+
     setState(() {
-      // type = _type;
       buttonEnabled = enabled;
     });
   }
@@ -93,9 +90,10 @@ mixin QuestionaryMixin on State<Questionary> {
   }
 
   void setRestrictions(List<Question> incRestrictions) {
+    restrictions = incRestrictions.cast<Restriction>();
+    // Кнопка всегда активна для опционального списка restrictions
     setState(() {
-      restrictions = incRestrictions.cast<Restriction>();
-      buttonEnabled = restrictions.isNotEmpty;
+      buttonEnabled = true;
     });
   }
 

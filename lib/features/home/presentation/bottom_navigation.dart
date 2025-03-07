@@ -23,16 +23,16 @@ class RishiBottonNavigationBar extends StatefulWidget {
 
 List<Map<String, String>> dests = [
   {
-    'name': 'Chat',
-    'asset': 'assets/icons/chat.svg',
-  },
-  {
-    'name': 'Prep',
-    'asset': 'assets/icons/chat.svg',
-  },
-  {
     'name': 'Home',
     'asset': 'assets/icons/home.svg',
+  },
+  {
+    'name': 'Meal prep',
+    'asset': 'assets/icons/5.svg',
+  },
+  {
+    'name': 'Chat',
+    'asset': 'assets/icons/chat.svg',
   },
   {
     'name': 'Settings',
@@ -43,19 +43,13 @@ List<Map<String, String>> dests = [
 class _RishiBottonNavigationBarState extends State<RishiBottonNavigationBar> {
   @override
   Widget build(BuildContext context) {
-    int selected = widget.currentPage;
     return SizedBox(
       height: Platform.isAndroid ? 68.h : null,
       child: BottomNavigationBar(
-        onTap: (value) {
-          setState(() {
-            selected = value;
-          });
-          widget.jump(value);
-        },
+        onTap: widget.jump,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        currentIndex: selected,
+        currentIndex: widget.currentPage,
         selectedLabelStyle:
             context.styles.regularMedium.copyWith(color: RishColors.primary),
         unselectedLabelStyle: context.styles.regularMedium,
@@ -66,12 +60,18 @@ class _RishiBottonNavigationBarState extends State<RishiBottonNavigationBar> {
             BottomNavigationBarItem(
               icon: SvgPicture.asset(
                 dests[i]['asset']!,
-                colorFilter: selected == i
+                colorFilter: widget.currentPage == i
                     ? ColorFilter.mode(
                         context.theme.colorScheme.primary,
                         BlendMode.srcIn,
                       )
-                    : null,
+                    : i == 1
+                        ? const ColorFilter.mode(
+                            RishColors.textSecondary,
+                            BlendMode.srcIn,
+                          )
+                        : null,
+                height: i == 1 ? 30.h : null,
               ),
               label: dests[i]['name'],
               backgroundColor: Colors.transparent,

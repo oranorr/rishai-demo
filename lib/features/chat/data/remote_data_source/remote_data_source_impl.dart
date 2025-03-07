@@ -12,8 +12,8 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
@@ -47,12 +47,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
           ],
         ),
       );
-      chatSession = chatModel.startChat(
-        history: [
-          if (chatBloc.state.mealPlan != null)
-            Content.text(chatBloc.state.mealPlan!.toMap().toString()),
-        ],
-      );
+      chatSession = chatModel.startChat();
 
       breakfastModel = GenerativeModel(
         apiKey: key,
@@ -150,7 +145,10 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchLastChatSnap(String directusId) async {
+  Future<Map<String, dynamic>?> fetchLastChatSnap(
+    String directusId, {
+    DateTime? date,
+  }) async {
     try {
       final rawUser = await directus.readOne(
         collection: usersCollection,
@@ -158,11 +156,13 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       );
       if (rawUser['days'].isEmpty) {
         return null;
-      } else {
+      }
+
+      // Если дата не указана, берем последний день
+      if (date == null) {
         final lastDay = await directus.readOne(
           collection: daysCollection,
           id: rawUser['days'].last.toString(),
-          // id: userBloc.state.days.last.directusId.toString(),
         );
         if (lastDay['cycleId'] == null) return null;
 
@@ -175,12 +175,36 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         }
 
         return (lastDay['chatSnap'] as Map<String, dynamic>)
-          ..addAll(
-            {
-              'mealPlan': lastDay['mealPlan'],
-            },
-          );
+          ..addAll({'mealPlan': lastDay['mealPlan']});
       }
+
+      // Если дата указана, ищем день с этой датой
+      for (final dayId in List<int>.from(rawUser['days']).reversed) {
+        final day = await directus.readOne(
+          collection: daysCollection,
+          id: dayId.toString(),
+        );
+
+        if (day['dateTime'] == null) continue;
+
+        final dayDate = DateTime.fromMillisecondsSinceEpoch(
+          int.parse(day['dateTime']),
+        );
+
+        if (dayDate.year == date.year &&
+            dayDate.month == date.month &&
+            dayDate.day == date.day) {
+          if (day['chatSnap'] == null) return null;
+
+          final result = Map<String, dynamic>.from(day['chatSnap']);
+          if (day['mealPlan'] != null) {
+            result['mealPlan'] = day['mealPlan'];
+          }
+          return result;
+        }
+      }
+
+      return null;
     } on Exception catch (e) {
       log('failed to fetch last Chat snap, with error: $e');
       rethrow;
@@ -199,14 +223,17 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<Meal?> replaceMeal(ReplaceMealParams params) async {
+    final currentMeals = whoopBloc.state.day.mealPlanEntity?.meals
+            .map((m) => m.title)
+            .join(', ') ??
+        '';
     final prompt =
-        'I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}';
+        "I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}. Please exclude these meals from today's plan: $currentMeals";
     try {
       final meal =
           await regenerate(type: params.meal.servingType, prompt: prompt);
       await updateChatHistory('from ${params.meal.title} to $meal');
       return meal;
-      // return await regenerate(type: params.meal.servingType, prompt: prompt);
     } on Exception catch (e) {
       log('EXCEPTION: $e');
       return null;
@@ -217,8 +244,12 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   Future<Meal?> replaceIngredient(ReplaceIngredientParams params) async {
     List<String> ingredientsNames =
         List.from(params.ingredients.map((e) => e.title));
+    final currentMeals = whoopBloc.state.day.mealPlanEntity?.meals
+            .map((m) => m.title)
+            .join(', ') ??
+        '';
     final prompt =
-        "In the meal ${params.meal.title} with such ingredients: ${params.meal.ingredients.map((e) => e.title).join(', ')} please replace this ingrdients: $ingredientsNames. Type of meal is: ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions} I prefer: ${params.preferences.cuisines}. I have following restrictions: ${params.preferences.restrictions}";
+        "In the meal ${params.meal.title} with such ingredients: ${params.meal.ingredients.map((e) => e.title).join(', ')} please replace this ingrdients: $ingredientsNames. Type of meal is: ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions}. Please exclude these meals from today's plan: $currentMeals";
     try {
       return await regenerate(type: params.meal.servingType, prompt: prompt);
     } on Exception catch (e) {

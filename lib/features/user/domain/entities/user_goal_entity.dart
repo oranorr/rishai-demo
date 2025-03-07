@@ -104,9 +104,9 @@ class UserGoal {
       case GoalType.aesthetics:
         return 'This variable can only be changed once per day, before meal plan generation.';
       case GoalType.recomp:
-        return 'his variable cannot be changed manually. It automatically changes every two weeks';
+        return 'This variable cannot be changed manually. It automatically changes every two weeks.';
       case GoalType.performance:
-        return 'This variable can only be changed once per day, before meal plan generation';
+        return 'This variable can only be changed once per day, before meal plan generation.';
       case GoalType.optimize:
         return 'This variable stays unchanged for this setting.';
     }

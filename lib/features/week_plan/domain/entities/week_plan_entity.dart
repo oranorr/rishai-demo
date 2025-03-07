@@ -12,9 +12,12 @@ class WeekPlanEntity extends Equatable {
     required this.endDate,
   });
 
-  factory WeekPlanEntity.create(List<MealPlanEntity> plans) {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    final startDate = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+  factory WeekPlanEntity.create({
+    required List<MealPlanEntity> plans,
+    required DateTime startDate,
+  }) {
+    // final tomorrow = DateTime.now().add(const Duration(days: 1));
+
     final endDate =
         startDate.add(const Duration(days: 4)); // +4 так как включая завтра
 

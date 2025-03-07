@@ -18,15 +18,18 @@ class MealPlanEntityAdapter extends TypeAdapter<MealPlanEntity> {
     };
     return MealPlanEntity(
       meals: (fields[0] as List).cast<Meal>(),
+      cycleId: fields[1] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, MealPlanEntity obj) {
     writer
-      ..writeByte(1)
+      ..writeByte(2)
       ..writeByte(0)
-      ..write(obj.meals);
+      ..write(obj.meals)
+      ..writeByte(1)
+      ..write(obj.cycleId);
   }
 
   @override
@@ -146,22 +149,31 @@ class IngredientAdapter extends TypeAdapter<Ingredient> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Ingredient(
-      emojiCode: fields[0] as String,
       title: fields[1] as String,
-      amount: fields[2] as String,
+      quantity: fields[3] as double,
+      unit: fields[4] as MeasurementUnit,
+      emojiCode: fields[0] as String,
+      category: fields[5] as String?,
+      id: fields[2] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Ingredient obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.emojiCode)
       ..writeByte(1)
       ..write(obj.title)
       ..writeByte(2)
-      ..write(obj.amount);
+      ..write(obj.id)
+      ..writeByte(3)
+      ..write(obj.quantity)
+      ..writeByte(4)
+      ..write(obj.unit)
+      ..writeByte(5)
+      ..write(obj.category);
   }
 
   @override
@@ -171,6 +183,60 @@ class IngredientAdapter extends TypeAdapter<Ingredient> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is IngredientAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class MeasurementUnitAdapter extends TypeAdapter<MeasurementUnit> {
+  @override
+  final int typeId = 18;
+
+  @override
+  MeasurementUnit read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return MeasurementUnit.grams;
+      case 1:
+        return MeasurementUnit.milliliters;
+      case 2:
+        return MeasurementUnit.pieces;
+      case 3:
+        return MeasurementUnit.tablespoons;
+      case 4:
+        return MeasurementUnit.teaspoons;
+      default:
+        return MeasurementUnit.grams;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, MeasurementUnit obj) {
+    switch (obj) {
+      case MeasurementUnit.grams:
+        writer.writeByte(0);
+        break;
+      case MeasurementUnit.milliliters:
+        writer.writeByte(1);
+        break;
+      case MeasurementUnit.pieces:
+        writer.writeByte(2);
+        break;
+      case MeasurementUnit.tablespoons:
+        writer.writeByte(3);
+        break;
+      case MeasurementUnit.teaspoons:
+        writer.writeByte(4);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MeasurementUnitAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

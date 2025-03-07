@@ -9,7 +9,6 @@ import 'package:rishai/core/widgets/dropdown_menu.dart';
 import 'package:rishai/core/widgets/modal_sheet.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/onboard/data/questionary_repository.dart';
 import 'package:rishai/features/onboard/domain/entities.dart';
 import 'package:rishai/features/onboard/presentation/questionary.dart';
@@ -29,7 +28,7 @@ class ProfileSettings extends StatefulWidget {
 }
 
 class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
-  bool planCreated = chatBloc.state.mealPlan != null;
+  bool planCreated = whoopBloc.state.day.mealPlanEntity != null;
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
@@ -43,6 +42,35 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
       ),
       child: ListView(
         children: [
+          Padding(
+            padding: EdgeInsets.only(bottom: 24.h),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+              decoration: BoxDecoration(
+                color: RishColors.formBackgroun,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.email_outlined,
+                    color: RishColors.primary,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      // 'sdkfjasl;kdfjasl;dkjfl;askdjf;laskdjfl;aksdjf;laksjdf;laskdjf;alskjdf',
+                      userBloc.state.user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.styles.regularLarge,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           RishDropdownMenu(
             title: 'Dietary preference',
             preSelectedData: updUser.foodPreferences!.diets.join(', '),
@@ -79,7 +107,9 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           SizedBox(height: 16.h),
           RishDropdownMenu(
             title: 'Food restrictions',
-            preSelectedData: updUser.foodPreferences!.restrictions.join(', '),
+            preSelectedData: updUser.foodPreferences!.restrictions.isEmpty
+                ? 'No restrictions'
+                : updUser.foodPreferences!.restrictions.join(', '),
             action: planCreated
                 ? _showDialog
                 : () async {
@@ -87,6 +117,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                       title: 'Food restrictions',
                       context: context,
                       data: QuestionaryRepository().restrictions,
+                      allowEmptySelection: true,
                       onSave: (List<Question> selectedRestrictions) {
                         updateRestrinctions(
                           selectedRestrictions.cast<Restriction>(),
@@ -122,7 +153,8 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                 '${(updUser.userGoal!.modificator * 100).round()} %',
             action: !modificatorChangable
                 ? () {}
-                : modificatorChangable && chatBloc.state.mealPlan == null
+                : modificatorChangable &&
+                        whoopBloc.state.day.mealPlanEntity == null
                     ? () async {
                         await ModificatorSelectorSheet(
                           goal: updUser.userGoal!,
@@ -138,7 +170,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           SizedBox(height: 8.h),
           Text(
             updUser.userGoal!.getSettingsDescription(),
-            style: context.styles.regularSmall
+            style: context.styles.regularMedium
                 .copyWith(color: RishColors.textSecondary),
           ),
           SizedBox(height: 16.h),

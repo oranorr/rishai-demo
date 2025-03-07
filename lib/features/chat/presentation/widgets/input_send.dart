@@ -21,7 +21,7 @@ class __InputAndSendState extends State<_InputAndSend> {
       builder: (context, state) {
         widget.sendActive =
             widget.textEditingController.text.trim().isNotEmpty &&
-                state.mealPlan != null &&
+                whoopBloc.state.day.mealPlanEntity != null &&
                 state.status != Status.loading;
         if (state.requestsLeft <= 0) {
           return Text(
@@ -44,8 +44,9 @@ class __InputAndSendState extends State<_InputAndSend> {
                 textInputAction: TextInputAction.done,
                 controller: widget.textEditingController,
                 decoration: InputDecoration(
-                  hintText:
-                      'Write message (${state.requestsLeft} requests left)',
+                  hintText: kDebugMode
+                      ? 'Write message (${state.requestsLeft} requests left)'
+                      : '',
                   border: OutlineInputBorder(
                     borderSide: const BorderSide(
                       color: RishColors.stroke,
@@ -62,7 +63,7 @@ class __InputAndSendState extends State<_InputAndSend> {
                       chatBloc.add(
                         ChatSendMessage(
                           text: widget.textEditingController.text.trim(),
-                          isRequest: state.mealPlan != null,
+                          isRequest: whoopBloc.state.day.mealPlanEntity != null,
                         ),
                       );
                       widget.textEditingController.clear();

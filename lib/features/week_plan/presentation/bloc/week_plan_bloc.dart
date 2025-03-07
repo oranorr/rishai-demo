@@ -52,6 +52,7 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
       hasTraining: event.hasTraining,
       hasSnack: event.hasSnack,
       servings: event.servings,
+      startDate: event.startDate,
     );
 
     final result = await _generateWeekPlanUsecase(params);

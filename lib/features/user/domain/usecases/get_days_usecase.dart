@@ -13,8 +13,17 @@ class GetDaysUsecase implements UseCase<List<DayEntity>, GetDaysParams> {
   const GetDaysUsecase(this.userRepository);
 
   @override
-  Future<Either<Failure, List<DayEntity>>> call(params) {
-    return userRepository.getDays(params: params);
+  Future<Either<Failure, List<DayEntity>>> call(params) async {
+    try {
+      final days = await userRepository.getDaysWithMealPlans(params.daysIds);
+      return days.fold(
+        (failure) => Left(failure),
+        (days) => Right(days),
+      );
+      // return Right(days);
+    } catch (e) {
+      return const Left(UnknownFailure());
+    }
   }
 }
 

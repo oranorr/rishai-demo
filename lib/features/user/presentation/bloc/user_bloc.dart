@@ -16,10 +16,8 @@ import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
-import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -28,10 +26,9 @@ import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
-import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 
 part 'user_event.dart';
 
@@ -58,6 +55,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserCheckForRecomp>(_checkForRecomp);
     on<UserManageDay>(_manageDay);
     on<UserGetDays>(_getDays);
+    on<UserUpdateDay>(_updateDay);
   }
 
   final UpdateUserUsecase updateUserUsecase;
@@ -85,6 +83,11 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       log('User successfully updated!');
       emit(state.copyWith(status: Status.success));
       await adapty.identify(adaptyId: user.adaptyId!);
+
+      // Сохраняем снапшот чата если пользователь авторизован
+      if (user.directusId != '-1') {
+        chatBloc.add(ChatSaveSnap(directusId: user.directusId));
+      }
     });
   }
 
@@ -121,6 +124,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     CreateUserOnLogin event,
     Emitter<UserState> emit,
   ) async {
+    await hive.saveUser(user: event.user);
     emit(state.copyWith(user: event.user));
   }
 
@@ -162,7 +166,19 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     UserManageDay event,
     Emitter<UserState> emit,
   ) async {
-    final day = event.day.copyWith(mealPlanEntity: chatBloc.state.mealPlan);
+    final day = event.day;
+
+    // Проверяем, действительно ли изменился день
+    final existingDay = state.days.firstWhere(
+      (d) => d.dateTime.isSameDate(day.dateTime),
+      orElse: () => DayEntity.empty(requestsLeft: 0),
+    );
+
+    if (existingDay == day) {
+      log('No changes detected in day, skipping update');
+      return;
+    }
+
     final data = day.toDirectus(userId: state.user.directusId);
 
     await manageDayUsecase.call(
@@ -172,6 +188,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         incomingDay: event.day,
       ),
     );
+
+    // Обновляем список дней только если день действительно изменился
+    add(UserGetDays(newDay: day));
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
@@ -190,24 +209,30 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       RishSnackbar()
           .showSnackBar('Error occured while fetching days. Please, restart.');
     }, (List<DayEntity> r) async {
-      // final isThereFreshData = await whoopRemote.pingCurrentCycle();
-      // log(r.last.toString());
-      // log(currentDay.toString());
-
-      if (!r.any(
-        (day) =>
-            day.cycleId == currentDay.cycleId &&
-            day.dateTime.isSameDate(currentDay.dateTime),
-      )) {
-        log('day is added');
-        r = List.from(r)
-          ..add(currentDay)
-          ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-        emit(state.copyWith(status: Status.success, days: r));
-        return;
-      }
-      log('day is NOT added');
+      // Сортируем дни по дате
       r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+      // Ищем существующий день с той же датой
+      final existingDayIndex = r.indexWhere(
+        (day) => day.dateTime.isSameDate(currentDay.dateTime),
+      );
+
+      if (existingDayIndex != -1) {
+        // Проверяем, действительно ли нужно обновлять день
+        final existingDay = r[existingDayIndex];
+        if (existingDay != currentDay) {
+          r[existingDayIndex] = currentDay.copyWith(
+            mealPlanEntity:
+                currentDay.mealPlanEntity ?? existingDay.mealPlanEntity,
+            snap: currentDay.snap,
+          );
+        }
+      } else {
+        // Добавляем новый день
+        r.add(currentDay);
+        r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      }
+
       emit(state.copyWith(status: Status.success, days: r));
     });
   }
@@ -249,5 +274,16 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       data: day.mockDays(length: 30, id: '139'),
     );
     // print('done');
+  }
+
+  FutureOr<void> _updateDay(UserUpdateDay event, Emitter<UserState> emit) {
+    final updatedDays = state.days.map((day) {
+      if (day.dateTime.isSameDate(event.day.dateTime)) {
+        return event.day;
+      }
+      return day;
+    }).toList();
+
+    emit(state.copyWith(days: updatedDays));
   }
 }

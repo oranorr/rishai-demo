@@ -14,7 +14,6 @@ import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
 import 'package:rishai/features/home/presentation/meal_screen.dart';
 import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
@@ -60,8 +59,18 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     pageController.dispose();
-
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Обновляем состояние WhoopBloc при изменении страницы
+    if (oldWidget.controller.page != widget.controller.page) {
+      final currentDay = userBloc.state.days.reversed
+          .toList()[widget.controller.page?.round() ?? 0];
+      whoopBloc.add(WhoopUpdateCurrentDay(day: currentDay));
+    }
   }
 
   @override
@@ -74,6 +83,7 @@ class _HomePageState extends State<HomePage> {
         }
       },
       builder: (context, state) {
+        print(state.user.daysIds);
         return PageView.builder(
           controller: pageController,
           physics: const NeverScrollableScrollPhysics(),
@@ -118,6 +128,16 @@ class _HomePageBody extends StatefulWidget {
 
 class _HomePageBodyState extends State<_HomePageBody> {
   Completer<void>? _refreshCompleter;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didUpdateWidget(_HomePageBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+  }
 
   Future<void> _onRefresh() {
     _refreshCompleter = Completer<void>();
@@ -233,17 +253,19 @@ class _HomePageBodyState extends State<_HomePageBody> {
                 ],
               ),
               SizedBox(height: 12.h),
-              BlocBuilder<ChatBloc, ChatState>(
-                bloc: chatBloc,
+              BlocBuilder<WhoopBloc, WhoopState>(
+                bloc: whoopBloc,
                 builder: (context, state) {
-                  // print(widget.day.mealPlanEntity);
+                  // print(state.day.mealPlanEntity);
                   return _MealPlanWidget(
-                    enoughRequests: state.requestsLeft != 0,
+                    enoughRequests: chatBloc.state.requestsLeft != 0,
                     controller: widget.controller,
                     isToday: widget.day.isToday,
                     plan: widget.day.isToday
-                        ? state.mealPlan
+                        ? state.day.mealPlanEntity
                         : widget.day.mealPlanEntity,
+                    ifNotTodayNeedsCreatePlan:
+                        widget.day.cycleId == state.day.cycleId,
                   );
                 },
               ),

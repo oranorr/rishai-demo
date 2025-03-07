@@ -6,7 +6,9 @@ abstract class HiveRepo {
   Future<UserEntity?> retrieveSavedUser();
   Future<void> clear();
 
-  Future<void> saveChatSnapshot({required ChatSnapshotEntity snapshot});
+  Future<void> saveChatSnapshot(ChatSnapshotEntity snapshot, [DateTime? date]);
+  Future<void> clearMealPlan();
+  Future<ChatSnapshotEntity?> getChatSnapshot([DateTime? date]);
   Future<ChatSnapshotEntity?> retrieveLastChat();
 
   Future<void> saveDay({required DayEntity data});

@@ -24,38 +24,38 @@ String lorem =
 class MealPlanEntity extends HiveObject {
   MealPlanEntity({
     required this.meals,
+    this.cycleId,
   });
 
-  factory MealPlanEntity.mock() {
-    final rnd = m.Random();
+  // factory MealPlanEntity.mock() {
+  //   final rnd = m.Random();
 
-    return MealPlanEntity(
-      meals: List.generate(
-        rnd.nextInt(4) + 1,
-        (index) => Meal(
-          isRegenerated: false,
-          cookingInstructions: [],
-          title: lorem.substring(1, rnd.nextInt(100) + 20),
-          type: lorem.substring(1, rnd.nextInt(25) + 10),
-          description: lorem.substring(1, rnd.nextInt(lorem.length - 1) + 10),
-          macros: MacrosBreakdown(
-            kcal: rnd.nextInt(500) + 150,
-            protein: rnd.nextInt(60) + 10,
-            carbs: rnd.nextInt(40) + 10,
-            fat: rnd.nextInt(40) + 10,
-          ),
-          ingredients: List.generate(
-            rnd.nextInt(10) + 3,
-            (index) => Ingredient(
-              emojiCode: '',
-              title: lorem.substring(1, rnd.nextInt(lorem.length)),
-              amount: '${lorem.substring(1, rnd.nextInt(10) + 1)} pcs',
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  //   return MealPlanEntity(
+  //     meals: List.generate(
+  //       rnd.nextInt(4) + 1,
+  //       (index) => Meal(
+  //         isRegenerated: false,
+  //         cookingInstructions: [],
+  //         title: lorem.substring(1, rnd.nextInt(100) + 20),
+  //         type: lorem.substring(1, rnd.nextInt(25) + 10),
+  //         description: lorem.substring(1, rnd.nextInt(lorem.length - 1) + 10),
+  //         macros: MacrosBreakdown(
+  //           kcal: rnd.nextInt(500) + 150,
+  //           protein: rnd.nextInt(60) + 10,
+  //           carbs: rnd.nextInt(40) + 10,
+  //           fat: rnd.nextInt(40) + 10,
+  //         ),
+  //         ingredients: List.generate(
+  //           rnd.nextInt(10) + 3,
+  //           (index) => Ingredient(
+  //             title: lorem.substring(1, rnd.nextInt(lorem.length)),
+  //             amount: '${lorem.substring(1, rnd.nextInt(10) + 1)} pcs',
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   factory MealPlanEntity.fromMap(Map<String, dynamic> map) {
     // log(map.toString());
@@ -65,6 +65,7 @@ class MealPlanEntity extends HiveObject {
           (x) => Meal.fromMap(x as Map<String, dynamic>),
         ),
       ),
+      cycleId: map['cycleId'] as int?,
     );
   }
 
@@ -73,24 +74,30 @@ class MealPlanEntity extends HiveObject {
   @HiveField(0)
   List<Meal> meals;
 
+  @HiveField(1)
+  int? cycleId;
+
   MealPlanEntity copyWith({
     List<Meal>? meals,
+    int? cycleId,
   }) {
     return MealPlanEntity(
       meals: meals ?? this.meals,
+      cycleId: cycleId ?? this.cycleId,
     );
   }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'meals': meals.map((x) => x.toMap()).toList(),
+      'cycleId': cycleId,
     };
   }
 
   String toJson() => json.encode(toMap());
 
   @override
-  String toString() => 'MealPlanEntity(meals: $meals)';
+  String toString() => 'MealPlanEntity(meals: $meals, cycleId: $cycleId)';
 
   @override
   bool operator ==(covariant MealPlanEntity other) {
@@ -98,11 +105,11 @@ class MealPlanEntity extends HiveObject {
       return true;
     }
 
-    return listEquals(other.meals, meals);
+    return listEquals(other.meals, meals) && other.cycleId == cycleId;
   }
 
   @override
-  int get hashCode => meals.hashCode;
+  int get hashCode => meals.hashCode ^ cycleId.hashCode;
 }
 
 @HiveType(typeId: 7)
@@ -382,48 +389,165 @@ class MacrosBreakdown {
   }
 }
 
+@HiveType(typeId: 18)
+enum MeasurementUnit {
+  @HiveField(0)
+  grams,
+  @HiveField(1)
+  milliliters,
+  @HiveField(2)
+  pieces,
+  @HiveField(3)
+  tablespoons,
+  @HiveField(4)
+  teaspoons;
+
+  String toDisplayString() {
+    switch (this) {
+      case MeasurementUnit.grams:
+        return 'g';
+      case MeasurementUnit.milliliters:
+        return 'ml';
+      case MeasurementUnit.pieces:
+        return 'pcs';
+      case MeasurementUnit.tablespoons:
+        return 'tbsp';
+      case MeasurementUnit.teaspoons:
+        return 'tsp';
+    }
+  }
+}
+
 @HiveType(typeId: 9)
 class Ingredient {
   Ingredient({
-    required this.emojiCode,
     required this.title,
-    required this.amount,
-  });
+    required this.quantity,
+    required this.unit,
+    this.emojiCode = '',
+    this.category,
+    String? id,
+  }) : id = id ?? UniqueKey().toString();
 
   factory Ingredient.fromMap(Map<String, dynamic> map) {
+    // Обработка старого формата
+    if (map['amount'] != null) {
+      final String amount = map['amount'] as String;
+      final String title = map['title'] as String;
+      final String emoji = (map['emoji'] ?? '') as String;
+
+      return _parseFromLegacyFormat(
+        amount: amount,
+        title: title,
+        emojiCode: emoji,
+      );
+    }
+
     return Ingredient(
+      id: map['id'] as String?,
+      title: map['name'] as String,
+      quantity: (map['quantity'] as num).toDouble(),
+      unit: MeasurementUnit.values.firstWhere(
+        (e) => e.toString().split('.').last == map['unit'],
+        orElse: () => MeasurementUnit.pieces,
+      ),
       emojiCode: (map['emoji'] ?? '') as String,
-      title: map['title'] as String,
-      amount: map['amount'] as String,
+      category: map['category'] as String?,
     );
   }
 
   factory Ingredient.fromJson(String source) =>
       Ingredient.fromMap(json.decode(source) as Map<String, dynamic>);
+
+  static Ingredient _parseFromLegacyFormat({
+    required String amount,
+    required String title,
+    required String emojiCode,
+  }) {
+    // Parse legacy format string quantity
+    final RegExp numericRegex = RegExp(r'(\d+(\.\d+)?)');
+    final RegExp unitRegex = RegExp(r'[a-zA-Z]+\.?\s?l\.?|[a-zA-Z]+|[гмл]');
+
+    final numMatch = numericRegex.firstMatch(amount);
+    final unitMatch = unitRegex.firstMatch(amount);
+
+    double quantity = 1;
+    MeasurementUnit unit = MeasurementUnit.pieces;
+
+    if (numMatch != null) {
+      quantity = double.parse(numMatch.group(1)!);
+    }
+
+    if (unitMatch != null) {
+      final String unitStr = unitMatch.group(0)!.toLowerCase();
+      // Support both English and legacy Russian units
+      if (unitStr.contains('g') || unitStr.contains('г')) {
+        unit = MeasurementUnit.grams;
+      } else if (unitStr.contains('ml') ||
+          unitStr.contains('l') ||
+          unitStr.contains('мл') ||
+          unitStr.contains('л')) {
+        unit = MeasurementUnit.milliliters;
+      } else if (unitStr.contains('tbsp') ||
+          unitStr.contains('tbs') ||
+          unitStr.contains('ст')) {
+        unit = MeasurementUnit.tablespoons;
+      } else if (unitStr.contains('tsp') || unitStr.contains('ч')) {
+        unit = MeasurementUnit.teaspoons;
+      } else if (unitStr.contains('pc') ||
+          unitStr.contains('pcs') ||
+          unitStr.contains('piece')) {
+        unit = MeasurementUnit.pieces;
+      }
+    }
+
+    return Ingredient(
+      title: title,
+      quantity: quantity,
+      unit: unit,
+      emojiCode: emojiCode,
+    );
+  }
+
   @HiveField(0)
   String emojiCode;
   @HiveField(1)
   String title;
   @HiveField(2)
-  String amount;
+  String id;
+  @HiveField(3)
+  double quantity;
+  @HiveField(4)
+  MeasurementUnit unit;
+  @HiveField(5)
+  String? category;
 
   Ingredient copyWith({
     String? emojiCode,
     String? title,
-    String? amount,
+    String? id,
+    double? quantity,
+    MeasurementUnit? unit,
+    String? category,
   }) {
     return Ingredient(
       emojiCode: emojiCode ?? this.emojiCode,
       title: title ?? this.title,
-      amount: amount ?? this.amount,
+      id: id ?? this.id,
+      quantity: quantity ?? this.quantity,
+      unit: unit ?? this.unit,
+      category: category ?? this.category,
     );
   }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
+      'id': id,
+      'name': title,
+      'unit': unit.toString().split('.').last,
+      'quantity': quantity,
       'emoji': emojiCode,
-      'title': title,
-      'amount': amount,
+      'category': category,
     };
   }
 
@@ -431,7 +555,7 @@ class Ingredient {
 
   @override
   String toString() =>
-      'Ingredient(emojiCode: $emojiCode, title: $title, amount: $amount)';
+      '$emojiCode $title — $quantity ${unit.toDisplayString()}';
 
   @override
   bool operator ==(covariant Ingredient other) {
@@ -441,11 +565,20 @@ class Ingredient {
 
     return other.emojiCode == emojiCode &&
         other.title == title &&
-        other.amount == amount;
+        other.id == id &&
+        other.quantity == quantity &&
+        other.unit == unit &&
+        other.category == category;
   }
 
   @override
-  int get hashCode => emojiCode.hashCode ^ title.hashCode ^ amount.hashCode;
+  int get hashCode =>
+      emojiCode.hashCode ^
+      title.hashCode ^
+      id.hashCode ^
+      quantity.hashCode ^
+      unit.hashCode ^
+      category.hashCode;
 
   Widget buildIngredientTile({required BuildContext context}) {
     return Padding(
@@ -464,7 +597,7 @@ class Ingredient {
           ),
           const Spacer(),
           Text(
-            amount,
+            '$quantity ${unit.toDisplayString()}',
             style: context.styles.regularMedium
                 .copyWith(color: RishColors.textSecondary),
           ),

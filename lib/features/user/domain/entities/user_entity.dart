@@ -126,7 +126,6 @@ class UserEntity extends HiveObject {
     return foodPreferences == null ||
         foodPreferences!.cuisines.isEmpty ||
         foodPreferences!.diets.isEmpty ||
-        foodPreferences!.restrictions.isEmpty ||
         userGoal == null ||
         bodyMeasurements == null ||
         gender == null ||

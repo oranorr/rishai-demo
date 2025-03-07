@@ -43,3 +43,10 @@ class UserGetDays extends UserEvent {
     required this.newDay,
   });
 }
+
+class UserUpdateDay extends UserEvent {
+  final DayEntity day;
+  const UserUpdateDay({
+    required this.day,
+  });
+}

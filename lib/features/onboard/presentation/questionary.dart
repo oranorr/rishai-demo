@@ -52,6 +52,7 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
       SelectableList(
         data: QuestionaryRepository().restrictions,
         setSomething: setRestrictions,
+        isOptional: true,
       ),
       SelectableList(
         data: QuestionaryRepository().goals,

@@ -34,6 +34,7 @@ class RequestPlanParams {
     required this.servings,
     required this.snackForToday,
     required this.isWeekPlan,
+    this.excludedMeals,
   });
   final List<String> dietary;
   final List<String> cuisines;
@@ -44,6 +45,8 @@ class RequestPlanParams {
   final List<ServingEntity> servings;
   final bool snackForToday;
   final bool isWeekPlan;
+  final Map<String, List<String>>? excludedMeals;
+
   String generateSinglePrompt() {
     List<Map<String, dynamic>> meals = [];
     Map<String, String> userPrefs = {
@@ -130,7 +133,7 @@ class RequestPlanParams {
   List<Map<ServingType, String>> generatePrompt() {
     final days = userBloc.state.days;
     final alreadyGenereatedMeals =
-        isWeekPlan ? null : DayEntity.getMealHistory(days);
+        isWeekPlan ? excludedMeals : DayEntity.getMealHistory(days);
 
     final userPrefs = {
       'dietary_preferences': dietary.join(', '),
@@ -198,7 +201,6 @@ class RequestPlanParams {
     // Обрабатываем servings
     for (int i = 0; i < servings.length; i++) {
       final serving = servings[i];
-      // 'type': serving.type.name,
       final mealData = {
         'calories': '${mealCalories[i].round()} kcal',
         'protein': '${proteinDistribution[i].round()} g',
@@ -224,23 +226,22 @@ class RequestPlanParams {
       }
     }
 
-    // Возвращаем итог
+    // Возвращаем итог с исключением уже сгенерированных блюд
     return [
       if (breakfast != null)
         {
-          ServingType.breakfast: 'generate_meal_plan_for_me. My data is: $breakfast'
-              '${!isWeekPlan ? ". Please exclude following meals: ${alreadyGenereatedMeals?["breakfasts"]}" : ""}',
+          ServingType.breakfast:
+              'generate_meal_plan_for_me. My data is: $breakfast. Please exclude following meals: ${alreadyGenereatedMeals?["breakfasts"] ?? []}',
         },
       if (generalMeals.isNotEmpty)
         {
           ServingType.dinner:
-              'generate_meal_plan_for_me. My data is: $userPrefs, meals: $generalMeals'
-                  '${!isWeekPlan ? ". Please exclude following meals: ${alreadyGenereatedMeals?["mains"]}" : ""}',
+              'generate_meal_plan_for_me. My data is: $userPrefs, meals: $generalMeals. Please exclude following meals: ${alreadyGenereatedMeals?["mains"] ?? []}',
         },
       if (snack != null)
         {
-          ServingType.snack: 'generate_meal_plan_for_me. My data is: $snack'
-              '${!isWeekPlan ? ". Please exclude following meals: ${alreadyGenereatedMeals?["snacks"]}" : ""}',
+          ServingType.snack:
+              'generate_meal_plan_for_me. My data is: $snack. Please exclude following meals: ${alreadyGenereatedMeals?["snacks"] ?? []}',
         },
     ];
   }
@@ -250,7 +251,6 @@ class RequestPlanParams {
     return 'RequestPlanParams(dietary: $dietary, cuisines: $cuisines, calorieTarget: $calorieTarget, macros: $macros, trainingToday: $trainingToday, servings: $servings, snackForToday: $snackForToday)';
   }
 }
-
 
 
   // List<Map<ServingType, String>> generatePrompt() {
@@ -524,3 +524,4 @@ class RequestPlanParams {
 //     }
 //   }
 // }
+

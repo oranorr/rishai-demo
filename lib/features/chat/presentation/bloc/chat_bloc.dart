@@ -10,8 +10,10 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
-import 'package:rishai/features/chat/data/chat_repository_impl.dart';
-import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart';
+import 'package:rishai/features/chat/data/chat_repository_impl.dart'
+    as chat_repo;
+import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart'
+    as chat_remote;
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
@@ -31,7 +33,8 @@ part 'chat_event.dart';
 
 final chatBloc = getIt.get<ChatBloc>();
 
-int totalRequests = 5;
+const int totalRequests = 50;
+const int defaultRequestsLimit = totalRequests;
 
 @injectable
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
@@ -43,11 +46,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     this.replaceMealUsecase,
     this.replaceIngredientUsecase,
   ) : super(
-          ChatMainState(
+          const ChatMainState(
             status: Status.initial,
             messages: [],
-            requestsLeft: totalRequests,
-            mealPlan: null,
+            requestsLeft: defaultRequestsLimit,
           ),
         ) {
     on<ChatSendMessage>(_sendMessage);
@@ -60,7 +62,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatRefreshChat>(_refreshChat);
     on<ChatReplaceMeal>(_replaceMeal);
     on<ChatReplaceIngredient>(_replaceIngredient);
+    on<ChatSyncWithSelectedDate>(_syncWithSelectedDate);
   }
+
   final InitGptUsecase initGptUsecase;
   final RequestPlanUsecase requestMealPlan;
   final SendMessageGptUsecase sendMessageGptUsecase;
@@ -68,14 +72,28 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final ReplaceMealUsecase replaceMealUsecase;
   final ReplaceIngredientUsecase replaceIngredientUsecase;
 
+  Timer? _syncDebounceTimer;
+
   bool get isRegenAvailable => kDebugMode
       ? true
-      : (state.mealPlan != null &&
-          !state.mealPlan!.meals.any((meal) => meal.isRegenerated));
+      : (whoopBloc.state.day.mealPlanEntity != null &&
+          !whoopBloc.state.day.mealPlanEntity!.meals
+              .any((meal) => meal.isRegenerated));
+
+  ChatSnapshotEntity _createSnapshot() {
+    return ChatSnapshotEntity(
+      messages: state.messages,
+      date: DateTime.now(),
+      requestsLeft: state.requestsLeft,
+      threadId: chat_remote.chatRemoteSrc.threadId,
+    );
+  }
 
   FutureOr<void> _init(InitChatBloc event, Emitter<ChatState> emit) async {
+    if (event.directusId == '-1') return;
+
     final res = await fetchSavedSnapUsecase.call(
-      FetchSavedSnapParams(directusId: userBloc.state.user.directusId),
+      FetchSavedSnapParams(directusId: event.directusId),
     );
 
     String? threadId;
@@ -86,16 +104,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       },
       (snap) {
         if (snap != null) {
-          log('requests left: ${snap.requestsLeft}');
           emit(
             state.copyWith(
               messages: snap.messages,
               requestsLeft: snap.requestsLeft,
-              mealPlan: snap.mealPlan,
             ),
           );
           threadId = snap.threadId;
-          log('requests left: ${state.requestsLeft}');
         }
       },
     );
@@ -127,95 +142,151 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         final msg = MessageEntity(text: result, isMe: false);
         list.add(msg);
         emit(state.copyWith(requestsLeft: state.requestsLeft - 1));
-        userBloc.add(
-          UserManageDay(
-            day: whoopBloc.state.day.copyWith(
-              snap: ChatSnapshotEntity(
-                messages: [],
-                date: DateTime.now(),
-                requestsLeft: state.requestsLeft,
-                threadId: chatRemoteSrc.threadId,
-              ),
-            ),
+
+        // Создаем новый снэпшот
+        final snap = _createSnapshot();
+
+        // Обновляем день через whoopBloc
+        whoopBloc.add(
+          WhoopUpdateDayByMealPlan(
+            mealPlanEntity: whoopBloc.state.day.mealPlanEntity!,
+            snapshot: snap,
           ),
         );
       });
     }
 
     emit(state.copyWith(messages: list));
-    add(ChatSaveSnap());
   }
 
-  FutureOr<void> _createMealPlan(
+  Future<void> _createMealPlan(
     CreateMealPlan event,
     Emitter<ChatState> emit,
   ) async {
-    emit(state.copyWith(status: Status.loading));
-    final user = userBloc.state.user;
-    final res = await requestMealPlan.call(
-      RequestPlanParams(
-        restrictions: user.foodPreferences!.restrictions,
-        dietary: user.foodPreferences!.diets,
-        cuisines: user.foodPreferences!.cuisines,
-        calorieTarget: whoopBloc.state.day.macros.kcal,
-        macros: whoopBloc.state.day.macros,
-        trainingToday: event.trainingToday,
-        servings: event.meals,
-        snackForToday: event.snackToday,
-        isWeekPlan: false,
-      ),
-    );
-    res.fold((failure) {
+    try {
+      emit(state.copyWith(status: Status.loading));
+
+      final result = await requestMealPlan(
+        RequestPlanParams(
+          dietary: userBloc.state.user.foodPreferences?.diets ?? [],
+          cuisines: userBloc.state.user.foodPreferences?.cuisines ?? [],
+          restrictions: userBloc.state.user.foodPreferences?.restrictions ?? [],
+          calorieTarget: whoopBloc.state.day.macros.kcal,
+          macros: whoopBloc.state.day.macros,
+          trainingToday: event.trainingToday,
+          servings: event.meals,
+          snackForToday: event.snackToday,
+          isWeekPlan: false,
+        ),
+      );
+
+      await result.fold(
+        (failure) {
+          emit(state.copyWith(status: Status.error));
+          RishSnackbar().showSnackBar(failure.message);
+        },
+        (mealPlan) async {
+          // Создаем снапшот чата
+          final chatSnap = _createSnapshot();
+
+          // Обновляем день с новым планом питания и снапшотом
+          final updatedDay = whoopBloc.state.day.copyWith(
+            mealPlanEntity: mealPlan,
+            snap: chatSnap,
+          );
+
+          // Сохраняем обновленный день
+          await hive.saveDay(data: updatedDay);
+
+          // Обновляем состояние
+          emit(
+            state.copyWith(
+              status: Status.success,
+              requestsLeft: state.requestsLeft - 1,
+            ),
+          );
+
+          // Обновляем состояние в WhoopBloc
+          whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+        },
+      );
+    } catch (e) {
       emit(state.copyWith(status: Status.error));
-    }, (plan) {
-      emit(
-        state.copyWith(
-          mealPlan: plan,
-          requestsLeft: state.requestsLeft - 1,
-          status: Status.success,
-        ),
-      );
-      add(
-        const ChatSendMessage(
-          text: 'Your meal plan is ready. Check it out.',
-          isMe: false,
-        ),
-      );
-      whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: plan));
-    });
-    add(ChatSaveSnap());
+      RishSnackbar().showSnackBar(e.toString());
+    }
   }
 
   FutureOr<void> _saveSnap(ChatSaveSnap event, Emitter<ChatState> emit) async {
-    final chatSnap = ChatSnapshotEntity(
-      messages: state.messages,
-      date: DateTime.now(),
-      requestsLeft: state.requestsLeft,
-      mealPlan: state.mealPlan,
-      threadId: chatRemoteSrc.threadId,
-    );
-    await chatRepo.saveChatSnapShot(chatSnap: chatSnap);
+    final chatSnap = _createSnapshot();
+
+    await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
   }
 
   FutureOr<void> _deleteMealPlan(
     ChatDeleteMealPlan event,
     Emitter<ChatState> emit,
   ) async {
-    emit(
-      state.copyWith(
-        mealPlan: null,
-        requestsLeft: 5,
+    try {
+      emit(state.copyWith(status: Status.loading));
+
+      // Очищаем состояние чата
+      emit(
+        state.copyWith(
+          requestsLeft: defaultRequestsLimit,
+          messages: [],
+        ),
+      );
+
+      // Создаем новый снапшот без плана питания
+      final chatSnap = ChatSnapshotEntity(
         messages: [],
-      ),
-    );
-    add(ChatSaveSnap());
+        date: DateTime.now(),
+        requestsLeft: defaultRequestsLimit,
+        threadId: chat_remote.chatRemoteSrc.threadId,
+      );
+
+      // Создаем день без плана питания, сохраняя остальные данные
+      final updatedDay = whoopBloc.state.day.copyWith(
+        snap: chatSnap,
+      );
+
+      // Обновляем день в WhoopBloc
+      whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+
+      // Очищаем данные в Hive
+      await hive.clearMealPlan();
+
+      emit(state.copyWith(status: Status.success));
+    } catch (e) {
+      log('Error clearing meal plan: $e');
+      emit(state.copyWith(status: Status.error));
+      RishSnackbar()
+          .showSnackBar('Failed to clear meal plan. Please try again.');
+    }
   }
 
-  FutureOr<void> _fetchLatsPlan(
+  Future<void> _fetchLatsPlan(
     ChatFetchLastMealPlan event,
     Emitter<ChatState> emit,
   ) async {
-    emit(state.copyWith(mealPlan: event.day.mealPlanEntity));
+    try {
+      final now = DateTime.now();
+      final sevenDaysAgo = now.subtract(const Duration(days: 7));
+
+      // Обновляем состояние с сообщениями и количеством запросов
+      emit(
+        state.copyWith(
+          requestsLeft: event.day.snap.requestsLeft ?? state.requestsLeft,
+          messages: event.day.snap.messages ?? state.messages,
+        ),
+      );
+
+      // Сохраняем снапшот
+      final chatSnap = _createSnapshot();
+      await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
+    } catch (e) {
+      RishSnackbar().showSnackBar(e.toString());
+    }
   }
 
   FutureOr<void> _chatOnLogout(
@@ -225,8 +296,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(
       state.copyWith(
         messages: [],
-        requestsLeft: event.needsCounterClear ? 5 : state.requestsLeft,
-        mealPlan: null,
+        requestsLeft:
+            event.needsCounterClear ? defaultRequestsLimit : state.requestsLeft,
       ),
     );
   }
@@ -239,8 +310,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(
       state.copyWith(
         messages: event.needsRequestsAmountRefresh ? [] : state.messages,
-        requestsLeft: event.needsRequestsAmountRefresh ? 5 : state.requestsLeft,
-        mealPlan: null,
+        requestsLeft: event.needsRequestsAmountRefresh
+            ? defaultRequestsLimit
+            : state.requestsLeft,
       ),
     );
   }
@@ -276,18 +348,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       appNavigationService.go(path: AppRoutes.homeScreen.path);
       RishSnackbar().showSnackBar('Failed to replace meal, try again.');
     }, (meal) {
-      final updatedMeals = state.mealPlan!.meals.map((m) {
+      final updatedMeals = whoopBloc.state.day.mealPlanEntity!.meals.map((m) {
         return m.servingType == meal.servingType ? meal : m;
       }).toList();
 
-      final updatedMealPlan = state.mealPlan!.copyWith(meals: updatedMeals);
+      final updatedMealPlan =
+          whoopBloc.state.day.mealPlanEntity!.copyWith(meals: updatedMeals);
 
-      emit(
-        state.copyWith(
-          mealPlan: updatedMealPlan,
-          status: Status.success,
-        ),
-      );
+      emit(state.copyWith(status: Status.success));
       add(
         const ChatSendMessage(
           text: 'Your meal plan is updated. Check it out.',
@@ -330,18 +398,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             .showSnackBar('Failed to replace ingredient, please try again.');
       },
       (meal) {
-        final updatedMeals = state.mealPlan!.meals.map((m) {
+        final updatedMeals = whoopBloc.state.day.mealPlanEntity!.meals.map((m) {
           return m.servingType == meal.servingType ? meal : m;
         }).toList();
 
-        final updatedMealPlan = state.mealPlan!.copyWith(meals: updatedMeals);
+        final updatedMealPlan =
+            whoopBloc.state.day.mealPlanEntity!.copyWith(meals: updatedMeals);
 
-        emit(
-          state.copyWith(
-            mealPlan: updatedMealPlan,
-            status: Status.success,
-          ),
-        );
+        emit(state.copyWith(status: Status.success));
         add(
           const ChatSendMessage(
             text: 'Your meal is updated. Check it out.',
@@ -355,5 +419,56 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           ..pop(path: AppRoutes.homeScreen.path);
       },
     );
+  }
+
+  FutureOr<void> _syncWithSelectedDate(
+    ChatSyncWithSelectedDate event,
+    Emitter<ChatState> emit,
+  ) async {
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (emit.isDone) return;
+
+      final selectedDay = whoopBloc.state.day;
+
+      // Проверяем, что пользователь авторизован
+      if (userBloc.state.user.directusId == '-1') {
+        if (!emit.isDone) {
+          emit(
+            state.copyWith(
+              messages: [],
+              requestsLeft: defaultRequestsLimit,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Проверяем, нужно ли обновлять состояние
+      final currentMessages = state.messages;
+      final newMessages = selectedDay.snap.messages ?? [];
+      final currentRequestsLeft = state.requestsLeft;
+      final newRequestsLeft =
+          selectedDay.snap.requestsLeft ?? state.requestsLeft;
+
+      // Обновляем состояние только если есть реальные изменения
+      if (!listEquals(currentMessages, newMessages) ||
+          currentRequestsLeft != newRequestsLeft) {
+        log('Синхронизация чата: обновляем состояние с новыми данными');
+
+        if (!emit.isDone) {
+          emit(
+            state.copyWith(
+              messages: newMessages,
+              requestsLeft: newRequestsLeft,
+            ),
+          );
+        }
+
+        // Сохраняем снапшот в кэш только если есть изменения
+        final chatSnap = _createSnapshot();
+        await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
+      }
+    });
   }
 }

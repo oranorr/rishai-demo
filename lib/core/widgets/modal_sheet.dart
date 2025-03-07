@@ -144,6 +144,7 @@ class ModalSheet {
     required BuildContext context,
     required List<Question> data,
     required Function(List<Question>) onSave,
+    bool allowEmptySelection = false,
   }) async {
     await showModalBottomSheet(
       context: context,
@@ -156,6 +157,7 @@ class ModalSheet {
           onSave: onSave,
           data: data,
           needsChildrenScroll: true,
+          allowEmptySelection: allowEmptySelection,
         );
       },
     );
@@ -167,9 +169,9 @@ class ModalSheet {
     required String text,
     required List<Question> data,
     required Function(List<Question>) onSave,
-    // required List<Widget> children,
     bool? needsChildrenScroll = false,
     bool? needsTitle = true,
+    bool allowEmptySelection = false,
   }) {
     List<Question> selected = [];
     FitnessGoal? goalSelected;
@@ -293,20 +295,11 @@ class ModalSheet {
                         }
                         context.pop();
                       },
-                      enabled: selected.isNotEmpty || goalSelected != null,
+                      enabled: allowEmptySelection ||
+                          selected.isNotEmpty ||
+                          goalSelected != null,
                       isLoading: false,
                     ),
-
-                    // RishButton(
-                    //   action: () {
-
-                    //   },
-                    //   isLoading: false,
-                    //   ),
-                    //   type: selected.isNotEmpty || goalSelected != null
-                    //       ? ButtonType.primary
-                    //       : ButtonType.disabled,
-                    // ),
                   ),
                 ),
               ],

@@ -96,7 +96,7 @@ List<OtherEntity> data = [
     type: OtherType.help,
   ),
   OtherEntity(
-    title: 'COMING SOON FEATURES',
+    title: 'Current & coming soon features',
     body: LegalTextsRepo().comingSoon,
     type: OtherType.premium,
   ),
@@ -121,7 +121,6 @@ enum OtherType {
   premium,
   ref,
 }
-
 
 //  {
 //     'title': 'Terms of Service',
