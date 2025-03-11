@@ -231,7 +231,18 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> with WeekPlanMixin {
       plan.startDate.month,
       plan.startDate.day,
     );
+    final endDate = DateTime(
+      plan.endDate.year,
+      plan.endDate.month,
+      plan.endDate.day,
+    );
 
-    return currentDate.isBefore(startDate);
+    // План активен если:
+    // 1. Текущая дата совпадает с датой начала
+    // 2. Текущая дата находится между началом и концом плана
+    // 3. Текущая дата до начала плана (чтобы можно было экспортировать список покупок)
+    return currentDate.isAtSameMomentAs(startDate) ||
+        (currentDate.isAfter(startDate) && currentDate.isBefore(endDate)) ||
+        currentDate.isBefore(startDate);
   }
 }

@@ -67,14 +67,83 @@ class GenerateWeekPlanUsecase
         if (i < 4) await Future.delayed(const Duration(seconds: 2));
       }
 
+      // Проверяем полноту плана и добиваем недостающие блюда
+      final completedPlans = await _completeIncompletePlans(
+        weekPlans,
+        params,
+        generatedMeals,
+      );
+
       return Right(
-        WeekPlanEntity.create(plans: weekPlans, startDate: params.startDate),
+        WeekPlanEntity.create(
+            plans: completedPlans, startDate: params.startDate),
       );
     } catch (e) {
       return const Left(
         WeekPlanGenerationFailure('Failed to generate week plan'),
       );
     }
+  }
+
+  Future<List<MealPlanEntity>> _completeIncompletePlans(
+    List<MealPlanEntity> plans,
+    WeekPlanParams params,
+    Map<String, List<String>> generatedMeals,
+  ) async {
+    final List<MealPlanEntity> completedPlans = [];
+
+    for (int i = 0; i < plans.length; i++) {
+      final plan = plans[i];
+      final expectedMealsCount = params.servings.length;
+
+      if (plan.meals.length < expectedMealsCount) {
+        print(
+            'Found incomplete plan for day ${i + 1}. Expected $expectedMealsCount meals, got ${plan.meals.length}');
+
+        // Создаем новый план для добивки
+        final dayParams = RequestPlanParams(
+          dietary: params.dietary,
+          cuisines: params.cuisines,
+          restrictions: params.restrictions,
+          calorieTarget: params.calorieTarget,
+          macros: params.macros,
+          trainingToday: params.hasTraining,
+          servings: params.servings,
+          snackForToday: params.hasSnack,
+          isWeekPlan: true,
+          excludedMeals: generatedMeals,
+        );
+
+        final result = await requestPlanUsecase(dayParams);
+
+        final newPlan = result.fold(
+          (failure) =>
+              plan, // Если не удалось сгенерировать новый план, оставляем старый
+          (success) {
+            // Обновляем список исключений
+            for (final meal in success.meals) {
+              switch (meal.servingType) {
+                case ServingType.breakfast:
+                  generatedMeals['breakfasts']!.add(meal.title);
+                case ServingType.snack:
+                  generatedMeals['snacks']!.add(meal.title);
+                case ServingType.lunch:
+                case ServingType.dinner:
+                case ServingType.supper:
+                  generatedMeals['mains']!.add(meal.title);
+              }
+            }
+            return success;
+          },
+        );
+
+        completedPlans.add(newPlan);
+      } else {
+        completedPlans.add(plan);
+      }
+    }
+
+    return completedPlans;
   }
 
   // List<Map<ServingType, String>> _generatePrompts({

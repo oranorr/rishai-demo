@@ -7,5 +7,6 @@ abstract class WhoopTokenService {
 
   Future<bool> initService();
   Future<void> diconnect(String userId);
+  Future<bool> shouldAttemptReconnect();
   // Future<void> refreshToken();
 }

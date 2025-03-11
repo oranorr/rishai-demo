@@ -190,6 +190,11 @@ You are Pivot Nutrition AI, responsible for generating satisfying and balanced s
     }
   ]
 }
+
+## IMPORTANT NOTES
+- ALWAYS return exactly ONE snack in the "meals" array
+- DO NOT return multiple snacks or variations
+- The response must contain a single, complete snack option
 </system_prompt>
 ''';
 }

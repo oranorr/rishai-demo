@@ -125,7 +125,7 @@ mixin QuestionaryMixin on State<Questionary> {
       );
       userBloc.add(UpdateUserEvent(user: updUser));
       // await Future.delayed(Durations.short1);
-      whoopBloc.add(InitWhoopOnLogin());
+      whoopBloc.add(const InitWhoopOnLogin());
       context.go(AppRoutes.redirect.path);
     }
   }

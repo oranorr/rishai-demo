@@ -211,6 +211,7 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i975.FetchSavedSnapUsecase>(),
           gh<_i799.ReplaceMealUsecase>(),
           gh<_i208.ReplaceIngredientUsecase>(),
+          gh<_i892.ManageDayUsecase>(),
         ));
     gh.factory<_i1051.WhoopBloc>(() => _i1051.WhoopBloc(
           gh<_i513.ConnectWhoopUsecase>(),

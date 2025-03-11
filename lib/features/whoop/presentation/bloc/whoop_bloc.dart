@@ -22,7 +22,6 @@ import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_
     as chat_remote;
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
-import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -101,7 +100,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     if (success) {
       await _getBodyData(WhoopRetrieveBodyData(), emit);
       if (!needsQuestionary) {
-        await _initWhoopOnLogin(InitWhoopOnLogin(), emit);
+        await _initWhoopOnLogin(const InitWhoopOnLogin(), emit);
       }
       await Future.delayed(Durations.medium1, () {
         appNavigationService.go(
@@ -121,54 +120,63 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     WhoopGetUserData event,
     Emitter<WhoopState> emit,
   ) async {
-    emit(state.copyWith(status: Status.loading));
+    if (!event.isInitializing) {
+      emit(state.copyWith(status: Status.loading));
+    }
 
-    final res = await getDataUsecase.call(
-      GetDataParams(
-        gender: event.gender,
-        goal: event.goal,
-        userId: userBloc.state.user.directusId,
-      ),
-    );
-
-    await res.fold((l) async {
-      emit(state.copyWith(status: Status.error));
-      if (l.runtimeType == WhoopNoDataFailure) {
-        add(const WhoopUserCalibrating(needsRedirect: true));
-        emit(state.copyWith(status: Status.initial));
-        if (state.calibratingCompleteDate != null) {
-          return;
-        }
-        return;
-      } else {
-        RishSnackbar().showSnackBar(l.message);
-        emit(state.copyWith(status: Status.initial));
-      }
-    }, (r) async {
-      log('GET USER DATA RES: $r');
-
-      // Обновляем состояние
-      emit(
-        state.copyWith(
-          day: r,
-          status: Status.success,
+    try {
+      final result = await getDataUsecase.call(
+        GetDataParams(
+          gender: event.gender,
+          goal: event.goal,
+          userId: userBloc.state.user.directusId,
         ),
       );
 
-      // Обновляем кэш чата за последние 7 дней только если это не инициализация
+      await result.fold(
+        (failure) async {
+          log('Failed to get user data: ${failure.message}', name: 'WhoopBloc');
+          emit(state.copyWith(status: Status.error));
+
+          if (failure is WhoopFailedToReturnAccessToken) {
+            final shouldReconnect =
+                await wTokenService.shouldAttemptReconnect();
+            if (shouldReconnect) {
+              log('WHOOP connection needs to be refreshed');
+              RishSnackbar().showSnackBar(
+                'WHOOP connection needs to be refreshed. Please reconnect.',
+              );
+              appNavigationService.go(path: AppRoutes.whoopConnect.path);
+              return;
+            }
+          }
+
+          if (!event.isInitializing) {
+            RishSnackbar().showSnackBar(
+              'Failed to get WHOOP data: ${failure.message}. Please try reconnecting.',
+            );
+          }
+        },
+        (day) {
+          emit(
+            state.copyWith(
+              status: Status.success,
+              day: day,
+              whoopConnected: true,
+            ),
+          );
+        },
+      );
+    } on Exception catch (e) {
+      log('Error getting user data: $e', name: 'WhoopBloc');
+      emit(state.copyWith(status: Status.error));
+
       if (!event.isInitializing) {
-        final now = DateTime.now();
-        final sevenDaysAgo = now.subtract(const Duration(days: 7));
-        await chatRepo.updateChatCache(
-          directusId: userBloc.state.user.directusId,
-          startDate: sevenDaysAgo,
-          endDate: now,
+        RishSnackbar().showSnackBar(
+          'Failed to get WHOOP data. Please check your internet connection and try again.',
         );
       }
-
-      return;
-    });
-    return;
+    }
   }
 
   FutureOr<void> _initWhoopOnLogin(
@@ -184,8 +192,26 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       log('INIT TOKEN SERVICE RES: $isTokenOk');
 
       if (!isTokenOk) {
-        appNavigationService.go(path: AppRoutes.whoopConnect.path);
+        // Проверяем, стоит ли пытаться переподключиться
+        final shouldReconnect = await wTokenService.shouldAttemptReconnect();
+        if (shouldReconnect) {
+          log('Attempting to reconnect to WHOOP');
+          // Очищаем старые данные перед переподключением
+          await wTokenService.diconnect(user.directusId);
+          // Перенаправляем на экран подключения вместо автоматической попытки
+          RishSnackbar().showSnackBar(
+            'WHOOP connection needs to be refreshed. Please reconnect.',
+          );
+          emit(state.copyWith(status: Status.initial));
+          appNavigationService.go(path: AppRoutes.whoopConnect.path);
+          return;
+        }
+
+        RishSnackbar().showSnackBar(
+          'Unable to connect to WHOOP. Please reconnect your account.',
+        );
         emit(state.copyWith(status: Status.initial));
+        appNavigationService.go(path: AppRoutes.whoopConnect.path);
         return;
       }
 
@@ -206,7 +232,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         );
 
         if (state.status != Status.loading && state.status != Status.error) {
-          // Инициализируем чат и получаем дни в правильном порядке
           chatBloc.add(InitChatBloc(directusId: user.directusId));
           userBloc.add(UserGetDays(newDay: state.day));
 
@@ -222,7 +247,11 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         return;
       }
     } on Exception catch (e) {
-      RishSnackbar().showSnackBar(e.toString());
+      log('Error during WHOOP initialization: $e');
+      RishSnackbar().showSnackBar(
+        'Unable to connect to WHOOP. Please try again later.',
+      );
+      emit(state.copyWith(status: Status.initial));
     }
   }
 
@@ -306,7 +335,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           appNavigationService.go(path: AppRoutes.redirect.path);
         },
       );
-      await _initWhoopOnLogin(InitWhoopOnLogin(), emit);
+      await _initWhoopOnLogin(const InitWhoopOnLogin(), emit);
     }
   }
 
@@ -430,6 +459,53 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     }
   }
 
+  bool shouldKeepExistingMealPlan(DayEntity currentDay, DayEntity newDay) {
+    // Проверяем, что дни относятся к одному и тому же дню
+    final isSameDay = currentDay.dateTime.year == newDay.dateTime.year &&
+        currentDay.dateTime.month == newDay.dateTime.month &&
+        currentDay.dateTime.day == newDay.dateTime.day;
+
+    // Проверяем, что у нас есть существующий план
+    final hasExistingPlan = currentDay.mealPlanEntity != null;
+
+    // Проверяем, что новый план не содержит более свежих данных
+    final newPlanIsEmpty = newDay.mealPlanEntity == null;
+
+    // Проверяем cycleId для определения актуальности данных
+    final isSameCycle = currentDay.cycleId == newDay.cycleId;
+
+    // Проверяем, что новый день не более свежий
+    final isNewerDay = newDay.dateTime.isAfter(currentDay.dateTime);
+
+    if (kDebugMode) {
+      log(
+        'Meal plan update decision:\n'
+        'Current day: ${currentDay.dateTime}\n'
+        'New day: ${newDay.dateTime}\n'
+        'Same day: $isSameDay\n'
+        'Has existing plan: $hasExistingPlan\n'
+        'New plan is empty: $newPlanIsEmpty\n'
+        'Same cycle: $isSameCycle\n'
+        'Current cycle: ${currentDay.cycleId}\n'
+        'New cycle: ${newDay.cycleId}\n'
+        'Is newer day: $isNewerDay',
+        name: 'WhoopBloc',
+      );
+    }
+
+    // Сохраняем существующий план только если:
+    // 1. Дни совпадают
+    // 2. Есть существующий план
+    // 3. Новый план пустой
+    // 4. Циклы совпадают
+    // 5. Новый день не более свежий
+    return isSameDay &&
+        hasExistingPlan &&
+        newPlanIsEmpty &&
+        isSameCycle &&
+        !isNewerDay;
+  }
+
   FutureOr<void> _checkForRefresh(
     WhoopCheckForRefresh event,
     Emitter<WhoopState> emit,
@@ -457,13 +533,17 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           appNavigationService.go(path: AppRoutes.homeScreen.path);
         },
         (newDay) async {
-          // Сохраняем существующий план питания и снапшот
-          final existingMealPlan = state.day.mealPlanEntity;
+          // Сохраняем существующий снапшот
           final existingSnap = state.day.snap;
 
-          // Обновляем день, сохраняя существующие данные
+          // Определяем, нужно ли сохранить существующий план питания
+          final mealPlanToUse = shouldKeepExistingMealPlan(state.day, newDay)
+              ? state.day.mealPlanEntity
+              : newDay.mealPlanEntity;
+
+          // Обновляем день, сохраняя существующие данные где нужно
           final updatedDay = newDay.copyWith(
-            mealPlanEntity: existingMealPlan,
+            mealPlanEntity: mealPlanToUse,
             snap: existingSnap,
           );
 
@@ -490,7 +570,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           appNavigationService.go(path: AppRoutes.homeScreen.path);
 
           // Показываем уведомление об успешном обновлении
-          RishSnackbar().showSnackBar('Your data has been updated');
+          RishSnackbar().showSnackBar('Your data has been updated', false);
         },
       );
     } else {

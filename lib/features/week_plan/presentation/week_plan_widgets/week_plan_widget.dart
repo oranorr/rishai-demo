@@ -27,50 +27,55 @@ class _MealPlanWidget extends StatelessWidget {
               SizedBox(
                 height: 10.h,
               ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (BuildContext context) => MealScreen(
-                        meal: meal,
-                        isToday: isToday,
+              SizedBox(
+                width: double.infinity,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext context) => MealScreen(
+                          meal: meal,
+                          isToday: isToday,
+                        ),
                       ),
+                    );
+                  },
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    color: RishColors.stroke,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  );
-                },
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  color: RishColors.stroke,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          meal.title,
-                          style: context.styles.boldLarge,
-                        ),
-                        SizedBox(
-                          height: 5.h,
-                        ),
-                        Text(
-                          meal.description,
-                          maxLines: 2,
-                          style: context.styles.regularMedium,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(
-                          height: 5.h,
-                        ),
-                        Text(
-                          'View',
-                          style: context.styles.regularLarge
-                              .copyWith(color: RishColors.primary),
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            meal.title,
+                            // 'short',
+                            style: context.styles.boldLarge,
+                          ),
+                          SizedBox(
+                            height: 5.h,
+                          ),
+                          Text(
+                            meal.description,
+                            // 'short',
+                            maxLines: 2,
+                            style: context.styles.regularMedium,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(
+                            height: 5.h,
+                          ),
+                          Text(
+                            'View',
+                            style: context.styles.regularLarge
+                                .copyWith(color: RishColors.primary),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

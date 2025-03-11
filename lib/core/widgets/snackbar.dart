@@ -5,27 +5,32 @@ import 'package:rishai/core/key.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 
 class RishSnackbar {
-  void showSnackBar(String errorMessage) {
+  void showSnackBar(
+    String errorMessage, [
+    bool isError = true,
+  ]) {
     final snackBar = SnackBar(
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // if (needsTitle ?? true)
-          const Text(
-            'Oops...',
+          Text(
+            isError ? 'Oops...' : 'Success!',
             style: TextStyle(
               fontFamily: 'ProximaNova',
-              color: Color(0xffED544E),
+              color:
+                  isError ? const Color(0xffED544E) : const Color(0xff66C87B),
               fontWeight: FontWeight.w700,
               fontSize: 18,
             ),
           ),
           Text(
             errorMessage,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'ProximaNova',
-              color: Color(0xffED544E),
+              color:
+                  isError ? const Color(0xffED544E) : const Color(0xff66C87B),
               fontWeight: FontWeight.w400,
               fontSize: 16,
             ),

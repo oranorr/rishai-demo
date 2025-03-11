@@ -16,7 +16,7 @@ class UnknownFailure extends Failure {
 
 class FailureNoGoogleUser extends Failure {
   const FailureNoGoogleUser(String? message)
-      : super(message ?? 'No google user found.');
+      : super(message ?? 'Вход через Google был отменен');
   @override
   List<Object?> get props => [];
 }
@@ -94,7 +94,7 @@ class FailedToGetUserData extends Failure {
 
 class FailureNoAppleUser extends Failure {
   const FailureNoAppleUser(String? message)
-      : super(message ?? 'No apple user found.');
+      : super(message ?? 'Вход через Apple был отменен');
   @override
   List<Object?> get props => [];
 }

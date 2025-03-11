@@ -200,7 +200,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
     if (res.isNotEmpty && lastDayRes.isNotEmpty) {
       final data = res['whoopData'];
-
       if (data != null && data.isNotEmpty) {
         final dayEntity = DayEntity(
           directusId: lastDayId,

@@ -27,7 +27,9 @@ class WhoopGetUserData extends WhoopEvent {
   });
 }
 
-class InitWhoopOnLogin extends WhoopEvent {}
+class InitWhoopOnLogin extends WhoopEvent {
+  const InitWhoopOnLogin();
+}
 
 class WhoopUserCalibrating extends WhoopEvent {
   final bool? needsRedirect;

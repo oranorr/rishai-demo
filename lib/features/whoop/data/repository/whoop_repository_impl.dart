@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'package:flutter/foundation.dart';
 
 import 'package:dartz/dartz.dart';
 import 'package:directus/directus.dart';
@@ -408,64 +409,44 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required DayEntity newDay,
     required String userId,
   }) async {
-    // Получаем начало и конец дня для проверки
-    final startOfDay = DateTime(
-      newDay.dateTime.year,
-      newDay.dateTime.month,
-      newDay.dateTime.day,
-    ).millisecondsSinceEpoch.toString();
-
-    final endOfDay = DateTime(
-      newDay.dateTime.year,
-      newDay.dateTime.month,
-      newDay.dateTime.day,
-      23,
-      59,
-      59,
-    ).millisecondsSinceEpoch.toString();
-
-    // Проверяем существующий день
-    final existingDay = await directus.readMany(
-      collection: daysCollection,
-      filters: Filters({
-        'dateTime': F.between(startOfDay, endOfDay),
-      }),
-    );
-
-    // Если день существует
-    if (existingDay.isNotEmpty) {
-      final existingId = existingDay.first['id'].toString();
-      final existingCycleId = existingDay.first['cycleId'];
-
-      // Проверяем состояние цикла только если у существующего дня есть cycleId
-      if (existingCycleId != null) {
-        final isCycleEnded = await remoteDataSource.pingLastCycle(
-          cycleId: int.parse(existingCycleId),
-        );
-
-        // Если цикл не завершен, обновляем существующий день
-        if (!isCycleEnded) {
-          log('Existing cycle not ended, updating current day');
-          await directus.updateOne(
-            collection: daysCollection,
-            itemId: existingId,
-            updateData: newDay.toDirectus(userId: userId),
-          );
-          return newDay.copyWith(directusId: int.parse(existingId));
-        }
-      }
+    if (kDebugMode) {
+      log(
+        'Creating fresh day:\n'
+        'New day date: ${newDay.dateTime}\n'
+        'New day cycle: ${newDay.cycleId}\n'
+        'Current time: ${DateTime.now()}',
+        name: 'WhoopRepository',
+      );
     }
 
-    // Создаем новый день если:
-    // 1. День не существует
-    // 2. У существующего дня нет cycleId
-    // 3. Существующий цикл завершен
-    log('Creating new day');
-    final rawNewday = await directus.createOne(
-      collection: daysCollection,
-      data: newDay.toDirectus(userId: userId),
+    // Проверяем, что новый день действительно новый
+    final now = DateTime.now();
+    final isNewDay = newDay.dateTime.year == now.year &&
+        newDay.dateTime.month == now.month &&
+        newDay.dateTime.day == now.day;
+
+    if (!isNewDay) {
+      log(
+        'Warning: Attempting to create a day that is not today:\n'
+        'New day date: ${newDay.dateTime}\n'
+        'Current time: $now',
+        name: 'WhoopRepository',
+      );
+    }
+
+    // Создаем новый день
+    final freshDay = newDay.copyWith(
+      dateTime: now,
+      cycleId: newDay.cycleId,
     );
-    return newDay.copyWith(directusId: rawNewday['id']);
+
+    // Сохраняем в локальное хранилище
+    await localDataSource.saveData(data: freshDay);
+
+    // Обновляем на сервере
+    await remoteDataSource.updateDirectus(day: freshDay);
+
+    return freshDay;
   }
 
   double calculateCalorieGoal({
@@ -549,6 +530,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required DisconnecWhoopParams params,
   }) async {
     try {
+      // Очищаем данные только при намеренном отключении
       await remoteDataSource.clearWhoopUserDataOnDisconnect(
         userId: params.userId,
       );

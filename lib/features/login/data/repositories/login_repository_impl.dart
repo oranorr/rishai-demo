@@ -145,12 +145,26 @@ class LoginRepositoryImpl implements LoginRepository {
         );
         user = UserModel.fromMap(rawNewUser).toEntity();
       } else {
-        user = UserModel.fromMap(res.first).toEntity();
+        final existingUser = res.first;
+        final rawUpdUser = await directus.updateOne(
+          collection: usersCollection,
+          itemId: existingUser['id'].toString(),
+          updateData: {
+            'email': aUser.email,
+            'name': aUser.displayName ?? existingUser['name'],
+          },
+        );
+        user = UserModel.fromMap(rawUpdUser).toEntity();
       }
 
       return Right(user);
     } on Exception catch (ex) {
-      return Left(FailureNoGoogleUser(ex.toString()));
+      // return Left(FailureNoGoogleUser(ex.toString()));
+      return const Left(
+        FailureNoAppleUser(
+          'Apple authentication failed. You may have cancelled login.',
+        ),
+      );
     }
   }
 }

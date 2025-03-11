@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,7 @@ import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
+import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -45,6 +47,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     this.fetchSavedSnapUsecase,
     this.replaceMealUsecase,
     this.replaceIngredientUsecase,
+    this.manageDayUsecase,
   ) : super(
           const ChatMainState(
             status: Status.initial,
@@ -71,6 +74,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final FetchSavedSnapUsecase fetchSavedSnapUsecase;
   final ReplaceMealUsecase replaceMealUsecase;
   final ReplaceIngredientUsecase replaceIngredientUsecase;
+  final ManageDayUsecase manageDayUsecase;
 
   Timer? _syncDebounceTimer;
 
@@ -198,6 +202,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           // Сохраняем обновленный день
           await hive.saveDay(data: updatedDay);
 
+          // Немедленно обновляем в Directus
+          await _saveToDirectus(mealPlan);
+
           // Обновляем состояние
           emit(
             state.copyWith(
@@ -317,18 +324,47 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     );
   }
 
+  Future<void> _saveToDirectus(MealPlanEntity updatedMealPlan) async {
+    final updatedDay = whoopBloc.state.day.copyWith(
+      mealPlanEntity: updatedMealPlan,
+    );
+    final data = updatedDay.toDirectus(userId: userBloc.state.user.directusId);
+    await manageDayUsecase.call(
+      ManageDayParams(
+        userId: userBloc.state.user.directusId,
+        dayMap: data,
+        incomingDay: updatedDay,
+      ),
+    );
+  }
+
+  Future<void> _saveToHive(MealPlanEntity updatedMealPlan) async {
+    final updatedDay = whoopBloc.state.day.copyWith(
+      mealPlanEntity: updatedMealPlan,
+    );
+    await hive.saveDay(data: updatedDay);
+  }
+
+  Future<void> _saveChanges(MealPlanEntity updatedMealPlan) async {
+    // Сохраняем в Hive
+    await _saveToHive(updatedMealPlan);
+
+    // Сохраняем в Directus
+    await _saveToDirectus(updatedMealPlan);
+  }
+
   FutureOr<void> _replaceMeal(
     ChatReplaceMeal event,
     Emitter<ChatState> emit,
   ) async {
-    add(
-      ChatSendMessage(
-        text: 'I want to replace ${event.meal.title} to something else',
-        isMe: true,
-      ),
-    );
     emit(state.copyWith(status: Status.loading));
     final user = userBloc.state.user;
+    if (user.foodPreferences == null) {
+      emit(state.copyWith(status: Status.error));
+      RishSnackbar().showSnackBar('Please set your food preferences first');
+      return;
+    }
+
     final res = await replaceMealUsecase.call(
       ReplaceMealParams(
         meal: event.meal,
@@ -347,7 +383,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
       appNavigationService.go(path: AppRoutes.homeScreen.path);
       RishSnackbar().showSnackBar('Failed to replace meal, try again.');
-    }, (meal) {
+    }, (meal) async {
       final updatedMeals = whoopBloc.state.day.mealPlanEntity!.meals.map((m) {
         return m.servingType == meal.servingType ? meal : m;
       }).toList();
@@ -363,6 +399,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         ),
       );
       whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
+
+      // Сохраняем изменения в Hive и Directus
+      await _saveChanges(updatedMealPlan);
+
       appNavigationService
         ..pop(path: AppRoutes.homeScreen.path)
         ..pop(path: AppRoutes.homeScreen.path);
@@ -382,43 +422,41 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ),
     );
 
-    res.fold(
-      (l) {
-        emit(state.copyWith(status: Status.error));
-        add(
-          const ChatSendMessage(
-            text: 'Sorry, failed to replace ingredients. Please try again.',
-            isMe: false,
-          ),
-        );
-        appNavigationService
-          ..pop(path: AppRoutes.homeScreen.path)
-          ..pop(path: AppRoutes.homeScreen.path);
-        RishSnackbar()
-            .showSnackBar('Failed to replace ingredient, please try again.');
-      },
-      (meal) {
-        final updatedMeals = whoopBloc.state.day.mealPlanEntity!.meals.map((m) {
-          return m.servingType == meal.servingType ? meal : m;
-        }).toList();
+    res.fold((failure) {
+      emit(state.copyWith(status: Status.error));
+      add(
+        ChatSendMessage(
+          text:
+              'Sorry, failed to replace ingredients in ${event.meal.title}. Please try again.',
+          isMe: false,
+        ),
+      );
+      appNavigationService.go(path: AppRoutes.homeScreen.path);
+      RishSnackbar().showSnackBar('Failed to replace ingredients, try again.');
+    }, (meal) async {
+      final updatedMeals = whoopBloc.state.day.mealPlanEntity!.meals.map((m) {
+        return m.servingType == meal.servingType ? meal : m;
+      }).toList();
 
-        final updatedMealPlan =
-            whoopBloc.state.day.mealPlanEntity!.copyWith(meals: updatedMeals);
+      final updatedMealPlan =
+          whoopBloc.state.day.mealPlanEntity!.copyWith(meals: updatedMeals);
 
-        emit(state.copyWith(status: Status.success));
-        add(
-          const ChatSendMessage(
-            text: 'Your meal is updated. Check it out.',
-            isMe: false,
-          ),
-        );
-        whoopBloc
-            .add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
-        appNavigationService
-          ..pop(path: AppRoutes.homeScreen.path)
-          ..pop(path: AppRoutes.homeScreen.path);
-      },
-    );
+      emit(state.copyWith(status: Status.success));
+      add(
+        const ChatSendMessage(
+          text: 'Your meal plan is updated. Check it out.',
+          isMe: false,
+        ),
+      );
+      whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
+
+      // Сохраняем изменения в Hive и Directus
+      await _saveChanges(updatedMealPlan);
+
+      appNavigationService
+        ..pop(path: AppRoutes.homeScreen.path)
+        ..pop(path: AppRoutes.homeScreen.path);
+    });
   }
 
   FutureOr<void> _syncWithSelectedDate(

@@ -96,11 +96,13 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaGoogleUsecase.call(const NoParams());
-    res.fold((f) {
+    await res.fold((f) {
       RishSnackbar().showSnackBar(f.message);
       emit(state.copyWith(status: Status.error));
-    }, (user) {
+    }, (user) async {
       userBloc.add(CreateUserOnLogin(user: user));
+      // Даем время на обновление состояния userBloc
+      await Future.delayed(const Duration(milliseconds: 100));
       add(const LoginOtpCorrect());
       emit(state.copyWith(status: Status.success));
     });
@@ -149,9 +151,10 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     userBloc.add(UpdateUserEvent(user: curUser));
 
     // Инициализируем другие блоки
-    whoopBloc.add(InitWhoopOnLogin());
+    whoopBloc.add(const InitWhoopOnLogin());
     chatBloc.add(InitChatBloc(directusId: curUser.directusId));
     weekPlanBloc.add(const WeekPlanLoad());
+    emit(state.copyWith(status: Status.success));
   }
 
   FutureOr<void> _logout(LogoutEvent event, Emitter<LoginState> emit) async {
@@ -171,11 +174,13 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaAppleUsecase.call(const NoParams());
-    res.fold((f) {
+    await res.fold((f) {
       RishSnackbar().showSnackBar(f.message);
       emit(state.copyWith(status: Status.error));
-    }, (user) {
+    }, (user) async {
       userBloc.add(CreateUserOnLogin(user: user));
+      // Даем время на обновление состояния userBloc
+      await Future.delayed(const Duration(milliseconds: 100));
       add(const LoginOtpCorrect());
       emit(state.copyWith(status: Status.success));
     });

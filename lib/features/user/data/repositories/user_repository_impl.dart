@@ -93,13 +93,14 @@ class UserRepositoryImpl implements UserRepository {
       final List<int> ids = List.from(rawUser['days']).cast<int>();
 
       if (ids.isEmpty) {
-        await directus.createOne(
+        final result = await directus.createOne(
           collection: daysCollection,
           data: params.dayMap,
         );
-        log('Day is created');
+        log('Day is created with id: ${result['id']}');
         return const Right(null);
       }
+
       final lastRecord = await directus.readOne(
         collection: daysCollection,
         id: ids.last.toString(),
@@ -112,30 +113,33 @@ class UserRepositoryImpl implements UserRepository {
       if (lastDate.isSameDate(DateTime.now())) {
         final lastEntity = DayEntity.fromMap(lastRecord);
 
-        if ((lastEntity.mealPlanEntity != params.incomingDay.mealPlanEntity &&
-                params.incomingDay.mealPlanEntity != null) ||
-            lastEntity.macros != params.incomingDay.macros ||
-            lastEntity.snap != params.incomingDay.snap) {
-          log('Day is updating');
-          await directus.updateOne(
+        // Всегда обновляем день, если есть новый план питания
+        if (params.incomingDay.mealPlanEntity != null) {
+          log('Day is updating with new meal plan: ${params.incomingDay.mealPlanEntity?.toMap()}');
+          log('Previous meal plan was: ${lastEntity.mealPlanEntity?.toMap()}');
+
+          // Всегда обновляем весь объект для обеспечения целостности данных
+          final updateResult = await directus.updateOne(
             collection: daysCollection,
             itemId: lastRecord['id'].toString(),
             updateData: params.dayMap,
           );
+          log('Day updated successfully. Update result: $updateResult');
+        } else {
+          log('No updates needed for the day. Current meal plan: ${lastEntity.mealPlanEntity?.toMap()}');
         }
-        log('Day is not updating');
         return const Right(null);
       } else {
-        await directus.createOne(
+        final result = await directus.createOne(
           collection: daysCollection,
           data: params.dayMap,
         );
-        log('Day is created');
+        log('New day created with id: ${result['id']}');
         return const Right(null);
       }
     } on Exception catch (e) {
-      log('Error while managing day: $e');
-      return const Left(UnknownFailure());
+      log('Error while managing day: $e', name: 'UserRepositoryImpl');
+      return Left(FailedUpdateUser(e.toString()));
     }
   }
 
@@ -198,5 +202,45 @@ class UserRepositoryImpl implements UserRepository {
       log('Error updating day with meal plan: $e');
       return Left(FailedUpdateUser(e.toString()));
     }
+  }
+
+  /// Глубокое сравнение Map объектов
+  bool _mapEquals(Map<String, dynamic> map1, Map<String, dynamic> map2) {
+    if (map1.length != map2.length) return false;
+
+    for (final key in map1.keys) {
+      if (!map2.containsKey(key)) return false;
+
+      final value1 = map1[key];
+      final value2 = map2[key];
+
+      if (value1 is Map<String, dynamic> && value2 is Map<String, dynamic>) {
+        if (!_mapEquals(value1, value2)) return false;
+      } else if (value1 is List && value2 is List) {
+        if (!_listEquals(value1, value2)) return false;
+      } else if (value1 != value2) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Глубокое сравнение List объектов
+  bool _listEquals(List list1, List list2) {
+    if (list1.length != list2.length) return false;
+
+    for (var i = 0; i < list1.length; i++) {
+      final item1 = list1[i];
+      final item2 = list2[i];
+
+      if (item1 is Map<String, dynamic> && item2 is Map<String, dynamic>) {
+        if (!_mapEquals(item1, item2)) return false;
+      } else if (item1 is List && item2 is List) {
+        if (!_listEquals(item1, item2)) return false;
+      } else if (item1 != item2) {
+        return false;
+      }
+    }
+    return true;
   }
 }

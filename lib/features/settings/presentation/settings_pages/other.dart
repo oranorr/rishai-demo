@@ -5,6 +5,7 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
+import 'package:rishai/features/settings/presentation/settings_pages/features_page.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/legal_page.dart';
 
 class OtherSettings extends StatelessWidget {
@@ -31,13 +32,21 @@ class OtherSettings extends StatelessWidget {
         itemBuilder: (context, index) {
           return GestureDetector(
             onTap: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (BuildContext context) => LegalPage(
-                    entity: data[index],
+              if (data[index].type == OtherType.premium) {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) => const FeaturesPage(),
                   ),
-                ),
-              );
+                );
+              } else {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) => LegalPage(
+                      entity: data[index],
+                    ),
+                  ),
+                );
+              }
             },
             child: SizedBox(
               height: 70.h,
@@ -63,8 +72,6 @@ class OtherSettings extends StatelessWidget {
           );
         },
       ),
-
-      // ),
     );
   }
 }
@@ -86,7 +93,7 @@ List<OtherEntity> data = [
     type: OtherType.disclaimer,
   ),
   OtherEntity(
-    title: 'CITATIONS, REFERENCES & SOURCES',
+    title: 'Citations, References & Sources',
     body: LegalTextsRepo().references,
     type: OtherType.ref,
   ),
@@ -96,7 +103,7 @@ List<OtherEntity> data = [
     type: OtherType.help,
   ),
   OtherEntity(
-    title: 'Current & coming soon features',
+    title: 'Features',
     body: LegalTextsRepo().comingSoon,
     type: OtherType.premium,
   ),

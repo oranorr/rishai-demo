@@ -16,6 +16,9 @@ final wTokenService = getIt.get<WhoopTokenService>();
 class WhoopTokenServiceImpl implements WhoopTokenService {
   String _accessToken = '';
   String _refreshToken = '';
+  int _failedSyncAttempts = 0;
+  static const int maxFailedAttempts = 3;
+  DateTime? _lastSuccessfulSync;
 
   @override
   String get refToken => _refreshToken;
@@ -26,6 +29,8 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
   Future<void> createTokenService(AuthResponseEntity response) async {
     _accessToken = response.accessToken;
     _refreshToken = response.refreshToken;
+    _failedSyncAttempts = 0;
+    _lastSuccessfulSync = DateTime.now();
 
     await prefsRepo.writeTokens(
       accessToken: _accessToken,
@@ -35,10 +40,65 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
     await directus.updateOne(
       collection: usersCollection,
       itemId: userBloc.state.user.directusId,
-      updateData: {'whoopRefreshToken': _refreshToken},
+      updateData: {
+        'whoopRefreshToken': _refreshToken,
+        'lastSuccessfulSync': DateTime.now().toIso8601String(),
+      },
     );
 
     await scheduleTokenRefresh();
+  }
+
+  @override
+  Future<bool> shouldAttemptReconnect() async {
+    if (_failedSyncAttempts >= maxFailedAttempts) {
+      _logger(
+        'Достигнуто максимальное количество попыток ($maxFailedAttempts)',
+      );
+      return false;
+    }
+
+    if (_lastSuccessfulSync == null) {
+      final rawUser = await directus.readOne(
+        collection: usersCollection,
+        id: userBloc.state.user.directusId,
+      );
+      final lastSyncStr = rawUser['lastSuccessfulSync'];
+      if (lastSyncStr != null) {
+        _lastSuccessfulSync = DateTime.parse(lastSyncStr);
+      }
+    }
+
+    // Если последняя успешная синхронизация была более 24 часов назад
+    if (_lastSuccessfulSync != null &&
+        DateTime.now().difference(_lastSuccessfulSync!) >
+            const Duration(hours: 24)) {
+      _logger('Последняя успешная синхронизация была более 24 часов назад');
+      // Сбрасываем счетчик попыток, так как прошло много времени
+      _failedSyncAttempts = 0;
+      return true;
+    }
+
+    // Если нет успешных синхронизаций или прошло менее 24 часов,
+    // разрешаем попытку, если не превышен лимит
+    return _failedSyncAttempts < maxFailedAttempts;
+  }
+
+  Future<void> handleSyncSuccess() async {
+    _failedSyncAttempts = 0;
+    _lastSuccessfulSync = DateTime.now();
+    await directus.updateOne(
+      collection: usersCollection,
+      itemId: userBloc.state.user.directusId,
+      updateData: {
+        'lastSuccessfulSync': _lastSuccessfulSync!.toIso8601String(),
+      },
+    );
+  }
+
+  void handleSyncFailure() {
+    _failedSyncAttempts++;
+    _logger('Sync attempt failed. Total failed attempts: $_failedSyncAttempts');
   }
 
   Future<void> scheduleTokenRefresh() async {
@@ -62,53 +122,89 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
   }
 
   Future<bool> refreshToken(String refToken) async {
-    if (await isAccessTokenValid()) {
-      _accessToken = prefsRepo.fetchSavedAccessToken();
-      _refreshToken = prefsRepo.fetchSavedRefreshToken();
-      if (_accessToken.isEmpty || _refreshToken.isEmpty) {
-        _logger('Locally stored tokens are empty');
-        return false;
-      }
-      _logger('Tokens are valid');
-      return true;
-    } else {
-      _logger('Tokens are refreshing now.');
-      final latestRefreshToken = prefsRepo.fetchSavedRefreshToken();
-      final res = await wRepo.refreshToken(latestRefreshToken);
+    if (refToken.isEmpty) {
+      _logger('Получен пустой refresh token');
+      handleSyncFailure();
+      return false;
+    }
 
-      if (res != null) {
-        _accessToken = res.accessToken;
-        _refreshToken = res.refreshToken;
-        await prefsRepo.writeTokens(
-          accessToken: res.accessToken,
-          refreshToken: res.refreshToken,
-          expiresAt: DateTime.now().add(res.expiresIn).toIso8601String(),
-        );
-        await directus.updateOne(
-          collection: usersCollection,
-          itemId: userBloc.state.user.directusId,
-          updateData: {'whoopRefreshToken': _refreshToken},
-        );
-        await scheduleTokenRefresh();
+    try {
+      if (await isAccessTokenValid()) {
+        _accessToken = prefsRepo.fetchSavedAccessToken();
+        _refreshToken = prefsRepo.fetchSavedRefreshToken();
+        if (_accessToken.isEmpty || _refreshToken.isEmpty) {
+          _logger('Локально сохраненные токены пусты');
+          handleSyncFailure();
+          return false;
+        }
+        _logger('Токены действительны');
+        await handleSyncSuccess();
         return true;
       } else {
-        return false;
+        _logger('Начинаем обновление токенов...');
+        final latestRefreshToken = prefsRepo.fetchSavedRefreshToken();
+        if (latestRefreshToken.isEmpty) {
+          _logger('Не найден сохраненный refresh token');
+          handleSyncFailure();
+          return false;
+        }
+
+        final res = await wRepo.refreshToken(latestRefreshToken);
+        if (res != null) {
+          _logger('Получены новые токены, сохраняем...');
+          _accessToken = res.accessToken;
+          _refreshToken = res.refreshToken;
+
+          await prefsRepo.writeTokens(
+            accessToken: res.accessToken,
+            refreshToken: res.refreshToken,
+            expiresAt: DateTime.now().add(res.expiresIn).toIso8601String(),
+          );
+
+          await directus.updateOne(
+            collection: usersCollection,
+            itemId: userBloc.state.user.directusId,
+            updateData: {'whoopRefreshToken': _refreshToken},
+          );
+
+          await scheduleTokenRefresh();
+          await handleSyncSuccess();
+          _logger('Токены успешно обновлены');
+          return true;
+        } else {
+          _logger('Не удалось получить новые токены от сервера');
+          handleSyncFailure();
+          return false;
+        }
       }
+    } catch (e) {
+      _logger('Критическая ошибка при обновлении токенов: $e');
+      handleSyncFailure();
+      return false;
     }
   }
 
   Future<bool> isAccessTokenValid() async {
-    final expiresAt = await prefsRepo.getTokenExpiryDate();
-    print('Token expires at: $expiresAt');
-    if (expiresAt == null) return false;
+    try {
+      final expiresAt = await prefsRepo.getTokenExpiryDate();
+      _logger('Token expires at: $expiresAt');
 
-    final now = DateTime.now();
-    if (now.isAfter(expiresAt)) {
-      _logger('Access token already expired!');
+      if (expiresAt == null) {
+        _logger('Дата истечения токена не найдена');
+        return false;
+      }
+
+      final now = DateTime.now();
+      if (now.isAfter(expiresAt)) {
+        _logger('Токен уже истек');
+        return false;
+      }
+
+      return now.isBefore(expiresAt.subtract(const Duration(minutes: 2)));
+    } catch (e) {
+      _logger('Ошибка при проверке валидности токена: $e');
       return false;
     }
-
-    return now.isBefore(expiresAt.subtract(const Duration(minutes: 2)));
   }
 
   @override
@@ -146,8 +242,6 @@ class WhoopTokenServiceImpl implements WhoopTokenService {
         itemId: userId,
         updateData: {
           'whoopRefreshToken': null,
-          'whoopData': {},
-          'bodyMeasurements': {},
         },
       );
     } on Exception catch (e) {
