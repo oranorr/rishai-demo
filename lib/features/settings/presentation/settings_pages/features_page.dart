@@ -41,7 +41,7 @@ class FeaturesPage extends StatelessWidget {
           SizedBox(height: 24.h),
           _buildSection(
             context,
-            'Current Features',
+            'Coming Soon Features',
             comingSoonFeatures,
             RishColors.textSecondary,
           ),

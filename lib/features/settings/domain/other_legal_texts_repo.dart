@@ -180,13 +180,13 @@ By using the Pivot app, you acknowledge that it is for wellness purposes only, a
 
 1. Integration with food diaries to track your actual meal consumption by logging in the meals you have consumed, whether the suggested ones or anything else you may have consumed outside.
 2. Ability to see in real time how many calories and macros you have consumed for the day and what is leftover to achieve your goal.
-3. Gamification: getting a total percentage score every day to see how close youare to your daily and weekly consumption goals, by tracking calorie and macronutrient targets.
+3. Gamification: getting a total percentage score every day to see how close you are to your daily and weekly consumption goals, by tracking calorie and macronutrient targets.
 4. Integration with other smart devices like Apple watch, Oura ring, Garmin, and Fitbit.
 5. Ability to rate the recommended meals, and tell us if you like or dislike them, as well as give them a rating on 5 stars – so that future recommendations are more in line with your preferences.
 6. The AI will learn your specific tastes and fine-tune meal recommendations to further suit you over time.
 7. Integration with cloud kitchen services to have the meals prepared and delivered to you.
 8. Generative AI to create meal images for you to demonstrate portion, sizes and types of ingredients being used.
-9. Ability to enter your weight loss or muscle gain goals and let us decide on thepercentage of calorie deficit or surplus best suited for you, over a specified period, in order to achieve your goals.
+9. Ability to enter your weight loss or muscle gain goals and let us decide on the percentage of calorie deficit or surplus best suited for you, over a specified period, in order to achieve your goals.
 ''';
 
   String get references => '''

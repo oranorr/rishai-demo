@@ -149,7 +149,7 @@ class NotificationsServiceImpl implements NotificationsService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.wallClockTime,
-        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+        matchDateTimeComponents: DateTimeComponents.time,
       )
           .then((_) {
         log('Уведомление успешно запланировано на $notificationTime');

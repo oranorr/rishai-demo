@@ -1,16 +1,13 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'dart:developer';
 import 'dart:async';
+import 'dart:developer';
+
 import 'package:dartz/dartz.dart';
-import 'package:directus/directus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
-import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -32,7 +29,6 @@ class ChatRepositoryImpl implements ChatRepository {
   // final Directus directus;
   final UserRepository userRepo;
 
-  final bool _isInitialized = false;
   bool _isSaving = false;
   ChatSnapshotEntity? _lastSavedSnap;
 
@@ -42,8 +38,6 @@ class ChatRepositoryImpl implements ChatRepository {
     // required this.directus,
     required this.userRepo,
   });
-
-  Timer? _saveDebounceTimer;
 
   @override
   Future<void> saveChatSnapShot({
