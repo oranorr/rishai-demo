@@ -112,7 +112,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       emit(state.copyWith(user: user));
       add(const UserCheckForRecomp());
       weekPlanBloc.add(const WeekPlanLoad());
-      whoopBloc.add(InitWhoopOnLogin());
+      whoopBloc.add(const InitWhoopOnLogin());
     } else {
       appNavigationService.go(
         path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,

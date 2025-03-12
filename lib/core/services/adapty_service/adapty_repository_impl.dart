@@ -5,6 +5,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository.dart';
 import 'package:rishai/core/services/envied/envied.dart';
+import 'package:rishai/core/services/error/adapty_error_handler.dart';
 
 final adapty = getIt.get<AdaptyRepository>();
 
@@ -46,8 +47,14 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       );
       // products = adaptyProducts;
       _logger('Products are set');
-    } on AdaptyError catch (adaptyError) {
-      _logger(adaptyError.toString());
+    } catch (e, stackTrace) {
+      _logger('Error initializing Adapty: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_init',
+      );
+      rethrow;
     }
   }
 
@@ -80,8 +87,18 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         log('Subscription is not active.');
         return 'CANCEL';
       }
-    } on Exception catch (error) {
-      log('Error during purchase: $error');
+    } catch (e, stackTrace) {
+      log('Error during purchase: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_make_purchase',
+        extras: {
+          'product_id': product.vendorProductId,
+          'product_price': product.price.amount,
+          'product_currency': product.price.currencyCode,
+        },
+      );
       return 'Error happened, while processing purchase. Please, try again';
     }
   }
@@ -89,26 +106,37 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   @override
   Future<void> identify({required String adaptyId}) async {
     // await Adapty().logout();
-    await Adapty().identify(adaptyId);
-    final profile = await Adapty().getProfile();
-    AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
-    _logger(profile.customerUserId.toString());
+    try {
+      await Adapty().identify(adaptyId);
+      final profile = await Adapty().getProfile();
+      AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
+      _logger(profile.customerUserId.toString());
 
-    isActive = lvl?.isActive ?? false;
-    if (lvl != null) {
-      isTrialActive = await _isTrialPeriodAvailable(lvl);
-    } else {
-      isTrialActive = true;
+      isActive = lvl?.isActive ?? false;
+      if (lvl != null) {
+        isTrialActive = await _isTrialPeriodAvailable(lvl);
+      } else {
+        isTrialActive = true;
+      }
+      // _logger("ACCESS LEVEL $lvl");
+      // isActive = true;
+      // isTrialActive = true;
+      _logger(
+        'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}',
+      );
+      _logger('Is trial available: $isTrialActive');
+      _logger('Prof id: $adaptyId');
+      _logger('Expires at: ${lvl?.expiresAt}');
+    } catch (e, stackTrace) {
+      _logger('Error during identify: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_identify',
+        extras: {'adapty_id': adaptyId},
+      );
+      rethrow;
     }
-    // _logger("ACCESS LEVEL $lvl");
-    // isActive = true;
-    // isTrialActive = true;
-    _logger(
-      'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}',
-    );
-    _logger('Is trial available: $isTrialActive');
-    _logger('Prof id: $adaptyId');
-    _logger('Expires at: ${lvl?.expiresAt}');
   }
 
   @override
@@ -127,48 +155,72 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<bool> _isTrialPeriodAvailable(
     AdaptyAccessLevel? accessLevel,
   ) async {
-    _logger(
-      'Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}',
-    );
-    _logger('Expires At: ${accessLevel.expiresAt}');
+    try {
+      _logger(
+        'Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}',
+      );
+      _logger('Expires At: ${accessLevel.expiresAt}');
 
-    // Проверяем, использовал ли пользователь вводное предложение
-    final hasActiveTrial =
-        accessLevel.activeIntroductoryOfferType == 'free_trial' ||
-            accessLevel.activeIntroductoryOfferType == 'free';
+      // Проверяем, использовал ли пользователь вводное предложение
+      final hasActiveTrial =
+          accessLevel.activeIntroductoryOfferType == 'free_trial' ||
+              accessLevel.activeIntroductoryOfferType == 'free';
 
-    // Проверяем, истёк ли доступ
-    final isExpired = accessLevel.expiresAt != null &&
-        DateTime.now().isAfter(accessLevel.expiresAt!);
+      // Проверяем, истёк ли доступ
+      final isExpired = accessLevel.expiresAt != null &&
+          DateTime.now().isAfter(accessLevel.expiresAt!);
 
-    // Если активный пробный период уже есть, возвращаем false
-    if (hasActiveTrial && !isExpired) {
-      _logger('Trial has already been used and is still active.');
+      // Если активный пробный период уже есть, возвращаем false
+      if (hasActiveTrial && !isExpired) {
+        _logger('Trial has already been used and is still active.');
+        return false;
+      }
+
+      // Проверяем через API, если данные не позволяют точно определить статус
+      // final eligibility = await Adapty().getPaywallProducts(paywall: paywall);
+
+      // .getProductsIntroductoryOfferEligibility(products: products);
+
+      for (final product in products) {
+        log(product.toString());
+        // final isEligible = product.subscription.offer
+        // eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
+        // if (isEligible) {
+        //   _logger('Trial is available for product: ${product.vendorProductId}');
+        //   return true;
+        // }
+      }
+
+      _logger('No trial available for any product.');
+      return false;
+    } catch (e, stackTrace) {
+      _logger('Error checking trial availability: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_check_trial',
+        extras: {
+          'access_level_type': accessLevel?.activeIntroductoryOfferType,
+          'expires_at': accessLevel?.expiresAt?.toString(),
+        },
+      );
       return false;
     }
-
-    // Проверяем через API, если данные не позволяют точно определить статус
-    // final eligibility = await Adapty().getPaywallProducts(paywall: paywall);
-
-    // .getProductsIntroductoryOfferEligibility(products: products);
-
-    for (final product in products) {
-      log(product.toString());
-      // final isEligible = product.subscription.offer
-      // eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
-      // if (isEligible) {
-      //   _logger('Trial is available for product: ${product.vendorProductId}');
-      //   return true;
-      // }
-    }
-
-    _logger('No trial available for any product.');
-    return false;
   }
 
   @override
   Future<void> logout() async {
-    await Adapty().logout();
+    try {
+      await Adapty().logout();
+    } catch (e, stackTrace) {
+      _logger('Error during logout: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_logout',
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -184,21 +236,36 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       } else {
         return 'NO_ACTIVE';
       }
-    } on Exception catch (e) {
+    } catch (e, stackTrace) {
       _logger('Error while restoring: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_restore_purchases',
+      );
       return 'ERROR';
     }
   }
 
   @override
   Future<void> test() async {
-    final prof = await Adapty().getProfile();
-    final s = await _isTrialPeriodAvailable(prof.accessLevels['premium']);
+    try {
+      final prof = await Adapty().getProfile();
+      final s = await _isTrialPeriodAvailable(prof.accessLevels['premium']);
 
-    _logger(s.toString());
-    //   final p = await Adapty()
-    //       .getProductsIntroductoryOfferEligibility(products: products);
-    //   _logger(p.toString());
+      _logger(s.toString());
+      //   final p = await Adapty()
+      //       .getProductsIntroductoryOfferEligibility(products: products);
+      //   _logger(p.toString());
+    } catch (e, stackTrace) {
+      _logger('Error during test: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_test',
+      );
+      rethrow;
+    }
   }
 }
 

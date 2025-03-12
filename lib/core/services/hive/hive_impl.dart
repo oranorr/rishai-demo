@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/error/local_storage_error_handler.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
@@ -30,79 +31,118 @@ class HiveImpl implements HiveRepo {
 
   @override
   Future<void> initHive() async {
-    await Hive.initFlutter();
-    Hive
-      ..registerAdapter<UserEntity>(UserEntityAdapter())
-      ..registerAdapter(GenderAdapter())
-      ..registerAdapter(FoodPreferencesAdapter())
-      ..registerAdapter(ChatSnapshotEntityAdapter())
-      ..registerAdapter(MessageEntityAdapter())
-      ..registerAdapter(MealPlanEntityAdapter())
-      ..registerAdapter(UserGoalAdapter())
-      ..registerAdapter(MealAdapter())
-      ..registerAdapter(IngredientAdapter())
-      ..registerAdapter(MacrosBreakdownAdapter())
-      ..registerAdapter(GoalTypeAdapter())
-      ..registerAdapter(DayEntityAdapter())
-      ..registerAdapter(UserDataEntityAdapter())
-      ..registerAdapter(WorkoutModelAdapter())
-      ..registerAdapter(WorkoutScoreAdapter())
-      ..registerAdapter(BodyMeasurementsEntityAdapter())
-      ..registerAdapter(WeekPlanEntityAdapter())
-      ..registerAdapter(HealthMetricsEntityAdapter())
-      ..registerAdapter(MeasurementUnitAdapter());
+    try {
+      await Hive.initFlutter();
+      Hive
+        ..registerAdapter<UserEntity>(UserEntityAdapter())
+        ..registerAdapter(GenderAdapter())
+        ..registerAdapter(FoodPreferencesAdapter())
+        ..registerAdapter(ChatSnapshotEntityAdapter())
+        ..registerAdapter(MessageEntityAdapter())
+        ..registerAdapter(MealPlanEntityAdapter())
+        ..registerAdapter(UserGoalAdapter())
+        ..registerAdapter(MealAdapter())
+        ..registerAdapter(IngredientAdapter())
+        ..registerAdapter(MacrosBreakdownAdapter())
+        ..registerAdapter(GoalTypeAdapter())
+        ..registerAdapter(DayEntityAdapter())
+        ..registerAdapter(UserDataEntityAdapter())
+        ..registerAdapter(WorkoutModelAdapter())
+        ..registerAdapter(WorkoutScoreAdapter())
+        ..registerAdapter(BodyMeasurementsEntityAdapter())
+        ..registerAdapter(WeekPlanEntityAdapter())
+        ..registerAdapter(HealthMetricsEntityAdapter())
+        ..registerAdapter(MeasurementUnitAdapter());
 
-    userBox = await Hive.openBox<UserEntity>('user_box');
-    chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
-    dayBox = await Hive.openBox<DayEntity>('day_box');
-    userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
-    weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
+      userBox = await Hive.openBox<UserEntity>('user_box');
+      chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
+      dayBox = await Hive.openBox<DayEntity>('day_box');
+      userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
+      weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_init',
+        operation: 'init',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<void> saveUser({required UserEntity user}) async {
-    await userBox.clear();
-    savedUserIndex = await userBox.add(user);
+    try {
+      await userBox.clear();
+      savedUserIndex = await userBox.add(user);
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_user',
+        operation: 'save_user',
+        storageType: 'hive',
+        extras: {'user_id': user.directusId},
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<UserEntity?> retrieveSavedUser() async {
-    if (!userBox.isOpen) {
-      userBox = await Hive.openBox<UserEntity>('user_box');
-      UserEntity? user = userBox.getAt(savedUserIndex);
-      return user;
-    } else {
-      if (userBox.isNotEmpty) {
+    try {
+      if (!userBox.isOpen) {
+        userBox = await Hive.openBox<UserEntity>('user_box');
         UserEntity? user = userBox.getAt(savedUserIndex);
         return user;
       } else {
-        return null;
+        if (userBox.isNotEmpty) {
+          UserEntity? user = userBox.getAt(savedUserIndex);
+          return user;
+        } else {
+          return null;
+        }
       }
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_user',
+        operation: 'retrieve_user',
+        storageType: 'hive',
+      );
+      rethrow;
     }
   }
 
   @override
   Future<void> clear() async {
-    // await
-    // // Полное удаление коробок с диска
-    await userBox.clear();
-    await chatBox.clear();
-    await dayBox.clear();
-    await weekPlanBox.clear();
-    // await userDataBox.clear();
+    try {
+      await userBox.clear();
+      await chatBox.clear();
+      await dayBox.clear();
+      await weekPlanBox.clear();
 
-    await userBox.close();
-    await chatBox.close();
-    await dayBox.close();
-    await weekPlanBox.close();
-    // await userDataBox.close();
+      await userBox.close();
+      await chatBox.close();
+      await dayBox.close();
+      await weekPlanBox.close();
 
-    // // Повторно открываем коробки
-    userBox = await Hive.openBox<UserEntity>('user_box');
-    chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
-    dayBox = await Hive.openBox<DayEntity>('day_box');
-    weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
-    // userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
+      userBox = await Hive.openBox<UserEntity>('user_box');
+      chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
+      dayBox = await Hive.openBox<DayEntity>('day_box');
+      weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_clear',
+        operation: 'clear_all',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -110,140 +150,248 @@ class HiveImpl implements HiveRepo {
     ChatSnapshotEntity snapshot, [
     DateTime? date,
   ]) async {
-    final dateKey = date?.toIso8601String().substring(0, 10) ??
-        snapshot.date.toIso8601String().substring(0, 10);
-    await chatBox.put(dateKey, snapshot);
+    try {
+      final dateKey = date?.toIso8601String().substring(0, 10) ??
+          snapshot.date.toIso8601String().substring(0, 10);
+      await chatBox.put(dateKey, snapshot);
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_chat',
+        operation: 'save_chat_snapshot',
+        storageType: 'hive',
+        extras: {
+          'date': date?.toString() ?? snapshot.date.toString(),
+          'messages_count': snapshot.messages.length,
+        },
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<void> clearMealPlan() async {
-    final today = DateTime.now();
-    final dateKey = today.toIso8601String().substring(0, 10);
+    try {
+      final today = DateTime.now();
+      final dateKey = today.toIso8601String().substring(0, 10);
 
-    // Очищаем снапшот чата для текущего дня
-    final currentSnap = await getChatSnapshot(today);
-    if (currentSnap != null) {
-      await saveChatSnapshot(
-        currentSnap.copyWith(
-          messages: [],
-          requestsLeft: 50,
-        ),
-        today,
-      );
-    }
-
-    // Очищаем сохраненный день если он есть
-    final days = await retrieveSavedDays();
-    final todayDay = days
-        .where(
-          (day) => day.dateTime.toIso8601String().substring(0, 10) == dateKey,
-        )
-        .firstOrNull;
-
-    if (todayDay != null) {
-      await saveDay(
-        data: todayDay.copyWith(
-          snap: currentSnap?.copyWith(
+      final currentSnap = await getChatSnapshot(today);
+      if (currentSnap != null) {
+        await saveChatSnapshot(
+          currentSnap.copyWith(
             messages: [],
             requestsLeft: 50,
           ),
-        ),
+          today,
+        );
+      }
+
+      final days = await retrieveSavedDays();
+      final todayDay = days
+          .where(
+            (day) => day.dateTime.toIso8601String().substring(0, 10) == dateKey,
+          )
+          .firstOrNull;
+
+      if (todayDay != null) {
+        await saveDay(
+          data: todayDay.copyWith(
+            snap: currentSnap?.copyWith(
+              messages: [],
+              requestsLeft: 50,
+            ),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_meal_plan',
+        operation: 'clear_meal_plan',
+        storageType: 'hive',
       );
+      rethrow;
     }
   }
 
   @override
   Future<ChatSnapshotEntity?> getChatSnapshot([DateTime? date]) async {
-    final dateKey = date?.toIso8601String().substring(0, 10) ??
-        DateTime.now().toIso8601String().substring(0, 10);
-    return chatBox.get(dateKey);
+    try {
+      final dateKey = date?.toIso8601String().substring(0, 10) ??
+          DateTime.now().toIso8601String().substring(0, 10);
+      return chatBox.get(dateKey);
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_chat',
+        operation: 'get_chat_snapshot',
+        storageType: 'hive',
+        extras: {'date': date?.toString()},
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<ChatSnapshotEntity?> retrieveLastChat() async {
-    if (chatBox.isEmpty) {
-      return null;
+    try {
+      if (chatBox.isEmpty) {
+        return null;
+      }
+      final int last = chatBox.length - 1;
+      return chatBox.getAt(last);
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_chat',
+        operation: 'retrieve_last_chat',
+        storageType: 'hive',
+      );
+      rethrow;
     }
-    final int last = chatBox.length - 1;
-    return chatBox.getAt(last);
   }
 
   @override
   Future<void> saveDay({required DayEntity data}) async {
-    if (data.cycleId == null) {
-      await dayBox.add(data);
-      return;
-    }
+    try {
+      if (data.cycleId == null) {
+        await dayBox.add(data);
+        return;
+      }
 
-    // Проверяем существующие дни
-    final existingDays = dayBox.values.toList();
-    final existingDayIndex =
-        existingDays.indexWhere((day) => day.cycleId == data.cycleId);
+      final existingDays = dayBox.values.toList();
+      final existingDayIndex =
+          existingDays.indexWhere((day) => day.cycleId == data.cycleId);
 
-    if (existingDayIndex != -1) {
-      // Обновляем существующий день
-      await dayBox.putAt(existingDayIndex, data);
-    } else {
-      // Добавляем новый день
-      await dayBox.add(data);
+      if (existingDayIndex != -1) {
+        await dayBox.putAt(existingDayIndex, data);
+      } else {
+        await dayBox.add(data);
+      }
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_day',
+        operation: 'save_day',
+        storageType: 'hive',
+        extras: {
+          'cycle_id': data.cycleId,
+          'date_time': data.dateTime.toString(),
+        },
+      );
+      rethrow;
     }
   }
 
   @override
   Future<List<DayEntity>> retrieveSavedDays() async {
-    if (dayBox.isEmpty) {
-      return [];
+    try {
+      if (dayBox.isEmpty) {
+        return [];
+      }
+      return dayBox.values.toList();
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_day',
+        operation: 'retrieve_saved_days',
+        storageType: 'hive',
+      );
+      rethrow;
     }
-    return dayBox.values.toList();
   }
 
   @override
   Future<void> saveUserData({required UserDataEntity dataEntity}) async {
-    if (userDataBox.isEmpty) {
-      final index = await userDataBox.add(dataEntity);
-      log('SAVED AT $index');
-      return;
-    } else {
-      int indexOfLast = 0;
-      final listEntities = userDataBox.values.toList();
+    try {
+      if (userDataBox.isEmpty) {
+        final index = await userDataBox.add(dataEntity);
+        log('SAVED AT $index');
+        return;
+      } else {
+        int indexOfLast = 0;
+        final listEntities = userDataBox.values.toList();
 
-      for (final data in listEntities) {
-        if (data.userId == dataEntity.userId) {
-          indexOfLast = listEntities.indexOf(data);
-          break;
-        } else {
-          indexOfLast = 0;
+        for (final data in listEntities) {
+          if (data.userId == dataEntity.userId) {
+            indexOfLast = listEntities.indexOf(data);
+            break;
+          } else {
+            indexOfLast = 0;
+          }
         }
-      }
 
-      await userDataBox.putAt(indexOfLast, dataEntity);
-      log('SAVED AT $indexOfLast');
-      return;
+        await userDataBox.putAt(indexOfLast, dataEntity);
+        log('SAVED AT $indexOfLast');
+        return;
+      }
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_user_data',
+        operation: 'save_user_data',
+        storageType: 'hive',
+        extras: {
+          'user_id': dataEntity.userId,
+          'ask_time': dataEntity.askTime.toString(),
+        },
+      );
+      rethrow;
     }
   }
 
   @override
   Future<UserDataEntity?> fetchUserDataEntity({required String userId}) async {
-    if (userDataBox.isEmpty) {
-      log('NO USER DATA FOUND');
-      return null;
-    }
-    UserDataEntity? last;
-    final listEntities = userDataBox.values.toList().reversed;
-
-    for (final data in listEntities) {
-      if (data.userId == userId) {
-        last = data;
+    try {
+      if (userDataBox.isEmpty) {
+        log('NO USER DATA FOUND');
+        return null;
       }
-    }
+      UserDataEntity? last;
+      final listEntities = userDataBox.values.toList().reversed;
 
-    return last;
+      for (final data in listEntities) {
+        if (data.userId == userId) {
+          last = data;
+        }
+      }
+
+      return last;
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_user_data',
+        operation: 'fetch_user_data',
+        storageType: 'hive',
+        extras: {'user_id': userId},
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<void> disconnectWhoop() async {
-    await dayBox.clear();
-    await userDataBox.clear();
+    try {
+      await dayBox.clear();
+      await userDataBox.clear();
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_whoop',
+        operation: 'disconnect_whoop',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
   }
 
   @override

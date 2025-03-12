@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/router/navigator_key_provider.dart';
@@ -31,6 +32,7 @@ class AppNavigationService {
   GoRouter get config => GoRouter(
         navigatorKey: _navigatorKeyProvider.rootNavigatorKey,
         initialLocation: AppRoutes.splah.path,
+        observers: [SentryNavigatorObserver()],
         routes: [
           GoRoute(
             name: AppRoutes.login.name,

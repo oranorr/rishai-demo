@@ -13,6 +13,7 @@ import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/envied/envied.dart';
+import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
@@ -72,17 +73,19 @@ class WhoopRepositoryImpl implements WhoopRepository {
           '$authorizeUrl?response_type=code&client_id=$clientId&redirect_uri=$redirectUri&scope=${scopes.join('%20')}&state=secureRandomState';
 
       String? result;
-      // DartPluginRegistrant.ensureInitialized();
-      // log(authUrl);
       try {
-        // Выполняем аутентификацию
         result = await FlutterWebAuth2.authenticate(
           url: authUrl,
           callbackUrlScheme: 'com.rishai',
         );
-      } on Exception catch (e) {
-        // Обрабатываем случай отмены или ошибки при аутентификации
-        log('Authentification failed or error occured:: $e');
+      } catch (e, stackTrace) {
+        log('Authentication failed or error occurred: $e');
+        await WhoopErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'whoop_web_auth',
+          extras: {'auth_url': authUrl},
+        );
         return const Left(WhoopAuthenticationFailure());
       }
 
@@ -92,6 +95,12 @@ class WhoopRepositoryImpl implements WhoopRepository {
       log('Authorization code: $code');
 
       if (code == null) {
+        await WhoopErrorHandler.handleError(
+          'No authorization code returned',
+          StackTrace.current,
+          context: 'whoop_auth_code',
+          extras: {'result_url': result},
+        );
         return const Left(WhoopDidNotReturnAuthCodeFailure());
       }
 
@@ -123,11 +132,22 @@ class WhoopRepositoryImpl implements WhoopRepository {
         return const Right(null);
       } else {
         log('Failed to get access token: ${response.body}');
+        await WhoopErrorHandler.handleError(
+          'Failed to get access token',
+          StackTrace.current,
+          context: 'whoop_access_token',
+          response: response,
+          extras: {'auth_code': code},
+        );
         return const Left(WhoopFailedToReturnAccessToken());
       }
-    } on Exception catch (e) {
-      // Обработка других возможных исключений
+    } catch (e, stackTrace) {
       log('Error during authentication: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_auth_general',
+      );
       return const Left(WhoopFailedToReturnAccessToken());
     }
   }
@@ -159,13 +179,39 @@ class WhoopRepositoryImpl implements WhoopRepository {
           final data = jsonDecode(response.body);
           return RefreshTokenModel.fromMap(data);
         } else {
+          await WhoopErrorHandler.handleError(
+            'Failed to refresh token',
+            StackTrace.current,
+            context: 'whoop_refresh_token',
+            response: response,
+            extras: {
+              'attempt': attempts + 1,
+              'max_attempts': maxAttempts,
+            },
+          );
           attempts++;
         }
-      } on Exception catch (e) {
+      } catch (e, stackTrace) {
         log('Error during token refresh attempt: $e');
-        attempts++; // Увеличиваем счётчик при возникновении ошибки
+        await WhoopErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'whoop_refresh_token',
+          extras: {
+            'attempt': attempts + 1,
+            'max_attempts': maxAttempts,
+          },
+        );
+        attempts++;
       }
     }
+
+    await WhoopErrorHandler.handleError(
+      'Max refresh token attempts reached',
+      StackTrace.current,
+      context: 'whoop_refresh_token_max_attempts',
+      extras: {'max_attempts': maxAttempts},
+    );
     log('Max attempts reached, failed to refresh token');
     return null;
   }
@@ -178,10 +224,20 @@ class WhoopRepositoryImpl implements WhoopRepository {
       if (body != null) {
         return Right(body);
       } else {
+        await WhoopErrorHandler.handleError(
+          'Body data is null',
+          StackTrace.current,
+          context: 'whoop_get_body_data',
+        );
         return const Left(UnknownFailure());
       }
-    } on Exception catch (e) {
-      log('ERROR WHILE FETCHIG BODY DATA $e');
+    } catch (e, stackTrace) {
+      log('ERROR WHILE FETCHING BODY DATA $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_get_body_data',
+      );
       return const Left(UnknownFailure());
     }
   }
@@ -190,15 +246,16 @@ class WhoopRepositoryImpl implements WhoopRepository {
   Future<Either<Failure, DayEntity>> getData({
     required GetDataParams params,
   }) async {
+    bool? isCurrentCycleEnded;
     try {
-      final isCurrentCycleEnded = await tryFetch(
+      isCurrentCycleEnded = await tryFetch(
         () async => remoteDataSource.pingLastCycle(
           cycleId: await getLastCycleId(userId: params.userId),
         ),
       );
 
       log('Cycle is finished: $isCurrentCycleEnded');
-      // Получаем сохранённые данные пользователя из локального хранилища
+
       if (isCurrentCycleEnded == false) {
         print('cycle IS NOT finished, pulling old data');
         final res = await _getLocalOrRemoteData();
@@ -212,37 +269,47 @@ class WhoopRepositoryImpl implements WhoopRepository {
           },
         );
       }
-      // UserDataEntity? savedUserData =
-      //     await hive.fetchUserDataEntity(userId: params.userId);
 
-      // Если цикл не завершён, проверяем данные в локальном хранилище
-      // if (isCurrentCycleEnded == false) {
-      //   return await _getLocalOrRemoteData();
-      // }
-
-      // Если цикл завершился или данные в локальном хранилище отсутствуют, загружаем свежие данные
       return await _fetchAndSaveFreshData(params, isCurrentCycleEnded!);
-    } on Exception catch (e) {
+    } catch (e, stackTrace) {
       log('ERROR WHILE FETCHING WHOOP DATA: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_get_data',
+        extras: {
+          'user_id': params.userId,
+          'is_current_cycle_ended': isCurrentCycleEnded,
+        },
+      );
       return Left(FailedToGetUserData('$e'));
     }
   }
 
   Future<int?> getLastCycleId({required String userId}) async {
-    final rawUser =
-        await directus.readOne(collection: usersCollection, id: userId);
-    final List<int> days = List.from(rawUser['days']).cast<int>();
-    if (days.isEmpty) return null;
-    final rawLastDay = await directus.readOne(
-      collection: daysCollection,
-      id: days.last.toString(),
-    );
-    return rawLastDay['cycleId'] != null
-        ? int.parse(rawLastDay['cycleId'])
-        : null;
+    try {
+      final rawUser =
+          await directus.readOne(collection: usersCollection, id: userId);
+      final List<int> days = List.from(rawUser['days']).cast<int>();
+      if (days.isEmpty) return null;
+      final rawLastDay = await directus.readOne(
+        collection: daysCollection,
+        id: days.last.toString(),
+      );
+      return rawLastDay['cycleId'] != null
+          ? int.parse(rawLastDay['cycleId'])
+          : null;
+    } catch (e, stackTrace) {
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_get_last_cycle_id',
+        extras: {'user_id': userId},
+      );
+      rethrow;
+    }
   }
 
-// Вспомогательная функция для загрузки свежих данных и их сохранения
   Future<Either<Failure, DayEntity>> _fetchAndSaveFreshData(
     GetDataParams params,
     bool needsCreateNewDay,
@@ -265,7 +332,6 @@ class WhoopRepositoryImpl implements WhoopRepository {
     });
   }
 
-// Вспомогательная функция для получения локальных данных или загрузки удалённых данных
   Future<Either<Failure, DayEntity>> _getLocalOrRemoteData() async {
     final localData = await localDataSource.retrieveSavedDays();
     if (localData.isNotEmpty) {
@@ -273,7 +339,6 @@ class WhoopRepositoryImpl implements WhoopRepository {
       return Right(localData.last);
     }
 
-    // Если локальные данные отсутствуют, пытаемся загрузить данные с удалённого сервера
     final remoteData =
         await tryFetch(() => remoteDataSource.fetchDirectusData());
 
@@ -397,10 +462,33 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
         return Right(newDay);
       } else {
+        await WhoopErrorHandler.handleError(
+          'Missing required data for fresh data fetch',
+          StackTrace.current,
+          context: 'whoop_fetch_fresh_data',
+          extras: {
+            'has_cycles': cycles.isNotEmpty,
+            'has_recovery': recovery != null,
+            'has_sleep': sleep != null,
+            'has_body': body != null,
+            'user_id': userId,
+          },
+        );
         return const Left(WhoopNoDataFailure());
       }
-    } on Exception catch (e) {
-      log('EROR WHILE FETCHING FRESHDATA, $e');
+    } catch (e, stackTrace) {
+      log('ERROR WHILE FETCHING FRESH DATA: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_fetch_fresh_data',
+        extras: {
+          'user_id': userId,
+          'gender': gender.toString(),
+          'modificator': modificator,
+          'needs_create_new_day': needsCreateNewDay,
+        },
+      );
       return const Left(WhoopNoDataFailure());
     }
   }
@@ -409,44 +497,62 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required DayEntity newDay,
     required String userId,
   }) async {
-    if (kDebugMode) {
-      log(
-        'Creating fresh day:\n'
-        'New day date: ${newDay.dateTime}\n'
-        'New day cycle: ${newDay.cycleId}\n'
-        'Current time: ${DateTime.now()}',
-        name: 'WhoopRepository',
+    try {
+      if (kDebugMode) {
+        log(
+          'Creating fresh day:\n'
+          'New day date: ${newDay.dateTime}\n'
+          'New day cycle: ${newDay.cycleId}\n'
+          'Current time: ${DateTime.now()}',
+          name: 'WhoopRepository',
+        );
+      }
+
+      final now = DateTime.now();
+      final isNewDay = newDay.dateTime.year == now.year &&
+          newDay.dateTime.month == now.month &&
+          newDay.dateTime.day == now.day;
+
+      if (!isNewDay) {
+        final String warning =
+            'Warning: Attempting to create a day that is not today:\n'
+            'New day date: ${newDay.dateTime}\n'
+            'Current time: $now';
+        log(warning, name: 'WhoopRepository');
+        await WhoopErrorHandler.handleError(
+          warning,
+          StackTrace.current,
+          context: 'whoop_create_fresh_day',
+          extras: {
+            'new_day_date': newDay.dateTime.toString(),
+            'current_time': now.toString(),
+            'user_id': userId,
+          },
+        );
+      }
+
+      final freshDay = newDay.copyWith(
+        dateTime: now,
+        cycleId: newDay.cycleId,
       );
-    }
 
-    // Проверяем, что новый день действительно новый
-    final now = DateTime.now();
-    final isNewDay = newDay.dateTime.year == now.year &&
-        newDay.dateTime.month == now.month &&
-        newDay.dateTime.day == now.day;
+      await localDataSource.saveData(data: freshDay);
+      await remoteDataSource.updateDirectus(day: freshDay);
 
-    if (!isNewDay) {
-      log(
-        'Warning: Attempting to create a day that is not today:\n'
-        'New day date: ${newDay.dateTime}\n'
-        'Current time: $now',
-        name: 'WhoopRepository',
+      return freshDay;
+    } catch (e, stackTrace) {
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_create_fresh_day',
+        extras: {
+          'user_id': userId,
+          'cycle_id': newDay.cycleId,
+          'date_time': newDay.dateTime.toString(),
+        },
       );
+      rethrow;
     }
-
-    // Создаем новый день
-    final freshDay = newDay.copyWith(
-      dateTime: now,
-      cycleId: newDay.cycleId,
-    );
-
-    // Сохраняем в локальное хранилище
-    await localDataSource.saveData(data: freshDay);
-
-    // Обновляем на сервере
-    await remoteDataSource.updateDirectus(day: freshDay);
-
-    return freshDay;
   }
 
   double calculateCalorieGoal({
@@ -501,23 +607,55 @@ class WhoopRepositoryImpl implements WhoopRepository {
       return res.fold((l) async {
         return Left(l);
       }, (r) async {
-        await remoteDataSource.updateDirectus(day: r);
-        return Right(r.macros);
+        try {
+          await remoteDataSource.updateDirectus(day: r);
+          return Right(r.macros);
+        } catch (e, stackTrace) {
+          await WhoopErrorHandler.handleError(
+            e,
+            stackTrace,
+            context: 'whoop_change_modificator_update_directus',
+            extras: {
+              'modificator': params.modificator,
+              'gender': params.gender.toString(),
+            },
+          );
+          rethrow;
+        }
       });
-    } on Exception catch (__) {
+    } catch (e, stackTrace) {
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_change_modificator',
+        extras: {
+          'modificator': params.modificator,
+          'gender': params.gender.toString(),
+        },
+      );
       rethrow;
     }
   }
 
   Future<T?> tryFetch<T>(Future<T?> Function() fetchFunction) async {
-    const int maxRetries = 3; // максимальное количество попыток
+    const int maxRetries = 3;
     const Duration retryDelay = Duration(seconds: 2);
     for (int attempt = 0; attempt < maxRetries; attempt++) {
       try {
         final result = await fetchFunction();
         if (result != null) return result;
-      } on Exception catch (e) {
+      } catch (e, stackTrace) {
         log('Attempt ${attempt + 1} failed: $e');
+        await WhoopErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'whoop_try_fetch',
+          extras: {
+            'attempt': attempt + 1,
+            'max_retries': maxRetries,
+            'function': fetchFunction.toString(),
+          },
+        );
         if (attempt == maxRetries - 1) rethrow;
         await Future.delayed(retryDelay);
       }
@@ -530,15 +668,20 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required DisconnecWhoopParams params,
   }) async {
     try {
-      // Очищаем данные только при намеренном отключении
       await remoteDataSource.clearWhoopUserDataOnDisconnect(
         userId: params.userId,
       );
       await wTokenService.diconnect(params.userId);
       await hive.disconnectWhoop();
       return const Right(null);
-    } on Exception catch (e) {
-      log('Error: $e', name: 'DiconnectWhoop Repo');
+    } catch (e, stackTrace) {
+      log('Error while disconnecting Whoop: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_disconnect',
+        extras: {'user_id': params.userId},
+      );
       return const Left(UnknownFailure());
     }
   }
