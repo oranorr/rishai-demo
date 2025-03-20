@@ -126,7 +126,19 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
     log(message, name: 'WeekPlanBloc');
   }
 
-  void _onClear(WeekPlanClear event, Emitter<WeekPlanState> emit) {
-    emit(const WeekPlanState(weekPlans: []));
+  Future<void> _onClear(
+    WeekPlanClear event,
+    Emitter<WeekPlanState> emit,
+  ) async {
+    try {
+      emit(state.copyWith(isLoading: true));
+
+      // Просто очищаем состояние в блоке
+      emit(const WeekPlanState(weekPlans: []));
+    } catch (e) {
+      _logger('Error clearing week plans state: $e');
+    } finally {
+      emit(state.copyWith(isLoading: false));
+    }
   }
 }

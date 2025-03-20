@@ -1,15 +1,15 @@
 PODS:
-  - Adapty (3.3.1)
-  - adapty_flutter (3.3.1):
-    - Adapty (= 3.3.1)
-    - AdaptyPlugin (= 3.3.1)
-    - AdaptyUI (= 3.3.1)
+  - Adapty (3.3.6)
+  - adapty_flutter (3.3.2):
+    - Adapty (= 3.3.6)
+    - AdaptyPlugin (= 3.3.6)
+    - AdaptyUI (= 3.3.6)
     - Flutter
-  - AdaptyPlugin (3.3.1):
-    - Adapty (= 3.3.1)
-    - AdaptyUI (= 3.3.1)
-  - AdaptyUI (3.3.1):
-    - Adapty (= 3.3.1)
+  - AdaptyPlugin (3.3.6):
+    - Adapty (= 3.3.6)
+    - AdaptyUI (= 3.3.6)
+  - AdaptyUI (3.3.6):
+    - Adapty (= 3.3.6)
   - AppAuth (1.7.6):
     - AppAuth/Core (= 1.7.6)
     - AppAuth/ExternalUserAgent (= 1.7.6)
@@ -35,7 +35,7 @@ PODS:
     - Firebase/Messaging (= 11.7.0)
     - firebase_core
     - Flutter
-  - FirebaseAppCheckInterop (11.7.0)
+  - FirebaseAppCheckInterop (11.9.0)
   - FirebaseAuth (11.7.0):
     - FirebaseAppCheckInterop (~> 11.0)
     - FirebaseAuthInterop (~> 11.0)
@@ -45,7 +45,7 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GTMSessionFetcher/Core (< 5.0, >= 3.4)
     - RecaptchaInterop (~> 100.0)
-  - FirebaseAuthInterop (11.7.0)
+  - FirebaseAuthInterop (11.9.0)
   - FirebaseCore (11.7.0):
     - FirebaseCoreInternal (~> 11.7.0)
     - GoogleUtilities/Environment (~> 8.0)
@@ -235,18 +235,18 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
-  Adapty: 97d4543c6d5bf10c25601cf0bc92b1d796efea4a
-  adapty_flutter: 199d9d527b94dd4d96d5da14a51a22ef5a6c6c49
-  AdaptyPlugin: 140bc7a0038af1ec4b0cb8030387f50bbe0a9010
-  AdaptyUI: 6d0dc25413f8d55bbe833aef3492dadfc57b19fa
+  Adapty: 72cbff5d848dfabae3c9b2663204c546106b9f71
+  adapty_flutter: a63da0b9ba0ae1a5e7690eb0b9606e43d666b0b3
+  AdaptyPlugin: 5b3eaaa3c48a2a6432ec890c9ed078e4a725eb89
+  AdaptyUI: e6796667d96af4aa68f863015f7f5ffb3963679d
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
   Firebase: a64bf6a8546e6eab54f1c715cd6151f39d2329f4
   firebase_auth: bcc25c2992fb3e655b59faca6f0f5bc9215d463d
   firebase_core: aa979ae726f00b3ef4ccf59dfb96170af84efbd4
   firebase_messaging: 3af84b6a90aeac4d7a67fbf4c43a91e7083bea1f
-  FirebaseAppCheckInterop: 2376d3ec5cb4267facad4fe754ab4f301a5a519b
+  FirebaseAppCheckInterop: 9226f7217b43e99dfa0bc9f674ad8108cef89feb
   FirebaseAuth: 77e25aa24f3e1c626c5babd3338551fc1669ee0e
-  FirebaseAuthInterop: a6973d72aa242ea88ffb6be9c9b06c65455071da
+  FirebaseAuthInterop: 2a26ee1bea6d47df8048683cfa071e7da657798f
   FirebaseCore: 3227e35f4197a924206fbcdc0349325baf4f5de4
   FirebaseCoreExtension: 206c1b399f0d103055207c16f299b28e3dbd1949
   FirebaseCoreInternal: d6c17dafc8dc33614733a8b52df78fcb4394c881

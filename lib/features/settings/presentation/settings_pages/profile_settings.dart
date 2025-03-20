@@ -60,7 +60,6 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                   SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
-                      // 'sdkfjasl;kdfjasl;dkjfl;askdjf;laskdjfl;aksdjf;laksjdf;laskdjf;alskjdf',
                       userBloc.state.user.email,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -74,35 +73,31 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           RishDropdownMenu(
             title: 'Dietary preference',
             preSelectedData: updUser.foodPreferences!.diets.join(', '),
-            action: planCreated
-                ? _showDialog
-                : () async {
-                    await ModalSheet.showQuestionarySheet(
-                      title: 'Dietary prefrence',
-                      context: context,
-                      data: QuestionaryRepository().diets,
-                      onSave: (List<Question> selectedDiets) {
-                        updateDietary(selectedDiets.cast<Dietary>());
-                      },
-                    );
-                  },
+            action: () async {
+              await ModalSheet.showQuestionarySheet(
+                title: 'Dietary prefrence',
+                context: context,
+                data: QuestionaryRepository().diets,
+                onSave: (List<Question> selectedDiets) {
+                  updateDietary(selectedDiets.cast<Dietary>());
+                },
+              );
+            },
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
             title: 'Cuisine preferences',
             preSelectedData: updUser.foodPreferences!.cuisines.join(', '),
-            action: planCreated
-                ? _showDialog
-                : () async {
-                    await ModalSheet.showQuestionarySheet(
-                      title: 'Cuisine prefrences',
-                      context: context,
-                      data: QuestionaryRepository().cuisines,
-                      onSave: (List<Question> selectedCuisines) {
-                        updateCuisines(selectedCuisines.cast<Cuisine>());
-                      },
-                    );
-                  },
+            action: () async {
+              await ModalSheet.showQuestionarySheet(
+                title: 'Cuisine prefrences',
+                context: context,
+                data: QuestionaryRepository().cuisines,
+                onSave: (List<Question> selectedCuisines) {
+                  updateCuisines(selectedCuisines.cast<Cuisine>());
+                },
+              );
+            },
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
@@ -110,41 +105,36 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             preSelectedData: updUser.foodPreferences!.restrictions.isEmpty
                 ? 'No restrictions'
                 : updUser.foodPreferences!.restrictions.join(', '),
-            action: planCreated
-                ? _showDialog
-                : () async {
-                    await ModalSheet.showQuestionarySheet(
-                      title: 'Food restrictions',
-                      context: context,
-                      data: QuestionaryRepository().restrictions,
-                      allowEmptySelection: true,
-                      onSave: (List<Question> selectedRestrictions) {
-                        updateRestrinctions(
-                          selectedRestrictions.cast<Restriction>(),
-                        );
-                      },
-                    );
-                  },
+            action: () async {
+              await ModalSheet.showQuestionarySheet(
+                title: 'Food restrictions',
+                context: context,
+                data: QuestionaryRepository().restrictions,
+                allowEmptySelection: true,
+                onSave: (List<Question> selectedRestrictions) {
+                  updateRestrinctions(
+                    selectedRestrictions.cast<Restriction>(),
+                  );
+                },
+              );
+            },
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
             title: 'Fitness goal',
             preSelectedData: updUser.userGoal!.getGoalTypeName(),
-            action:
-                // !kDebugMode
-                planCreated
-                    ? _showDialog
-                    : () async {
-                        await ModalSheet.showQuestionarySheet(
-                          title: 'Fitness goal',
-                          context: context,
-                          data: QuestionaryRepository().goals,
-                          onSave: (List<Question> selectedGoal) {
-                            // print(selectedGoal);
-                            updateGoal(selectedGoal.first as FitnessGoal);
-                          },
-                        );
+            action: planCreated
+                ? _showDialog
+                : () async {
+                    await ModalSheet.showQuestionarySheet(
+                      title: 'Fitness goal',
+                      context: context,
+                      data: QuestionaryRepository().goals,
+                      onSave: (List<Question> selectedGoal) {
+                        updateGoal(selectedGoal.first as FitnessGoal);
                       },
+                    );
+                  },
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
@@ -153,8 +143,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                 '${(updUser.userGoal!.modificator * 100).round()} %',
             action: !modificatorChangable
                 ? () {}
-                : modificatorChangable &&
-                        whoopBloc.state.day.mealPlanEntity == null
+                : modificatorChangable && !planCreated
                     ? () async {
                         await ModificatorSelectorSheet(
                           goal: updUser.userGoal!,
@@ -249,7 +238,6 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
               ),
             ],
           ),
-          // const Spacer(),
           SizedBox(height: 36.h),
           RishButton.primary(
             title: 'Save changes',
@@ -257,17 +245,24 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             isLoading: false,
             action: () {
               userBloc.add(UpdateUserEvent(user: updUser));
-              whoopBloc.add(
-                WhoopChangeModificatorOrSex(
-                  modificator: updUser.userGoal!.modificator,
-                  gender: updUser.gender!,
-                  context: context,
-                ),
-              );
+
+              // Проверяем, изменились ли модификатор или пол
+              final currentUser = userBloc.state.user;
+              if (currentUser.userGoal?.modificator !=
+                      updUser.userGoal?.modificator ||
+                  currentUser.gender != updUser.gender) {
+                whoopBloc.add(
+                  WhoopChangeModificatorOrSex(
+                    modificator: updUser.userGoal!.modificator,
+                    gender: updUser.gender!,
+                    context: context,
+                  ),
+                );
+              }
+
               setState(() {
                 buttonIsActive = false;
               });
-              // context.pop();
             },
           ),
           SizedBox(height: 16.h),

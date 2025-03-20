@@ -43,7 +43,7 @@ Every ingredient must have the following fields:
     {
       "title": "Avocado Toast",
       "type": "savoury breakfast",
-      "description": "A nutritious breakfast with creamy avocado on toasted whole-grain bread.",
+      "description": "A nutritious breakfast with creamy avocado on toasted whole-grain bread. The description MUST be approximately 250-350 characters long and include information about the meal's taste, texture, nutritional benefits, and how it contributes to a healthy start of the day. Describe the main ingredients, their health benefits, and how they complement each other.",
       "macros": {
         "kcal": 350,
         "protein": 12,
@@ -103,7 +103,7 @@ Every ingredient must have:
     {
       "title": "Grilled Chicken Salad",
       "type": "lunch",
-      "description": "A protein-packed salad with grilled chicken and fresh vegetables.",
+      "description": "A protein-packed salad with grilled chicken and fresh vegetables. The description MUST be approximately 250-350 characters long and include information about the meal's flavor profile, texture combinations, nutritional value, and its role in a balanced diet. Detail the cooking methods used and explain how the ingredients work together.",
       "macros": {
         "kcal": 500,
         "protein": 40,
@@ -157,7 +157,7 @@ You are Pivot Nutrition AI, responsible for generating satisfying and balanced s
     {
       "title": "Greek Yogurt with Berries",
       "type": "sweet snack",
-      "description": "A refreshing snack combining creamy yogurt with fresh berries.",
+      "description": "A refreshing snack combining creamy yogurt with fresh berries. The description MUST be approximately 250-350 characters long and provide information about the snack's taste profile, textural elements, and nutritional advantages. Explain how this snack fits into a healthy diet and its role in maintaining energy levels between meals.",
       "macros": {
         "kcal": 200,
         "protein": 15,

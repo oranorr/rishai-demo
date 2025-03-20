@@ -36,6 +36,8 @@ import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.d
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
+    show adapty;
 
 part 'whoop_event.dart';
 
@@ -64,7 +66,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     on<InitWhoopOnLogin>(_initWhoopOnLogin);
     on<WhoopUserCalibrating>(_userCalibrating);
     on<WhoopRetrieveBodyData>(_getBodyData);
-    on<WhoopChangeModificatorOrSex>(_changedModificatorOrSex);
+    on<WhoopChangeModificatorOrSex>(_changeModificatorOrSex);
     on<WhoopUpdateDayByMealPlan>(_updateDayByMealPlan);
     on<WhoopDisconnect>(_disconnect);
     on<WhoopCheckForRefresh>(_checkForRefresh);
@@ -106,8 +108,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         appNavigationService.go(
           path: needsQuestionary
               ? AppRoutes.questionary.path
-              // : adapty.isActive
-              : true
+              : adapty.isActive
                   ? AppRoutes.homeScreen.path
                   : AppRoutes.paywall.path,
         );
@@ -236,7 +237,9 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           userBloc.add(UserGetDays(newDay: state.day));
 
           appNavigationService.go(
-            path: true ? AppRoutes.homeScreen.path : AppRoutes.paywall.path,
+            path: adapty.isActive
+                ? AppRoutes.homeScreen.path
+                : AppRoutes.paywall.path,
           );
           emit(state.copyWith(status: Status.success));
           return;
@@ -296,13 +299,17 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     });
   }
 
-  FutureOr<void> _changedModificatorOrSex(
+  FutureOr<void> _changeModificatorOrSex(
     WhoopChangeModificatorOrSex event,
     Emitter<WhoopState> emit,
   ) async {
     final user = userBloc.state.user;
     bool success = false;
     String errorMessage = 'Error happened. Please, try again';
+
+    // Сохраняем текущий план питания
+    final currentMealPlan = state.day.mealPlanEntity;
+
     final res = await changeModificatorOrSexUsecase.call(
       ChangeModificatorOrSexParams(
         modificator: event.modificator,
@@ -320,8 +327,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       }
     }, (macros) {
       success = true;
-      emit(state.copyWith(day: state.day.copyWith(macros: macros)));
-      userBloc.add(UserManageDay(day: state.day));
+      // Обновляем день, сохраняя план питания
+      final updatedDay = state.day.copyWith(
+        macros: macros,
+        mealPlanEntity: currentMealPlan,
+      );
+      emit(state.copyWith(day: updatedDay));
+      userBloc.add(UserManageDay(day: updatedDay));
     });
 
     if (!success) {
@@ -335,7 +347,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           appNavigationService.go(path: AppRoutes.redirect.path);
         },
       );
-      await _initWhoopOnLogin(const InitWhoopOnLogin(), emit);
     }
   }
 
@@ -530,7 +541,11 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       await result.fold(
         (failure) {
           emit(state.copyWith(status: Status.error));
-          appNavigationService.go(path: AppRoutes.homeScreen.path);
+          appNavigationService.go(
+            path: adapty.isActive
+                ? AppRoutes.homeScreen.path
+                : AppRoutes.paywall.path,
+          );
         },
         (newDay) async {
           // Сохраняем существующий снапшот
@@ -567,7 +582,11 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
           // Завершаем загрузку и возвращаемся на главный экран
           emit(state.copyWith(status: Status.success));
-          appNavigationService.go(path: AppRoutes.homeScreen.path);
+          appNavigationService.go(
+            path: adapty.isActive
+                ? AppRoutes.homeScreen.path
+                : AppRoutes.paywall.path,
+          );
 
           // Показываем уведомление об успешном обновлении
           RishSnackbar().showSnackBar('Your data has been updated', false);

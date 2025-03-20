@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:flutter/foundation.dart';
 
 import 'package:dartz/dartz.dart';
-import 'package:directus/directus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
@@ -15,6 +14,7 @@ import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
+import 'package:rishai/core/services/network/request_timer.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -66,87 +66,77 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
   @override
   Future<Either<Failure, void>> authenticateUser() async {
+    String aT = '';
+
+    final authUrl =
+        '$authorizeUrl?response_type=code&client_id=$clientId&redirect_uri=$redirectUri&scope=${scopes.join('%20')}&state=secureRandomState';
+
+    String? result;
     try {
-      String aT = '';
-
-      final authUrl =
-          '$authorizeUrl?response_type=code&client_id=$clientId&redirect_uri=$redirectUri&scope=${scopes.join('%20')}&state=secureRandomState';
-
-      String? result;
-      try {
-        result = await FlutterWebAuth2.authenticate(
-          url: authUrl,
-          callbackUrlScheme: 'com.rishai',
-        );
-      } catch (e, stackTrace) {
-        log('Authentication failed or error occurred: $e');
-        await WhoopErrorHandler.handleError(
-          e,
-          stackTrace,
-          context: 'whoop_web_auth',
-          extras: {'auth_url': authUrl},
-        );
-        return const Left(WhoopAuthenticationFailure());
-      }
-
-      log('Returned result URL: $result');
-
-      final code = Uri.parse(result).queryParameters['code'];
-      log('Authorization code: $code');
-
-      if (code == null) {
-        await WhoopErrorHandler.handleError(
-          'No authorization code returned',
-          StackTrace.current,
-          context: 'whoop_auth_code',
-          extras: {'result_url': result},
-        );
-        return const Left(WhoopDidNotReturnAuthCodeFailure());
-      }
-
-      final response = await http.post(
-        Uri.parse(tokenUrl),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'grant_type': 'authorization_code',
-          'code': code,
-          'redirect_uri': 'com.rishai://redirect',
-          'client_id': clientId,
-          'client_secret': clientSecret,
-          'state': 'randomGeneratedState',
-        },
+      result = await FlutterWebAuth2.authenticate(
+        url: authUrl,
+        callbackUrlScheme: 'com.rishai',
       );
-
-      if (response.statusCode == 200) {
-        final tokenData = jsonDecode(response.body);
-        aT = tokenData['access_token'];
-        log(tokenData.toString());
-        await wTokenService.createTokenService(
-          AuthResponseEntity(
-            accessToken: tokenData['access_token'],
-            refreshToken: tokenData['refresh_token'],
-            expiresIn: Duration(seconds: tokenData['expires_in']),
-          ),
-        );
-        log('Access Token: $aT');
-        return const Right(null);
-      } else {
-        log('Failed to get access token: ${response.body}');
-        await WhoopErrorHandler.handleError(
-          'Failed to get access token',
-          StackTrace.current,
-          context: 'whoop_access_token',
-          response: response,
-          extras: {'auth_code': code},
-        );
-        return const Left(WhoopFailedToReturnAccessToken());
-      }
     } catch (e, stackTrace) {
-      log('Error during authentication: $e');
+      log('Authentication failed or error occurred: $e');
       await WhoopErrorHandler.handleError(
         e,
         stackTrace,
-        context: 'whoop_auth_general',
+        context: 'whoop_web_auth',
+        extras: {'auth_url': authUrl},
+      );
+      return const Left(WhoopAuthenticationFailure());
+    }
+
+    log('Returned result URL: $result');
+
+    final code = Uri.parse(result).queryParameters['code'];
+    log('Authorization code: $code');
+
+    if (code == null) {
+      await WhoopErrorHandler.handleError(
+        'No authorization code returned',
+        StackTrace.current,
+        context: 'whoop_auth_code',
+        extras: {'result_url': result},
+      );
+      return const Left(WhoopDidNotReturnAuthCodeFailure());
+    }
+
+    final response = await RequestTimer.httpClient.post(
+      Uri.parse(tokenUrl),
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: {
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': 'com.rishai://redirect',
+        'client_id': clientId,
+        'client_secret': clientSecret,
+        'state': 'randomGeneratedState',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final tokenData = jsonDecode(response.body);
+      aT = tokenData['access_token'];
+      log(tokenData.toString());
+      await wTokenService.createTokenService(
+        AuthResponseEntity(
+          accessToken: tokenData['access_token'],
+          refreshToken: tokenData['refresh_token'],
+          expiresIn: Duration(seconds: tokenData['expires_in']),
+        ),
+      );
+      log('Access Token: $aT');
+      return const Right(null);
+    } else {
+      log('Failed to get access token: ${response.body}');
+      await WhoopErrorHandler.handleError(
+        'Failed to get access token',
+        StackTrace.current,
+        context: 'whoop_access_token',
+        response: response,
+        extras: {'auth_code': code},
       );
       return const Left(WhoopFailedToReturnAccessToken());
     }
@@ -161,7 +151,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
     while (attempts < maxAttempts) {
       try {
         await Future.delayed(const Duration(seconds: 2));
-        response = await http.post(
+        response = await RequestTimer.httpClient.post(
           Uri.parse(tokenUrl),
           headers: {'Content-Type': 'application/x-www-form-urlencoded'},
           body: {

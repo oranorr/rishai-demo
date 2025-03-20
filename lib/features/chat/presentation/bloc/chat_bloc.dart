@@ -300,11 +300,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ChatOnLogout event,
     Emitter<ChatState> emit,
   ) async {
+    // Просто очищаем состояние чата без создания нового снапшота
     emit(
       state.copyWith(
         messages: [],
         requestsLeft:
             event.needsCounterClear ? defaultRequestsLimit : state.requestsLeft,
+        status: Status.initial,
       ),
     );
   }

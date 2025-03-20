@@ -162,8 +162,8 @@ class _ReplacementWidgetState extends State<ReplacementWidget> {
       builder: (context, state) {
         return DraggableScrollableSheet(
           expand: false,
-          initialChildSize: isExpanded ? 0.6 : 0.35,
-          minChildSize: 0.35,
+          initialChildSize: isExpanded ? 0.1 : 0.24,
+          minChildSize: 0.24,
           maxChildSize: 0.9,
           builder: (context, scrollController) {
             return Padding(
@@ -172,13 +172,13 @@ class _ReplacementWidgetState extends State<ReplacementWidget> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'What do you want to replace?',
+                    'Are you sure?',
                     style: context.styles.h3,
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 12.h),
                   RishButton.primary(
-                    title: 'I want a new meal',
+                    title: 'Yes, go ahead',
                     enabled: firstButtonEnabled,
                     isLoading:
                         state.status == Status.loading && firstButtonEnabled,
@@ -192,18 +192,19 @@ class _ReplacementWidgetState extends State<ReplacementWidget> {
                     },
                   ),
                   if (!isExpanded) ...[
-                    SizedBox(height: 12.h),
-                    RishButton.primary(
-                      title: 'I want to change an ingredient',
-                      enabled: secondButtonEnabled,
-                      isLoading:
-                          state.status == Status.loading && secondButtonEnabled,
-                      action: () {
-                        setState(() {
-                          isExpanded = true;
-                        });
-                      },
-                    ),
+                    // SizedBox(height: 12.h),
+                    // RishButton.primary(
+                    //   title: 'I want to change an ingredient',
+                    //   // enabled: secondButtonEnabled,
+                    //   enabled: false,
+                    //   isLoading:
+                    //       state.status == Status.loading && secondButtonEnabled,
+                    //   action: () {
+                    //     setState(() {
+                    //       isExpanded = true;
+                    //     });
+                    //   },
+                    // ),
                   ],
                   if (isExpanded) ...[
                     SizedBox(height: 12.h),

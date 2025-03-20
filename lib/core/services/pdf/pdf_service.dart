@@ -74,7 +74,7 @@ class PdfService {
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text(
-                            'Shopping list',
+                            'Grocery list',
                             style: pw.TextStyle(
                               font: ttf,
                               fontSize: 24,

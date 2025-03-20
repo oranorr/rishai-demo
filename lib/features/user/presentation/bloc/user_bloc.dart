@@ -67,6 +67,11 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     Emitter<UserState> emit,
   ) async {
     UserEntity user = event.user;
+
+    // Сохраняем существующий план питания
+    final currentDay = whoopBloc.state.day;
+    final currentMealPlan = currentDay.mealPlanEntity;
+
     if (user.adaptyId == null) {
       user = user.copyWith(
         adaptyId: adapty.generateAdaptyId(directusId: user.directusId),
@@ -87,6 +92,14 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       // Сохраняем снапшот чата если пользователь авторизован
       if (user.directusId != '-1') {
         chatBloc.add(ChatSaveSnap(directusId: user.directusId));
+      }
+
+      // Восстанавливаем план питания
+      if (currentMealPlan != null) {
+        final updatedDay = currentDay.copyWith(
+          mealPlanEntity: currentMealPlan,
+        );
+        whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
       }
     });
   }

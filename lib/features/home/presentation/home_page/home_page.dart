@@ -83,7 +83,7 @@ class _HomePageState extends State<HomePage> {
         }
       },
       builder: (context, state) {
-        print(state.user.daysIds);
+        // print(state.user.daysIds);
         return PageView.builder(
           controller: pageController,
           physics: const NeverScrollableScrollPhysics(),
@@ -242,7 +242,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
                   GestureDetector(
                     onTap: () async => RishiDialog.infoPopup(
                       context,
-                      'You can ask for cooking instructions for any meal, replacement of individual ingredients in any meal, or even ask for meal alternatives in the AI chat.',
+                      'Cooking instructions & ingredients for each meal are provided in the meal landing card and you can ask for more detail in the AI chat. You may also replace any ONE meal for an alternative, ONCE per day, if you wish to.',
                     ),
                     child: const Icon(
                       Icons.info_outline,

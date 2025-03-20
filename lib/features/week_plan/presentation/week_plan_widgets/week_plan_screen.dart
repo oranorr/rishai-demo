@@ -66,49 +66,27 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> with WeekPlanMixin {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        width: 36,
-                        child: Opacity(
-                          opacity: currentPage > 0 ? 1.0 : 0.0,
-                          child: IconButton(
-                            onPressed: currentPage > 0
-                                ? () => pageController.previousPage(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      curve: Curves.easeInOut,
-                                    )
-                                : null,
-                            icon: const Icon(
-                              Icons.arrow_back_ios,
-                              color: RishColors.primary,
-                              size: 16,
-                            ),
-                          ),
+                      _PlanArrow(
+                        callback: () => pageController.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
                         ),
+                        isForward: false,
+                        isEnabled: !(currentPage > 0),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         '${plans[currentPage].startDate.formatAsWeekString()} - ${plans[currentPage].endDate.formatAsWeekString()}',
                         style: context.styles.regularMedium,
                       ),
-                      SizedBox(
-                        width: 36,
-                        child: Opacity(
-                          opacity: currentPage < plans.length - 1 ? 1.0 : 0.0,
-                          child: IconButton(
-                            onPressed: currentPage < plans.length - 1
-                                ? () => pageController.nextPage(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      curve: Curves.easeInOut,
-                                    )
-                                : null,
-                            icon: const Icon(
-                              Icons.arrow_forward_ios,
-                              color: RishColors.primary,
-                              size: 16,
-                            ),
-                          ),
+                      const SizedBox(width: 8),
+                      _PlanArrow(
+                        callback: () => pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
                         ),
+                        isForward: true,
+                        isEnabled: !(currentPage < plans.length - 1),
                       ),
                     ],
                   ),
@@ -117,6 +95,7 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> with WeekPlanMixin {
               SizedBox(height: 16.h),
               Expanded(
                 child: PageView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
                   controller: pageController,
                   onPageChanged: (page) {
                     final plans = state.weekPlans
@@ -193,22 +172,22 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> with WeekPlanMixin {
                           plan: plan.plans[selectedIndex],
                           isToday: false,
                         ),
-                        if (_isCurrentActivePlan(plan))
-                          Padding(
-                            padding: EdgeInsets.only(top: 10.h),
-                            child: RishButton.primary(
-                              title: 'Export shopping list',
-                              enabled: true,
-                              isLoading: false,
-                              action: () async {
-                                final allIngredients =
-                                    _collectAllIngredients(plan);
-                                final pdfService = PdfService();
-                                await pdfService
-                                    .generateShoppingList(allIngredients);
-                              },
-                            ),
+                        // if (_isCurrentActivePlan(plan))
+                        Padding(
+                          padding: EdgeInsets.only(top: 10.h),
+                          child: RishButton.primary(
+                            title: 'Export grocery list',
+                            enabled: true,
+                            isLoading: false,
+                            action: () async {
+                              final allIngredients =
+                                  _collectAllIngredients(plan);
+                              final pdfService = PdfService();
+                              await pdfService
+                                  .generateShoppingList(allIngredients);
+                            },
                           ),
+                        ),
                       ],
                     );
                   },
@@ -223,26 +202,66 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> with WeekPlanMixin {
     );
   }
 
-  bool _isCurrentActivePlan(WeekPlanEntity plan) {
-    final today = DateTime.now();
-    final currentDate = DateTime(today.year, today.month, today.day);
-    final startDate = DateTime(
-      plan.startDate.year,
-      plan.startDate.month,
-      plan.startDate.day,
-    );
-    final endDate = DateTime(
-      plan.endDate.year,
-      plan.endDate.month,
-      plan.endDate.day,
-    );
+  // bool _isCurrentActivePlan(WeekPlanEntity plan) {
+  //   final today = DateTime.now();
+  //   final currentDate = DateTime(today.year, today.month, today.day);
+  //   final startDate = DateTime(
+  //     plan.startDate.year,
+  //     plan.startDate.month,
+  //     plan.startDate.day,
+  //   );
+  //   final endDate = DateTime(
+  //     plan.endDate.year,
+  //     plan.endDate.month,
+  //     plan.endDate.day,
+  //   );
 
-    // План активен если:
-    // 1. Текущая дата совпадает с датой начала
-    // 2. Текущая дата находится между началом и концом плана
-    // 3. Текущая дата до начала плана (чтобы можно было экспортировать список покупок)
-    return currentDate.isAtSameMomentAs(startDate) ||
-        (currentDate.isAfter(startDate) && currentDate.isBefore(endDate)) ||
-        currentDate.isBefore(startDate);
+  //   // План активен если:
+  //   // 1. Текущая дата совпадает с датой начала
+  //   // 2. Текущая дата находится между началом и концом плана
+  //   // 3. Текущая дата до начала плана (чтобы можно было экспортировать список покупок)
+  //   return currentDate.isAtSameMomentAs(startDate) ||
+  //       (currentDate.isAfter(startDate) && currentDate.isBefore(endDate)) ||
+  //       currentDate.isBefore(startDate);
+  // }
+}
+
+class _PlanArrow extends StatelessWidget {
+  const _PlanArrow({
+    required this.callback,
+    required this.isForward,
+    required this.isEnabled,
+  });
+  final VoidCallback callback;
+  final bool isForward;
+  final bool isEnabled;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: isEnabled ? null : callback,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 30.h,
+        width: 30.w,
+        decoration: BoxDecoration(
+          color: isEnabled ? Colors.transparent : RishColors.primary,
+          shape: BoxShape.circle,
+          boxShadow: isEnabled
+              ? null
+              : [
+                  BoxShadow(
+                    color: RishColors.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Icon(
+          isForward ? Icons.chevron_right : Icons.chevron_left,
+          color: isEnabled ? Colors.transparent : RishColors.stroke,
+          size: 25.w,
+        ),
+      ),
+    );
   }
 }

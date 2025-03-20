@@ -419,4 +419,20 @@ class HiveImpl implements HiveRepo {
     final res = weekPlanBox.values.toList();
     log(res.toString());
   }
+
+  @override
+  Future<void> clearWeekPlans() async {
+    try {
+      await weekPlanBox.clear();
+    } catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_week_plan',
+        operation: 'clear_week_plans',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
+  }
 }

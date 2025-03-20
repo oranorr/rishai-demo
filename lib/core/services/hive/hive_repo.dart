@@ -26,5 +26,7 @@ abstract class HiveRepo {
   Future<void> saveWeekPlan({required WeekPlanEntity weekPlan});
   Future<List<WeekPlanEntity>?> retrieveWeekPlan();
 
+  Future<void> clearWeekPlans();
+
   void test();
 }

@@ -13,29 +13,16 @@ class _CalendarWidget extends StatelessWidget {
       height: 50.h,
       child: Row(
         children: [
-          SizedBox(width: 1.w),
-          GestureDetector(
+          SizedBox(width: 2.w),
+          _buildNavigationButton(
+            icon: Icons.chevron_left,
             onTap: () async {
-              // print(widget.homePageController.page);
               await widget.homePageController
                   .nextPage(duration: Durations.medium1, curve: Curves.ease);
             },
-            child: widget.isLoading
-                ? const SizedBox.square(
-                    dimension: 25,
-                    child: CircularProgressIndicator(
-                      color: RishColors.primary,
-                      strokeWidth: 1,
-                    ),
-                  )
-                : widget.isLastPage
-                    ? const SizedBox.square(dimension: 25)
-                    : const Icon(
-                        Icons.arrow_back_ios,
-                        color: RishColors.stroke,
-                      ),
+            isLoading: widget.isLoading,
+            isDisabled: widget.isLastPage,
           ),
-          // const Spacer(),
           Expanded(
             child: GestureDetector(
               onTap: () async {
@@ -52,22 +39,61 @@ class _CalendarWidget extends StatelessWidget {
               ),
             ),
           ),
-          // const Spacer(),
-          GestureDetector(
+          _buildNavigationButton(
+            icon: Icons.chevron_right,
             onTap: () async {
               await widget.homePageController.previousPage(
                 duration: Durations.medium1,
                 curve: Curves.ease,
               );
             },
-            child: widget.isFirstPage
-                ? const SizedBox.square(dimension: 25)
-                : const Icon(
-                    Icons.arrow_forward_ios,
-                    color: RishColors.stroke,
-                  ),
+            isLoading: false,
+            isDisabled: widget.isFirstPage,
           ),
+          SizedBox(width: 2.w),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNavigationButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isLoading,
+    required bool isDisabled,
+  }) {
+    return GestureDetector(
+      onTap: isDisabled ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 40.h,
+        width: 40.w,
+        decoration: BoxDecoration(
+          color: isDisabled ? Colors.transparent : RishColors.primary,
+          shape: BoxShape.circle,
+          boxShadow: isDisabled || isLoading
+              ? null
+              : [
+                  BoxShadow(
+                    color: RishColors.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: isLoading
+            ? const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(
+                  color: RishColors.stroke,
+                  strokeWidth: 2,
+                ),
+              )
+            : Icon(
+                icon,
+                color: isDisabled ? Colors.transparent : RishColors.stroke,
+                size: 32.w,
+              ),
       ),
     );
   }

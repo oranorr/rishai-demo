@@ -340,12 +340,12 @@ class __SubButtonsState extends State<_SubButtons> {
                   ),
                   if (i == 1)
                     Positioned(
-                      top: -15,
-                      left: 26,
-                      right: 26,
+                      top: -15.h,
+                      left: 26.w,
+                      right: 26.w,
                       child: Container(
-                        width: 100,
-                        height: 30,
+                        width: 100.w,
+                        height: 25.h,
                         decoration: BoxDecoration(
                           color: indexSelected == 1
                               ? RishColors.primary
@@ -356,7 +356,7 @@ class __SubButtonsState extends State<_SubButtons> {
                           Platform.isAndroid ? 'Best offer' : 'Save 20%',
                           style: context.styles.boldSmall.copyWith(
                             color: RishColors.formBackgroun,
-                            height: 1.5.h,
+                            // height: 1.5.h,
                           ),
                           textAlign: TextAlign.center,
                         ),

@@ -6,6 +6,7 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/directus/directus_repository.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/error/network_error_handler.dart';
+import 'package:rishai/core/services/network/request_timer.dart';
 
 final directus = getIt.get<DirectusService>();
 
@@ -23,13 +24,16 @@ class DirectusRepositoryImpl implements DirectusService {
     while (attempt < maxRetries && !isConnected) {
       try {
         attempt += 1;
+        final dio = Dio(
+          BaseOptions(
+            baseUrl: 'https://login.thepivotapp.ai/',
+          ),
+        );
+        dio.interceptors.add(RequestTimer.dioInterceptor);
+
         sdk = await Directus(
           '',
-          client: Dio(
-            BaseOptions(
-              baseUrl: 'https://login.thepivotapp.ai/',
-            ),
-          ),
+          client: dio,
         ).init();
 
         await sdk.auth.login(

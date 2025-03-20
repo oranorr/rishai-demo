@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'dart:math' as math;
+import 'dart:io' show Platform;
 import 'package:adapty_flutter/adapty_flutter.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -11,7 +12,6 @@ final adapty = getIt.get<AdaptyRepository>();
 
 @Singleton(as: AdaptyRepository)
 class AdaptyRepositoryImpl implements AdaptyRepository {
-  // final Adapty Adapty() = Adapty();
   @override
   late List<AdaptyPaywallProduct> products;
 
@@ -23,9 +23,24 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
   late AdaptyPaywall paywall;
 
+  // Флаг для режима разработки
+  bool _isSimulatorMode = false;
+
   @override
   Future<void> initAdapty() async {
     try {
+      // Проверяем, запущено ли приложение в симуляторе/эмуляторе
+      if ((Platform.isIOS || Platform.isAndroid) && !await _isRealDevice()) {
+        _logger('Обнаружен симулятор/эмулятор. Включение режима симуляции.');
+        _isSimulatorMode = true;
+
+        // В режиме симулятора используем заглушки
+        isActive = true;
+        isTrialActive = true;
+        products = [];
+        return;
+      }
+
       final bool isActivated = await Adapty().isActivated();
 
       if (!isActivated) {
@@ -54,13 +69,50 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         stackTrace,
         context: 'adapty_init',
       );
+
+      // В случае ошибки в симуляторе, включаем режим симуляции
+      if ((Platform.isIOS || Platform.isAndroid) &&
+          (e.toString().contains('store') ||
+              e.toString().contains('billing') ||
+              e.toString().contains('play'))) {
+        _logger('Включение режима симуляции из-за ошибки магазина.');
+        _isSimulatorMode = true;
+        isActive = true;
+        isTrialActive = true;
+        products = [];
+        return;
+      }
+
       rethrow;
+    }
+  }
+
+  // Метод для определения, запущено ли на реальном устройстве
+  Future<bool> _isRealDevice() async {
+    try {
+      // Пытаемся активировать Adapty для обоих платформ
+      await Adapty().activate(
+        configuration: AdaptyConfiguration(
+          apiKey: Env.adaptyKey,
+        ),
+      );
+      return true;
+    } catch (e) {
+      // Если получаем ошибку, связанную с магазином, значит это эмулятор
+      return !e.toString().toLowerCase().contains('store') &&
+          !e.toString().toLowerCase().contains('billing');
     }
   }
 
   @override
   Future<String> makePurchase({required AdaptyPaywallProduct product}) async {
-    // return '';
+    // В режиме симулятора всегда возвращаем успех
+    if (_isSimulatorMode) {
+      _logger('Покупка в режиме симулятора. Автоматический успех.');
+      isActive = true;
+      return 'SUCCESS';
+    }
+
     try {
       final prof = await Adapty().getProfile();
       if (prof.accessLevels['premium']?.isActive ?? false) {
@@ -105,6 +157,14 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
   @override
   Future<void> identify({required String adaptyId}) async {
+    // В режиме симулятора просто устанавливаем флаги
+    if (_isSimulatorMode) {
+      _logger('Identify в режиме симулятора для ID: $adaptyId');
+      isActive = true;
+      isTrialActive = true;
+      return;
+    }
+
     // await Adapty().logout();
     try {
       await Adapty().identify(adaptyId);
@@ -155,6 +215,11 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<bool> _isTrialPeriodAvailable(
     AdaptyAccessLevel? accessLevel,
   ) async {
+    // В режиме симулятора всегда возвращаем true
+    if (_isSimulatorMode) {
+      return true;
+    }
+
     try {
       _logger(
         'Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}',
@@ -210,6 +275,12 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
   @override
   Future<void> logout() async {
+    // В режиме симулятора просто логгируем действие
+    if (_isSimulatorMode) {
+      _logger('Logout в режиме симулятора');
+      return;
+    }
+
     try {
       await Adapty().logout();
     } catch (e, stackTrace) {
@@ -225,6 +296,13 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
   @override
   Future<String> restorePurchases() async {
+    // В режиме симулятора всегда считаем, что подписка активна
+    if (_isSimulatorMode) {
+      _logger('Восстановление покупок в режиме симулятора');
+      isActive = true;
+      return 'ACTIVE';
+    }
+
     try {
       final profile = await Adapty().restorePurchases();
       AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
@@ -249,6 +327,12 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
   @override
   Future<void> test() async {
+    // В режиме симулятора просто логгируем
+    if (_isSimulatorMode) {
+      _logger('Тест в режиме симулятора');
+      return;
+    }
+
     try {
       final prof = await Adapty().getProfile();
       final s = await _isTrialPeriodAvailable(prof.accessLevels['premium']);

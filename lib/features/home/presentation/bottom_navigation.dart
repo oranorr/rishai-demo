@@ -65,13 +65,8 @@ class _RishiBottonNavigationBarState extends State<RishiBottonNavigationBar> {
                         context.theme.colorScheme.primary,
                         BlendMode.srcIn,
                       )
-                    : i == 1
-                        ? const ColorFilter.mode(
-                            RishColors.textSecondary,
-                            BlendMode.srcIn,
-                          )
-                        : null,
-                height: i == 1 ? 30.h : null,
+                    : null,
+                // height: i == 1 ? 27.h : null,
               ),
               label: dests[i]['name'],
               backgroundColor: Colors.transparent,
