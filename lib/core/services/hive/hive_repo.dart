@@ -28,5 +28,7 @@ abstract class HiveRepo {
 
   Future<void> clearWeekPlans();
 
+  Future<void> resetStorageOnFatalError();
+
   void test();
 }

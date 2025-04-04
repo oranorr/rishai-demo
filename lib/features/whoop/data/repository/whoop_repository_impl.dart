@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/envied/envied.dart';
@@ -249,6 +249,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
       if (isCurrentCycleEnded == false) {
         print('cycle IS NOT finished, pulling old data');
         final res = await _getLocalOrRemoteData();
+
         return res.fold(
           (l) async {
             print('stored data came null, fetching fresh data');
@@ -315,7 +316,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
     return res!.fold((l) {
       return Left(l);
     }, (r) async {
-      await localDataSource.saveData(data: r);
+      // await localDataSource.saveData(data: r);
       return Right(
         r,
       );
@@ -324,16 +325,19 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
   Future<Either<Failure, DayEntity>> _getLocalOrRemoteData() async {
     final localData = await localDataSource.retrieveSavedDays();
+
     if (localData.isNotEmpty) {
-      print('local data is: $localData');
-      return Right(localData.last);
+      print('local data is: ${localData.last}');
+      final sortedDays = localData
+        ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      return Right(sortedDays.last);
     }
 
     final remoteData =
         await tryFetch(() => remoteDataSource.fetchDirectusData());
 
     if (remoteData != null) {
-      await localDataSource.saveData(data: remoteData);
+      // await localDataSource.saveData(data: remoteData);
       return Right(remoteData);
     } else {
       log('remote data empty, fetching any data now.');
@@ -447,8 +451,8 @@ class WhoopRepositoryImpl implements WhoopRepository {
         if (needsCreateNewDay) {
           newDay = await createFreshDay(newDay: newDay, userId: userId);
         }
-        await tryFetch(() => remoteDataSource.updateDirectus(day: newDay));
-        await tryFetch(() => localDataSource.saveData(data: newDay));
+        // await tryFetch(() => remoteDataSource.updateDirectus(day: newDay));
+        // await tryFetch(() => localDataSource.saveData(data: newDay));
 
         return Right(newDay);
       } else {
@@ -488,48 +492,43 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required String userId,
   }) async {
     try {
-      if (kDebugMode) {
-        log(
-          'Creating fresh day:\n'
-          'New day date: ${newDay.dateTime}\n'
-          'New day cycle: ${newDay.cycleId}\n'
-          'Current time: ${DateTime.now()}',
-          name: 'WhoopRepository',
-        );
-      }
+      return await dayManager.createDay(day: newDay);
 
-      final now = DateTime.now();
-      final isNewDay = newDay.dateTime.year == now.year &&
-          newDay.dateTime.month == now.month &&
-          newDay.dateTime.day == now.day;
+      // if (kDebugMode) {
+      //   log(
+      //     'Creating fresh day:\n'
+      //     'New day date: ${newDay.dateTime}\n'
+      //     'New day cycle: ${newDay.cycleId}\n'
+      //     'Current time: ${DateTime.now()}',
+      //     name: 'WhoopRepository',
+      //   );
+      // }
 
-      if (!isNewDay) {
-        final String warning =
-            'Warning: Attempting to create a day that is not today:\n'
-            'New day date: ${newDay.dateTime}\n'
-            'Current time: $now';
-        log(warning, name: 'WhoopRepository');
-        await WhoopErrorHandler.handleError(
-          warning,
-          StackTrace.current,
-          context: 'whoop_create_fresh_day',
-          extras: {
-            'new_day_date': newDay.dateTime.toString(),
-            'current_time': now.toString(),
-            'user_id': userId,
-          },
-        );
-      }
+      // final now = DateTime.now();
+      // final isNewDay = newDay.dateTime.year == now.year &&
+      //     newDay.dateTime.month == now.month &&
+      //     newDay.dateTime.day == now.day;
 
-      final freshDay = newDay.copyWith(
-        dateTime: now,
-        cycleId: newDay.cycleId,
-      );
+      // if (!isNewDay) {
+      //   final String warning =
+      //       'Warning: Attempting to create a day that is not today:\n'
+      //       'New day date: ${newDay.dateTime}\n'
+      //       'Current time: $now';
+      //   log(warning, name: 'WhoopRepository');
+      //   await WhoopErrorHandler.handleError(
+      //     warning,
+      //     StackTrace.current,
+      //     context: 'whoop_create_fresh_day',
+      //     extras: {
+      //       'new_day_date': newDay.dateTime.toString(),
+      //       'current_time': now.toString(),
+      //       'user_id': userId,
+      //     },
+      //   );
+      // }
 
-      await localDataSource.saveData(data: freshDay);
-      await remoteDataSource.updateDirectus(day: freshDay);
-
-      return freshDay;
+      // await localDataSource.saveData(data: freshDay);
+      // await remoteDataSource.updateDirectus(day: freshDay);
     } catch (e, stackTrace) {
       await WhoopErrorHandler.handleError(
         e,
@@ -598,8 +597,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
         return Left(l);
       }, (r) async {
         try {
-          await remoteDataSource.updateDirectus(day: r);
-          return Right(r.macros);
+          // await remoteDataSource.updateDirectus(day: r);
+          final res = await dayManager.createDay(day: r);
+          return Right(res.macros);
         } catch (e, stackTrace) {
           await WhoopErrorHandler.handleError(
             e,

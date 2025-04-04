@@ -11,8 +11,10 @@ abstract class ChatRemoteDataSource {
   );
 
   Future<String?> sendMessage(String userMessage);
-  Future<Map<String, dynamic>?> fetchLastChatSnap(String directusId,
-      {DateTime? date});
+  Future<Map<String, dynamic>?> fetchLastChatSnap(
+    String directusId,
+    DateTime date,
+  );
   String? get threadId;
   set threadId(String? value);
   Future<void> closeGpt();

@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:directus/directus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,8 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
+import 'package:rishai/core/services/directus/directus_collections.dart';
+import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
@@ -73,8 +77,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> test() async {
+    final res = await directus.readMany(
+      collection: daysCollection,
+      filters: Filters({'userId': F.eq(userBloc.state.user.directusId)}),
+    );
+    print(res.last);
+    print(userBloc.state.user.daysIds.last);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // test();
     return BlocConsumer<UserBloc, UserState>(
       bloc: userBloc,
       listener: (context, state) {
@@ -147,8 +161,22 @@ class _HomePageBodyState extends State<_HomePageBody> {
     return _refreshCompleter!.future;
   }
 
+  // Future<void> test() async {
+  //   final res = await directus.readMany(
+  //     collection: daysCollection,
+  //     filters: Filters(
+  //       {
+  //         'userId': F.eq(userBloc.state.user.directusId),
+  //       },
+  //     ),
+  //   );
+  //   print(res.length);
+  //   print(userBloc.state.user.daysIds.length);
+  // }
+
   @override
   Widget build(BuildContext context) {
+    // test();
     return BlocConsumer<WhoopBloc, WhoopState>(
       listener: (context, state) {
         if ((state.status != Status.loading) &&

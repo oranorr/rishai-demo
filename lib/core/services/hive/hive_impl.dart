@@ -1,4 +1,5 @@
 import 'dart:developer';
+
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -6,10 +7,10 @@ import 'package:rishai/core/services/error/local_storage_error_handler.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
-import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
+import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
@@ -67,7 +68,60 @@ class HiveImpl implements HiveRepo {
         operation: 'init',
         storageType: 'hive',
       );
+
+      // При ошибке инициализации пытаемся сбросить хранилище
+      await resetStorageOnFatalError();
       rethrow;
+    }
+  }
+
+  /// Сбрасывает локальное хранилище при критических ошибках
+  ///
+  /// Этот метод очищает все боксы Hive, удаляет все данные из хранилища
+  /// и перезагружает пустые боксы, чтобы приложение могло начать с чистого листа
+  /// при обновлении или критических ошибках в схеме данных
+  @override
+  Future<void> resetStorageOnFatalError() async {
+    log('Выполняется сброс локального хранилища из-за критической ошибки');
+    try {
+      // Закрываем все боксы, если они открыты
+      await _closeBoxesSafely();
+
+      // Удаляем все боксы из хранилища
+      await Hive.deleteBoxFromDisk('user_box');
+      await Hive.deleteBoxFromDisk('chat_box');
+      await Hive.deleteBoxFromDisk('day_box');
+      await Hive.deleteBoxFromDisk('userData_box');
+      await Hive.deleteBoxFromDisk('weekPlan_box');
+
+      // Переоткрываем пустые боксы
+      userBox = await Hive.openBox<UserEntity>('user_box');
+      chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
+      dayBox = await Hive.openBox<DayEntity>('day_box');
+      userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
+      weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
+
+      log('Сброс локального хранилища успешно выполнен');
+    } catch (e, stackTrace) {
+      log('Ошибка при сбросе локального хранилища: $e');
+      // Здесь мы не вызываем handleError, чтобы избежать рекурсивной обработки ошибок
+      // Вместо этого просто логируем ошибку
+    }
+
+    // Возвращаем пустоту, чтобы инициализация переключилась на удаленные данные
+    return;
+  }
+
+  // Безопасное закрытие боксов
+  Future<void> _closeBoxesSafely() async {
+    try {
+      if (userBox.isOpen) await userBox.close();
+      if (chatBox.isOpen) await chatBox.close();
+      if (dayBox.isOpen) await dayBox.close();
+      if (userDataBox.isOpen) await userDataBox.close();
+      if (weekPlanBox.isOpen) await weekPlanBox.close();
+    } catch (e) {
+      log('Ошибка при закрытии боксов: $e');
     }
   }
 

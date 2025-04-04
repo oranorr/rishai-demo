@@ -13,9 +13,7 @@ abstract class UserRepository {
     required GetDaysParams params,
   });
   Future<Either<Failure, void>> manageDay({required ManageDayParams params});
-  Future<Either<Failure, List<DayEntity>>> getDaysWithMealPlans(
-    List<int> daysIds,
-  );
+
   Future<Either<Failure, void>> updateDayWithMealPlan({
     required String userId,
     required ChatSnapshotEntity snapshot,

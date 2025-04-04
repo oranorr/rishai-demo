@@ -4,18 +4,18 @@ import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/data/data_sources/local/user_local_source.dart';
 import 'package:rishai/features/user/data/data_sources/remote/user_remote_source.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
-import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
-import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 
 @Singleton(as: UserRepository)
 class UserRepositoryImpl implements UserRepository {
@@ -46,32 +46,16 @@ class UserRepositoryImpl implements UserRepository {
     required GetDaysParams params,
   }) async {
     try {
-      final localDays = await localDataSource.retrieveSavedDays();
-      final remoteDays =
-          await remoteDataSource.fetchRemoteDays(daysIds: params.daysIds);
-
-      final Map<int, DayEntity> daysMap = {};
-
-      // Добавляем локальные данные
-      for (final day in localDays) {
-        if (day.cycleId != null) {
-          daysMap[day.cycleId!] = day;
-        }
-      }
-
-      // Обновляем данными с бэка, если они новее
-      for (final day in remoteDays) {
-        if (day.cycleId != null) {
-          if (!daysMap.containsKey(day.cycleId) ||
-              day.dateTime.isAfter(daysMap[day.cycleId!]!.dateTime)) {
-            daysMap[day.cycleId!] = day;
-          }
-        }
-      }
-
+      List<DayEntity> days = [];
+      final res = await dayManager.fetchDays(daysIds: params.daysIds);
+      res.fold(
+        (l) => days,
+        (r) => {
+          days = r,
+        },
+      );
       // Сортируем дни по дате
-      final sortedDays = daysMap.values.toList()
-        ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      final sortedDays = days..sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
       log('LAST DAY: ${sortedDays.last}');
       return Right(sortedDays);
@@ -140,19 +124,6 @@ class UserRepositoryImpl implements UserRepository {
     } on Exception catch (e) {
       log('Error while managing day: $e', name: 'UserRepositoryImpl');
       return Left(FailedUpdateUser(e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, List<DayEntity>>> getDaysWithMealPlans(
-    List<int> daysIds,
-  ) async {
-    try {
-      final days = await whoopRemote.getDaysWithMealPlans(daysIds: daysIds);
-      return Right(days);
-    } catch (e) {
-      log('Error getting days with meal plans: $e');
-      return const Left(UnknownFailure());
     }
   }
 

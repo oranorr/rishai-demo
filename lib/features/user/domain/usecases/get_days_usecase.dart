@@ -15,7 +15,7 @@ class GetDaysUsecase implements UseCase<List<DayEntity>, GetDaysParams> {
   @override
   Future<Either<Failure, List<DayEntity>>> call(params) async {
     try {
-      final days = await userRepository.getDaysWithMealPlans(params.daysIds);
+      final days = await userRepository.getDays(params: params);
       return days.fold(
         (failure) => Left(failure),
         (days) => Right(days),

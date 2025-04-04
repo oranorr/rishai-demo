@@ -69,7 +69,9 @@ class _CalendarWidget extends StatelessWidget {
         height: 40.h,
         width: 40.w,
         decoration: BoxDecoration(
-          color: isDisabled ? Colors.transparent : RishColors.primary,
+          color: (isDisabled || isLoading)
+              ? Colors.transparent
+              : RishColors.primary,
           shape: BoxShape.circle,
           boxShadow: isDisabled || isLoading
               ? null
@@ -85,7 +87,7 @@ class _CalendarWidget extends StatelessWidget {
             ? const SizedBox.square(
                 dimension: 20,
                 child: CircularProgressIndicator(
-                  color: RishColors.stroke,
+                  color: RishColors.primary,
                   strokeWidth: 2,
                 ),
               )

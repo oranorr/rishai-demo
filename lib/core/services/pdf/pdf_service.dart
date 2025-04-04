@@ -134,14 +134,14 @@ class PdfService {
 
     // Сохраняем файл
     final output = await getTemporaryDirectory();
-    final file = File('${output.path}/shopping_list.pdf');
+    final file = File('${output.path}/grocery_list.pdf');
     await file.writeAsBytes(await pdf.save());
 
     // Делимся файлом
     await Share.shareXFiles(
       [XFile(file.path)],
-      subject: 'Shopping list',
-      text: 'My shopping list',
+      subject: 'Grocery list',
+      text: 'My grocery list',
     );
   }
 }

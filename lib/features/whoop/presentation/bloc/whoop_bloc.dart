@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,8 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
+    show adapty;
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -36,8 +39,6 @@ import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.d
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
-import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
-    show adapty;
 
 part 'whoop_event.dart';
 

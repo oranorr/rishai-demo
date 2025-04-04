@@ -8,7 +8,6 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/network/request_timer.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
@@ -177,107 +176,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     }
   }
 
-  @override
-  Future<void> updateDirectus({required DayEntity day}) async {
-    try {
-      // Получаем текущего пользователя
-      final user = await directus.readOne(
-        collection: usersCollection,
-        id: userBloc.state.user.directusId,
-      );
-
-      // Получаем список дней пользователя
-      List<int> daysIds = List.from(user['days'] ?? []).cast<int>();
-
-      // Проверяем, существует ли уже день с такой датой и cycleId
-      int? existingDayId;
-      if (daysIds.isNotEmpty) {
-        for (final id in daysIds.reversed) {
-          final existingDay = await directus.readOne(
-            collection: daysCollection,
-            id: id.toString(),
-          );
-
-          if (existingDay['dateTime'] != null &&
-              existingDay['cycleId'] != null) {
-            final existingDate = DateTime.fromMillisecondsSinceEpoch(
-              int.parse(existingDay['dateTime']),
-            );
-
-            // Сравниваем только дату (без времени)
-            final isSameDate = existingDate.year == day.dateTime.year &&
-                existingDate.month == day.dateTime.month &&
-                existingDate.day == day.dateTime.day;
-
-            // Сравниваем cycleId
-            final isSameCycle =
-                int.parse(existingDay['cycleId']) == day.cycleId;
-
-            if (isSameDate && isSameCycle) {
-              existingDayId = id;
-              break;
-            }
-          }
-        }
-      }
-
-      int dayId;
-      if (existingDayId != null) {
-        // Обновляем существующий день
-        await directus.updateOne(
-          collection: daysCollection,
-          itemId: existingDayId.toString(),
-          updateData: day.toDirectus(userId: userBloc.state.user.directusId),
-        );
-        dayId = existingDayId;
-      } else {
-        // Создаем новый день
-        final dayData = day.toDirectus(userId: userBloc.state.user.directusId);
-        final createdDay = await directus.createOne(
-          collection: daysCollection,
-          data: dayData,
-        );
-        dayId = createdDay['id'];
-
-        // Добавляем ID нового дня в список дней пользователя
-        if (!daysIds.contains(dayId)) {
-          daysIds.add(dayId);
-        }
-      }
-
-      // Обновляем данные пользователя
-      await directus.updateOne(
-        collection: usersCollection,
-        itemId: userBloc.state.user.directusId,
-        updateData: {
-          'days': daysIds,
-          'whoopData': {
-            'weekTdeeAverage': day.weekTdeeAverage,
-            'macros': day.macros.toMap(),
-            'askTime': day.dateTime.millisecondsSinceEpoch,
-            'lastTdee': day.healthMetrics.lastTdee,
-          },
-        },
-      );
-
-      log('Updated/Created day with date: ${day.dateTime}, cycleId: ${day.cycleId}');
-    } catch (e, stackTrace) {
-      log('Error updating Directus: $e');
-      await WhoopErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'whoop_update_directus',
-        extras: {
-          'user_id': userBloc.state.user.directusId,
-          'day_id': day.directusId,
-          'date_time': day.dateTime.toString(),
-          'cycle_id': day.cycleId,
-        },
-      );
-      rethrow;
-    }
-  }
-
+//day manager ok
   @override
   Future<DayEntity?> fetchDirectusData() async {
     final res = await directus.readOne(
@@ -289,7 +188,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       collection: daysCollection,
       id: lastDayId.toString(),
     );
-
     if (res.isNotEmpty && lastDayRes.isNotEmpty) {
       final data = res['whoopData'];
       if (data != null && data.isNotEmpty) {
@@ -380,55 +278,55 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     return !dateOfLast.isSameDate(DateTime.now());
   }
 
-  @override
-  Future<List<DayEntity>> getDaysWithMealPlans({
-    required List<int> daysIds,
-  }) async {
-    try {
-      // final List<DayEntity> days = [];
-      final Map<String, DayEntity> uniqueDays =
-          {}; // Используем Map для хранения уникальных дней по дате
+  // @override
+  // Future<List<DayEntity>> getDaysWithMealPlans({
+  //   required List<int> daysIds,
+  // }) async {
+  //   try {
+  //     // final List<DayEntity> days = [];
+  //     final Map<String, DayEntity> uniqueDays =
+  //         {}; // Используем Map для хранения уникальных дней по дате
 
-      for (final id in daysIds) {
-        final rawDay = await directus.readOne(
-          collection: daysCollection,
-          id: id.toString(),
-        );
+  //     for (final id in daysIds) {
+  //       final rawDay = await directus.readOne(
+  //         collection: daysCollection,
+  //         id: id.toString(),
+  //       );
 
-        if (rawDay.isNotEmpty) {
-          final dayEntity = DayEntity(
-            directusId: id,
-            cycleId:
-                rawDay['cycleId'] != null ? int.parse(rawDay['cycleId']) : null,
-            weekTdeeAverage: rawDay['weekTdeeAverage'],
-            macros: MacrosBreakdown.fromMap(rawDay['macros']),
-            mealPlanEntity: rawDay['mealPlan'] != null
-                ? MealPlanEntity.fromMap(rawDay['mealPlan'])
-                : null,
-            healthMetrics: HealthMetricsEntity.fromMap(rawDay['healthMetrics']),
-            snap: ChatSnapshotEntity.fromDirectus(rawDay['chatSnap']),
-            dateTime: DateTime.fromMillisecondsSinceEpoch(
-              int.parse(rawDay['dateTime']),
-            ),
-          );
+  //       if (rawDay.isNotEmpty) {
+  //         final dayEntity = DayEntity(
+  //           directusId: id,
+  //           cycleId:
+  //               rawDay['cycleId'] != null ? int.parse(rawDay['cycleId']) : null,
+  //           weekTdeeAverage: rawDay['weekTdeeAverage'],
+  //           macros: MacrosBreakdown.fromMap(rawDay['macros']),
+  //           mealPlanEntity: rawDay['mealPlan'] != null
+  //               ? MealPlanEntity.fromMap(rawDay['mealPlan'])
+  //               : null,
+  //           healthMetrics: HealthMetricsEntity.fromMap(rawDay['healthMetrics']),
+  //           snap: ChatSnapshotEntity.fromDirectus(rawDay['chatSnap']),
+  //           dateTime: DateTime.fromMillisecondsSinceEpoch(
+  //             int.parse(rawDay['dateTime']),
+  //           ),
+  //         );
 
-          // Используем дату как ключ для уникальности
-          final dateKey = dayEntity.dateTime.toIso8601String().split('T')[0];
-          if (!uniqueDays.containsKey(dateKey) ||
-              (dayEntity.cycleId != null &&
-                  uniqueDays[dateKey]?.cycleId == null)) {
-            uniqueDays[dateKey] = dayEntity;
-          }
-        }
-      }
+  //         // Используем дату как ключ для уникальности
+  //         final dateKey = dayEntity.dateTime.toIso8601String().split('T')[0];
+  //         if (!uniqueDays.containsKey(dateKey) ||
+  //             (dayEntity.cycleId != null &&
+  //                 uniqueDays[dateKey]?.cycleId == null)) {
+  //           uniqueDays[dateKey] = dayEntity;
+  //         }
+  //       }
+  //     }
 
-      return uniqueDays.values.toList()
-        ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-    } catch (e) {
-      log('Error fetching days with meal plans: $e');
-      return [];
-    }
-  }
+  //     return uniqueDays.values.toList()
+  //       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+  //   } catch (e) {
+  //     log('Error fetching days with meal plans: $e');
+  //     return [];
+  //   }
+  // }
 
   // Метод для повторных попыток
   Future<T?> retryOperation<T>(

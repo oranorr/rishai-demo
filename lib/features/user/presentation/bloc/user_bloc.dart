@@ -290,13 +290,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _updateDay(UserUpdateDay event, Emitter<UserState> emit) {
-    final updatedDays = state.days.map((day) {
-      if (day.dateTime.isSameDate(event.day.dateTime)) {
-        return event.day;
-      }
-      return day;
-    }).toList();
-
-    emit(state.copyWith(days: updatedDays));
+    List<DayEntity> days = List.from(state.days)..add(event.day);
+    emit(state.copyWith(days: days));
   }
 }

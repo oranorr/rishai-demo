@@ -146,9 +146,9 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<Map<String, dynamic>?> fetchLastChatSnap(
-    String directusId, {
-    DateTime? date,
-  }) async {
+    String directusId,
+    DateTime date,
+  ) async {
     try {
       final rawUser = await directus.readOne(
         collection: usersCollection,
@@ -159,52 +159,23 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       }
 
       // Если дата не указана, берем последний день
-      if (date == null) {
-        final lastDay = await directus.readOne(
-          collection: daysCollection,
-          id: rawUser['days'].last.toString(),
-        );
-        if (lastDay['cycleId'] == null) return null;
 
-        final isCycleEnded = await whoopRemote.pingLastCycle(
-          cycleId: int.parse(lastDay['cycleId']),
-        );
+      final lastDay = await directus.readOne(
+        collection: daysCollection,
+        id: rawUser['days'].last.toString(),
+      );
+      if (lastDay['cycleId'] == null) return null;
 
-        if (isCycleEnded) {
-          return null;
-        }
+      final isCycleEnded = await whoopRemote.pingLastCycle(
+        cycleId: int.parse(lastDay['cycleId']),
+      );
 
-        return (lastDay['chatSnap'] as Map<String, dynamic>)
-          ..addAll({'mealPlan': lastDay['mealPlan']});
+      if (isCycleEnded) {
+        return null;
       }
 
-      // Если дата указана, ищем день с этой датой
-      for (final dayId in List<int>.from(rawUser['days']).reversed) {
-        final day = await directus.readOne(
-          collection: daysCollection,
-          id: dayId.toString(),
-        );
-
-        if (day['dateTime'] == null) continue;
-
-        final dayDate = DateTime.fromMillisecondsSinceEpoch(
-          int.parse(day['dateTime']),
-        );
-
-        if (dayDate.year == date.year &&
-            dayDate.month == date.month &&
-            dayDate.day == date.day) {
-          if (day['chatSnap'] == null) return null;
-
-          final result = Map<String, dynamic>.from(day['chatSnap']);
-          if (day['mealPlan'] != null) {
-            result['mealPlan'] = day['mealPlan'];
-          }
-          return result;
-        }
-      }
-
-      return null;
+      return (lastDay['chatSnap'] as Map<String, dynamic>)
+        ..addAll({'mealPlan': lastDay['mealPlan']});
     } on Exception catch (e) {
       log('failed to fetch last Chat snap, with error: $e');
       rethrow;
