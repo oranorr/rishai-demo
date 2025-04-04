@@ -16,6 +16,10 @@ import 'package:rishai/core/services/adapty_service/adapty_repository.dart'
     as _i1067;
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
     as _i910;
+import 'package:rishai/core/services/analytics/analytics_repository.dart'
+    as _i149;
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart'
+    as _i624;
 import 'package:rishai/core/services/day_manager/day_manager.dart' as _i300;
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart'
     as _i629;
@@ -131,6 +135,8 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i572.NavigatorKeyProvider>(() => _i572.NavigatorKeyProvider());
     gh.singleton<_i97.PrefsRepository>(() => _i97.PrefsRepository());
+    gh.singleton<_i149.AnalyticsRepository>(
+        () => _i624.AnalyticsRepositoryImpl());
     gh.singleton<_i300.DayManager>(() => _i629.DayManagerImpl());
     gh.singleton<_i410.HiveRepo>(() => _i410.HiveImpl());
     gh.singleton<_i993.FirebaseRepository>(

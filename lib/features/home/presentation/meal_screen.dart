@@ -11,8 +11,9 @@ import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 
-class MealScreen extends StatelessWidget {
+class MealScreen extends StatefulWidget {
   const MealScreen({
     required this.meal,
     required this.isToday,
@@ -20,6 +21,30 @@ class MealScreen extends StatelessWidget {
   });
   final Meal meal;
   final bool isToday;
+
+  @override
+  State<MealScreen> createState() => _MealScreenState();
+}
+
+class _MealScreenState extends State<MealScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Трекинг просмотра страницы с блюдом
+    analytics.logScreenView(
+      screenName: 'meal_details_screen',
+      screenClass: 'MealScreen',
+    );
+    analytics.logCustomEvent(
+      name: 'view_meal_details',
+      parameters: {
+        'meal_type': widget.meal.type,
+        'meal_title': widget.meal.title,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
@@ -29,14 +54,14 @@ class MealScreen extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           Text(
-            meal.title,
+            widget.meal.title,
             style: context.styles.h1,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           SizedBox(height: 12.h),
           Text(
-            meal.description,
+            widget.meal.description,
             style: context.styles.regularMedium
                 .copyWith(color: RishColors.textSecondary),
           ),
@@ -54,9 +79,9 @@ class MealScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    meal.buildPieChart(dimension: 48.h),
+                    widget.meal.buildPieChart(dimension: 48.h),
                     SizedBox(width: 25.w),
-                    meal.macros.buildTextMacros(context: context),
+                    widget.meal.macros.buildTextMacros(context: context),
                   ],
                 ),
               ),
@@ -76,9 +101,9 @@ class MealScreen extends StatelessWidget {
                 shrinkWrap: true,
                 padding: EdgeInsets.zero,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: meal.ingredients.length,
+                itemCount: widget.meal.ingredients.length,
                 itemBuilder: (context, index) {
-                  return meal.ingredients[index]
+                  return widget.meal.ingredients[index]
                       .buildIngredientTile(context: context);
                 },
               ),
@@ -97,7 +122,7 @@ class MealScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ...meal.cookingInstructions.map(
+                  ...widget.meal.cookingInstructions.map(
                     (step) => Text(
                       step,
                       style: context.styles.regularMedium.copyWith(
@@ -110,7 +135,7 @@ class MealScreen extends StatelessWidget {
               ),
             ),
           ),
-          if (isToday) ...[
+          if (widget.isToday) ...[
             SizedBox(height: 20.h),
             RishButton.primary(
               title: 'I want a replacement',
@@ -126,7 +151,7 @@ class MealScreen extends StatelessWidget {
                     maxHeight: MediaQuery.of(context).size.height * 0.9,
                   ),
                   builder: (BuildContext context) {
-                    return ReplacementWidget(meal: meal);
+                    return ReplacementWidget(meal: widget.meal);
                   },
                 );
               },

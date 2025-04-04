@@ -12,6 +12,7 @@ import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/features/user/data/models/user_model.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/core/extensions/date_time_extension.dart';
 
 final dayManager = getIt.get<DayManager>();
 
@@ -50,15 +51,31 @@ class DayManagerImpl implements DayManager {
       int? existingDayId;
       DayEntity dayEntity;
 
-      if (days.isNotEmpty && day.directusId != 0) {
+      // Проверяем, есть ли уже сегодняшний день
+      if (days.isNotEmpty) {
+        // Проверяем на совпадение даты (сегодня)
         for (final stateDay in days) {
-          if (stateDay.cycleId != null) {
-            final isSameCycle = stateDay.cycleId == day.cycleId;
+          if (stateDay.dateTime.isSameDate(DateTime.now()) &&
+              day.dateTime.isSameDate(DateTime.now())) {
+            existingDayId = stateDay.directusId;
+            _logger(
+              'Найден существующий день с той же датой (сегодня): $existingDayId',
+            );
+            break;
+          }
+        }
 
-            if (isSameCycle) {
-              existingDayId = day.directusId;
-              _logger('Найден существующий день с id: $existingDayId');
-              break;
+        // Если не нашли по дате, проверяем по cycleId
+        if (existingDayId == null && day.directusId != 0) {
+          for (final stateDay in days) {
+            if (stateDay.cycleId != null) {
+              final isSameCycle = stateDay.cycleId == day.cycleId;
+
+              if (isSameCycle) {
+                existingDayId = day.directusId;
+                _logger('Найден существующий день с id: $existingDayId');
+                break;
+              }
             }
           }
         }

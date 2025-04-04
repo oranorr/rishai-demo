@@ -14,6 +14,7 @@ import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
@@ -136,6 +137,15 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<String?> sendMessage(String userMessage) async {
+    // Трекинг обращения к чату
+    await analytics.logCustomEvent(
+      name: 'chat_message_sent',
+      parameters: {
+        'message_length': userMessage.length,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
     final res = await requestAssistant(
       prompt: userMessage,
       isChat: true,
@@ -194,6 +204,16 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<Meal?> replaceMeal(ReplaceMealParams params) async {
+    // Трекинг замены блюда
+    await analytics.logCustomEvent(
+      name: 'replace_meal',
+      parameters: {
+        'meal_type': params.meal.type,
+        'meal_title': params.meal.title,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
     final currentMeals = whoopBloc.state.day.mealPlanEntity?.meals
             .map((m) => m.title)
             .join(', ') ??
@@ -279,6 +299,15 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     bool isWeekPlan,
   ) async {
     final results = <String, dynamic>{};
+
+    // Трекинг создания плана питания
+    await analytics.logCustomEvent(
+      name: isWeekPlan ? 'create_5day_meal_plan' : 'create_1day_meal_plan',
+      parameters: {
+        'serving_types': prompts.map((p) => p.keys.first.name).join(', '),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
 
     for (final prompt in prompts) {
       final entry = prompt.entries.first;

@@ -5,11 +5,21 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:share_plus/share_plus.dart';
 
 class PdfService {
   Future<void> generateShoppingList(List<Ingredient> ingredients) async {
+    // Трекинг экспорта списка покупок
+    await analytics.logCustomEvent(
+      name: 'export_grocery_list',
+      parameters: {
+        'ingredients_count': ingredients.length,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
     final pdf = pw.Document();
 
     final font = await rootBundle.load('font/proximanova.ttf');

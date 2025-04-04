@@ -7,6 +7,8 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:rishai/app.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/analytics/analytics_event_tracker.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -33,7 +35,8 @@ void main() async {
     },
     appRunner: () async {
       print(
-          'Sentry initialization took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Sentry initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
       stopwatch.reset();
 
       WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -42,26 +45,41 @@ void main() async {
 
       FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
       print(
-          'Native splash preserve took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Native splash preserve took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
       stopwatch.reset();
 
       await Firebase.initializeApp();
       print(
-          'Firebase initialization took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Firebase initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
       stopwatch.reset();
 
       await configureDependencies();
       print(
-          'Dependencies configuration took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Dependencies configuration took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
       stopwatch.reset();
 
       await dotenv.load();
       print('Dotenv loading took: ${stopwatch.elapsed.inMilliseconds}ms');
       stopwatch.reset();
 
+      await analytics.init();
+      print(
+        'Analytics initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
+      stopwatch.reset();
+
+      AnalyticsEventTracker().init();
+      print(
+          'Analytics tracker initialized: ${stopwatch.elapsed.inMilliseconds}ms');
+      stopwatch.reset();
+
       await adapty.initAdapty();
       print(
-          'Adapty initialization took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Adapty initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
       stopwatch.reset();
 
       await hive.initHive();
@@ -74,12 +92,14 @@ void main() async {
 
       await directus.initDirectus();
       print(
-          'Directus initialization took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Directus initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
       stopwatch.reset();
 
       await notes.initNotificationsService();
       print(
-          'Notifications service initialization took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Notifications service initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
       stopwatch.reset();
 
       await notes.requestPermissions();
@@ -88,7 +108,8 @@ void main() async {
 
       FlutterNativeSplash.remove();
       print(
-          'Native splash removal took: ${stopwatch.elapsed.inMilliseconds}ms');
+        'Native splash removal took: ${stopwatch.elapsed.inMilliseconds}ms',
+      );
 
       print('Total initialization time: ${stopwatch.elapsed.inMilliseconds}ms');
       runApp(const RishAi());

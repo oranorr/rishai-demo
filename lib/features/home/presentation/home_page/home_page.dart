@@ -27,6 +27,7 @@ import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 
 part 'widgets/calories_widget.dart';
 part 'widgets/health_metrics_widget.dart';
@@ -53,6 +54,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     pageController = PageController();
     super.initState();
+    _trackMealPlanView();
   }
 
   void _resetPageController() {
@@ -74,6 +76,27 @@ class _HomePageState extends State<HomePage> {
       final currentDay = userBloc.state.days.reversed
           .toList()[widget.controller.page?.round() ?? 0];
       whoopBloc.add(WhoopUpdateCurrentDay(day: currentDay));
+    }
+  }
+
+  void _trackMealPlanView() {
+    // Проверяем, есть ли у пользователя план питания на сегодня
+    final hasMealPlan = whoopBloc.state.day.mealPlanEntity != null;
+
+    // Трекинг просмотра страницы с 1-дневным планом питания
+    analytics.logScreenView(
+      screenName: 'home_screen_meal_plan',
+      screenClass: 'HomePage',
+    );
+
+    if (hasMealPlan) {
+      analytics.logCustomEvent(
+        name: 'view_1day_meal_plan',
+        parameters: {
+          'meal_count': whoopBloc.state.day.mealPlanEntity?.meals.length ?? 0,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        },
+      );
     }
   }
 

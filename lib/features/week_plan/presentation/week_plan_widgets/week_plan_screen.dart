@@ -15,6 +15,7 @@ import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 
 part 'servings_selector.dart';
 part 'loading_widget.dart';
@@ -29,6 +30,25 @@ class WeekPlanScreen extends StatefulWidget {
 }
 
 class _WeekPlanScreenState extends State<WeekPlanScreen> with WeekPlanMixin {
+  @override
+  int selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Трекинг просмотра 5-дневного плана питания
+    analytics.logScreenView(
+      screenName: 'week_plan_screen',
+      screenClass: 'WeekPlanScreen',
+    );
+    analytics.logCustomEvent(
+      name: 'view_5days_meal_plan',
+      parameters: {
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<WeekPlanBloc, WeekPlanState>(
@@ -180,6 +200,16 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> with WeekPlanMixin {
                             enabled: true,
                             isLoading: false,
                             action: () async {
+                              // Трекинг экспорта списка покупок из недельного плана
+                              await analytics.logCustomEvent(
+                                name: 'export_grocery_list_from_week_plan',
+                                parameters: {
+                                  'day_index': selectedIndex,
+                                  'timestamp':
+                                      DateTime.now().millisecondsSinceEpoch,
+                                },
+                              );
+
                               final allIngredients =
                                   _collectAllIngredients(plan);
                               final pdfService = PdfService();
