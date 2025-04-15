@@ -40,8 +40,8 @@ class _SexPickerState extends State<SexPicker> {
                 child: Column(
                   children: [
                     Container(
-                      height: 126.h,
-                      width: 126.h,
+                      height: 100.h,
+                      width: 100.h,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: widget.needsLightBack ?? false
@@ -54,6 +54,8 @@ class _SexPickerState extends State<SexPicker> {
                       child: Center(
                         child: SvgPicture.asset(
                           'assets/images/${i == 0 ? 'male_sign' : 'female_sign'}.svg',
+                          height: 60.h,
+                          width: 60.h,
                         ),
                       ),
                     ),
@@ -76,7 +78,7 @@ class _SexPickerState extends State<SexPicker> {
           SizedBox(height: 20.h),
           Text(
             '''
-We ask for your sex assigned at birth because some of Pivot’s calculations, such as those related to metabolism, muscle mass, and energy expenditure, are based on biological factors tied to birth sex. This helps us provide the most accurate nutritional guidance for your body.
+We ask for your sex assigned at birth because some of Pivot's calculations, such as those related to metabolism, muscle mass, and energy expenditure, are based on biological factors tied to birth sex. This helps us provide the most accurate nutritional guidance for your body.
 
 We understand that gender identity is personal, and we aim to be respectful and inclusive. Your information will only be used for accurate recommendations and will be kept confidential.
 ''',

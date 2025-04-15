@@ -29,7 +29,8 @@ class ConnectionSettings extends StatelessWidget {
               child: Row(
                 children: [
                   Text(
-                    '${data[i]['title']} is ${data[i]['status'] == ConnectionStatus.connected ? 'connected' : 'disconnected'}',
+                    '${data[i]['title']}',
+                    // '${data[i]['title']} is ${data[i]['status'] == ConnectionStatus.connected ? 'connected' : 'disconnected'}',
                     style: context.styles.regularMedium,
                   ),
                   const Spacer(),

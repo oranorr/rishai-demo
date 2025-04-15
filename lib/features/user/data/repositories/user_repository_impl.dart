@@ -15,6 +15,7 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
 @Singleton(as: UserRepository)
@@ -70,11 +71,7 @@ class UserRepositoryImpl implements UserRepository {
     required ManageDayParams params,
   }) async {
     try {
-      final rawUser = await directus.readOne(
-        collection: usersCollection,
-        id: params.userId,
-      );
-      final List<int> ids = List.from(rawUser['days']).cast<int>();
+      final ids = await dayManager.getDaysIds(userId: params.userId);
 
       if (ids.isEmpty) {
         final result = await directus.createOne(
@@ -90,11 +87,15 @@ class UserRepositoryImpl implements UserRepository {
         id: ids.last.toString(),
       );
 
-      final lastDate = DateTime.fromMillisecondsSinceEpoch(
-        int.parse(lastRecord['dateTime']),
+      // final lastDate = DateTime.fromMillisecondsSinceEpoch(
+      //   int.parse(lastRecord['dateTime']),
+      // );
+
+      final needsFreshDay = await whoopRemote.pingLastCycle(
+        cycleId: int.parse(lastRecord['cycleId']),
       );
 
-      if (lastDate.isSameDate(DateTime.now())) {
+      if (!needsFreshDay) {
         final lastEntity = DayEntity.fromMap(lastRecord);
 
         // Всегда обновляем день, если есть новый план питания
@@ -134,12 +135,7 @@ class UserRepositoryImpl implements UserRepository {
     required MealPlanEntity mealPlan,
   }) async {
     try {
-      final rawUser = await directus.readOne(
-        collection: usersCollection,
-        id: userId,
-      );
-
-      final List<int> ids = List.from(rawUser['days']).cast<int>();
+      final ids = await dayManager.getDaysIds(userId: userId);
       if (ids.isEmpty) {
         return const Left(FailedUpdateUser('No days found'));
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
+import 'package:rishai/features/settings/presentation/settings_pages/contact_page.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_routes.dart';
@@ -144,6 +145,14 @@ class AppNavigationService {
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
               state: state,
               child: const Paywall(),
+            ),
+          ),
+          GoRoute(
+            name: AppRoutes.contactPage.name,
+            path: AppRoutes.contactPage.path,
+            pageBuilder: (context, state) => _buildPageWithDefaultTransition(
+              state: state,
+              child: const ContactPage(),
             ),
           ),
         ],

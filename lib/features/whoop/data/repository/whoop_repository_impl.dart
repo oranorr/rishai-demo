@@ -279,9 +279,8 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
   Future<int?> getLastCycleId({required String userId}) async {
     try {
-      final rawUser =
-          await directus.readOne(collection: usersCollection, id: userId);
-      final List<int> days = List.from(rawUser['days']).cast<int>();
+      final days = await dayManager.getDaysIds(userId: userId);
+
       if (days.isEmpty) return null;
       final rawLastDay = await directus.readOne(
         collection: daysCollection,
@@ -327,9 +326,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
     final localData = await localDataSource.retrieveSavedDays();
 
     if (localData.isNotEmpty) {
-      print('local data is: ${localData.last}');
       final sortedDays = localData
         ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      print('local data is: ${sortedDays.last.directusId}');
       return Right(sortedDays.last);
     }
 
@@ -470,7 +469,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
         );
         return const Left(WhoopNoDataFailure());
       }
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       log('ERROR WHILE FETCHING FRESH DATA: $e');
       await WhoopErrorHandler.handleError(
         e,

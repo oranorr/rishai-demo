@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:rishai/app.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -14,6 +15,9 @@ import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
+import 'package:rishai/core/services/version_check/version_check_service.dart';
+import 'package:rishai/core/widgets/update_dialog.dart';
+import 'package:rishai/core/theme/themes.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
@@ -21,8 +25,6 @@ import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart'
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 void main() async {
-  final stopwatch = Stopwatch()..start();
-
   await SentryFlutter.init(
     (options) {
       options.dsn =
@@ -34,85 +36,58 @@ void main() async {
         ..attachViewHierarchy = true;
     },
     appRunner: () async {
-      print(
-        'Sentry initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
-
       WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-      print('Flutter binding took: ${stopwatch.elapsed.inMilliseconds}ms');
-      stopwatch.reset();
 
       FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
-      print(
-        'Native splash preserve took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
 
       await Firebase.initializeApp();
-      print(
-        'Firebase initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
 
       await configureDependencies();
-      print(
-        'Dependencies configuration took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
 
       await dotenv.load();
-      print('Dotenv loading took: ${stopwatch.elapsed.inMilliseconds}ms');
-      stopwatch.reset();
 
       await analytics.init();
-      print(
-        'Analytics initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
 
       AnalyticsEventTracker().init();
-      print(
-          'Analytics tracker initialized: ${stopwatch.elapsed.inMilliseconds}ms');
-      stopwatch.reset();
 
       await adapty.initAdapty();
-      print(
-        'Adapty initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
 
       await hive.initHive();
-      print('Hive initialization took: ${stopwatch.elapsed.inMilliseconds}ms');
-      stopwatch.reset();
 
       await prefsRepo.init();
-      print('Prefs initialization took: ${stopwatch.elapsed.inMilliseconds}ms');
-      stopwatch.reset();
 
       await directus.initDirectus();
-      print(
-        'Directus initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
 
       await notes.initNotificationsService();
-      print(
-        'Notifications service initialization took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
-      stopwatch.reset();
 
       await notes.requestPermissions();
-      print('Permissions request took: ${stopwatch.elapsed.inMilliseconds}ms');
-      stopwatch.reset();
 
       FlutterNativeSplash.remove();
-      print(
-        'Native splash removal took: ${stopwatch.elapsed.inMilliseconds}ms',
-      );
 
-      print('Total initialization time: ${stopwatch.elapsed.inMilliseconds}ms');
-      runApp(const RishAi());
+      final versionCheckService = getIt<VersionCheckService>();
+      final bool updateRequired = await versionCheckService.isUpdateRequired();
+
+      if (updateRequired) {
+        final storeUrl = await versionCheckService.getStoreUrl();
+        if (storeUrl != null) {
+          runApp(
+            ScreenUtilInit(
+              designSize: const Size(375, 812),
+              child: MaterialApp(
+                theme: AppTheme.dark,
+                home: UpdateRequiredScreen(storeUrl: storeUrl),
+              ),
+            ),
+          );
+        } else {
+          // TODO: Решить, что делать, если URL магазина не найден, но обновление требуется.
+          // Возможно, показать ошибку или запустить приложение с предупреждением?
+          // Пока просто запускаем приложение.
+          runApp(const RishAi());
+        }
+      } else {
+        runApp(const RishAi());
+      }
     },
   );
 }

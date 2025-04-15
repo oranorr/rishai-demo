@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/network/request_timer.dart';
@@ -179,17 +180,20 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 //day manager ok
   @override
   Future<DayEntity?> fetchDirectusData() async {
-    final res = await directus.readOne(
+    final rawUser = await directus.readOne(
       collection: usersCollection,
       id: userBloc.state.user.directusId,
     );
-    int lastDayId = res['days'].last;
+    final daysIds =
+        await dayManager.getDaysIds(userId: rawUser['id'].toString());
+
+    int lastDayId = daysIds.last;
     final lastDayRes = await directus.readOne(
       collection: daysCollection,
       id: lastDayId.toString(),
     );
-    if (res.isNotEmpty && lastDayRes.isNotEmpty) {
-      final data = res['whoopData'];
+    if (rawUser.isNotEmpty && lastDayRes.isNotEmpty) {
+      final data = rawUser['whoopData'];
       if (data != null && data.isNotEmpty) {
         final dayEntity = DayEntity(
           directusId: lastDayId,

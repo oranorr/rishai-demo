@@ -183,9 +183,11 @@ class ChatRepositoryImpl implements ChatRepository {
       }
 
       final map = await remote.fetchLastChatSnap(directusId, date);
+      print('map: $map');
       if (map != null && map.isNotEmpty) {
         final serverSnap = ChatSnapshotEntity.fromDirectus(map);
         await saveChatSnapShot(chatSnap: serverSnap, date: date);
+        print('serverSnap: ${serverSnap.mealPlan?.meals.first.title}');
         return Right(serverSnap);
       }
 

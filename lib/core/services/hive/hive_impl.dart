@@ -60,7 +60,7 @@ class HiveImpl implements HiveRepo {
       dayBox = await Hive.openBox<DayEntity>('day_box');
       userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
       weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -102,7 +102,7 @@ class HiveImpl implements HiveRepo {
       weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
 
       log('Сброс локального хранилища успешно выполнен');
-    } catch (e, stackTrace) {
+    } on Exception catch (e) {
       log('Ошибка при сбросе локального хранилища: $e');
       // Здесь мы не вызываем handleError, чтобы избежать рекурсивной обработки ошибок
       // Вместо этого просто логируем ошибку
@@ -120,7 +120,7 @@ class HiveImpl implements HiveRepo {
       if (dayBox.isOpen) await dayBox.close();
       if (userDataBox.isOpen) await userDataBox.close();
       if (weekPlanBox.isOpen) await weekPlanBox.close();
-    } catch (e) {
+    } on Exception catch (e) {
       log('Ошибка при закрытии боксов: $e');
     }
   }
@@ -130,7 +130,8 @@ class HiveImpl implements HiveRepo {
     try {
       await userBox.clear();
       savedUserIndex = await userBox.add(user);
-    } catch (e, stackTrace) {
+      print('User is saved: $user');
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -158,7 +159,7 @@ class HiveImpl implements HiveRepo {
           return null;
         }
       }
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -187,7 +188,7 @@ class HiveImpl implements HiveRepo {
       chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
       dayBox = await Hive.openBox<DayEntity>('day_box');
       weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -208,7 +209,7 @@ class HiveImpl implements HiveRepo {
       final dateKey = date?.toIso8601String().substring(0, 10) ??
           snapshot.date.toIso8601String().substring(0, 10);
       await chatBox.put(dateKey, snapshot);
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -258,7 +259,7 @@ class HiveImpl implements HiveRepo {
           ),
         );
       }
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -276,7 +277,7 @@ class HiveImpl implements HiveRepo {
       final dateKey = date?.toIso8601String().substring(0, 10) ??
           DateTime.now().toIso8601String().substring(0, 10);
       return chatBox.get(dateKey);
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -297,7 +298,7 @@ class HiveImpl implements HiveRepo {
       }
       final int last = chatBox.length - 1;
       return chatBox.getAt(last);
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -317,16 +318,20 @@ class HiveImpl implements HiveRepo {
         return;
       }
 
+      print('SAVING DAY: ${data.directusId}');
+
       final existingDays = dayBox.values.toList();
       final existingDayIndex =
           existingDays.indexWhere((day) => day.cycleId == data.cycleId);
 
       if (existingDayIndex != -1) {
+        print('ID EXISTED: ${data.directusId}');
         await dayBox.putAt(existingDayIndex, data);
       } else {
+        print('ID DIDNOT EXISST: ${data.directusId}');
         await dayBox.add(data);
       }
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -349,7 +354,7 @@ class HiveImpl implements HiveRepo {
         return [];
       }
       return dayBox.values.toList();
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -385,7 +390,7 @@ class HiveImpl implements HiveRepo {
         log('SAVED AT $indexOfLast');
         return;
       }
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -418,7 +423,7 @@ class HiveImpl implements HiveRepo {
       }
 
       return last;
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -436,7 +441,7 @@ class HiveImpl implements HiveRepo {
     try {
       await dayBox.clear();
       await userDataBox.clear();
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -478,7 +483,7 @@ class HiveImpl implements HiveRepo {
   Future<void> clearWeekPlans() async {
     try {
       await weekPlanBox.clear();
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,

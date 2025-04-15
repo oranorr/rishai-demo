@@ -13,6 +13,7 @@ enum AppRoutes {
   otherSettings('otherSettings', '/otherSettings'),
   calibratingScreen('calibratingScreen', '/calibratingScreen'),
   paywall('paywall', '/paywall'),
+  contactPage('contact', '/contact'),
   chat('chat', '/chat');
 
   const AppRoutes(this.name, this.path);

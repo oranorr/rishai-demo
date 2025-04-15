@@ -22,11 +22,11 @@ class _CaloriesWidget extends StatelessWidget {
             int kcal =
                 day.isToday ? whoopState.day.macros.kcal : day.macros.kcal;
             return SizedBox(
-              height: 200.h,
+              height: 225.h,
               child: Row(
                 children: [
                   SizedBox(
-                    height: 200.h,
+                    // height: 200.h,
                     width: 150.w,
                     child: _Card(
                       child: Column(

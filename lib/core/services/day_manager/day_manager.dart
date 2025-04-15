@@ -9,4 +9,6 @@ abstract class DayManager {
   Future<DayEntity> createDay({
     required DayEntity day,
   });
+
+  Future<List<int>> getDaysIds({required String userId});
 }

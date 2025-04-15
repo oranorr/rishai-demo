@@ -119,6 +119,7 @@ class UserEntity extends HiveObject {
       'cuisines': foodPreferences?.cuisines,
       'userGoal': userGoal?.toMap(),
       'adaptyId': adaptyId,
+      // 'daysIds': daysIds,
     };
   }
 

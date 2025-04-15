@@ -12,6 +12,7 @@ import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
@@ -100,18 +101,30 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> test() async {
-    final res = await directus.readMany(
-      collection: daysCollection,
-      filters: Filters({'userId': F.eq(userBloc.state.user.directusId)}),
-    );
-    print(res.last);
-    print(userBloc.state.user.daysIds.last);
+  Future<void> test(DayEntity day) async {
+    userBloc.add(const UserCheckForRecomp());
+    // final res = await hive.saveDay(data: day);
+    // print(res);
+    // final local = await hive.retrieveSavedDays();
+    // final contains =
+    //     local.indexWhere((element) => element.directusId == day.directusId);
+    // print(local.last.directusId);
+    // final pp = local[local.indexOf(local.last) - 1];
+    // print(local.last.directusId);
+    // print(local.length);
+    // final res = await directus.readMany(
+    //   collection: daysCollection,
+    //   filters: Filters({'userId': F.eq(userBloc.state.user.directusId)}),
+    //   query: Query(
+    //     limit: 1000,
+    //   ),
+    // );
+    // print(userBloc.state.user.daysIds.last);
   }
 
   @override
   Widget build(BuildContext context) {
-    // test();
+    test(userBloc.state.days.last);
     return BlocConsumer<UserBloc, UserState>(
       bloc: userBloc,
       listener: (context, state) {
@@ -120,7 +133,9 @@ class _HomePageState extends State<HomePage> {
         }
       },
       builder: (context, state) {
+        //
         // print(state.user.daysIds);
+        // print(state.days.last.dateTime);
         return PageView.builder(
           controller: pageController,
           physics: const NeverScrollableScrollPhysics(),
@@ -184,22 +199,14 @@ class _HomePageBodyState extends State<_HomePageBody> {
     return _refreshCompleter!.future;
   }
 
-  // Future<void> test() async {
-  //   final res = await directus.readMany(
-  //     collection: daysCollection,
-  //     filters: Filters(
-  //       {
-  //         'userId': F.eq(userBloc.state.user.directusId),
-  //       },
-  //     ),
-  //   );
-  //   print(res.length);
-  //   print(userBloc.state.user.daysIds.length);
-  // }
+  Future<void> test() async {
+    final res = await directus.readAppConfig();
+    print(res);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // test();
+    test();
     return BlocConsumer<WhoopBloc, WhoopState>(
       listener: (context, state) {
         if ((state.status != Status.loading) &&

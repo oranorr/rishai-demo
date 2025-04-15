@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:directus/directus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/error/network_error_handler.dart';
@@ -117,9 +118,11 @@ class DirectusRepositoryImpl implements DirectusService {
   Future<List<Map<String, dynamic>>> readMany({
     required String collection,
     Filters? filters,
+    Query? query,
   }) async {
     try {
-      final res = await sdk.items(collection).readMany(filters: filters);
+      final res =
+          await sdk.items(collection).readMany(filters: filters, query: query);
       return res.data;
     } catch (e, stackTrace) {
       await NetworkErrorHandler.handleError(
@@ -160,9 +163,10 @@ class DirectusRepositoryImpl implements DirectusService {
   Future<Map<String, dynamic>> readOne({
     required String collection,
     required String id,
+    Query? query,
   }) async {
     try {
-      final res = await sdk.items(collection).readOne(id);
+      final res = await sdk.items(collection).readOne(id, query: query);
       return res.data;
     } catch (e, stackTrace) {
       await NetworkErrorHandler.handleError(
@@ -218,5 +222,11 @@ class DirectusRepositoryImpl implements DirectusService {
       );
       rethrow;
     }
+  }
+
+  @override
+  Future<Map<String, dynamic>> readAppConfig() async {
+    final coll = await sdk.items(appConfig).readOne('1');
+    return coll.data;
   }
 }

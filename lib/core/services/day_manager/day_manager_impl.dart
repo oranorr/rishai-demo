@@ -1,9 +1,11 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
+import 'package:directus/directus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
+import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/day_manager/day_manager.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
@@ -12,7 +14,6 @@ import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/features/user/data/models/user_model.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/core/extensions/date_time_extension.dart';
 
 final dayManager = getIt.get<DayManager>();
 
@@ -54,19 +55,21 @@ class DayManagerImpl implements DayManager {
       // Проверяем, есть ли уже сегодняшний день
       if (days.isNotEmpty) {
         // Проверяем на совпадение даты (сегодня)
-        for (final stateDay in days) {
-          if (stateDay.dateTime.isSameDate(DateTime.now()) &&
-              day.dateTime.isSameDate(DateTime.now())) {
-            existingDayId = stateDay.directusId;
-            _logger(
-              'Найден существующий день с той же датой (сегодня): $existingDayId',
-            );
-            break;
-          }
-        }
+        // for (final stateDay in days) {
+        //   if (stateDay.dateTime.isSameDate(DateTime.now()) &&
+        //       day.dateTime.isSameDate(DateTime.now())) {
+        //   // if (stateDay.dateTime.isSameDate(DateTime.now()) &&
+        //   //     day.dateTime.isSameDate(DateTime.now())) {
+        //     existingDayId = stateDay.directusId;
+        //     _logger(
+        //       'Найден существующий день с той же датой (сегодня): $existingDayId',
+        //     );
+        //     break;
+        //   }
+        // }
 
         // Если не нашли по дате, проверяем по cycleId
-        if (existingDayId == null && day.directusId != 0) {
+        if (day.directusId != 0) {
           for (final stateDay in days) {
             if (stateDay.cycleId != null) {
               final isSameCycle = stateDay.cycleId == day.cycleId;
@@ -93,6 +96,7 @@ class DayManagerImpl implements DayManager {
         );
         dayEntity = DayEntity.fromMap(raw);
         dayId = existingDayId;
+        await hive.saveDay(data: dayEntity);
         _logger('День успешно обновлен');
       } else {
         // Создаем новый день
@@ -103,13 +107,18 @@ class DayManagerImpl implements DayManager {
           data: dayData,
         );
         dayId = createdDay['id'];
-        dayEntity = DayEntity.fromMap(createdDay);
+        dayEntity = DayEntity.fromMap(createdDay).copyWith(directusId: dayId);
         _logger('Новый день создан с id: $dayId');
+
+        // Сохраняем созданный день в Hive
+        await hive.saveDay(data: dayEntity);
 
         // Добавляем ID нового дня в список дней пользователя
         if (!daysIds.contains(dayId)) {
           daysIds.add(dayId);
-          _logger('ID дня добавлен в список дней пользователя');
+          _logger(
+            'ID ($dayId) дня добавлен в список дней пользователя, последний: ${daysIds.last}',
+          );
         }
       }
 
@@ -122,15 +131,22 @@ class DayManagerImpl implements DayManager {
           'days': daysIds,
         },
       );
+      final newUser = UserModel.fromMap(raw).toEntity();
+      print('newUser last day: ${newUser.daysIds.last}');
+
+      // Исправление: Обновляем локально daysIds в модели пользователя
+      final updatedUser = newUser.copyWith(daysIds: daysIds);
+      print('updatedUser last day: ${updatedUser.daysIds.last}');
+
       userBloc
         ..add(UserUpdateDay(day: dayEntity))
-        ..add(UpdateUserEvent(user: UserModel.fromMap(raw).toEntity()));
+        ..add(UpdateUserEvent(user: updatedUser));
 
       _logger(
-        'Успешно создан/обновлен день с датой: ${day.dateTime}, cycleId: ${day.cycleId} и directusId: ${day.directusId}',
+        'Успешно создан/обновлен день с датой: ${dayEntity.dateTime}, cycleId: ${dayEntity.cycleId} и directusId: ${dayEntity.directusId}',
       );
       return dayEntity;
-    } catch (e, stackTrace) {
+    } on Exception catch (e, stackTrace) {
       _logger('Ошибка при обновлении Directus: $e');
       await WhoopErrorHandler.handleError(
         e,
@@ -145,6 +161,19 @@ class DayManagerImpl implements DayManager {
       );
       rethrow;
     }
+  }
+
+  @override
+  Future<List<int>> getDaysIds({required String userId}) async {
+    List days = await directus.readMany(
+      collection: daysCollection,
+      filters: Filters({'userId': F.eq(userId)}),
+      query: Query(
+        limit: 1000,
+      ),
+    );
+
+    return days.map((e) => e['id']).toList().cast<int>();
   }
 }
 

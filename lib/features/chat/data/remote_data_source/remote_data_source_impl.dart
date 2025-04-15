@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
@@ -168,11 +169,11 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         return null;
       }
 
-      // Если дата не указана, берем последний день
+      final daysIds = await dayManager.getDaysIds(userId: directusId);
 
       final lastDay = await directus.readOne(
         collection: daysCollection,
-        id: rawUser['days'].last.toString(),
+        id: daysIds.last.toString(),
       );
       if (lastDay['cycleId'] == null) return null;
 

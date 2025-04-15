@@ -127,36 +127,43 @@ class __AutoPromptsState extends State<_AutoPrompts>
 
   Widget _buildWorkoutButtons() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(2, (i) {
         return Expanded(
-          child: RishButton.primary(
-            title: i == 0 ? 'Yes' : 'No',
-            height: 48.h,
-            enabled: true,
-            isLoading: false,
-            action: () {
-              chatBloc
-                ..add(ChatSendMessage(text: i == 0 ? 'Yes' : 'No', isMe: true))
-                ..add(
-                  const ChatSendMessage(
-                    text:
-                        "Hold on, I'm creating a personalized meal plan for you",
-                    isMe: false,
+          child: Padding(
+            padding: i == 0
+                ? const EdgeInsets.only(right: 5)
+                : const EdgeInsets.only(left: 5),
+            child: RishButton.primary(
+              title: i == 0 ? 'Yes' : 'No',
+              height: 48.h,
+              enabled: true,
+              isLoading: false,
+              action: () {
+                chatBloc
+                  ..add(
+                    ChatSendMessage(text: i == 0 ? 'Yes' : 'No', isMe: true),
+                  )
+                  ..add(
+                    const ChatSendMessage(
+                      text:
+                          "Hold on, I'm creating a personalized meal plan for you",
+                      isMe: false,
+                    ),
+                  );
+                setState(() {
+                  trainingToday = i == 0;
+                  currentStep++;
+                });
+                chatBloc.add(
+                  CreateMealPlan(
+                    trainingToday: trainingToday,
+                    meals: selectedMeals,
+                    snackToday: snackToday,
                   ),
                 );
-              setState(() {
-                trainingToday = i == 0;
-                currentStep++;
-              });
-              chatBloc.add(
-                CreateMealPlan(
-                  trainingToday: trainingToday,
-                  meals: selectedMeals,
-                  snackToday: snackToday,
-                ),
-              );
-            },
+              },
+            ),
           ),
         );
       }),
@@ -287,34 +294,35 @@ class _PromptQuestionsState extends State<_PromptQuestions> {
     'Does intermittent fasting help with body composition?',
   ];
 
-  bool bodyVisible = true;
+  // bool bodyVisible = true; // This state seems unused now
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
+        // Assuming state has askedQuestions: Set<String>
+        // TODO: Ensure ChatState has 'askedQuestions' field of type Set<String>
+        final askedQuestions = state.askedQuestions;
+
+        // Filter out questions that have already been asked
+        final availableQuestions =
+            questions.where((q) => !askedQuestions.contains(q)).toList();
+
+        // If there are no available questions left, show nothing
+        if (availableQuestions.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
         return AnimatedOpacity(
           opacity: 1,
-          // opacity: !widget.isVisible &&
-          //         state.status != Status.loading &&
-          //         state.requestsLeft != 0
-          //     ? 1
-          //     : 0,
           duration: Durations.short4,
-          onEnd: () {
-            setState(() {
-              // bodyVisible = !bodyVisible;
-            });
-          },
-          child: AnimatedContainer(
-            duration: Durations.short4,
-            height: bodyVisible ? null : 0,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children:
-                  questions.map((q) => _QuestionPromptButton(text: q)).toList(),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            // Map only available questions
+            children: availableQuestions
+                .map((q) => _QuestionPromptButton(text: q))
+                .toList(),
           ),
         );
       },
@@ -325,35 +333,39 @@ class _PromptQuestionsState extends State<_PromptQuestions> {
 class _QuestionPromptButton extends StatelessWidget {
   const _QuestionPromptButton({
     required this.text,
+    // isAsked parameter is no longer needed
   });
   final String text;
+  // isAsked parameter is no longer needed
 
   @override
   Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: 8.w),
-        child: GestureDetector(
-          onTap: () {
-            chatBloc.add(
-              ChatSendMessage(text: text, isRequest: true, isMe: true),
-            );
-          },
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: RishColors.formBackgroun,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: RishColors.primary),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              child: Text(
-                text,
-                textAlign: TextAlign.end,
-                style: context.styles.regularMedium
-                    .copyWith(color: RishColors.textPrimary),
-              ),
+    // Revert to original colors and behavior as only active buttons are shown
+    const textColor = RishColors.textPrimary;
+    const borderColor = RishColors.primary;
+    const backgroundColor = RishColors.formBackgroun;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8.w),
+      child: GestureDetector(
+        // onTap is always active now
+        onTap: () {
+          chatBloc.add(
+            ChatSendMessage(text: text, isRequest: true, isMe: true),
+          );
+        },
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Text(
+              text,
+              textAlign: TextAlign.end,
+              style: context.styles.regularMedium.copyWith(color: textColor),
             ),
           ),
         ),

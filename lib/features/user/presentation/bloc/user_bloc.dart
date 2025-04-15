@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:bloc/bloc.dart';
+import 'package:directus/directus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -67,10 +69,10 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     Emitter<UserState> emit,
   ) async {
     UserEntity user = event.user;
-
+    // print('user last day: ${user.daysIds}');
     // Сохраняем существующий план питания
-    final currentDay = whoopBloc.state.day;
-    final currentMealPlan = currentDay.mealPlanEntity;
+    // final currentDay = whoopBloc.state.day;
+    // final currentMealPlan = currentDay.mealPlanEntity;
 
     if (user.adaptyId == null) {
       user = user.copyWith(
@@ -95,12 +97,12 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       }
 
       // Восстанавливаем план питания
-      if (currentMealPlan != null) {
-        final updatedDay = currentDay.copyWith(
-          mealPlanEntity: currentMealPlan,
-        );
-        whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
-      }
+      // if (currentMealPlan != null) {
+      //   final updatedDay = currentDay.copyWith(
+      //     mealPlanEntity: currentMealPlan,
+      //   );
+      //   whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+      // }
     });
   }
 
@@ -112,12 +114,23 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     final watchedOnboard = prefsRepo.checkForWatchedOnboard();
 
     if (user != null) {
-      // print(user);
-      final rawUser = await directus.readOne(
-        collection: usersCollection,
-        id: user.directusId,
+      // final rawUser = await directus.readOne(
+      //   collection: usersCollection,
+      //   id: user.directusId,
+      // );
+      // print('rawUser last day: ${rawUser['days'].last}');
+
+      List days = await directus.readMany(
+        collection: daysCollection,
+        filters: Filters({'userId': F.eq(user.directusId)}),
+        query: Query(
+          limit: 1000,
+        ),
       );
-      final List<int> ids = List.from(rawUser['days']).cast<int>();
+
+      days = days.map((e) => e['id']).toList();
+
+      final List<int> ids = List.from(days).cast<int>();
       if (user.daysIds != ids) {
         user = user.copyWith(daysIds: ids);
       }
@@ -159,18 +172,17 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     if (state.user.userGoal?.goal != null &&
         state.user.userGoal?.goal == GoalType.recomp) {
       UserGoal goal = state.user.userGoal!;
-
-      final diff = DateTime.now().difference(goal.updatedAt);
-
-      if (recompDifference(diff)) {
-        UserGoal updGoal = goal.copyWith(
+      print(goal);
+      if (goal.updatedAt
+          .isBefore(DateTime.now().subtract(const Duration(days: 14)))) {
+        print('its time to change recomp modifier');
+        goal = goal.copyWith(
           modificator: goal.modificator > 0 ? -0.05 : 0.05,
           updatedAt: DateTime.now(),
         );
-        UserEntity userUpd = state.user.copyWith(userGoal: updGoal);
-        add(UpdateUserEvent(user: userUpd));
-      } else {
-        return;
+        final user = state.user.copyWith(userGoal: goal);
+        emit(state.copyWith(user: user));
+        add(UpdateUserEvent(user: user));
       }
     }
   }

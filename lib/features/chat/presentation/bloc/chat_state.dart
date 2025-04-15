@@ -13,20 +13,23 @@ abstract class ChatState extends Equatable {
     required this.status,
     required this.messages,
     required this.requestsLeft,
+    required this.askedQuestions,
   });
 
   final Status status;
   final List<MessageEntity> messages;
   final int requestsLeft;
+  final Set<String> askedQuestions;
 
   ChatState copyWith({
     Status? status,
     List<MessageEntity>? messages,
     int? requestsLeft,
+    Set<String>? askedQuestions,
   });
 
   @override
-  List<Object?> get props => [status, messages, requestsLeft];
+  List<Object?> get props => [status, messages, requestsLeft, askedQuestions];
 }
 
 class ChatMainState extends ChatState {
@@ -34,6 +37,7 @@ class ChatMainState extends ChatState {
     required super.status,
     required super.messages,
     required super.requestsLeft,
+    required super.askedQuestions,
   });
 
   @override
@@ -41,11 +45,13 @@ class ChatMainState extends ChatState {
     Status? status,
     List<MessageEntity>? messages,
     int? requestsLeft,
+    Set<String>? askedQuestions,
   }) {
     return ChatMainState(
       status: status ?? this.status,
       messages: messages ?? this.messages,
       requestsLeft: requestsLeft ?? this.requestsLeft,
+      askedQuestions: askedQuestions ?? this.askedQuestions,
     );
   }
 }

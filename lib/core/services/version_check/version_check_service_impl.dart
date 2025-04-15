@@ -1,0 +1,85 @@
+import 'dart:developer';
+import 'dart:io' show Platform;
+
+import 'package:injectable/injectable.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:rishai/core/services/directus/directus_repository.dart';
+import 'package:rishai/core/services/version_check/version_check_service.dart';
+import 'package:version/version.dart';
+
+@Singleton(as: VersionCheckService)
+class VersionCheckServiceImpl implements VersionCheckService {
+  VersionCheckServiceImpl(this._directusService);
+  final DirectusService _directusService;
+  PackageInfo? _packageInfo;
+  Map<String, dynamic>? _appConfig;
+
+  Future<PackageInfo> _getPackageInfo() async {
+    _packageInfo ??= await PackageInfo.fromPlatform();
+    return _packageInfo!;
+  }
+
+  Future<Map<String, dynamic>?> _getAppConfig() async {
+    try {
+      _appConfig ??= await _directusService.readAppConfig();
+      return _appConfig;
+    } catch (e, stackTrace) {
+      log('Error fetching app config: $e', error: e, stackTrace: stackTrace);
+      // Можно добавить обработку ошибок через NetworkErrorHandler, если нужно
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> isUpdateRequired() async {
+    final packageInfo = await _getPackageInfo();
+    final appConfig = await _getAppConfig();
+
+    if (appConfig == null) {
+      log('App config is null, cannot check for update.');
+      return false; // Не можем проверить, считаем, что обновление не нужно
+    }
+
+    try {
+      final currentVersionStr = packageInfo.version;
+      final currentBuildNumber = packageInfo.buildNumber;
+      final currentFullVersionStr = '$currentVersionStr+$currentBuildNumber';
+      final currentVersion = Version.parse(currentFullVersionStr);
+
+      String? requiredVersionStr;
+      if (Platform.isAndroid) {
+        requiredVersionStr = appConfig['androidVersion'] as String?;
+      } else if (Platform.isIOS) {
+        requiredVersionStr = appConfig['iosVersion'] as String?;
+      }
+
+      if (requiredVersionStr == null) {
+        log('Required version for ${Platform.operatingSystem} not found in config.');
+        return false; // Не указана требуемая версия для платформы
+      }
+
+      final requiredVersion = Version.parse(requiredVersionStr);
+
+      log('Current version: $currentVersion, Required version: $requiredVersion');
+      return currentVersion < requiredVersion;
+    } catch (e) {
+      log('Error parsing versions: $e');
+      return false; // Ошибка парсинга версий, считаем, что обновление не нужно
+    }
+  }
+
+  @override
+  Future<String?> getStoreUrl() async {
+    final appConfig = await _getAppConfig();
+    if (appConfig == null) {
+      return null;
+    }
+
+    if (Platform.isAndroid) {
+      return appConfig['androidStoreUrl'] as String?;
+    } else if (Platform.isIOS) {
+      return appConfig['iosStoreUrl'] as String?;
+    }
+    return null;
+  }
+}

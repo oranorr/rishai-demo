@@ -53,6 +53,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
             status: Status.initial,
             messages: [],
             requestsLeft: defaultRequestsLimit,
+            askedQuestions: {},
           ),
         ) {
     on<ChatSendMessage>(_sendMessage);
@@ -96,11 +97,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   FutureOr<void> _init(InitChatBloc event, Emitter<ChatState> emit) async {
     if (event.directusId == '-1') return;
 
+    String? threadId;
+    List<MessageEntity> initialMessages = [];
+    int initialRequestsLeft = defaultRequestsLimit;
+
     final res = await fetchSavedSnapUsecase.call(
       FetchSavedSnapParams(directusId: event.directusId),
     );
-
-    String? threadId;
 
     res.fold(
       (left) {
@@ -108,19 +111,28 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       },
       (snap) {
         if (snap != null) {
-          emit(
-            state.copyWith(
-              messages: snap.messages,
-              requestsLeft: snap.requestsLeft,
-            ),
-          );
+          // Load messages and requests from snap, but keep askedQuestions empty
+          initialMessages = snap.messages ?? [];
+          initialRequestsLeft = snap.requestsLeft ?? defaultRequestsLimit;
           threadId = snap.threadId;
         }
       },
     );
 
+    // Emit the initial state with potentially loaded messages/requests
+    // but always empty askedQuestions.
+    emit(
+      state.copyWith(
+        messages: initialMessages,
+        requestsLeft: initialRequestsLeft,
+        askedQuestions: {},
+      ),
+    );
+
     await initGptUsecase.call(InitGptParams(threadId: threadId));
   }
+
+  Set<String> get safeAskedQuestions => state.askedQuestions ?? {};
 
   FutureOr<void> _sendMessage(
     ChatSendMessage event,
@@ -130,37 +142,56 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         MessageEntity(text: event.text, isMe: event.isMe ?? true);
 
     List<MessageEntity> list = List.from(state.messages);
+    Set<String> currentAsked = Set.from(safeAskedQuestions);
 
     if (msg.text.isNotEmpty) {
       list.add(msg);
-      emit(state.copyWith(messages: list));
+      // If it's a question prompt request, add it to askedQuestions
+      if (event.isRequest ?? false) {
+        currentAsked.add(event.text);
+      }
+      emit(state.copyWith(messages: list, askedQuestions: currentAsked));
     }
 
     if (event.isRequest ?? false) {
       emit(state.copyWith(status: Status.loading));
       final res = await sendMessageGptUsecase.call(event.text);
       res.fold((failure) {
-        emit(state.copyWith(status: Status.error));
-      }, (result) {
-        emit(state.copyWith(status: Status.initial));
-        final msg = MessageEntity(text: result, isMe: false);
-        list.add(msg);
-        emit(state.copyWith(requestsLeft: state.requestsLeft - 1));
-
-        // Создаем новый снэпшот
-        final snap = _createSnapshot();
-
-        // Обновляем день через whoopBloc
-        whoopBloc.add(
-          WhoopUpdateDayByMealPlan(
-            mealPlanEntity: whoopBloc.state.day.mealPlanEntity!,
-            snapshot: snap,
+        // On failure, remove the question from asked set so user can try again?
+        // Or keep it asked? Let's keep it for now.
+        // currentAsked.remove(event.text);
+        emit(
+          state.copyWith(
+            status: Status.error, /*, askedQuestions: currentAsked*/
           ),
         );
-      });
-    }
+      }, (result) {
+        // Success, update state
+        final responseMsg = MessageEntity(text: result, isMe: false);
+        list.add(responseMsg); // Add response message
+        emit(
+          state.copyWith(
+            status: Status.initial,
+            messages: list,
+            requestsLeft: state.requestsLeft - 1,
+            // askedQuestions is already updated above
+          ),
+        );
 
-    emit(state.copyWith(messages: list));
+        // Create snapshot (askedQuestions not included)
+        final snap = _createSnapshot();
+
+        // Update day via whoopBloc (passing snapshot without askedQuestions)
+        if (whoopBloc.state.day.mealPlanEntity != null) {
+          whoopBloc.add(
+            WhoopUpdateDayByMealPlan(
+              mealPlanEntity: whoopBloc.state.day.mealPlanEntity!,
+              snapshot: snap,
+            ),
+          );
+        } // else: What to do if there's no meal plan? Maybe still save snap?
+      });
+    } // else: If not a request, just update messages (already done above)
   }
 
   Future<void> _createMealPlan(
@@ -224,8 +255,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   FutureOr<void> _saveSnap(ChatSaveSnap event, Emitter<ChatState> emit) async {
+    // askedQuestions is not saved in the snapshot
     final chatSnap = _createSnapshot();
-
     await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
   }
 
@@ -236,15 +267,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       emit(state.copyWith(status: Status.loading));
 
-      // Очищаем состояние чата
+      // Clear chat state including askedQuestions
       emit(
         state.copyWith(
           requestsLeft: defaultRequestsLimit,
           messages: [],
+          askedQuestions: {},
         ),
       );
 
-      // Создаем новый снапшот без плана питания
+      // Create new snapshot (without askedQuestions)
       final chatSnap = ChatSnapshotEntity(
         messages: [],
         date: DateTime.now(),
@@ -277,18 +309,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     try {
-      final now = DateTime.now();
-      final sevenDaysAgo = now.subtract(const Duration(days: 7));
-
-      // Обновляем состояние с сообщениями и количеством запросов
+      // Load messages/requests from the day's snapshot
+      // Reset askedQuestions as it's not persisted in the snapshot
       emit(
         state.copyWith(
           requestsLeft: event.day.snap.requestsLeft ?? state.requestsLeft,
           messages: event.day.snap.messages ?? state.messages,
+          askedQuestions: {},
         ),
       );
 
-      // Сохраняем снапшот
+      // Save snapshot (without askedQuestions)
       final chatSnap = _createSnapshot();
       await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
     } catch (e) {
@@ -300,13 +331,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ChatOnLogout event,
     Emitter<ChatState> emit,
   ) async {
-    // Просто очищаем состояние чата без создания нового снапшота
+    // Clear state including askedQuestions
     emit(
       state.copyWith(
         messages: [],
         requestsLeft:
             event.needsCounterClear ? defaultRequestsLimit : state.requestsLeft,
         status: Status.initial,
+        askedQuestions: {},
       ),
     );
   }
@@ -316,12 +348,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     await hive.refreshChat();
+    // Clear askedQuestions on refresh
     emit(
       state.copyWith(
         messages: event.needsRequestsAmountRefresh ? [] : state.messages,
         requestsLeft: event.needsRequestsAmountRefresh
             ? defaultRequestsLimit
             : state.requestsLeft,
+        askedQuestions: {},
       ),
     );
   }
@@ -471,41 +505,44 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
       final selectedDay = whoopBloc.state.day;
 
-      // Проверяем, что пользователь авторизован
+      // Check if user is logged in
       if (userBloc.state.user.directusId == '-1') {
         if (!emit.isDone) {
+          // Clear state including askedQuestions if logged out
           emit(
             state.copyWith(
               messages: [],
               requestsLeft: defaultRequestsLimit,
+              askedQuestions: {},
             ),
           );
         }
         return;
       }
 
-      // Проверяем, нужно ли обновлять состояние
-      final currentMessages = state.messages;
+      // Get data from selected day's snapshot
       final newMessages = selectedDay.snap.messages ?? [];
-      final currentRequestsLeft = state.requestsLeft;
       final newRequestsLeft =
           selectedDay.snap.requestsLeft ?? state.requestsLeft;
 
-      // Обновляем состояние только если есть реальные изменения
-      if (!listEquals(currentMessages, newMessages) ||
-          currentRequestsLeft != newRequestsLeft) {
-        log('Синхронизация чата: обновляем состояние с новыми данными');
+      // Always reset askedQuestions when syncing to a new day
+      // Check if state needs updating (messages, requests, or non-empty askedQuestions)
+      if (!listEquals(state.messages, newMessages) ||
+          state.requestsLeft != newRequestsLeft ||
+          safeAskedQuestions.isNotEmpty) {
+        log('Синхронизация чата: обновляем состояние (сброс askedQuestions)');
 
         if (!emit.isDone) {
           emit(
             state.copyWith(
               messages: newMessages,
               requestsLeft: newRequestsLeft,
+              askedQuestions: {},
             ),
           );
         }
 
-        // Сохраняем снапшот в кэш только если есть изменения
+        // Save snapshot (without askedQuestions)
         final chatSnap = _createSnapshot();
         await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
       }

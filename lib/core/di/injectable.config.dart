@@ -34,6 +34,10 @@ import 'package:rishai/core/services/notifications/notifications_service.dart'
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart'
     as _i724;
 import 'package:rishai/core/services/pefs/prefs_repository.dart' as _i97;
+import 'package:rishai/core/services/version_check/version_check_service.dart'
+    as _i570;
+import 'package:rishai/core/services/version_check/version_check_service_impl.dart'
+    as _i634;
 import 'package:rishai/core/services/whoop_token_service.dart/token_service.dart'
     as _i820;
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart'
@@ -177,6 +181,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i547.GetDaysUsecase>(
         () => _i547.GetDaysUsecase(gh<_i926.UserRepository>()));
+    gh.singleton<_i570.VersionCheckService>(
+        () => _i634.VersionCheckServiceImpl(gh<_i89.DirectusService>()));
     gh.singleton<_i544.LoginRepository>(
         () => _i1025.LoginRepositoryImpl(gh<_i510.LoginRemoteDataSource>()));
     gh.factory<_i1003.LoginViaGoogleUsecase>(

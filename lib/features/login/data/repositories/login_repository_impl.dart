@@ -4,6 +4,7 @@ import 'package:dartz/dartz.dart';
 import 'package:directus/directus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/features/login/data/dara_sources/remote/remote_data_source.dart';
@@ -106,8 +107,12 @@ class LoginRepositoryImpl implements LoginRepository {
             'name': res.first['name'],
           },
         );
+        final daysIds =
+            await dayManager.getDaysIds(userId: res.first['id'].toString());
 
-        return Right(UserModel.fromMap(rawUpd).toEntity());
+        return Right(
+          UserModel.fromMap(rawUpd).toEntity().copyWith(daysIds: daysIds),
+        );
       }
     } on Exception catch (e) {
       log(e.toString());

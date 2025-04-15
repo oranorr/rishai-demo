@@ -134,7 +134,10 @@ class RequestPlanParams {
     final days = userBloc.state.days;
     final alreadyGenereatedMeals =
         isWeekPlan ? excludedMeals : DayEntity.getMealHistory(days);
-
+    if (dietary.contains('Carnivore')) {
+      // print('CARNIVORE DETECTED');
+      dietary.remove('Carnivore');
+    }
     final userPrefs = {
       'dietary_preferences': dietary.join(', '),
       'cuisine_preferences': cuisines.join(', '),
