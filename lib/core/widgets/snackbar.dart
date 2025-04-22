@@ -6,9 +6,9 @@ import 'package:rishai/core/theme/theme_colors.dart';
 
 class RishSnackbar {
   void showSnackBar(
-    String errorMessage, [
+    String errorMessage, {
     bool isError = true,
-  ]) {
+  }) {
     final snackBar = SnackBar(
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +41,9 @@ class RishSnackbar {
       padding: const EdgeInsets.all(25),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-        side: const BorderSide(color: Color(0xffED544E)),
+        side: BorderSide(
+          color: isError ? const Color(0xffED544E) : const Color(0xff66C87B),
+        ),
         borderRadius: BorderRadius.circular(20),
       ),
       backgroundColor: const Color.fromRGBO(6, 3, 39, 1),

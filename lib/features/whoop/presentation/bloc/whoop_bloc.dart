@@ -590,7 +590,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           );
 
           // Показываем уведомление об успешном обновлении
-          RishSnackbar().showSnackBar('Your data has been updated', false);
+          RishSnackbar()
+              .showSnackBar('Your data has been updated', isError: false);
         },
       );
     } else {

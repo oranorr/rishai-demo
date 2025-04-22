@@ -66,7 +66,7 @@ void main() async {
 
       final versionCheckService = getIt<VersionCheckService>();
       final bool updateRequired = await versionCheckService.isUpdateRequired();
-
+      print('updateRequired: $updateRequired');
       if (updateRequired) {
         final storeUrl = await versionCheckService.getStoreUrl();
         if (storeUrl != null) {

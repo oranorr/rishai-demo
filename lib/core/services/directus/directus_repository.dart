@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:directus/directus.dart';
 
 abstract interface class DirectusService {
@@ -39,4 +41,8 @@ abstract interface class DirectusService {
   });
 
   Future<Map<String, dynamic>> readAppConfig();
+
+  Future<String> uploadFile({
+    required File image,
+  });
 }

@@ -82,6 +82,12 @@ import 'package:rishai/features/login/domain/usecases/login_via_google_usecase.d
     as _i1003;
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart'
     as _i1024;
+import 'package:rishai/features/settings/domain/repository/feedback_repository.dart'
+    as _i768;
+import 'package:rishai/features/settings/domain/repository/feedback_repository_impl.dart'
+    as _i534;
+import 'package:rishai/features/settings/domain/usecase/send_feedback_usecase.dart'
+    as _i242;
 import 'package:rishai/features/user/data/data_sources/local/user_local_impl.dart'
     as _i461;
 import 'package:rishai/features/user/data/data_sources/local/user_local_source.dart'
@@ -143,6 +149,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i624.AnalyticsRepositoryImpl());
     gh.singleton<_i300.DayManager>(() => _i629.DayManagerImpl());
     gh.singleton<_i410.HiveRepo>(() => _i410.HiveImpl());
+    gh.singleton<_i768.FeedbackRepository>(
+        () => _i534.FeedbackRepositoryImpl());
     gh.singleton<_i993.FirebaseRepository>(
         () => _i201.FirebaseImplementation());
     gh.singleton<_i89.DirectusService>(() => _i523.DirectusRepositoryImpl());
@@ -160,6 +168,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i467.ChatRemoteDataSourceImpl());
     gh.lazySingleton<_i453.AppNavigationService>(
         () => _i453.AppNavigationService(gh<_i572.NavigatorKeyProvider>()));
+    gh.factory<_i242.SendFeedbackUseCase>(
+        () => _i242.SendFeedbackUseCase(gh<_i768.FeedbackRepository>()));
     gh.singleton<_i492.NotificationsService>(
         () => _i724.NotificationsServiceImpl());
     gh.singleton<_i897.WhoopRepository>(() => _i907.WhoopRepositoryImpl(

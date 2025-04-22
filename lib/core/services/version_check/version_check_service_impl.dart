@@ -59,9 +59,31 @@ class VersionCheckServiceImpl implements VersionCheckService {
       }
 
       final requiredVersion = Version.parse(requiredVersionStr);
+      // Извлекаем полный buildNumber из строки версии
+      String? requiredBuildNumber;
+      if (requiredVersionStr.contains('+')) {
+        requiredBuildNumber = requiredVersionStr.split('+')[1];
+      }
 
       log('Current version: $currentVersion, Required version: $requiredVersion');
-      return currentVersion < requiredVersion;
+      log('Current build number: $currentBuildNumber, Required build number: $requiredBuildNumber');
+
+      // Проверяем основную версию (без build number)
+      final currentMainVersion = Version(
+        currentVersion.major,
+        currentVersion.minor,
+        currentVersion.patch,
+      );
+      final requiredMainVersion = Version(
+        requiredVersion.major,
+        requiredVersion.minor,
+        requiredVersion.patch,
+      );
+
+      // Обновление требуется если основная версия меньше требуемой или разные build number
+      return currentMainVersion < requiredMainVersion ||
+          (requiredBuildNumber != null &&
+              currentBuildNumber != requiredBuildNumber);
     } catch (e) {
       log('Error parsing versions: $e');
       return false; // Ошибка парсинга версий, считаем, что обновление не нужно

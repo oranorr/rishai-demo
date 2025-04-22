@@ -1,11 +1,17 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/material.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
+import 'package:rishai/core/widgets/snackbar.dart';
+import 'package:rishai/features/settings/domain/repository/feedback_repository_impl.dart';
+import 'package:rishai/features/settings/domain/usecase/send_feedback_usecase.dart';
+import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 
 class ContactPage extends StatefulWidget {
   const ContactPage({super.key});
@@ -120,31 +126,54 @@ class _ContactPageState extends State<ContactPage> {
     });
   }
 
-  void _sendFeedback() {
+  Future<void> _sendFeedback() async {
     if (_formKey.currentState!.validate() && _isSendButtonEnabled) {
       final name = _nameController.text;
       final email = _emailController.text;
       final subject = _selectedSubject;
       final message = _messageController.text;
-      final attachments = _attachedMediaList;
+      final List<File> attachments = [];
 
       print('Name: $name');
       print('Email: $email');
       print('Subject: $subject');
       print('Message: $message');
       print('Attachments Count: ${attachments.length}');
-      for (final attachment in attachments) {
-        print('  - Path: ${attachment.path}, Name: ${attachment.name}');
+      for (final attachment in _attachedMediaList) {
+        File file = File(attachment.path);
+        attachments.add(file);
+        // print('  - Path: ${attachment.path}, Name: ${attachment.name}');
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Feedback sent successfully!')),
+      final res = await SendFeedbackUseCase(feedbackRepository).call(
+        SendFeedbackParams(
+          name: name,
+          email: email,
+          subject: subject!,
+          message: message,
+          attachments: attachments,
+          userId: userBloc.state.user.directusId,
+        ),
       );
+
+      res.fold(
+        (failure) => RishSnackbar().showSnackBar(
+          'Failed to send feedback, please try again.',
+        ),
+        (success) => RishSnackbar().showSnackBar(
+          'Feedback sent successfully!',
+          isError: false,
+        ),
+      );
+
       _formKey.currentState?.reset();
       setState(() {
         _selectedSubject = 'feedback';
-        _attachedMediaList.clear();
-        _isSendButtonEnabled = false;
+        // _attachedMediaList.clear();
+        // _isSendButtonEnabled = false;
+      });
+      Future.delayed(const Duration(seconds: 1), () {
+        appNavigationService.pop(path: AppRoutes.homeScreen.path);
       });
     }
   }
@@ -210,6 +239,7 @@ class _ContactPageState extends State<ContactPage> {
         'Leave Feedback',
         style: context.styles.h1,
       ),
+      implyLeading: true,
       child: Column(
         children: [
           Expanded(
@@ -286,29 +316,29 @@ class _ContactPageState extends State<ContactPage> {
                         },
                       ),
                       const SizedBox(height: 24),
-                      RishButton.primary(
-                        title: 'Attach Media',
-                        enabled: true,
-                        isLoading: false,
-                        action: _pickMedia,
-                      ),
-                      if (_attachedMediaList.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _attachedMediaList
-                                .asMap()
-                                .entries
-                                .map(
-                                  (entry) =>
-                                      _buildPreviewItem(entry.value, entry.key),
-                                )
-                                .toList(),
-                          ),
-                        ),
-                      const SizedBox(height: 32),
+                      // RishButton.primary(
+                      //   title: 'Attach Media',
+                      //   enabled: true,
+                      //   isLoading: false,
+                      //   action: _pickMedia,
+                      // ),
+                      // if (_attachedMediaList.isNotEmpty)
+                      //   Padding(
+                      //     padding: const EdgeInsets.only(top: 16),
+                      //     child: Wrap(
+                      //       spacing: 8,
+                      //       runSpacing: 8,
+                      //       children: _attachedMediaList
+                      //           .asMap()
+                      //           .entries
+                      //           .map(
+                      //             (entry) =>
+                      //                 _buildPreviewItem(entry.value, entry.key),
+                      //           )
+                      //           .toList(),
+                      //     ),
+                      //   ),
+                      // const SizedBox(height: 32),
                       RishButton.primary(
                         title: 'Send',
                         enabled: _isSendButtonEnabled,

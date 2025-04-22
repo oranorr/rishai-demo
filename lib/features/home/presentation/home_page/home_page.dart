@@ -206,7 +206,6 @@ class _HomePageBodyState extends State<_HomePageBody> {
 
   @override
   Widget build(BuildContext context) {
-    test();
     return BlocConsumer<WhoopBloc, WhoopState>(
       listener: (context, state) {
         if ((state.status != Status.loading) &&

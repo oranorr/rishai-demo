@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:directus/directus.dart';
 import 'package:injectable/injectable.dart';
@@ -228,5 +229,43 @@ class DirectusRepositoryImpl implements DirectusService {
   Future<Map<String, dynamic>> readAppConfig() async {
     final coll = await sdk.items(appConfig).readOne('1');
     return coll.data;
+  }
+
+  @override
+  Future<String> uploadFile({
+    required File image,
+  }) async {
+    String fileId = '';
+    try {
+      final uploadFuture = await sdk.files.uploadFile(image.path);
+      final response = await uploadFuture;
+      fileId = response.data.id!;
+      print('fileId: $fileId');
+      return 'fileId';
+    } on DirectusError catch (e) {
+      log(e.toString());
+      return '';
+    }
+    // res.listen((value) {
+    //   log(value.data.id.toString());
+    //   fileId = value.data.id!;
+    // });
+
+    // .then((value) {
+    //   log(value.data.id.toString());
+    //   fileId = value.data.id!;
+    // });
+    // Future<DirectusResponse<DirectusFile>> res =
+    //     await sdk.files.uploadFile(image.path);
+
+    // await res.then((value) {
+    //   log(value.data.id.toString());
+    //   fileId = value.data.id!;
+    // });
+
+    // await res.then((value) {
+    //   log(value.data.id.toString());
+    //   fileId = value.data.id!;
+    // });
   }
 }
