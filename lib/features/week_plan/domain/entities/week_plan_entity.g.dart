@@ -20,19 +20,31 @@ class WeekPlanEntityAdapter extends TypeAdapter<WeekPlanEntity> {
       plans: (fields[0] as List).cast<MealPlanEntity>(),
       startDate: fields[1] as DateTime,
       endDate: fields[2] as DateTime,
+      fitnessGoal: fields[3] as String,
+      dietaryPreferences: fields[4] as String,
+      cuisines: (fields[5] as List).cast<String>(),
+      mealsTypes: (fields[6] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, WeekPlanEntity obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.plans)
       ..writeByte(1)
       ..write(obj.startDate)
       ..writeByte(2)
-      ..write(obj.endDate);
+      ..write(obj.endDate)
+      ..writeByte(3)
+      ..write(obj.fitnessGoal)
+      ..writeByte(4)
+      ..write(obj.dietaryPreferences)
+      ..writeByte(5)
+      ..write(obj.cuisines)
+      ..writeByte(6)
+      ..write(obj.mealsTypes);
   }
 
   @override

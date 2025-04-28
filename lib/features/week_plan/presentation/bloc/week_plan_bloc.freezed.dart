@@ -32,6 +32,8 @@ mixin _$WeekPlanEvent {
     required TResult Function() reset,
     required TResult Function() load,
     required TResult Function() clear,
+    required TResult Function(WeekFilterEntity filter) filter,
+    required TResult Function() clearFilter,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -50,6 +52,8 @@ mixin _$WeekPlanEvent {
     TResult? Function()? reset,
     TResult? Function()? load,
     TResult? Function()? clear,
+    TResult? Function(WeekFilterEntity filter)? filter,
+    TResult? Function()? clearFilter,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -68,6 +72,8 @@ mixin _$WeekPlanEvent {
     TResult Function()? reset,
     TResult Function()? load,
     TResult Function()? clear,
+    TResult Function(WeekFilterEntity filter)? filter,
+    TResult Function()? clearFilter,
     required TResult orElse(),
   }) =>
       throw _privateConstructorUsedError;
@@ -77,6 +83,8 @@ mixin _$WeekPlanEvent {
     required TResult Function(WeekPlanReset value) reset,
     required TResult Function(WeekPlanLoad value) load,
     required TResult Function(WeekPlanClear value) clear,
+    required TResult Function(WeekPlanFilter value) filter,
+    required TResult Function(WeekPlanClearFilter value) clearFilter,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -85,6 +93,8 @@ mixin _$WeekPlanEvent {
     TResult? Function(WeekPlanReset value)? reset,
     TResult? Function(WeekPlanLoad value)? load,
     TResult? Function(WeekPlanClear value)? clear,
+    TResult? Function(WeekPlanFilter value)? filter,
+    TResult? Function(WeekPlanClearFilter value)? clearFilter,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -93,6 +103,8 @@ mixin _$WeekPlanEvent {
     TResult Function(WeekPlanReset value)? reset,
     TResult Function(WeekPlanLoad value)? load,
     TResult Function(WeekPlanClear value)? clear,
+    TResult Function(WeekPlanFilter value)? filter,
+    TResult Function(WeekPlanClearFilter value)? clearFilter,
     required TResult orElse(),
   }) =>
       throw _privateConstructorUsedError;
@@ -327,6 +339,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
     required TResult Function() reset,
     required TResult Function() load,
     required TResult Function() clear,
+    required TResult Function(WeekFilterEntity filter) filter,
+    required TResult Function() clearFilter,
   }) {
     return generate(dietary, cuisines, restrictions, calorieTarget, macros,
         hasTraining, hasSnack, servings, startDate);
@@ -349,6 +363,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
     TResult? Function()? reset,
     TResult? Function()? load,
     TResult? Function()? clear,
+    TResult? Function(WeekFilterEntity filter)? filter,
+    TResult? Function()? clearFilter,
   }) {
     return generate?.call(dietary, cuisines, restrictions, calorieTarget,
         macros, hasTraining, hasSnack, servings, startDate);
@@ -371,6 +387,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
     TResult Function()? reset,
     TResult Function()? load,
     TResult Function()? clear,
+    TResult Function(WeekFilterEntity filter)? filter,
+    TResult Function()? clearFilter,
     required TResult orElse(),
   }) {
     if (generate != null) {
@@ -387,6 +405,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
     required TResult Function(WeekPlanReset value) reset,
     required TResult Function(WeekPlanLoad value) load,
     required TResult Function(WeekPlanClear value) clear,
+    required TResult Function(WeekPlanFilter value) filter,
+    required TResult Function(WeekPlanClearFilter value) clearFilter,
   }) {
     return generate(this);
   }
@@ -398,6 +418,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
     TResult? Function(WeekPlanReset value)? reset,
     TResult? Function(WeekPlanLoad value)? load,
     TResult? Function(WeekPlanClear value)? clear,
+    TResult? Function(WeekPlanFilter value)? filter,
+    TResult? Function(WeekPlanClearFilter value)? clearFilter,
   }) {
     return generate?.call(this);
   }
@@ -409,6 +431,8 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
     TResult Function(WeekPlanReset value)? reset,
     TResult Function(WeekPlanLoad value)? load,
     TResult Function(WeekPlanClear value)? clear,
+    TResult Function(WeekPlanFilter value)? filter,
+    TResult Function(WeekPlanClearFilter value)? clearFilter,
     required TResult orElse(),
   }) {
     if (generate != null) {
@@ -502,6 +526,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
     required TResult Function() reset,
     required TResult Function() load,
     required TResult Function() clear,
+    required TResult Function(WeekFilterEntity filter) filter,
+    required TResult Function() clearFilter,
   }) {
     return reset();
   }
@@ -523,6 +549,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
     TResult? Function()? reset,
     TResult? Function()? load,
     TResult? Function()? clear,
+    TResult? Function(WeekFilterEntity filter)? filter,
+    TResult? Function()? clearFilter,
   }) {
     return reset?.call();
   }
@@ -544,6 +572,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
     TResult Function()? reset,
     TResult Function()? load,
     TResult Function()? clear,
+    TResult Function(WeekFilterEntity filter)? filter,
+    TResult Function()? clearFilter,
     required TResult orElse(),
   }) {
     if (reset != null) {
@@ -559,6 +589,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
     required TResult Function(WeekPlanReset value) reset,
     required TResult Function(WeekPlanLoad value) load,
     required TResult Function(WeekPlanClear value) clear,
+    required TResult Function(WeekPlanFilter value) filter,
+    required TResult Function(WeekPlanClearFilter value) clearFilter,
   }) {
     return reset(this);
   }
@@ -570,6 +602,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
     TResult? Function(WeekPlanReset value)? reset,
     TResult? Function(WeekPlanLoad value)? load,
     TResult? Function(WeekPlanClear value)? clear,
+    TResult? Function(WeekPlanFilter value)? filter,
+    TResult? Function(WeekPlanClearFilter value)? clearFilter,
   }) {
     return reset?.call(this);
   }
@@ -581,6 +615,8 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
     TResult Function(WeekPlanReset value)? reset,
     TResult Function(WeekPlanLoad value)? load,
     TResult Function(WeekPlanClear value)? clear,
+    TResult Function(WeekPlanFilter value)? filter,
+    TResult Function(WeekPlanClearFilter value)? clearFilter,
     required TResult orElse(),
   }) {
     if (reset != null) {
@@ -649,6 +685,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
     required TResult Function() reset,
     required TResult Function() load,
     required TResult Function() clear,
+    required TResult Function(WeekFilterEntity filter) filter,
+    required TResult Function() clearFilter,
   }) {
     return load();
   }
@@ -670,6 +708,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
     TResult? Function()? reset,
     TResult? Function()? load,
     TResult? Function()? clear,
+    TResult? Function(WeekFilterEntity filter)? filter,
+    TResult? Function()? clearFilter,
   }) {
     return load?.call();
   }
@@ -691,6 +731,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
     TResult Function()? reset,
     TResult Function()? load,
     TResult Function()? clear,
+    TResult Function(WeekFilterEntity filter)? filter,
+    TResult Function()? clearFilter,
     required TResult orElse(),
   }) {
     if (load != null) {
@@ -706,6 +748,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
     required TResult Function(WeekPlanReset value) reset,
     required TResult Function(WeekPlanLoad value) load,
     required TResult Function(WeekPlanClear value) clear,
+    required TResult Function(WeekPlanFilter value) filter,
+    required TResult Function(WeekPlanClearFilter value) clearFilter,
   }) {
     return load(this);
   }
@@ -717,6 +761,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
     TResult? Function(WeekPlanReset value)? reset,
     TResult? Function(WeekPlanLoad value)? load,
     TResult? Function(WeekPlanClear value)? clear,
+    TResult? Function(WeekPlanFilter value)? filter,
+    TResult? Function(WeekPlanClearFilter value)? clearFilter,
   }) {
     return load?.call(this);
   }
@@ -728,6 +774,8 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
     TResult Function(WeekPlanReset value)? reset,
     TResult Function(WeekPlanLoad value)? load,
     TResult Function(WeekPlanClear value)? clear,
+    TResult Function(WeekPlanFilter value)? filter,
+    TResult Function(WeekPlanClearFilter value)? clearFilter,
     required TResult orElse(),
   }) {
     if (load != null) {
@@ -796,6 +844,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
     required TResult Function() reset,
     required TResult Function() load,
     required TResult Function() clear,
+    required TResult Function(WeekFilterEntity filter) filter,
+    required TResult Function() clearFilter,
   }) {
     return clear();
   }
@@ -817,6 +867,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
     TResult? Function()? reset,
     TResult? Function()? load,
     TResult? Function()? clear,
+    TResult? Function(WeekFilterEntity filter)? filter,
+    TResult? Function()? clearFilter,
   }) {
     return clear?.call();
   }
@@ -838,6 +890,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
     TResult Function()? reset,
     TResult Function()? load,
     TResult Function()? clear,
+    TResult Function(WeekFilterEntity filter)? filter,
+    TResult Function()? clearFilter,
     required TResult orElse(),
   }) {
     if (clear != null) {
@@ -853,6 +907,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
     required TResult Function(WeekPlanReset value) reset,
     required TResult Function(WeekPlanLoad value) load,
     required TResult Function(WeekPlanClear value) clear,
+    required TResult Function(WeekPlanFilter value) filter,
+    required TResult Function(WeekPlanClearFilter value) clearFilter,
   }) {
     return clear(this);
   }
@@ -864,6 +920,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
     TResult? Function(WeekPlanReset value)? reset,
     TResult? Function(WeekPlanLoad value)? load,
     TResult? Function(WeekPlanClear value)? clear,
+    TResult? Function(WeekPlanFilter value)? filter,
+    TResult? Function(WeekPlanClearFilter value)? clearFilter,
   }) {
     return clear?.call(this);
   }
@@ -875,6 +933,8 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
     TResult Function(WeekPlanReset value)? reset,
     TResult Function(WeekPlanLoad value)? load,
     TResult Function(WeekPlanClear value)? clear,
+    TResult Function(WeekPlanFilter value)? filter,
+    TResult Function(WeekPlanClearFilter value)? clearFilter,
     required TResult orElse(),
   }) {
     if (clear != null) {
@@ -889,8 +949,367 @@ abstract class WeekPlanClear implements WeekPlanEvent {
 }
 
 /// @nodoc
+abstract class _$$WeekPlanFilterImplCopyWith<$Res> {
+  factory _$$WeekPlanFilterImplCopyWith(_$WeekPlanFilterImpl value,
+          $Res Function(_$WeekPlanFilterImpl) then) =
+      __$$WeekPlanFilterImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({WeekFilterEntity filter});
+}
+
+/// @nodoc
+class __$$WeekPlanFilterImplCopyWithImpl<$Res>
+    extends _$WeekPlanEventCopyWithImpl<$Res, _$WeekPlanFilterImpl>
+    implements _$$WeekPlanFilterImplCopyWith<$Res> {
+  __$$WeekPlanFilterImplCopyWithImpl(
+      _$WeekPlanFilterImpl _value, $Res Function(_$WeekPlanFilterImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of WeekPlanEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? filter = null,
+  }) {
+    return _then(_$WeekPlanFilterImpl(
+      filter: null == filter
+          ? _value.filter
+          : filter // ignore: cast_nullable_to_non_nullable
+              as WeekFilterEntity,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$WeekPlanFilterImpl implements WeekPlanFilter {
+  const _$WeekPlanFilterImpl({required this.filter});
+
+  @override
+  final WeekFilterEntity filter;
+
+  @override
+  String toString() {
+    return 'WeekPlanEvent.filter(filter: $filter)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$WeekPlanFilterImpl &&
+            (identical(other.filter, filter) || other.filter == filter));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, filter);
+
+  /// Create a copy of WeekPlanEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$WeekPlanFilterImplCopyWith<_$WeekPlanFilterImpl> get copyWith =>
+      __$$WeekPlanFilterImplCopyWithImpl<_$WeekPlanFilterImpl>(
+          this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(
+            List<String> dietary,
+            List<String> cuisines,
+            List<String> restrictions,
+            int calorieTarget,
+            MacrosBreakdown macros,
+            bool hasTraining,
+            bool hasSnack,
+            List<ServingEntity> servings,
+            DateTime startDate)
+        generate,
+    required TResult Function() reset,
+    required TResult Function() load,
+    required TResult Function() clear,
+    required TResult Function(WeekFilterEntity filter) filter,
+    required TResult Function() clearFilter,
+  }) {
+    return filter(this.filter);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(
+            List<String> dietary,
+            List<String> cuisines,
+            List<String> restrictions,
+            int calorieTarget,
+            MacrosBreakdown macros,
+            bool hasTraining,
+            bool hasSnack,
+            List<ServingEntity> servings,
+            DateTime startDate)?
+        generate,
+    TResult? Function()? reset,
+    TResult? Function()? load,
+    TResult? Function()? clear,
+    TResult? Function(WeekFilterEntity filter)? filter,
+    TResult? Function()? clearFilter,
+  }) {
+    return filter?.call(this.filter);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(
+            List<String> dietary,
+            List<String> cuisines,
+            List<String> restrictions,
+            int calorieTarget,
+            MacrosBreakdown macros,
+            bool hasTraining,
+            bool hasSnack,
+            List<ServingEntity> servings,
+            DateTime startDate)?
+        generate,
+    TResult Function()? reset,
+    TResult Function()? load,
+    TResult Function()? clear,
+    TResult Function(WeekFilterEntity filter)? filter,
+    TResult Function()? clearFilter,
+    required TResult orElse(),
+  }) {
+    if (filter != null) {
+      return filter(this.filter);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(WeekPlanGenerate value) generate,
+    required TResult Function(WeekPlanReset value) reset,
+    required TResult Function(WeekPlanLoad value) load,
+    required TResult Function(WeekPlanClear value) clear,
+    required TResult Function(WeekPlanFilter value) filter,
+    required TResult Function(WeekPlanClearFilter value) clearFilter,
+  }) {
+    return filter(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(WeekPlanGenerate value)? generate,
+    TResult? Function(WeekPlanReset value)? reset,
+    TResult? Function(WeekPlanLoad value)? load,
+    TResult? Function(WeekPlanClear value)? clear,
+    TResult? Function(WeekPlanFilter value)? filter,
+    TResult? Function(WeekPlanClearFilter value)? clearFilter,
+  }) {
+    return filter?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(WeekPlanGenerate value)? generate,
+    TResult Function(WeekPlanReset value)? reset,
+    TResult Function(WeekPlanLoad value)? load,
+    TResult Function(WeekPlanClear value)? clear,
+    TResult Function(WeekPlanFilter value)? filter,
+    TResult Function(WeekPlanClearFilter value)? clearFilter,
+    required TResult orElse(),
+  }) {
+    if (filter != null) {
+      return filter(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class WeekPlanFilter implements WeekPlanEvent {
+  const factory WeekPlanFilter({required final WeekFilterEntity filter}) =
+      _$WeekPlanFilterImpl;
+
+  WeekFilterEntity get filter;
+
+  /// Create a copy of WeekPlanEvent
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$WeekPlanFilterImplCopyWith<_$WeekPlanFilterImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$WeekPlanClearFilterImplCopyWith<$Res> {
+  factory _$$WeekPlanClearFilterImplCopyWith(_$WeekPlanClearFilterImpl value,
+          $Res Function(_$WeekPlanClearFilterImpl) then) =
+      __$$WeekPlanClearFilterImplCopyWithImpl<$Res>;
+}
+
+/// @nodoc
+class __$$WeekPlanClearFilterImplCopyWithImpl<$Res>
+    extends _$WeekPlanEventCopyWithImpl<$Res, _$WeekPlanClearFilterImpl>
+    implements _$$WeekPlanClearFilterImplCopyWith<$Res> {
+  __$$WeekPlanClearFilterImplCopyWithImpl(_$WeekPlanClearFilterImpl _value,
+      $Res Function(_$WeekPlanClearFilterImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of WeekPlanEvent
+  /// with the given fields replaced by the non-null parameter values.
+}
+
+/// @nodoc
+
+class _$WeekPlanClearFilterImpl implements WeekPlanClearFilter {
+  const _$WeekPlanClearFilterImpl();
+
+  @override
+  String toString() {
+    return 'WeekPlanEvent.clearFilter()';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$WeekPlanClearFilterImpl);
+  }
+
+  @override
+  int get hashCode => runtimeType.hashCode;
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function(
+            List<String> dietary,
+            List<String> cuisines,
+            List<String> restrictions,
+            int calorieTarget,
+            MacrosBreakdown macros,
+            bool hasTraining,
+            bool hasSnack,
+            List<ServingEntity> servings,
+            DateTime startDate)
+        generate,
+    required TResult Function() reset,
+    required TResult Function() load,
+    required TResult Function() clear,
+    required TResult Function(WeekFilterEntity filter) filter,
+    required TResult Function() clearFilter,
+  }) {
+    return clearFilter();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function(
+            List<String> dietary,
+            List<String> cuisines,
+            List<String> restrictions,
+            int calorieTarget,
+            MacrosBreakdown macros,
+            bool hasTraining,
+            bool hasSnack,
+            List<ServingEntity> servings,
+            DateTime startDate)?
+        generate,
+    TResult? Function()? reset,
+    TResult? Function()? load,
+    TResult? Function()? clear,
+    TResult? Function(WeekFilterEntity filter)? filter,
+    TResult? Function()? clearFilter,
+  }) {
+    return clearFilter?.call();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function(
+            List<String> dietary,
+            List<String> cuisines,
+            List<String> restrictions,
+            int calorieTarget,
+            MacrosBreakdown macros,
+            bool hasTraining,
+            bool hasSnack,
+            List<ServingEntity> servings,
+            DateTime startDate)?
+        generate,
+    TResult Function()? reset,
+    TResult Function()? load,
+    TResult Function()? clear,
+    TResult Function(WeekFilterEntity filter)? filter,
+    TResult Function()? clearFilter,
+    required TResult orElse(),
+  }) {
+    if (clearFilter != null) {
+      return clearFilter();
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(WeekPlanGenerate value) generate,
+    required TResult Function(WeekPlanReset value) reset,
+    required TResult Function(WeekPlanLoad value) load,
+    required TResult Function(WeekPlanClear value) clear,
+    required TResult Function(WeekPlanFilter value) filter,
+    required TResult Function(WeekPlanClearFilter value) clearFilter,
+  }) {
+    return clearFilter(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(WeekPlanGenerate value)? generate,
+    TResult? Function(WeekPlanReset value)? reset,
+    TResult? Function(WeekPlanLoad value)? load,
+    TResult? Function(WeekPlanClear value)? clear,
+    TResult? Function(WeekPlanFilter value)? filter,
+    TResult? Function(WeekPlanClearFilter value)? clearFilter,
+  }) {
+    return clearFilter?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(WeekPlanGenerate value)? generate,
+    TResult Function(WeekPlanReset value)? reset,
+    TResult Function(WeekPlanLoad value)? load,
+    TResult Function(WeekPlanClear value)? clear,
+    TResult Function(WeekPlanFilter value)? filter,
+    TResult Function(WeekPlanClearFilter value)? clearFilter,
+    required TResult orElse(),
+  }) {
+    if (clearFilter != null) {
+      return clearFilter(this);
+    }
+    return orElse();
+  }
+}
+
+abstract class WeekPlanClearFilter implements WeekPlanEvent {
+  const factory WeekPlanClearFilter() = _$WeekPlanClearFilterImpl;
+}
+
+/// @nodoc
 mixin _$WeekPlanState {
-  List<WeekPlanEntity?> get weekPlans => throw _privateConstructorUsedError;
+  List<WeekPlanEntity> get allWeekPlans => throw _privateConstructorUsedError;
+  List<WeekPlanEntity> get displayWeekPlans =>
+      throw _privateConstructorUsedError;
+  WeekFilterEntity? get filter => throw _privateConstructorUsedError;
   bool get isLoading => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
 
@@ -907,7 +1326,12 @@ abstract class $WeekPlanStateCopyWith<$Res> {
           WeekPlanState value, $Res Function(WeekPlanState) then) =
       _$WeekPlanStateCopyWithImpl<$Res, WeekPlanState>;
   @useResult
-  $Res call({List<WeekPlanEntity?> weekPlans, bool isLoading, String? error});
+  $Res call(
+      {List<WeekPlanEntity> allWeekPlans,
+      List<WeekPlanEntity> displayWeekPlans,
+      WeekFilterEntity? filter,
+      bool isLoading,
+      String? error});
 }
 
 /// @nodoc
@@ -925,15 +1349,25 @@ class _$WeekPlanStateCopyWithImpl<$Res, $Val extends WeekPlanState>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? weekPlans = null,
+    Object? allWeekPlans = null,
+    Object? displayWeekPlans = null,
+    Object? filter = freezed,
     Object? isLoading = null,
     Object? error = freezed,
   }) {
     return _then(_value.copyWith(
-      weekPlans: null == weekPlans
-          ? _value.weekPlans
-          : weekPlans // ignore: cast_nullable_to_non_nullable
-              as List<WeekPlanEntity?>,
+      allWeekPlans: null == allWeekPlans
+          ? _value.allWeekPlans
+          : allWeekPlans // ignore: cast_nullable_to_non_nullable
+              as List<WeekPlanEntity>,
+      displayWeekPlans: null == displayWeekPlans
+          ? _value.displayWeekPlans
+          : displayWeekPlans // ignore: cast_nullable_to_non_nullable
+              as List<WeekPlanEntity>,
+      filter: freezed == filter
+          ? _value.filter
+          : filter // ignore: cast_nullable_to_non_nullable
+              as WeekFilterEntity?,
       isLoading: null == isLoading
           ? _value.isLoading
           : isLoading // ignore: cast_nullable_to_non_nullable
@@ -954,7 +1388,12 @@ abstract class _$$WeekPlanStateImplCopyWith<$Res>
       __$$WeekPlanStateImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({List<WeekPlanEntity?> weekPlans, bool isLoading, String? error});
+  $Res call(
+      {List<WeekPlanEntity> allWeekPlans,
+      List<WeekPlanEntity> displayWeekPlans,
+      WeekFilterEntity? filter,
+      bool isLoading,
+      String? error});
 }
 
 /// @nodoc
@@ -970,15 +1409,25 @@ class __$$WeekPlanStateImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? weekPlans = null,
+    Object? allWeekPlans = null,
+    Object? displayWeekPlans = null,
+    Object? filter = freezed,
     Object? isLoading = null,
     Object? error = freezed,
   }) {
     return _then(_$WeekPlanStateImpl(
-      weekPlans: null == weekPlans
-          ? _value._weekPlans
-          : weekPlans // ignore: cast_nullable_to_non_nullable
-              as List<WeekPlanEntity?>,
+      allWeekPlans: null == allWeekPlans
+          ? _value._allWeekPlans
+          : allWeekPlans // ignore: cast_nullable_to_non_nullable
+              as List<WeekPlanEntity>,
+      displayWeekPlans: null == displayWeekPlans
+          ? _value._displayWeekPlans
+          : displayWeekPlans // ignore: cast_nullable_to_non_nullable
+              as List<WeekPlanEntity>,
+      filter: freezed == filter
+          ? _value.filter
+          : filter // ignore: cast_nullable_to_non_nullable
+              as WeekFilterEntity?,
       isLoading: null == isLoading
           ? _value.isLoading
           : isLoading // ignore: cast_nullable_to_non_nullable
@@ -995,19 +1444,33 @@ class __$$WeekPlanStateImplCopyWithImpl<$Res>
 
 class _$WeekPlanStateImpl implements _WeekPlanState {
   const _$WeekPlanStateImpl(
-      {required final List<WeekPlanEntity?> weekPlans,
+      {required final List<WeekPlanEntity> allWeekPlans,
+      required final List<WeekPlanEntity> displayWeekPlans,
+      this.filter,
       this.isLoading = false,
       this.error})
-      : _weekPlans = weekPlans;
+      : _allWeekPlans = allWeekPlans,
+        _displayWeekPlans = displayWeekPlans;
 
-  final List<WeekPlanEntity?> _weekPlans;
+  final List<WeekPlanEntity> _allWeekPlans;
   @override
-  List<WeekPlanEntity?> get weekPlans {
-    if (_weekPlans is EqualUnmodifiableListView) return _weekPlans;
+  List<WeekPlanEntity> get allWeekPlans {
+    if (_allWeekPlans is EqualUnmodifiableListView) return _allWeekPlans;
     // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_weekPlans);
+    return EqualUnmodifiableListView(_allWeekPlans);
   }
 
+  final List<WeekPlanEntity> _displayWeekPlans;
+  @override
+  List<WeekPlanEntity> get displayWeekPlans {
+    if (_displayWeekPlans is EqualUnmodifiableListView)
+      return _displayWeekPlans;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_displayWeekPlans);
+  }
+
+  @override
+  final WeekFilterEntity? filter;
   @override
   @JsonKey()
   final bool isLoading;
@@ -1016,7 +1479,7 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
 
   @override
   String toString() {
-    return 'WeekPlanState(weekPlans: $weekPlans, isLoading: $isLoading, error: $error)';
+    return 'WeekPlanState(allWeekPlans: $allWeekPlans, displayWeekPlans: $displayWeekPlans, filter: $filter, isLoading: $isLoading, error: $error)';
   }
 
   @override
@@ -1025,15 +1488,23 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
         (other.runtimeType == runtimeType &&
             other is _$WeekPlanStateImpl &&
             const DeepCollectionEquality()
-                .equals(other._weekPlans, _weekPlans) &&
+                .equals(other._allWeekPlans, _allWeekPlans) &&
+            const DeepCollectionEquality()
+                .equals(other._displayWeekPlans, _displayWeekPlans) &&
+            (identical(other.filter, filter) || other.filter == filter) &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
             (identical(other.error, error) || other.error == error));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType,
-      const DeepCollectionEquality().hash(_weekPlans), isLoading, error);
+  int get hashCode => Object.hash(
+      runtimeType,
+      const DeepCollectionEquality().hash(_allWeekPlans),
+      const DeepCollectionEquality().hash(_displayWeekPlans),
+      filter,
+      isLoading,
+      error);
 
   /// Create a copy of WeekPlanState
   /// with the given fields replaced by the non-null parameter values.
@@ -1046,12 +1517,18 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
 
 abstract class _WeekPlanState implements WeekPlanState {
   const factory _WeekPlanState(
-      {required final List<WeekPlanEntity?> weekPlans,
+      {required final List<WeekPlanEntity> allWeekPlans,
+      required final List<WeekPlanEntity> displayWeekPlans,
+      final WeekFilterEntity? filter,
       final bool isLoading,
       final String? error}) = _$WeekPlanStateImpl;
 
   @override
-  List<WeekPlanEntity?> get weekPlans;
+  List<WeekPlanEntity> get allWeekPlans;
+  @override
+  List<WeekPlanEntity> get displayWeekPlans;
+  @override
+  WeekFilterEntity? get filter;
   @override
   bool get isLoading;
   @override

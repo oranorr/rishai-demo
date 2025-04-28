@@ -236,7 +236,7 @@ class _ContactPageState extends State<ContactPage> {
     return RishScaffold(
       needsAppBar: true,
       appBarLabel: Text(
-        'Leave Feedback',
+        'Contact Us',
         style: context.styles.h1,
       ),
       implyLeading: true,

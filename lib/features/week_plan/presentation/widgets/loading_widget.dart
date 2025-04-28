@@ -1,4 +1,4 @@
-part of 'week_plan_screen.dart';
+part of '../week_plan_screen.dart';
 
 class _LoadingState extends StatelessWidget {
   const _LoadingState();

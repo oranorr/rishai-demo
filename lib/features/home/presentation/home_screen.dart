@@ -9,7 +9,7 @@ import 'package:rishai/features/home/presentation/bottom_navigation.dart';
 import 'package:rishai/features/home/presentation/home_page/home_page.dart';
 import 'package:rishai/features/settings/presentation/settings_page.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
-import 'package:rishai/features/week_plan/presentation/week_plan_widgets/week_plan_screen.dart';
+import 'package:rishai/features/week_plan/presentation/week_plan_screen.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';

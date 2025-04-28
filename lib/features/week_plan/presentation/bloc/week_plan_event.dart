@@ -19,4 +19,10 @@ class WeekPlanEvent with _$WeekPlanEvent {
   const factory WeekPlanEvent.load() = WeekPlanLoad;
 
   const factory WeekPlanEvent.clear() = WeekPlanClear;
+
+  const factory WeekPlanEvent.filter({
+    required WeekFilterEntity filter,
+  }) = WeekPlanFilter;
+
+  const factory WeekPlanEvent.clearFilter() = WeekPlanClearFilter;
 }

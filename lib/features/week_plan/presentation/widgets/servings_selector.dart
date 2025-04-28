@@ -1,4 +1,4 @@
-part of 'week_plan_screen.dart';
+part of '../week_plan_screen.dart';
 
 class _ServingsSelector extends StatefulWidget {
   const _ServingsSelector();
@@ -204,6 +204,7 @@ class __ServingsSelectorState extends State<_ServingsSelector> {
                       startDate: startDate,
                     ),
                   );
+                  Navigator.pop(context);
                 }
               },
             );

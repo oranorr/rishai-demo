@@ -177,7 +177,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     }
   }
 
-//day manager ok
   @override
   Future<DayEntity?> fetchDirectusData() async {
     final rawUser = await directus.readOne(

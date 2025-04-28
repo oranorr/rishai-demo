@@ -31,7 +31,7 @@ Future<void> showUpdateDialog(BuildContext context, String storeUrl) async {
               const EdgeInsets.only(bottom: 24, left: 24, right: 24),
           actions: <Widget>[
             RishButton.primary(
-              title: 'Update', // Translated
+              title: 'Update',
               enabled: true,
               isLoading: false,
               action: () async {

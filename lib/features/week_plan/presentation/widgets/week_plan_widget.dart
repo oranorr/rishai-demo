@@ -1,4 +1,4 @@
-part of 'week_plan_screen.dart';
+part of '../week_plan_screen.dart';
 
 class _MealPlanWidget extends StatelessWidget {
   const _MealPlanWidget({
@@ -21,7 +21,7 @@ class _MealPlanWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                meal.type,
+                meal.type.capitalize(),
                 style: context.styles.boldLarge,
               ),
               SizedBox(
