@@ -317,12 +317,16 @@ class _PromptQuestionsState extends State<_PromptQuestions> {
         return AnimatedOpacity(
           opacity: 1,
           duration: Durations.short4,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            // Map only available questions
-            children: availableQuestions
-                .map((q) => _QuestionPromptButton(text: q))
-                .toList(),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+
+              // Map only available questions
+              children: availableQuestions
+                  .map((q) => _QuestionPromptButton(text: q))
+                  .toList(),
+            ),
           ),
         );
       },

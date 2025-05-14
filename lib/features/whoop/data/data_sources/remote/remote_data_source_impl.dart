@@ -37,14 +37,64 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   final Duration retryDelay = const Duration(seconds: 2);
 
   @override
-  Future<BodyMeasurementsEntity> getBodyData() async {
-    final rawBm = await _makeRequest(WhoopEndpoints().bodyMeasurements);
-    // log(rawBm.toString());
-    return BodyMeasurementsEntity(
-      height: rawBm!['height_meter'],
-      weight: (rawBm['weight_kilogram'] as double).round(),
-      maxHeartRate: rawBm['max_heart_rate'],
-    );
+  Future<BodyMeasurementsEntity?> getBodyData() async {
+    try {
+      // Проверяем и обновляем токен перед запросом
+      final isTokenValid = await wTokenService.isAccessTokenValid();
+      if (!isTokenValid) {
+        log('Token is invalid, attempting to refresh...',
+            name: 'WhoopBodyData');
+        final refreshSuccess =
+            await wTokenService.refreshToken(wTokenService.refToken);
+        if (!refreshSuccess) {
+          log('Failed to refresh token for body data request',
+              name: 'WhoopBodyData');
+          return null;
+        }
+        log('Token successfully refreshed', name: 'WhoopBodyData');
+      }
+
+      log('Making request to get body measurements...', name: 'WhoopBodyData');
+      final rawBm = await _makeRequest(WhoopEndpoints().bodyMeasurements);
+
+      if (rawBm == null) {
+        log('Failed to get body measurements: API returned null',
+            name: 'WhoopBodyData');
+        return null;
+      }
+
+      log('Received body measurements data: $rawBm', name: 'WhoopBodyData');
+
+      if (!rawBm.containsKey('height_meter') ||
+          !rawBm.containsKey('weight_kilogram') ||
+          !rawBm.containsKey('max_heart_rate')) {
+        log('Body measurements data is incomplete: $rawBm',
+            name: 'WhoopBodyData');
+        return null;
+      }
+
+      final bodyData = BodyMeasurementsEntity(
+        height: rawBm['height_meter'],
+        weight: (rawBm['weight_kilogram'] as double).round(),
+        maxHeartRate: rawBm['max_heart_rate'],
+      );
+
+      log('Successfully parsed body measurements: $bodyData',
+          name: 'WhoopBodyData');
+      return bodyData;
+    } catch (e, stackTrace) {
+      log('Error getting body measurements: $e', name: 'WhoopBodyData');
+      await Sentry.captureException(
+        e,
+        stackTrace: stackTrace,
+        hint: Hint.withMap({
+          'context': 'whoop_get_body_data',
+          'endpoint': WhoopEndpoints().bodyMeasurements,
+          'token_valid': await wTokenService.isAccessTokenValid(),
+        }),
+      );
+      return null;
+    }
   }
 
   @override
@@ -253,9 +303,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<bool> clearWhoopUserDataOnDisconnect({required String userId}) async {
     try {
+      final daysIds = await dayManager.getDaysIds(userId: userId);
       await directus.deleteOne(
         collection: daysCollection,
-        id: whoopBloc.state.day.directusId.toString(),
+        id: daysIds.last.toString(),
       );
       return true;
     } on Exception catch (e) {

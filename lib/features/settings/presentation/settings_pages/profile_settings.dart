@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -28,7 +29,9 @@ class ProfileSettings extends StatefulWidget {
 }
 
 class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
-  bool planCreated = whoopBloc.state.day.mealPlanEntity != null;
+  bool planCreated =
+      kDebugMode ? false : whoopBloc.state.day.mealPlanEntity != null;
+
   @override
   Widget build(BuildContext context) {
     return RishScaffold(

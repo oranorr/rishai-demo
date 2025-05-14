@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
@@ -28,6 +29,7 @@ class _ContactPageState extends State<ContactPage> {
   String? _selectedSubject = 'feedback';
   List<XFile> _attachedMediaList = [];
   bool _isSendButtonEnabled = false;
+  bool _isLoading = false;
 
   final List<String> _subjects = [
     'feedback',
@@ -127,55 +129,72 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _sendFeedback() async {
-    if (_formKey.currentState!.validate() && _isSendButtonEnabled) {
-      final name = _nameController.text;
-      final email = _emailController.text;
-      final subject = _selectedSubject;
-      final message = _messageController.text;
-      final List<File> attachments = [];
+    setState(() {
+      _isLoading = true;
+    });
 
-      print('Name: $name');
-      print('Email: $email');
-      print('Subject: $subject');
-      print('Message: $message');
-      print('Attachments Count: ${attachments.length}');
-      for (final attachment in _attachedMediaList) {
-        File file = File(attachment.path);
-        attachments.add(file);
-        // print('  - Path: ${attachment.path}, Name: ${attachment.name}');
-      }
-
-      final res = await SendFeedbackUseCase(feedbackRepository).call(
-        SendFeedbackParams(
-          name: name,
-          email: email,
-          subject: subject!,
-          message: message,
-          attachments: attachments,
-          userId: userBloc.state.user.directusId,
-        ),
-      );
-
-      res.fold(
-        (failure) => RishSnackbar().showSnackBar(
-          'Failed to send feedback, please try again.',
-        ),
-        (success) => RishSnackbar().showSnackBar(
-          'Feedback sent successfully!',
-          isError: false,
-        ),
-      );
-
-      _formKey.currentState?.reset();
+    if (!_formKey.currentState!.validate()) {
       setState(() {
-        _selectedSubject = 'feedback';
-        // _attachedMediaList.clear();
-        // _isSendButtonEnabled = false;
+        _isLoading = false;
       });
-      Future.delayed(const Duration(seconds: 1), () {
-        appNavigationService.pop(path: AppRoutes.homeScreen.path);
-      });
+      return;
     }
+
+    if (!_isSendButtonEnabled) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final name = _nameController.text;
+    final email = _emailController.text;
+    final subject = _selectedSubject;
+    final message = _messageController.text;
+    final List<File> attachments = [];
+
+    print('Name: $name');
+    print('Email: $email');
+    print('Subject: $subject');
+    print('Message: $message');
+    print('Attachments Count: ${attachments.length}');
+    for (final attachment in _attachedMediaList) {
+      File file = File(attachment.path);
+      attachments.add(file);
+      // print('  - Path: ${attachment.path}, Name: ${attachment.name}');
+    }
+
+    final res = await SendFeedbackUseCase(feedbackRepository).call(
+      SendFeedbackParams(
+        name: name,
+        email: email,
+        subject: subject!,
+        message: message,
+        attachments: attachments,
+        userId: userBloc.state.user.directusId,
+      ),
+    );
+
+    res.fold(
+      (failure) => RishSnackbar().showSnackBar(
+        'Failed to send feedback, please try again.',
+      ),
+      (success) => RishSnackbar().showSnackBar(
+        'Feedback sent successfully!',
+        isError: false,
+      ),
+    );
+
+    _formKey.currentState?.reset();
+    setState(() {
+      _selectedSubject = 'feedback';
+      // _attachedMediaList.clear();
+      _isSendButtonEnabled = false;
+      _isLoading = false;
+    });
+    Future.delayed(const Duration(seconds: 1), () {
+      appNavigationService.pop(path: AppRoutes.homeScreen.path);
+    });
   }
 
   Widget _buildPreviewItem(XFile file, int index) {
@@ -254,6 +273,9 @@ class _ContactPageState extends State<ContactPage> {
                       TextFormField(
                         controller: _nameController,
                         decoration: const InputDecoration(labelText: 'Name'),
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(255),
+                        ],
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter your name';
@@ -342,7 +364,7 @@ class _ContactPageState extends State<ContactPage> {
                       RishButton.primary(
                         title: 'Send',
                         enabled: _isSendButtonEnabled,
-                        isLoading: false,
+                        isLoading: _isLoading,
                         action: _sendFeedback,
                       ),
                     ],

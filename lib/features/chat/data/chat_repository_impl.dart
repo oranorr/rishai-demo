@@ -100,7 +100,6 @@ class ChatRepositoryImpl implements ChatRepository {
         params.generatePrompt(),
         params.isWeekPlan,
       );
-
       // Проверяем наличие ошибки в ответе
       if (res.containsKey('error')) {
         return Left(ChatGptRequestMealFailures(res['error']));

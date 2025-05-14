@@ -3,6 +3,9 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
+import 'package:rishai/core/services/directus/directus_collections.dart';
+import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/error/local_storage_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart';
@@ -84,8 +87,12 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
         await hive.saveUserData(dataEntity: userData);
         final newMacros = userData.calcMacros();
 
-        final savedDays = await hive.retrieveSavedDays();
-        final savedDay = savedDays.last;
+        final savedDays = await dayManager.getDaysIds(userId: params.userId);
+        final savedDayRaw = await directus.readOne(
+          collection: daysCollection,
+          id: savedDays.last.toString(),
+        );
+        final savedDay = DayEntity.fromMap(savedDayRaw);
 
         final dayData = savedDay.copyWith(
           weekTdeeAverage: params.weekTdeeAverage,
@@ -94,7 +101,8 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
             lastTdee: params.lastTdee,
           ),
         );
-        await hive.saveDay(data: dayData);
+        await dayManager.createDay(day: dayData);
+        // await hive.saveDay(data: dayData);
         return Right(dayData);
       } catch (e, stackTrace) {
         await LocalStorageErrorHandler.handleError(

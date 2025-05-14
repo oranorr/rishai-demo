@@ -14,6 +14,7 @@ import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -112,8 +113,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   ) async {
     UserEntity? user = await hive.retrieveSavedUser();
     final watchedOnboard = prefsRepo.checkForWatchedOnboard();
-
+    print('SAVED USER GOAL: ${user?.userGoal}');
     if (user != null) {
+      add(const UserCheckForRecomp());
       // final rawUser = await directus.readOne(
       //   collection: usersCollection,
       //   id: user.directusId,
@@ -136,7 +138,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       }
       await adapty.identify(adaptyId: user.adaptyId!);
       emit(state.copyWith(user: user));
-      add(const UserCheckForRecomp());
+
       weekPlanBloc.add(const WeekPlanLoad());
       whoopBloc.add(const InitWhoopOnLogin());
     } else {
@@ -172,7 +174,12 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     if (state.user.userGoal?.goal != null &&
         state.user.userGoal?.goal == GoalType.recomp) {
       UserGoal goal = state.user.userGoal!;
-      print(goal);
+
+      // Условие: прошло ли 14 дней с момента последнего обновления модификатора?
+      log(
+        'Checking recomp modifier change. Last updated: ${goal.updatedAt}',
+        name: 'UserBloc',
+      );
       if (goal.updatedAt
           .isBefore(DateTime.now().subtract(const Duration(days: 14)))) {
         print('its time to change recomp modifier');
@@ -193,29 +200,31 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   ) async {
     final day = event.day;
 
-    // Проверяем, действительно ли изменился день
-    final existingDay = state.days.firstWhere(
-      (d) => d.dateTime.isSameDate(day.dateTime),
-      orElse: () => DayEntity.empty(requestsLeft: 0),
-    );
+    await dayManager.createDay(day: day);
 
-    if (existingDay == day) {
-      log('No changes detected in day, skipping update');
-      return;
-    }
+    // // Проверяем, действительно ли изменился день
+    // final existingDay = state.days.firstWhere(
+    //   (d) => d.dateTime.isSameDate(day.dateTime),
+    //   orElse: () => DayEntity.empty(requestsLeft: 0),
+    // );
 
-    final data = day.toDirectus(userId: state.user.directusId);
+    // if (existingDay == day) {
+    //   log('No changes detected in day, skipping update');
+    //   return;
+    // }
 
-    await manageDayUsecase.call(
-      ManageDayParams(
-        userId: state.user.directusId,
-        dayMap: data,
-        incomingDay: event.day,
-      ),
-    );
+    // final data = day.toDirectus(userId: state.user.directusId);
 
-    // Обновляем список дней только если день действительно изменился
-    add(UserGetDays(newDay: day));
+    // await manageDayUsecase.call(
+    //   ManageDayParams(
+    //     userId: state.user.directusId,
+    //     dayMap: data,
+    //     incomingDay: event.day,
+    //   ),
+    // );
+
+    // // Обновляем список дней только если день действительно изменился
+    // add(UserGetDays(newDay: day));
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
@@ -302,7 +311,11 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _updateDay(UserUpdateDay event, Emitter<UserState> emit) {
-    List<DayEntity> days = List.from(state.days)..add(event.day);
-    emit(state.copyWith(days: days));
+    List<DayEntity> days = List.from(state.days);
+    if (!state.days.any((d) => d.cycleId == event.day.cycleId)) {
+      print('DAY ADDED!!!');
+      days.add(event.day);
+      emit(state.copyWith(days: days));
+    }
   }
 }

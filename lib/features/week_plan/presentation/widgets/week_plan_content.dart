@@ -35,7 +35,107 @@ class WeekPlanContent extends StatefulWidget {
 }
 
 class _WeekPlanContentState extends State<WeekPlanContent> with WeekPlanMixin {
-  // final int selectedIndex;
+  // Добавляем PageController для дней плана
+  late PageController dayPageController;
+
+  // Флаг для отслеживания, выполняется ли в данный момент программное изменение страницы
+  bool _isPageChangeFromTap = false;
+
+  @override
+  void initState() {
+    super.initState();
+    dayPageController = PageController(initialPage: selectedIndex);
+  }
+
+  @override
+  void dispose() {
+    dayPageController.dispose();
+    super.dispose();
+  }
+
+  // Обновляем выбранный день и синхронизируем PageController
+  void updateSelectedDay(int index) {
+    if (index < 0 || index >= widget.plan.plans.length) return;
+
+    setState(() {
+      selectedIndex = index;
+    });
+
+    // Устанавливаем флаг, чтобы избежать циклических обновлений
+    _isPageChangeFromTap = true;
+
+    // Прокручиваем основное содержимое, если страницы не совпадают
+    if (dayPageController.hasClients &&
+        (dayPageController.page?.round() != index)) {
+      dayPageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    // Прокручиваем горизонтальный список дней до нужной позиции
+    if (daysController.hasClients) {
+      final maxScroll = daysController.position.maxScrollExtent;
+      double targetScroll;
+
+      if (index <= 1) {
+        // Для первых двух дней показываем начало списка
+        targetScroll = 0.0;
+      } else if (index >= widget.plan.plans.length - 2) {
+        // Для последних двух дней показываем конец списка
+        targetScroll = maxScroll;
+      } else {
+        // Для средних дней центрируем выбранный день
+        targetScroll = (index * 86.w - 100.w).clamp(0.0, maxScroll);
+      }
+
+      // Используем плавную анимацию
+      daysController.animateTo(
+        targetScroll,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    // Сбрасываем флаг после небольшой задержки
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _isPageChangeFromTap = false;
+      }
+    });
+  }
+
+  // Метод для обработки изменения страницы через свайп
+  void onPageChanged(int index) {
+    // Если изменение страницы произошло программно, пропускаем обработку
+    if (_isPageChangeFromTap) return;
+
+    setState(() {
+      selectedIndex = index;
+    });
+
+    // Обновляем положение горизонтального списка дней
+    if (daysController.hasClients) {
+      final maxScroll = daysController.position.maxScrollExtent;
+      double targetScroll;
+
+      if (index <= 1) {
+        targetScroll = 0.0;
+      } else if (index >= widget.plan.plans.length - 2) {
+        targetScroll = maxScroll;
+      } else {
+        targetScroll = (index * 86.w - 100.w).clamp(0.0, maxScroll);
+      }
+
+      daysController.animateTo(
+        targetScroll,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final plan = widget.plan;
@@ -120,11 +220,7 @@ class _WeekPlanContentState extends State<WeekPlanContent> with WeekPlanMixin {
                         return Padding(
                           padding: const EdgeInsets.only(right: 6),
                           child: GestureDetector(
-                            onTap: () => {
-                              setState(() {
-                                selectedIndex = index;
-                              }),
-                            },
+                            onTap: () => updateSelectedDay(index),
                             child: Container(
                               width: 80.w,
                               decoration: BoxDecoration(
@@ -151,9 +247,21 @@ class _WeekPlanContentState extends State<WeekPlanContent> with WeekPlanMixin {
                     ),
                   ),
                   SizedBox(height: 16.h),
-                  _MealPlanWidget(
-                    plan: plan.plans[selectedIndex],
-                    isToday: false,
+                  // Заменяем Expanded на Flexible, чтобы избежать конфликта в иерархии
+                  Flexible(
+                    child: PageView.builder(
+                      controller: dayPageController,
+                      physics: const BouncingScrollPhysics(),
+                      onPageChanged:
+                          onPageChanged, // Используем отдельный метод для обработки свайпа
+                      itemCount: plan.plans.length,
+                      itemBuilder: (context, dayIndex) {
+                        return _MealPlanWidget(
+                          plan: plan.plans[dayIndex],
+                          isToday: false,
+                        );
+                      },
+                    ),
                   ),
                   Padding(
                     padding: EdgeInsets.only(top: 10.h),

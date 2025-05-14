@@ -227,6 +227,11 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
             .any((mealType) => plan.mealsTypes.contains(mealType));
       }
 
+      if (filter.fitnessGoal.isNotEmpty) {
+        goalMatch =
+            filter.fitnessGoal.any((goal) => plan.fitnessGoal.contains(goal));
+      }
+
       return dateMatch && goalMatch && dietMatch;
     }).toList();
   }

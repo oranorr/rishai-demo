@@ -23,22 +23,48 @@ class DayManagerImpl implements DayManager {
   Future<Either<Failure, List<DayEntity>>> fetchDays({
     required List<int> daysIds,
   }) async {
-    final res = await hive.retrieveSavedDays();
-    final savedIds = res.map((e) => e.directusId).toList();
-    final missingIds = daysIds.where((id) => !savedIds.contains(id)).toList();
-    if (missingIds.isEmpty) return Right(res);
+    try {
+      final res = await hive.retrieveSavedDays();
+      final savedIds = res.map((e) => e.directusId).toList();
+      final missingIds = daysIds.where((id) => !savedIds.contains(id)).toList();
+      if (missingIds.isEmpty) return Right(res);
 
-    for (final id in missingIds) {
-      print('fetching day with id: $id');
-      final day = await directus.readOne(
-        collection: daysCollection,
-        id: id.toString(),
+      for (final id in missingIds) {
+        print('fetching day with id: $id');
+        try {
+          final day = await directus.readOne(
+            collection: daysCollection,
+            id: id.toString(),
+          );
+          final dayEntity = DayEntity.fromMap(day);
+          await hive.saveDay(data: dayEntity);
+          res.add(dayEntity);
+        } catch (e, stackTrace) {
+          await WhoopErrorHandler.handleError(
+            e,
+            stackTrace,
+            context: 'day_manager_fetch_day',
+            extras: {
+              'day_id': id,
+              'saved_ids': savedIds,
+              'missing_ids': missingIds,
+            },
+          );
+          return Left(FailedToGetUserData('Failed to fetch day with id: $id'));
+        }
+      }
+      return Right(res);
+    } catch (e, stackTrace) {
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'day_manager_fetch_days',
+        extras: {
+          'days_ids': daysIds,
+        },
       );
-      final dayEntity = DayEntity.fromMap(day);
-      await hive.saveDay(data: dayEntity);
-      res.add(dayEntity);
+      return const Left(FailedToGetUserData('Failed to fetch days'));
     }
-    return Right(res);
   }
 
   @override
@@ -124,13 +150,19 @@ class DayManagerImpl implements DayManager {
 
       // Обновляем данные пользователя
       _logger('Обновление данных пользователя');
-      final raw = await directus.updateOne(
+      await directus.updateOne(
         collection: usersCollection,
         itemId: userBloc.state.user.directusId,
         updateData: {
           'days': daysIds,
         },
       );
+
+      final raw = await directus.readOne(
+        collection: usersCollection,
+        id: userBloc.state.user.directusId,
+      );
+      print('RAW FRESH USER IS: $raw');
       final newUser = UserModel.fromMap(raw).toEntity();
       print('newUser last day: ${newUser.daysIds.last}');
 

@@ -30,17 +30,31 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<void> initAdapty() async {
     try {
       // Проверяем, запущено ли приложение в симуляторе/эмуляторе
-      if ((Platform.isIOS || Platform.isAndroid) && !await _isRealDevice()) {
-        _logger('Обнаружен симулятор/эмулятор. Включение режима симуляции.');
-        _isSimulatorMode = true;
+      if (Platform.isIOS || Platform.isAndroid) {
+        bool isReal = await _isRealDevice();
+        if (!isReal) {
+          _logger('Обнаружен симулятор/эмулятор. Включение режима симуляции.');
+          _isSimulatorMode = true;
 
-        // В режиме симулятора используем заглушки
+          // В режиме симулятора используем заглушки
+          isActive = true;
+          isTrialActive = true;
+          products = [];
+          return;
+        }
+      } else {
+        // Если не на мобильной платформе, также включаем режим симуляции
+        _logger(
+          'Запуск не на мобильной платформе. Включение режима симуляции.',
+        );
+        _isSimulatorMode = true;
         isActive = true;
         isTrialActive = true;
         products = [];
         return;
       }
 
+      // Продолжаем только если это реальное устройство
       final bool isActivated = await Adapty().isActivated();
 
       if (!isActivated) {
@@ -70,37 +84,38 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         context: 'adapty_init',
       );
 
-      // В случае ошибки в симуляторе, включаем режим симуляции
-      if ((Platform.isIOS || Platform.isAndroid) &&
-          (e.toString().contains('store') ||
-              e.toString().contains('billing') ||
-              e.toString().contains('play'))) {
-        _logger('Включение режима симуляции из-за ошибки магазина.');
-        _isSimulatorMode = true;
-        isActive = true;
-        isTrialActive = true;
-        products = [];
-        return;
-      }
-
-      rethrow;
+      // Независимо от причины ошибки, включаем режим симуляции
+      _logger('Включение режима симуляции из-за ошибки: $e');
+      _isSimulatorMode = true;
+      isActive = true;
+      isTrialActive = true;
+      products = [];
     }
   }
 
   // Метод для определения, запущено ли на реальном устройстве
   Future<bool> _isRealDevice() async {
     try {
-      // Пытаемся активировать Adapty для обоих платформ
-      await Adapty().activate(
-        configuration: AdaptyConfiguration(
-          apiKey: Env.adaptyKey,
-        ),
-      );
-      return true;
+      // На iOS симулятор имеет префикс имени "iPhone Simulator" или "iPad Simulator"
+      if (Platform.isIOS) {
+        return !Platform.operatingSystem.toLowerCase().contains('simulator');
+      }
+      // На Android можно проверить некоторые признаки эмулятора
+      else if (Platform.isAndroid) {
+        String model =
+            Platform.operatingSystem + Platform.operatingSystemVersion;
+        return !(model.contains('google_sdk') ||
+            model.contains('emulator') ||
+            model.contains('sdk') ||
+            model.toLowerCase().contains('genymotion') ||
+            model.contains('Android SDK'));
+      }
+      // Если не мобильная платформа, считаем симулятором
+      return false;
     } catch (e) {
-      // Если получаем ошибку, связанную с магазином, значит это эмулятор
-      return !e.toString().toLowerCase().contains('store') &&
-          !e.toString().toLowerCase().contains('billing');
+      _logger('Ошибка при определении типа устройства: $e');
+      // В случае ошибки считаем, что это симулятор
+      return false;
     }
   }
 

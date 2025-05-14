@@ -14,7 +14,7 @@ abstract class WhoopRepository {
   Future<Either<Failure, DayEntity>> getData({
     required GetDataParams params,
   });
-  Future<Either<Failure, BodyMeasurementsEntity>> getBodyData();
+  Future<Either<Failure, BodyMeasurementsEntity?>> getBodyData();
   Future<Either<Failure, MacrosBreakdown>> changeModificatorOfSex({
     required ChangeModificatorOrSexParams params,
   });

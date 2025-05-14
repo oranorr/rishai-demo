@@ -334,7 +334,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         mealPlanEntity: currentMealPlan,
       );
       emit(state.copyWith(day: updatedDay));
-      userBloc.add(UserManageDay(day: updatedDay));
+      // userBloc.add(UserManageDay(day: updatedDay));
     });
 
     if (!success) {

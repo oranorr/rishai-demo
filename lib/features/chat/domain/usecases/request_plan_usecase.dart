@@ -131,6 +131,7 @@ class RequestPlanParams {
   }
 
   List<Map<ServingType, String>> generatePrompt() {
+    log(toString());
     final days = userBloc.state.days;
     final alreadyGenereatedMeals =
         isWeekPlan ? excludedMeals : DayEntity.getMealHistory(days);
@@ -144,7 +145,6 @@ class RequestPlanParams {
       'restrictions': restrictions.join(', '),
     };
 
-    log(toString());
     List<Map<String, dynamic>> generalMeals = [];
     Map<String, dynamic>? snack;
     Map<String, dynamic>? breakfast;

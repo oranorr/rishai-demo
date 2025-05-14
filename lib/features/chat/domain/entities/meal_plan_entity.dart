@@ -178,15 +178,25 @@ class Meal {
   }
 
   ServingType get servingType {
-    if (type.contains('breakfast') || type.contains('Breakfast')) {
+    if (type.contains('breakfast') ||
+        type.contains('Breakfast') ||
+        type.contains('Meal 1')) {
       return ServingType.breakfast;
-    } else if (type.contains('lunch') || type.contains('Lunch')) {
+    } else if (type.contains('lunch') ||
+        type.contains('Lunch') ||
+        type.contains('Meal 2')) {
       return ServingType.lunch;
-    } else if (type.contains('dinner') || type.contains('Dinner')) {
+    } else if (type.contains('dinner') ||
+        type.contains('Dinner') ||
+        type.contains('Meal 3')) {
       return ServingType.dinner;
-    } else if (type.contains('supper') || type.contains('Supper')) {
+    } else if (type.contains('supper') ||
+        type.contains('Supper') ||
+        type.contains('Meal 4')) {
       return ServingType.supper;
-    } else if (type.contains('snack') || type.contains('Snack')) {
+    } else if (type.contains('snack') ||
+        type.contains('Snack') ||
+        type.contains('Meal 5')) {
       return ServingType.snack;
     } else {
       throw ArgumentError('Invalid meal type: $type');

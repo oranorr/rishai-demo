@@ -14,6 +14,7 @@ abstract class HiveRepo {
   Future<void> saveDay({required DayEntity data});
   Future<List<DayEntity>> retrieveSavedDays();
   Future<void> flushSavedDays();
+  Future<void> deleteLastDay();
   Box get chatBox;
 
   Future<void> saveUserData({required UserDataEntity dataEntity});

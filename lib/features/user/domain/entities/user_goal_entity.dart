@@ -17,7 +17,7 @@ class UserGoal {
       modificator: map['modificator'].runtimeType == int
           ? map['modificator'].toDouble()
           : map['modificator'] as double,
-      updatedAt: DateTime.fromMicrosecondsSinceEpoch(map['updatedAt']),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updatedAt'] as int),
     );
   }
 

@@ -300,7 +300,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     bool isWeekPlan,
   ) async {
     final results = <String, dynamic>{};
-
+    print('hello');
     // Трекинг создания плана питания
     await analytics.logCustomEvent(
       name: isWeekPlan ? 'create_5day_meal_plan' : 'create_1day_meal_plan',

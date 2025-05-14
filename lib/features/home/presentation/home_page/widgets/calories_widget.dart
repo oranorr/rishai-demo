@@ -16,6 +16,7 @@ class _CaloriesWidget extends StatelessWidget {
             : ((day.macros.kcal / day.weekTdeeAverage) - 1);
 
         bool isPositive = mod > 0;
+        // print('isPositive: $isPositive');
         return BlocBuilder<WhoopBloc, WhoopState>(
           bloc: whoopBloc,
           builder: (context, whoopState) {

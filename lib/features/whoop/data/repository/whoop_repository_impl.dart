@@ -207,26 +207,33 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   @override
-  Future<Either<Failure, BodyMeasurementsEntity>> getBodyData() async {
+  Future<Either<Failure, BodyMeasurementsEntity?>> getBodyData() async {
     try {
-      final BodyMeasurementsEntity? body = await remoteDataSource.getBodyData();
-      log('Body is: $body\n\n');
-      if (body != null) {
-        return Right(body);
-      } else {
-        await WhoopErrorHandler.handleError(
-          'Body data is null',
-          StackTrace.current,
-          context: 'whoop_get_body_data',
-        );
-        return const Left(UnknownFailure());
+      final isTokenValid = await wTokenService.isAccessTokenValid();
+      if (!isTokenValid) {
+        log('Token is invalid in repository, attempting to refresh...',
+            name: 'WhoopRepo');
+        final refreshSuccess =
+            await wTokenService.refreshToken(wTokenService.refToken);
+        if (!refreshSuccess) {
+          log('Failed to refresh token in repository', name: 'WhoopRepo');
+          return const Left(WhoopAuthenticationFailure());
+        }
+        log('Token successfully refreshed in repository', name: 'WhoopRepo');
       }
+
+      final BodyMeasurementsEntity? body = await remoteDataSource.getBodyData();
+      log('Body data from remote source: $body', name: 'WhoopRepo');
+      return Right(body);
     } catch (e, stackTrace) {
-      log('ERROR WHILE FETCHING BODY DATA $e');
+      log('ERROR WHILE FETCHING BODY DATA $e', name: 'WhoopRepo');
       await WhoopErrorHandler.handleError(
         e,
         stackTrace,
         context: 'whoop_get_body_data',
+        extras: {
+          'token_valid': await wTokenService.isAccessTokenValid(),
+        },
       );
       return const Left(UnknownFailure());
     }
@@ -383,12 +390,17 @@ class WhoopRepositoryImpl implements WhoopRepository {
         final DateTime askTime = DateTime.now();
 
         final double tdeeAverage = calculateTDEEAverage(cycles);
+        print('>>> [_fetchFreshData] Calculated TDEE Average: $tdeeAverage');
         final double strainValue = cycles.first.score!.strain;
 
+        print(
+          '>>> [_fetchFreshData] Calculating calorie goal with modificator: $modificator',
+        );
         final int calorieGoal = calculateCalorieGoal(
           tdeeAvrage: tdeeAverage,
           modificator: modificator,
         ).round();
+        print('>>> [_fetchFreshData] Calculated Calorie Goal: $calorieGoal');
 
         final int recoveryScore = recovery.score!.recoveryScore.round();
         final int sleepScore = sleep.score!.sleepPerformancePercentage!.round();
@@ -437,6 +449,10 @@ class WhoopRepositoryImpl implements WhoopRepository {
           ),
         );
 
+        print(
+          '>>> [_fetchFreshData] Final Macros: Kcal=${newDay.macros.kcal}, P=${newDay.macros.protein}, C=${newDay.macros.carbs}, F=${newDay.macros.fat}',
+        );
+
         final chatNeedsRefresh =
             await remoteDataSource.doesChatNeedsRefreshment(userId: userId);
 
@@ -448,6 +464,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
         );
         print('needs creating fresh day? $needsCreateNewDay');
         if (needsCreateNewDay) {
+          print('>>> [_fetchFreshData] Creating fresh day...');
           newDay = await createFreshDay(newDay: newDay, userId: userId);
         }
         // await tryFetch(() => remoteDataSource.updateDirectus(day: newDay));
@@ -491,7 +508,14 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required String userId,
   }) async {
     try {
-      return await dayManager.createDay(day: newDay);
+      print(
+        '>>> [createFreshDay] Before saving - New day macros: ${newDay.macros}',
+      );
+      final DayEntity createdDay = await dayManager.createDay(day: newDay);
+      print(
+        '>>> [createFreshDay] After saving - Created day macros: ${createdDay.macros}',
+      );
+      return createdDay;
 
       // if (kDebugMode) {
       //   log(
@@ -547,16 +571,32 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required double tdeeAvrage,
     required double modificator,
   }) {
-    return (1 + modificator) * tdeeAvrage;
+    print(
+      '>>> [calculateCalorieGoal] Calculating goal: TDEE Average = $tdeeAvrage, Modificator = $modificator',
+    );
+    final result = (1 + modificator) * tdeeAvrage;
+    print('>>> [calculateCalorieGoal] Resulting Goal = $result');
+    return result;
   }
 
   double calculateTDEEAverage(List<CycleModel> cycles) {
     double sum = 0;
+    print(
+      '>>> [calculateTDEEAverage] Calculating TDEE Average for ${cycles.length} cycles:',
+    );
     for (final cyc in cycles) {
-      sum += cyc.score!.kilojoule;
+      final kj = cyc.score!.kilojoule;
+      print(
+        '>>> [calculateTDEEAverage]   - Cycle ID: ${cyc.id}, Kilojoules: $kj',
+      );
+      sum += kj;
     }
     sum = sum * kjToKcal;
-    return sum / cycles.length;
+    final average = sum / cycles.length;
+    print(
+      '>>> [calculateTDEEAverage] Total Kcal Sum: $sum, Average TDEE (kcal): $average',
+    );
+    return average;
   }
 
   HealthMetricsEntity calcHealthMetrics(int lastTdee) {
@@ -595,9 +635,15 @@ class WhoopRepositoryImpl implements WhoopRepository {
       return res.fold((l) async {
         return Left(l);
       }, (r) async {
+        print(
+          '>>> [changeModificatorOfSex] Modificator/Sex changed. Old day data: $r',
+        );
         try {
           // await remoteDataSource.updateDirectus(day: r);
           final res = await dayManager.createDay(day: r);
+          print(
+            '>>> [changeModificatorOfSex] New day created/updated. New Macros: ${res.macros}',
+          );
           return Right(res.macros);
         } catch (e, stackTrace) {
           await WhoopErrorHandler.handleError(

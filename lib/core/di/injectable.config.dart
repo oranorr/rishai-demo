@@ -179,6 +179,7 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i926.UserRepository>(() => _i670.UserRepositoryImpl(
           remoteDataSource: gh<_i948.UserRemoteSource>(),
           localDataSource: gh<_i886.UserLocalDataSource>(),
+          dayManager: gh<_i300.DayManager>(),
         ));
     gh.singleton<_i831.ChatRepository>(() => _i246.ChatRepositoryImpl(
           hive: gh<_i410.HiveRepo>(),

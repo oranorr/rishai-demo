@@ -7,12 +7,19 @@ mixin WeekPlanMixin on State<WeekPlanContent> {
   int currentPage = 0;
   bool needsCreateFresh = false;
 
+  // Флаг для контроля первоначальной инициализации скролла
+  bool _initialScrollDone = false;
+
   @override
   void initState() {
     super.initState();
     pageController = PageController();
+
+    // Инициализируем ScrollController без немедленной анимации
     daysController = ScrollController();
-    // initializeSelectedDay();
+
+    // Вызываем инициализацию выбора дня
+    initializeSelectedDay();
   }
 
   @override
@@ -22,17 +29,87 @@ mixin WeekPlanMixin on State<WeekPlanContent> {
     super.dispose();
   }
 
-  // void initializeSelectedDay() {
-  //   final state = weekPlanBloc.state;
-  //   if (state.weekPlans.isEmpty) return;
+  void initializeSelectedDay() {
+    final plan = widget.plan;
+    if (plan.plans.isEmpty) return;
 
-  //   final today = DateTime.now();
-  //   final (targetIndex, dayIndex) = findTargetPlan(plans, today);
+    final today = DateTime.now();
 
-  //   if (targetIndex != -1) {
-  //     updateSelectedIndexes(targetIndex, dayIndex, plans[targetIndex]);
-  //   }
-  // }
+    // Проверяем, находится ли текущая дата в пределах плана
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final startDate = DateTime(
+      plan.startDate.year,
+      plan.startDate.month,
+      plan.startDate.day,
+    );
+    final endDate = DateTime(
+      plan.endDate.year,
+      plan.endDate.month,
+      plan.endDate.day,
+    );
+
+    // Если сегодняшняя дата после окончания плана, оставляем первый день по умолчанию
+    if (todayDate.isAfter(endDate)) return;
+
+    final todayIndex = findTodayIndexInPlan(plan, today);
+
+    if (todayIndex != -1) {
+      setState(() {
+        selectedIndex = todayIndex;
+      });
+
+      // Используем WidgetsBinding для гарантированного выполнения после построения виджета
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        // Рассчитываем позицию скролла
+        double targetScroll = 0;
+
+        // Установка начального положения без анимации
+        if (daysController.hasClients) {
+          final maxScroll = daysController.position.maxScrollExtent;
+
+          if (todayIndex <= 1) {
+            // Для первых двух дней - начало списка
+            targetScroll = 0.0;
+          } else if (todayIndex >= plan.plans.length - 2) {
+            // Для последних двух дней - конец списка
+            targetScroll = maxScroll;
+          } else {
+            // Центрируем день
+            targetScroll = (todayIndex * 86.w - 100.w).clamp(0.0, maxScroll);
+          }
+
+          // Мгновенный переход к нужной позиции без анимации
+          daysController.jumpTo(targetScroll);
+          _initialScrollDone = true;
+        }
+      });
+    }
+  }
+
+  int findTodayIndexInPlan(WeekPlanEntity plan, DateTime today) {
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    // Приводим даты плана к формату без времени для корректного сравнения
+    final startDate = DateTime(
+      plan.startDate.year,
+      plan.startDate.month,
+      plan.startDate.day,
+    );
+
+    // Определяем, сколько дней прошло с начала плана
+    final differenceInDays = todayDate.difference(startDate).inDays;
+
+    // Если день отрицательный (сегодня раньше, чем начало плана), возвращаем 0
+    if (differenceInDays < 0) return 0;
+
+    // Если день больше, чем длина плана, возвращаем последний день
+    if (differenceInDays >= plan.plans.length) return plan.plans.length - 1;
+
+    // Иначе возвращаем индекс дня в плане
+    return differenceInDays;
+  }
 
   void updateSelectedIndexes(
     int planIndex,

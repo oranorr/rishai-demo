@@ -7,6 +7,7 @@ import 'package:rishai/core/services/error/local_storage_error_handler.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
+import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -84,6 +85,10 @@ class HiveImpl implements HiveRepo {
   Future<void> resetStorageOnFatalError() async {
     log('Выполняется сброс локального хранилища из-за критической ошибки');
     try {
+      // Вызываем событие выхода из системы
+      loginBloc.add(LogoutEvent());
+      log('Событие LogoutEvent вызвано для сброса состояния приложения');
+
       // Закрываем все боксы, если они открыты
       await _closeBoxesSafely();
 
@@ -461,6 +466,51 @@ class HiveImpl implements HiveRepo {
   @override
   Future<void> flushSavedDays() async {
     await dayBox.clear();
+  }
+
+  @override
+  Future<void> deleteLastDay() async {
+    try {
+      if (dayBox.isNotEmpty) {
+        // Получаем все записи и их ключи
+        final Map<dynamic, DayEntity> entries =
+            dayBox.toMap().cast<dynamic, DayEntity>();
+        if (entries.isEmpty) {
+          log('Нет дней для удаления.');
+          return;
+        }
+
+        // Находим запись с максимальной датой
+        DayEntity? latestDay;
+        dynamic latestDayKey;
+
+        entries.forEach((key, day) {
+          if (latestDay == null || day.dateTime.isAfter(latestDay!.dateTime)) {
+            latestDay = day;
+            latestDayKey = key;
+          }
+        });
+
+        // Удаляем найденный день по ключу
+        if (latestDayKey != null) {
+          await dayBox.delete(latestDayKey);
+          log('День с датой ${latestDay!.dateTime.toIso8601String()} удален успешно.');
+        } else {
+          log('Не удалось найти день для удаления.');
+        }
+      } else {
+        log('Нет дней для удаления.');
+      }
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_day',
+        operation: 'delete_last_day',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
   }
 
   @override

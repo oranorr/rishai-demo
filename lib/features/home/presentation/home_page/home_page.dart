@@ -200,12 +200,16 @@ class _HomePageBodyState extends State<_HomePageBody> {
   }
 
   Future<void> test() async {
-    final res = await directus.readAppConfig();
-    print(res);
+    await directus.deleteOne(
+      collection: daysCollection,
+      id: userBloc.state.user.daysIds.last.toString(),
+    );
+    await hive.deleteLastDay();
   }
 
   @override
   Widget build(BuildContext context) {
+    // test();
     return BlocConsumer<WhoopBloc, WhoopState>(
       listener: (context, state) {
         if ((state.status != Status.loading) &&
