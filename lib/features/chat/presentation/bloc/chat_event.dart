@@ -20,28 +20,29 @@ class ChatSendMessage extends ChatEvent {
 }
 
 class CreateMealPlan extends ChatEvent {
-  final int mealsAmount;
+  final List<ServingEntity> meals;
   final bool snackToday;
   final bool trainingToday;
   const CreateMealPlan({
-    required this.mealsAmount,
+    required this.meals,
     required this.snackToday,
     required this.trainingToday,
   });
 
   @override
   String toString() =>
-      'CreateMealPlan(mealsAmount: $mealsAmount, snackToday: $snackToday, trainingToday: $trainingToday)';
+      'CreateMealPlan(meals: $meals, snackToday: $snackToday, trainingToday: $trainingToday)';
 }
 
 class InitChatBloc extends ChatEvent {
-  final int? requestsLeft;
-  const InitChatBloc({
-    this.requestsLeft,
-  });
+  final String directusId;
+  const InitChatBloc({required this.directusId});
 }
 
-class ChatSaveSnap extends ChatEvent {}
+class ChatSaveSnap extends ChatEvent {
+  final String directusId;
+  const ChatSaveSnap({required this.directusId});
+}
 
 class ChatDeleteMealPlan extends ChatEvent {}
 
@@ -67,3 +68,21 @@ class ChatRefreshChat extends ChatEvent {
     required this.messagesRefresh,
   });
 }
+
+class ChatReplaceMeal extends ChatEvent {
+  final Meal meal;
+  const ChatReplaceMeal({
+    required this.meal,
+  });
+}
+
+class ChatReplaceIngredient extends ChatEvent {
+  final Meal meal;
+  final List<Ingredient> ingredients;
+  const ChatReplaceIngredient({
+    required this.meal,
+    required this.ingredients,
+  });
+}
+
+class ChatSyncWithSelectedDate extends ChatEvent {}

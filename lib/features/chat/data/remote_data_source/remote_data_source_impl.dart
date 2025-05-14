@@ -1,39 +1,95 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:injectable/injectable.dart';
-import 'package:openai_dart/openai_dart.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
+
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/envied/envied.dart';
+import 'package:rishai/features/chat/data/local_data_source.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
+import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
+import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
 @Singleton(as: ChatRemoteDataSource)
 class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
-  late OpenAIClient client;
-  late AssistantObject assistant;
-  late ThreadObject thread;
+  late GenerativeModel chatModel;
+  // late GenerativeModel mealPlanModel;
+  late GenerativeModel breakfastModel;
+  late GenerativeModel mealsModel;
+  late GenerativeModel snackModel;
+  late ChatSession chatSession;
 
   @override
-  String? get threadId => thread.id;
+  String? get threadId => '';
+
+  static String key = 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI';
+  static String model = 'models/gemini-2.0-flash';
 
   @override
   Future<bool> initGpt(String? savedThreadId) async {
     try {
-      client = OpenAIClient(apiKey: Env.apiKey);
-      assistant = await client.getAssistant(
-        assistantId: 'asst_pnoQdlmVN0GP4qKSgzRictaq',
+      chatModel = GenerativeModel(
+        apiKey: key,
+        model: model,
+        systemInstruction: Content(
+          'system',
+          [
+            TextPart(
+              ChatLocalDataSoucre.chatPrompt,
+            ),
+          ],
+        ),
       );
+      chatSession = chatModel.startChat();
 
-      if (savedThreadId != null) {
-        thread = await client.getThread(threadId: savedThreadId);
-      } else {
-        thread =
-            await client.createThread(request: const CreateThreadRequest());
-      }
+      breakfastModel = GenerativeModel(
+        apiKey: key,
+        model: model,
+        systemInstruction: Content('system', [
+          TextPart(
+            ChatLocalDataSoucre.breakfastPrompt,
+          ),
+        ]),
+        generationConfig: GenerationConfig(
+          responseMimeType: 'application/json',
+          // responseSchema: ChatLocalDataSoucre.schema,
+        ),
+      );
+      mealsModel = GenerativeModel(
+        apiKey: key,
+        model: model,
+        systemInstruction: Content('system', [
+          TextPart(
+            ChatLocalDataSoucre.mealsPrompt,
+          ),
+        ]),
+        generationConfig: GenerationConfig(
+          responseMimeType: 'application/json',
+          // responseSchema: ChatLocalDataSoucre.schema,
+        ),
+      );
+      snackModel = GenerativeModel(
+        apiKey: key,
+        model: model,
+        systemInstruction: Content('system', [
+          TextPart(
+            ChatLocalDataSoucre.snackPrompt,
+          ),
+        ]),
+        generationConfig: GenerationConfig(
+          responseMimeType: 'application/json',
+          // responseSchema: ChatLocalDataSoucre.schema,
+        ),
+      );
 
       return true;
     } on Exception catch (e) {
@@ -42,206 +98,265 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     }
   }
 
-  @override
-  Future<Map<String, dynamic>> requestMealPlan(String prompt) async {
-    try {
-      log(prompt);
-      if (chatBloc.state.mealPlan == null) {
-        thread =
-            await client.createThread(request: const CreateThreadRequest());
-      }
-      final run = await client.createThreadRun(
-        threadId: thread.id,
-        request: CreateRunRequest(
-          assistantId: assistant.id,
-          model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
-          instructions: assistant.instructions,
-          additionalInstructions: prompt,
-          //TODO implement this. its alright
-          // responseFormat: CreateRunRequestResponseFormat.responseFormat(ResponseFormatJsonSchema(jsonSchema: ))
-        ),
-      );
-      log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
+  Future<Map<String, dynamic>> requestAssistant({
+    required String prompt,
+    required bool isChat,
+    required GenerativeModel model,
+  }) async {
+    int retryCount = 0;
+    const int maxRetries = 3;
+    GenerateContentResponse? response;
 
-      // Добавляем цикл ожидания с проверкой
-      const maxAttempts = 10; // Максимальное количество попыток
-      int attempts = 0;
-      bool foundResponse = false;
-      MessageObject? assistantResponse;
+    while (retryCount < maxRetries) {
+      try {
+        log('❗PROMPT: $prompt');
+        // log('🔍 Chat history: ${chatSession.history.map((e) => e.toJson()).toList()}');
 
-      while (attempts < maxAttempts && !foundResponse) {
-        await Future.delayed(
-          const Duration(seconds: 2),
-        ); // Задержка между проверками
-
-        final responseMessages =
-            await client.listThreadMessages(threadId: thread.id);
-
-        // Ищем сообщение от ассистента вручную
-        for (final message in responseMessages.data) {
-          // log(message);
-          if (message.role == MessageRole.assistant &&
-              message.content.isNotEmpty) {
-            assistantResponse = message;
-            foundResponse = true;
-            break;
-          }
+        if (isChat) {
+          response = await chatSession.sendMessage(Content.text(prompt));
+        } else {
+          final chat = model.startChat();
+          response = await chat.sendMessage(Content.text(prompt));
         }
 
-        attempts++;
+        if (response.text == null || response.text!.isEmpty) {
+          log('⚠️ Пустой ответ от ассистента, пересоздаю chatSession');
+          chatSession = chatModel.startChat();
+          return {'error': 'Пустой ответ от ассистента'};
+        }
+        log('GEMINI RESPONSE: ${response.text}');
+        return isChat ? {'answer': response.text} : jsonDecode(response.text!);
+      } catch (e) {
+        log('Ошибка запроса к Gemini: $e');
+        retryCount++;
+        await Future.delayed(const Duration(seconds: 1));
       }
-
-      if (assistantResponse != null) {
-        final content = assistantResponse.content.first;
-        final json = content.toJson();
-        log('Ответ ассистента: $json');
-        final map = json['text']['value'];
-        // return map;
-        return jsonDecode(map);
-      } else {
-        log('Ответ ассистента не был получен.');
-        await client.cancelThreadRun(threadId: thread.id, runId: run.id);
-        // Возвращаем сообщение об ошибке после нескольких неудачных попыток
-        return {
-          'error': 'Ассистент не смог предоставить ответ. Попробуйте позже.',
-        };
-      }
-    } on Exception catch (e) {
-      log('Ошибка при запросе плана питания: $e');
-
-      // Возвращаем сообщение об ошибке в случае исключения
-      return {'error': 'Произошла ошибка при запросе плана питания: $e'};
     }
+
+    return {'error': 'Произошла ошибка при запросе к ассистенту.'};
   }
 
   @override
   Future<String?> sendMessage(String userMessage) async {
+    // Трекинг обращения к чату
+    await analytics.logCustomEvent(
+      name: 'chat_message_sent',
+      parameters: {
+        'message_length': userMessage.length,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
+    final res = await requestAssistant(
+      prompt: userMessage,
+      isChat: true,
+      model: chatModel,
+    );
+    return res['answer'];
+  }
+
+  @override
+  Future<Map<String, dynamic>?> fetchLastChatSnap(
+    String directusId,
+    DateTime date,
+  ) async {
     try {
-      // Отправляем сообщение пользователя в текущий поток
-      final userMessageObject = await client.createThreadMessage(
-        threadId: thread.id,
-        request: CreateMessageRequest(
-          role: MessageRole.user,
-          content: CreateMessageRequestContent.text(userMessage),
-        ),
+      final rawUser = await directus.readOne(
+        collection: usersCollection,
+        id: directusId,
       );
-
-      log(
-        'Сообщение пользователя отправлено: ${userMessageObject.id}, threadId: ${userMessageObject.threadId}',
-      );
-      // Проверяем, есть ли незавершенные прогоны (чтобы не запускать новый каждый раз)
-
-      //Commented, becase not required. And will re-do gpt service anyway.
-
-      // final activeRuns = await client.listThreadRuns(threadId: thread.id);
-
-      // // Фильтруем и отменяем только те прогоны, которые не завершены
-      // for (var run in activeRuns.data) {
-      //   final runStatus =
-      //       await client.getThreadRun(threadId: thread.id, runId: run.id);
-      //   if (runStatus.status != RunStatus.completed &&
-      //       runStatus.status != RunStatus.expired) {
-      //     log('Незавершенный прогон найден: ${run.id}, отменяем его.');
-      //     await client.cancelThreadRun(threadId: thread.id, runId: run.id);
-      //   } else {
-      //     log('Прогон уже завершен: ${run.id}, пропускаем отмену.');
-      //   }
-      // }
-
-      final run = await client.createThreadRun(
-        threadId: thread.id,
-        request: CreateRunRequest(
-          assistantId: assistant.id,
-          model: const CreateRunRequestModel.model(RunModels.gpt4oMini),
-          // instructions: assistant.instructions,
-          additionalInstructions:
-              userMessage, // Передаем текущее сообщение пользователя как инструкцию
-        ),
-      );
-
-      log('Прогон ассистента запущен: ${run.id}, threadId: ${run.threadId}');
-
-      // Ждем завершения прогона с оптимизированной проверкой
-      bool runCompleted = false;
-      const maxAttempts = 10;
-      int attempts = 0;
-
-      while (!runCompleted && attempts < maxAttempts) {
-        await Future.delayed(const Duration(seconds: 2));
-
-        // Получаем статус прогона
-        final runStatus =
-            await client.getThreadRun(threadId: thread.id, runId: run.id);
-        if (runStatus.status == RunStatus.completed) {
-          runCompleted = true;
-          log('Прогон ассистента завершен');
-        }
-
-        attempts++;
-      }
-
-      if (!runCompleted) {
-        log('Прогон не завершился за отведенное время, отменяем.');
-        await client.cancelThreadRun(threadId: thread.id, runId: run.id);
+      if (rawUser['days'].isEmpty) {
         return null;
       }
 
-      // Получаем сообщения из потока, проверяем самое свежее сообщение
-      final responseMessages =
-          await client.listThreadMessages(threadId: thread.id);
-      MessageObject? assistantResponse;
+      final daysIds = await dayManager.getDaysIds(userId: directusId);
 
-      for (final message in responseMessages.data.reversed) {
-        // Ищем сообщение от ассистента, относящееся к текущему прогону
-        if (message.role == MessageRole.assistant &&
-            message.runId == run.id &&
-            message.content.isNotEmpty) {
-          assistantResponse = message;
-          break;
-        }
-      }
+      final lastDay = await directus.readOne(
+        collection: daysCollection,
+        id: daysIds.last.toString(),
+      );
+      if (lastDay['cycleId'] == null) return null;
 
-      // Если найдено сообщение ассистента, возвращаем его содержимое
-      if (assistantResponse != null) {
-        final content = assistantResponse.content.first;
-        log('Ответ ассистента: ${content.toJson()}');
-        return content.text;
-      } else {
-        log('Ответ ассистента не был получен.');
+      final isCycleEnded = await whoopRemote.pingLastCycle(
+        cycleId: int.parse(lastDay['cycleId']),
+      );
+
+      if (isCycleEnded) {
         return null;
       }
+
+      return (lastDay['chatSnap'] as Map<String, dynamic>)
+        ..addAll({'mealPlan': lastDay['mealPlan']});
     } on Exception catch (e) {
-      log('Ошибка при отправке сообщения: $e');
+      log('failed to fetch last Chat snap, with error: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> closeGpt() async {
+    // Clean up resources if necessary
+  }
+
+  @override
+  set threadId(String? value) {
+    threadId = value;
+  }
+
+  @override
+  Future<Meal?> replaceMeal(ReplaceMealParams params) async {
+    // Трекинг замены блюда
+    await analytics.logCustomEvent(
+      name: 'replace_meal',
+      parameters: {
+        'meal_type': params.meal.type,
+        'meal_title': params.meal.title,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
+    final currentMeals = whoopBloc.state.day.mealPlanEntity?.meals
+            .map((m) => m.title)
+            .join(', ') ??
+        '';
+    final prompt =
+        "I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}. Please exclude these meals from today's plan: $currentMeals";
+    try {
+      final meal =
+          await regenerate(type: params.meal.servingType, prompt: prompt);
+      await updateChatHistory('from ${params.meal.title} to $meal');
+      return meal;
+    } on Exception catch (e) {
+      log('EXCEPTION: $e');
       return null;
     }
   }
 
   @override
-  Future<Map<String, dynamic>?> fetchLastChatSnap(String directusId) async {
+  Future<Meal?> replaceIngredient(ReplaceIngredientParams params) async {
+    List<String> ingredientsNames =
+        List.from(params.ingredients.map((e) => e.title));
+    final currentMeals = whoopBloc.state.day.mealPlanEntity?.meals
+            .map((m) => m.title)
+            .join(', ') ??
+        '';
+    final prompt =
+        "In the meal ${params.meal.title} with such ingredients: ${params.meal.ingredients.map((e) => e.title).join(', ')} please replace this ingrdients: $ingredientsNames. Type of meal is: ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions}. Please exclude these meals from today's plan: $currentMeals";
     try {
-      final rawUser =
-          await directus.readOne(collection: usersCollection, id: directusId);
-      if (rawUser['days'].isEmpty) {
-        return null;
-      } else {
-        final last = rawUser['days'].last;
-        final rawLastDay = await directus.readOne(
-          collection: daysCollection,
-          id: last.toString(),
-        );
-        // log(rawLastDay.toString());
-        return rawLastDay['chatSnap'];
-      }
+      return await regenerate(type: params.meal.servingType, prompt: prompt);
     } on Exception catch (e) {
-      log('failed to fetch last Chat snap, with error: $e');
-      rethrow;
+      log('EXCEPTION: $e');
+      return null;
+    }
+  }
+
+  Future<Meal> regenerate({
+    required ServingType type,
+    required String prompt,
+  }) async {
+    Map<String, dynamic> newMeal;
+    switch (type) {
+      case ServingType.breakfast:
+        newMeal = await requestAssistant(
+          prompt: prompt,
+          model: breakfastModel,
+          isChat: false,
+        );
+        break;
+      case ServingType.dinner || ServingType.lunch || ServingType.supper:
+        newMeal = await requestAssistant(
+          prompt: prompt,
+          model: mealsModel,
+          isChat: false,
+        );
+        break;
+      case ServingType.snack:
+        newMeal = await requestAssistant(
+          prompt: prompt,
+          model: snackModel,
+          isChat: false,
+        );
+        break;
+      // default:
+      //   throw ArgumentError('Invalid meal type: ${params.meal.servingType}');
     }
 
-    // return null;
+    return Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
+  }
+
+  Future<void> updateChatHistory(String message) async {
+    final prompt =
+        'Meal plan has been changed: $message. Please, answer to this message with "You have changed $message"';
+    await requestAssistant(
+      prompt: prompt,
+      isChat: true,
+      model: chatModel,
+    );
   }
 
   @override
-  Future<void> closeGpt() async {
-    // client = null;
+  Future<Map<String, dynamic>> requestMealPlan(
+    List<Map<ServingType, String>> prompts,
+    bool isWeekPlan,
+  ) async {
+    final results = <String, dynamic>{};
+    print('hello');
+    // Трекинг создания плана питания
+    await analytics.logCustomEvent(
+      name: isWeekPlan ? 'create_5day_meal_plan' : 'create_1day_meal_plan',
+      parameters: {
+        'serving_types': prompts.map((p) => p.keys.first.name).join(', '),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
+    for (final prompt in prompts) {
+      final entry = prompt.entries.first;
+      final mealType = entry.key;
+      final mealPrompt = entry.value;
+
+      switch (mealType) {
+        case ServingType.breakfast:
+          results['breakfast'] = await requestAssistant(
+            prompt: mealPrompt,
+            model: breakfastModel,
+            isChat: false,
+          );
+          break;
+        case ServingType.dinner:
+          results['generalMeals'] = await requestAssistant(
+            prompt: mealPrompt,
+            model: mealsModel,
+            isChat: false,
+          );
+          break;
+        case ServingType.snack:
+          results['snack'] = await requestAssistant(
+            prompt: mealPrompt,
+            model: snackModel,
+            isChat: false,
+          );
+          break;
+        default:
+          throw ArgumentError('Invalid meal type: $mealType');
+      }
+    }
+
+    final meals = [
+      ...results['breakfast']?['meals'] ?? [],
+      ...results['generalMeals']?['meals'] ?? [],
+      ...results['snack']?['meals'] ?? [],
+    ];
+
+    // Только для обычного плана питания добавляем в историю чата
+    if (!isWeekPlan) {
+      final dot = await requestAssistant(
+        prompt: "{'meals': $meals}",
+        isChat: true,
+        model: chatModel,
+      );
+      log('CHAT ASSISTANT: $dot');
+    }
+    return {'meals': meals};
   }
 }

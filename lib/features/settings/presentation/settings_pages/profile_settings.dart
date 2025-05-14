@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -9,7 +10,6 @@ import 'package:rishai/core/widgets/dropdown_menu.dart';
 import 'package:rishai/core/widgets/modal_sheet.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/onboard/data/questionary_repository.dart';
 import 'package:rishai/features/onboard/domain/entities.dart';
 import 'package:rishai/features/onboard/presentation/questionary.dart';
@@ -29,7 +29,9 @@ class ProfileSettings extends StatefulWidget {
 }
 
 class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
-  bool planCreated = chatBloc.state.mealPlan != null;
+  bool planCreated =
+      kDebugMode ? false : whoopBloc.state.day.mealPlanEntity != null;
+
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
@@ -43,58 +45,99 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
       ),
       child: ListView(
         children: [
+          Padding(
+            padding: EdgeInsets.only(bottom: 24.h),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+              decoration: BoxDecoration(
+                color: RishColors.formBackgroun,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.email_outlined,
+                    color: RishColors.primary,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      userBloc.state.user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.styles.regularLarge,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           RishDropdownMenu(
             title: 'Dietary preference',
             preSelectedData: updUser.foodPreferences!.diets.join(', '),
-            action: planCreated
-                ? _showDialog
-                : () async {
-                    await ModalSheet.showQuestionarySheet(
-                      title: 'Dietary prefrence',
-                      context: context,
-                      data: QuestionaryRepository().diets,
-                      onSave: (List<Question> selectedDiets) {
-                        updateDietary(selectedDiets.cast<Dietary>());
-                      },
-                    );
-                  },
+            action: () async {
+              await ModalSheet.showQuestionarySheet(
+                title: 'Dietary prefrence',
+                context: context,
+                data: QuestionaryRepository().diets,
+                onSave: (List<Question> selectedDiets) {
+                  updateDietary(selectedDiets.cast<Dietary>());
+                },
+              );
+            },
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
             title: 'Cuisine preferences',
             preSelectedData: updUser.foodPreferences!.cuisines.join(', '),
-            action: planCreated
-                ? _showDialog
-                : () async {
-                    await ModalSheet.showQuestionarySheet(
-                      title: 'Cuisine prefrences',
-                      context: context,
-                      data: QuestionaryRepository().cuisines,
-                      onSave: (List<Question> selectedCuisines) {
-                        updateCuisines(selectedCuisines.cast<Cuisine>());
-                      },
-                    );
-                  },
+            action: () async {
+              await ModalSheet.showQuestionarySheet(
+                title: 'Cuisine prefrences',
+                context: context,
+                data: QuestionaryRepository().cuisines,
+                onSave: (List<Question> selectedCuisines) {
+                  updateCuisines(selectedCuisines.cast<Cuisine>());
+                },
+              );
+            },
+          ),
+          SizedBox(height: 16.h),
+          RishDropdownMenu(
+            title: 'Food restrictions',
+            preSelectedData: updUser.foodPreferences!.restrictions.isEmpty
+                ? 'No restrictions'
+                : updUser.foodPreferences!.restrictions.join(', '),
+            action: () async {
+              await ModalSheet.showQuestionarySheet(
+                title: 'Food restrictions',
+                context: context,
+                data: QuestionaryRepository().restrictions,
+                allowEmptySelection: true,
+                onSave: (List<Question> selectedRestrictions) {
+                  updateRestrinctions(
+                    selectedRestrictions.cast<Restriction>(),
+                  );
+                },
+              );
+            },
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
             title: 'Fitness goal',
             preSelectedData: updUser.userGoal!.getGoalTypeName(),
-            action:
-                // !kDebugMode
-                planCreated
-                    ? _showDialog
-                    : () async {
-                        await ModalSheet.showQuestionarySheet(
-                          title: 'Fitness goal',
-                          context: context,
-                          data: QuestionaryRepository().goals,
-                          onSave: (List<Question> selectedGoal) {
-                            // print(selectedGoal);
-                            updateGoal(selectedGoal.first as FitnessGoal);
-                          },
-                        );
+            action: planCreated
+                ? _showDialog
+                : () async {
+                    await ModalSheet.showQuestionarySheet(
+                      title: 'Fitness goal',
+                      context: context,
+                      data: QuestionaryRepository().goals,
+                      onSave: (List<Question> selectedGoal) {
+                        updateGoal(selectedGoal.first as FitnessGoal);
                       },
+                    );
+                  },
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
@@ -103,7 +146,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                 '${(updUser.userGoal!.modificator * 100).round()} %',
             action: !modificatorChangable
                 ? () {}
-                : modificatorChangable && chatBloc.state.mealPlan == null
+                : modificatorChangable && !planCreated
                     ? () async {
                         await ModificatorSelectorSheet(
                           goal: updUser.userGoal!,
@@ -112,26 +155,6 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                           },
                           context: context,
                         ).show();
-                        // ModalSheet.showSingleChildSheet(
-                        //   needsButton: false,
-                        //   context: context,
-                        //   title: 'Select Modificator',
-                        //   height: 400.h,
-                        //   child: ModificatorSelector(
-                        //     type: updUser.userGoal!.goal,
-                        //     setModificator: (value) {
-                        //       changeModificator(value);
-                        //     },
-                        //     defaultModificator:
-                        //         updUser.userGoal!.modificator,
-                        //     modificators:
-                        //         updUser.userGoal!.getModificators(),
-                        //     subtitle: updUser.userGoal!.goal ==
-                        //             GoalType.recomp
-                        //         ? 'Your calorie intake will be changing automatically every two weeks'
-                        //         : 'You calories will match your TDEE',
-                        //   ),
-                        // );
                       }
                     : _showDialog,
             needsTrailing: modificatorChangable,
@@ -139,7 +162,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           SizedBox(height: 8.h),
           Text(
             updUser.userGoal!.getSettingsDescription(),
-            style: context.styles.regularSmall
+            style: context.styles.regularMedium
                 .copyWith(color: RishColors.textSecondary),
           ),
           SizedBox(height: 16.h),
@@ -218,7 +241,6 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
               ),
             ],
           ),
-          // const Spacer(),
           SizedBox(height: 36.h),
           RishButton.primary(
             title: 'Save changes',
@@ -226,17 +248,24 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             isLoading: false,
             action: () {
               userBloc.add(UpdateUserEvent(user: updUser));
-              whoopBloc.add(
-                WhoopChangeModificatorOrSex(
-                  modificator: updUser.userGoal!.modificator,
-                  gender: updUser.gender!,
-                  context: context,
-                ),
-              );
+
+              // Проверяем, изменились ли модификатор или пол
+              final currentUser = userBloc.state.user;
+              if (currentUser.userGoal?.modificator !=
+                      updUser.userGoal?.modificator ||
+                  currentUser.gender != updUser.gender) {
+                whoopBloc.add(
+                  WhoopChangeModificatorOrSex(
+                    modificator: updUser.userGoal!.modificator,
+                    gender: updUser.gender!,
+                    context: context,
+                  ),
+                );
+              }
+
               setState(() {
                 buttonIsActive = false;
               });
-              // context.pop();
             },
           ),
           SizedBox(height: 16.h),

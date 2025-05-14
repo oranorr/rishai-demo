@@ -24,6 +24,7 @@ abstract class Question {
   final Diet? diet;
   final GoalType? goal;
   final CuisineEnum? cuisine;
+  final RestrictionEnum? restrictionEnum;
   const Question({
     required this.name,
     required this.assetPath,
@@ -31,6 +32,7 @@ abstract class Question {
     this.diet,
     this.goal,
     this.cuisine,
+    this.restrictionEnum,
   });
   @override
   bool operator ==(covariant Question other) {
@@ -68,6 +70,52 @@ abstract class Question {
     Function(Question q)? preSelectCard,
     bool? needsLightBack,
   });
+}
+
+class Restriction extends Question {
+  Restriction({
+    required super.name,
+    required super.assetPath,
+    required super.restrictionEnum,
+  });
+
+  @override
+  Widget buildWidget({
+    required BuildContext context,
+    required Function(Question question) action,
+    required bool isSelected,
+    Function(Question q)? preSelectCard,
+    bool? needsLightBack,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        tileColor: needsLightBack ?? false
+            ? RishColors.stroke
+            : RishColors.formBackgroun,
+        // tileColor:  const Color(0xff242239),
+        leading: Text(
+          assetPath,
+          style: const TextStyle(fontSize: 20),
+        ),
+        // leading: SvgPicture.asset(assetPath),
+        title: Text(name, style: context.styles.regularLarge),
+        trailing: Checkbox(
+          shape: const CircleBorder(),
+          value: isSelected,
+          onChanged: (value) {
+            action(this);
+          },
+        ),
+        onTap: () {
+          action(this);
+        },
+      ),
+    );
+  }
 }
 
 class Dietary extends Question {
@@ -193,25 +241,6 @@ class FitnessGoal extends Question {
           },
           context: context,
         ).show();
-        // ModalSheet.showSingleChildSheet(
-        //   needsButton: false,
-        //   context: context,
-        //   title: 'Select Modificator',
-        //   height: goal == GoalType.recomp || goal == GoalType.optimize
-        //       ? 270.h
-        //       : 400.h,
-        //   child: ModificatorSelector(
-        //     type: toUseGoal().goal,
-        //     setModificator: (value) {
-        //       action(copyWith(modificator: value));
-        //     },
-        //     defaultModificator: toUseGoal().getModificators().first,
-        //     modificators: toUseGoal().getModificators(),
-        //     subtitle: goal == GoalType.recomp
-        //         ? 'Your calorie intake will be changing automatically every two weeks'
-        //         : 'You calories will match your TDEE',
-        //   ),
-        // );
       },
       child: Card(
         color: needsLightBack ?? false
@@ -292,4 +321,16 @@ enum CuisineEnum {
   western,
   latino,
   africano
+}
+
+enum RestrictionEnum {
+  noBeef,
+  noPork,
+  noGluten,
+  noDairy,
+  noNuts,
+  noShellfish,
+  noEggs,
+  noSoy,
+  noShrooms
 }

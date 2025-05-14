@@ -22,6 +22,10 @@ class QuestionaryRepository {
       subtitle: 'You can select multiple cuisines:',
     ),
     QuestionaryData(
+      title: 'Food Restrictions',
+      subtitle: 'Please, select any:',
+    ),
+    QuestionaryData(
       title: 'Fitness Goal',
       subtitle:
           "Please select one:\nEach goal works on a specific surplus or deficit percentage of one's total energy expenditure",
@@ -29,11 +33,11 @@ class QuestionaryRepository {
   ];
 
   final List<Dietary> diets = [
-    Dietary(
-      name: 'Carnivore',
-      assetPath: 'assets/diet/carnivore.svg',
-      diet: Diet.carnivore,
-    ),
+    // Dietary(
+    //   name: 'Carnivore',
+    //   assetPath: 'assets/diet/carnivore.svg',
+    //   diet: Diet.carnivore,
+    // ),
     // Dietary(name: 'Keto', assetPath: 'assets/diet/keto.svg', diet: Diet.keto),
     Dietary(
       name: 'Omnivore',
@@ -125,5 +129,53 @@ class QuestionaryRepository {
       goal: GoalType.optimize,
       modificator: 0,
     ),
+  ];
+
+  final List<Restriction> restrictions = [
+    Restriction(
+      name: 'No Beef',
+      assetPath: '🥩',
+      restrictionEnum: RestrictionEnum.noBeef,
+    ),
+    Restriction(
+      name: 'No Pork',
+      assetPath: '🐷',
+      restrictionEnum: RestrictionEnum.noPork,
+    ),
+    Restriction(
+      name: 'No Gluten',
+      assetPath: '🌾',
+      restrictionEnum: RestrictionEnum.noGluten,
+    ),
+    Restriction(
+      name: 'No Dairy',
+      assetPath: '🥛',
+      restrictionEnum: RestrictionEnum.noDairy,
+    ),
+    Restriction(
+      name: 'No Nuts',
+      assetPath: '🥜',
+      restrictionEnum: RestrictionEnum.noNuts,
+    ),
+    Restriction(
+      name: 'No Shellfish',
+      assetPath: '🦞',
+      restrictionEnum: RestrictionEnum.noShellfish,
+    ),
+    Restriction(
+      name: 'No Eggs',
+      assetPath: '🥚',
+      restrictionEnum: RestrictionEnum.noEggs,
+    ),
+    Restriction(
+      name: 'No Soy',
+      assetPath: '🌱',
+      restrictionEnum: RestrictionEnum.noSoy,
+    ),
+    // Restriction(
+    //   name: 'No Mushrooms',
+    //   assetPath: 'assets/diet/vegan.svg',
+    //   restrictionEnum: RestrictionEnum.noShrooms,
+    // ),
   ];
 }

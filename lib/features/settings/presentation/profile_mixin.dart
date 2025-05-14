@@ -42,6 +42,18 @@ mixin ProfileMixin on State<ProfileSettings> {
     setUser(upd);
   }
 
+  void updateRestrinctions(List<Restriction> restrictions) {
+    final upd = updUser.copyWith(
+      foodPreferences: updUser.foodPreferences!.copyWith(
+        restrictions: restrictions.isEmpty
+            ? []
+            : restrictions.map((restriction) => restriction.name).toList(),
+      ),
+    );
+
+    setUser(upd);
+  }
+
   void updateGoal(FitnessGoal incGoal) {
     final upd = updUser.copyWith(userGoal: incGoal.toUseGoal());
     setUser(upd);
@@ -69,11 +81,23 @@ mixin ProfileMixin on State<ProfileSettings> {
   }
 
   void setUser(UserEntity upd) {
+    // Сохраняем текущий план питания
+    final currentDay = whoopBloc.state.day;
+    final currentMealPlan = currentDay.mealPlanEntity;
+
     setState(() {
       updUser = upd;
       buttonIsActive = true;
       modificatorChangable = updUser.userGoal!.goal == GoalType.aesthetics ||
           updUser.userGoal!.goal == GoalType.performance;
     });
+
+    // Восстанавливаем план питания
+    if (currentMealPlan != null) {
+      final updatedDay = currentDay.copyWith(
+        mealPlanEntity: currentMealPlan,
+      );
+      whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+    }
   }
 }

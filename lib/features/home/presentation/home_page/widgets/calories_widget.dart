@@ -16,17 +16,18 @@ class _CaloriesWidget extends StatelessWidget {
             : ((day.macros.kcal / day.weekTdeeAverage) - 1);
 
         bool isPositive = mod > 0;
+        // print('isPositive: $isPositive');
         return BlocBuilder<WhoopBloc, WhoopState>(
           bloc: whoopBloc,
           builder: (context, whoopState) {
             int kcal =
                 day.isToday ? whoopState.day.macros.kcal : day.macros.kcal;
             return SizedBox(
-              height: 200.h,
+              height: 225.h,
               child: Row(
                 children: [
                   SizedBox(
-                    height: 200.h,
+                    // height: 200.h,
                     width: 150.w,
                     child: _Card(
                       child: Column(
@@ -47,7 +48,7 @@ class _CaloriesWidget extends StatelessWidget {
                           Expanded(
                             child: _SimpleBarChart(
                               xValue: kcal.toDouble(),
-                              yValue: day.weekTdeeAverage,
+                              yValue: day.weekTdeeAverage.toDouble(),
                             ),
                           ),
                         ],
@@ -101,7 +102,7 @@ class _CaloriesWidget extends StatelessWidget {
                                 ),
                                 SizedBox(height: 10.h),
                                 Text(
-                                  '${day.weekTdeeAverage.round().comaThisNumber()} kcal',
+                                  '${day.weekTdeeAverage.comaThisNumber()} kcal',
                                   style: context.styles.numsM
                                       .copyWith(color: RishColors.protein),
                                 ),

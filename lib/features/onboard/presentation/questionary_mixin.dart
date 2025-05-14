@@ -9,6 +9,7 @@ mixin QuestionaryMixin on State<Questionary> {
   int? age;
   List<Dietary> diets = [];
   List<Cuisine> cuisines = [];
+  List<Restriction> restrictions = [];
   FitnessGoal? fitnessGoal;
   UserEntity user = userBloc.state.user;
 
@@ -25,8 +26,7 @@ mixin QuestionaryMixin on State<Questionary> {
   }
 
   void resolveType(int page) {
-    // print(gender);
-    if (page == 6) {
+    if (page == 7) {
       setState(() {
         isLastPage = true;
       });
@@ -38,20 +38,18 @@ mixin QuestionaryMixin on State<Questionary> {
 
     bool enabled;
     if (page == 0 || page == 3) {
-      // _type = ButtonType.primary;
       enabled = true;
     } else if (page == 2) {
       enabled = gender != null;
-      // _type = gender == null ? ButtonType.disabled : ButtonType.primary;
     } else if (page == 3) {
       enabled = diets.isNotEmpty;
-      // _type = diets.isEmpty ? ButtonType.disabled : ButtonType.primary;
+    } else if (page == 6) {
+      enabled = true;
     } else {
       enabled = false;
-      // _type = ButtonType.disabled;
     }
+
     setState(() {
-      // type = _type;
       buttonEnabled = enabled;
     });
   }
@@ -91,6 +89,14 @@ mixin QuestionaryMixin on State<Questionary> {
     });
   }
 
+  void setRestrictions(List<Question> incRestrictions) {
+    restrictions = incRestrictions.cast<Restriction>();
+    // Кнопка всегда активна для опционального списка restrictions
+    setState(() {
+      buttonEnabled = true;
+    });
+  }
+
   void setGoal(List<Question> incGoal) {
     setState(() {
       fitnessGoal = incGoal.first as FitnessGoal;
@@ -111,13 +117,15 @@ mixin QuestionaryMixin on State<Questionary> {
         foodPreferences: FoodPreferences(
           diets: diets.map((diet) => diet.name).toList(),
           cuisines: cuisines.map((cuisine) => cuisine.name).toList(),
+          restrictions:
+              restrictions.map((restriction) => restriction.name).toList(),
         ),
         userGoal: fitnessGoal!.toUseGoal(),
         // bodyMeasurements: whoopBloc.state.day.bodyMeasurements,
       );
       userBloc.add(UpdateUserEvent(user: updUser));
       // await Future.delayed(Durations.short1);
-      whoopBloc.add(InitWhoopOnLogin());
+      whoopBloc.add(const InitWhoopOnLogin());
       context.go(AppRoutes.redirect.path);
     }
   }

@@ -5,41 +5,19 @@ class _MealPlanWidget extends StatelessWidget {
     required this.controller,
     required this.isToday,
     required this.enoughRequests,
+    required this.ifNotTodayNeedsCreatePlan,
     this.plan,
   });
   final PageController controller;
   final MealPlanEntity? plan;
   final bool isToday;
   final bool enoughRequests;
+  final bool ifNotTodayNeedsCreatePlan;
 
   @override
   Widget build(BuildContext context) {
-    if (plan == null) {
-      if (isToday) {
-        if (enoughRequests) {
-          return RishButton.primary(
-            title: 'Create Meal Plan',
-            enabled: true,
-            isLoading: false,
-            action: () async {
-              await controller.rAnimate(0);
-            },
-          );
-        } else {
-          return Text(
-            'You already run out of requests for today. Come again tomorrow.',
-            style: context.styles.regularLarge,
-            textAlign: TextAlign.center,
-          );
-        }
-      } else {
-        return Text(
-          'No meal plan was created that day.',
-          style: context.styles.regularLarge,
-          textAlign: TextAlign.center,
-        );
-      }
-    } else {
+    // print(plan == null);
+    if (plan != null) {
       return _Card(
         child: Column(
           children: [
@@ -52,7 +30,7 @@ class _MealPlanWidget extends StatelessWidget {
                 final meals = plan!.meals;
                 return _MealTile(
                   meal: meals[index],
-                  isPostWorkout: false,
+                  isToday: isToday,
                 );
               },
               separatorBuilder: (BuildContext context, int index) {
@@ -65,17 +43,49 @@ class _MealPlanWidget extends StatelessWidget {
               SizedBox(
                 height: 20.h,
               ),
-              RishButton.primary(
-                title: 'Clear plan',
-                enabled: true,
-                isLoading: false,
-                action: () {
-                  chatBloc.add(ChatDeleteMealPlan());
+              BlocBuilder<WhoopBloc, WhoopState>(
+                builder: (context, state) {
+                  return RishButton.primary(
+                    title: 'Clear plan',
+                    enabled: state.status != Status.loading,
+                    isLoading: state.status == Status.loading,
+                    action: () {
+                      // print('clear plan');
+                      chatBloc.add(ChatDeleteMealPlan());
+                    },
+                  );
                 },
               ),
             ],
           ],
         ),
+      );
+    }
+
+    // План отсутствует
+    print(ifNotTodayNeedsCreatePlan);
+    if (isToday) {
+      if (enoughRequests) {
+        return RishButton.primary(
+          title: 'Create Meal Plan',
+          enabled: true,
+          isLoading: false,
+          action: () async {
+            await controller.rAnimate(2);
+          },
+        );
+      } else {
+        return Text(
+          'You already run out of requests for today. Come again tomorrow.',
+          style: context.styles.regularLarge,
+          textAlign: TextAlign.center,
+        );
+      }
+    } else {
+      return Text(
+        'No meal plan was created that day.',
+        style: context.styles.regularLarge,
+        textAlign: TextAlign.center,
       );
     }
   }
@@ -124,10 +134,10 @@ class _MealPlanWidget extends StatelessWidget {
 class _MealTile extends StatelessWidget {
   const _MealTile({
     required this.meal,
-    required this.isPostWorkout,
+    required this.isToday,
   });
   final Meal meal;
-  final bool isPostWorkout;
+  final bool isToday;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +147,7 @@ class _MealTile extends StatelessWidget {
           MaterialPageRoute<void>(
             builder: (BuildContext context) => MealScreen(
               meal: meal,
+              isToday: isToday,
             ),
           ),
         );
@@ -156,10 +167,21 @@ class _MealTile extends StatelessWidget {
                   maxLines: 1,
                 ),
                 SizedBox(height: 4.h),
-                Text(
-                  isPostWorkout ? '💪 Post-Workout Meal 💪' : meal.type,
-                  style: context.styles.regularSmall
-                      .copyWith(color: RishColors.primary),
+                Row(
+                  children: [
+                    Text(
+                      meal.type,
+                      style: context.styles.regularSmall
+                          .copyWith(color: RishColors.primary),
+                    ),
+                    const Spacer(),
+                    if (meal.isRegenerated)
+                      Text(
+                        '(regen)',
+                        style: context.styles.regularSmall
+                            .copyWith(color: Colors.amber),
+                      ),
+                  ],
                 ),
                 SizedBox(height: 4.h),
                 FittedBox(

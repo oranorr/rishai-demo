@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "586052816326",
+    "project_id": "pivot-85ea0",
+    "storage_bucket": "pivot-85ea0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:586052816326:android:06d5f5e099f7fda737b6c7",
+        "android_client_info": {
+          "package_name": "com.HealthspanCulture.Pivot"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "586052816326-a8l4ddnt3smarompac1kdmf864prnfim.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.HealthspanCulture.Pivot",
+            "certificate_hash": "c7a1e0efb8ac89f1a3d934e4f5187b60d4a98413"
+          }
+        },
+        {
+          "client_id": "586052816326-ag11hps0i0414l6rrurq4rk9fv64kgtd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.HealthspanCulture.Pivot",
+            "certificate_hash": "f05851d7a198f8898d527e96a9a0c30704d84a36"
+          }
+        },
+        {
+          "client_id": "586052816326-ds4qqhddrr8uj7jurckos21gumbk8kgn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDP8hVB0DrdOcO1q6rc9Rdv_Uou3WL5kt4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "586052816326-ds4qqhddrr8uj7jurckos21gumbk8kgn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "586052816326-cot6vmm79shkq9q716irslskjskoh87b.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.HealthspanCulture.Pivot"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

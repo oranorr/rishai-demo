@@ -165,12 +165,28 @@ By using the Pivot app, you acknowledge that our support is provided in line wit
 By using the Pivot app, you acknowledge that it is for wellness purposes only, and the app developers are not liable for data discrepancies or related outcomes. We do not control or guarantee the accuracy of the data provided and all information is provided “as it is” for general wellness and informational purposes only. This should not replace any professional medical or nutritional advice, and it is not intended to treat or cure any medical conditions''';
 
   String get comingSoon => '''
-1. Three and five day meal planning
-2. Alternative meal generation to replace existing meal
-3. Cooking instructions for meals
-4. Cloud kitchens connected to outsource meals & macros
-5. Integration with food diaries
-6. Integration with other smart devices like Apple Fitness, Garmin, Oura, Fitbit
+1. Precise calorie and macronutrient targets based on your fitness goals and WHOOP metrics.
+2. Tailor made meal plans based on your dietary restrictions, cuisine and dietary preferences.
+3. Everyday meal plans based on your lifestyle, activities and taste profile.
+4. Ability to adjust your calorie deficit or calorie surplus to program your meal plans, as a percentage of your total calories burnt, to achieve your goals.
+5. Ability to do a 5-day meal prep forecast for the week.
+6. Ability to generate a consolidated grocery list for the 5-day meal prep, for easy shopping.
+7. Ability to swap out individual ingredients from a meal.
+8. Ability to replace an entire meal with another one.
+9. Individual listing of ingredients for every meal, with exact portions.
+10. Cooking instructions for recommended meals.
+11. Ability to chat with a live AI agent about anything nutrition related or regarding your suggested macronutrients and meal plan recommendations.
+12. Setup a daily meal plan reminder notification, so you don’t forget to create your meals.\n
+
+1. Integration with food diaries to track your actual meal consumption by logging in the meals you have consumed, whether the suggested ones or anything else you may have consumed outside.
+2. Ability to see in real time how many calories and macros you have consumed for the day and what is leftover to achieve your goal.
+3. Gamification: getting a total percentage score every day to see how close you are to your daily and weekly consumption goals, by tracking calorie and macronutrient targets.
+4. Integration with other smart devices like Apple watch, Oura ring, Garmin, and Fitbit.
+5. Ability to rate the recommended meals, and tell us if you like or dislike them, as well as give them a rating on 5 stars – so that future recommendations are more in line with your preferences.
+6. The AI will learn your specific tastes and fine-tune meal recommendations to further suit you over time.
+7. Integration with cloud kitchen services to have the meals prepared and delivered to you.
+8. Generative AI to create meal images for you to demonstrate portion, sizes and types of ingredients being used.
+9. Ability to enter your weight loss or muscle gain goals and let us decide on the percentage of calorie deficit or surplus best suited for you, over a specified period, in order to achieve your goals.
 ''';
 
   String get references => '''

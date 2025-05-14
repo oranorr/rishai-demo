@@ -16,7 +16,7 @@ class UnknownFailure extends Failure {
 
 class FailureNoGoogleUser extends Failure {
   const FailureNoGoogleUser(String? message)
-      : super(message ?? 'No google user found.');
+      : super(message ?? 'Вход через Google был отменен');
   @override
   List<Object?> get props => [];
 }
@@ -94,7 +94,7 @@ class FailedToGetUserData extends Failure {
 
 class FailureNoAppleUser extends Failure {
   const FailureNoAppleUser(String? message)
-      : super(message ?? 'No apple user found.');
+      : super(message ?? 'Вход через Apple был отменен');
   @override
   List<Object?> get props => [];
 }
@@ -111,4 +111,21 @@ class WhoopDataDueToRefresh extends Failure {
 
   @override
   List<Object?> get props => throw UnimplementedError();
+}
+
+class FailureReplaceMeal extends Failure {
+  const FailureReplaceMeal() : super('Error replacing meal');
+
+  @override
+  List<Object?> get props => throw UnimplementedError();
+}
+
+class WeekPlanGenerationFailure extends Failure {
+  const WeekPlanGenerationFailure(super.message);
+
+  @override
+  List<Object?> get props => [];
+
+  @override
+  String get message => 'Failed to generate week meal plan';
 }

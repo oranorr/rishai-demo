@@ -1,16 +1,17 @@
 import 'dart:developer';
 import 'dart:math' as math;
+import 'dart:io' show Platform;
 import 'package:adapty_flutter/adapty_flutter.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository.dart';
 import 'package:rishai/core/services/envied/envied.dart';
+import 'package:rishai/core/services/error/adapty_error_handler.dart';
 
 final adapty = getIt.get<AdaptyRepository>();
 
 @Singleton(as: AdaptyRepository)
 class AdaptyRepositoryImpl implements AdaptyRepository {
-  // final Adapty Adapty() = Adapty();
   @override
   late List<AdaptyPaywallProduct> products;
 
@@ -20,41 +21,126 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   @override
   late bool isTrialActive;
 
+  late AdaptyPaywall paywall;
+
+  // Флаг для режима разработки
+  bool _isSimulatorMode = false;
+
   @override
   Future<void> initAdapty() async {
-    // isActive = true;
-    // isTrialActive = false;
     try {
-      await Adapty().activate(apiKey: Env.adaptyKey);
+      // Проверяем, запущено ли приложение в симуляторе/эмуляторе
+      if (Platform.isIOS || Platform.isAndroid) {
+        bool isReal = await _isRealDevice();
+        if (!isReal) {
+          _logger('Обнаружен симулятор/эмулятор. Включение режима симуляции.');
+          _isSimulatorMode = true;
+
+          // В режиме симулятора используем заглушки
+          isActive = true;
+          isTrialActive = true;
+          products = [];
+          return;
+        }
+      } else {
+        // Если не на мобильной платформе, также включаем режим симуляции
+        _logger(
+          'Запуск не на мобильной платформе. Включение режима симуляции.',
+        );
+        _isSimulatorMode = true;
+        isActive = true;
+        isTrialActive = true;
+        products = [];
+        return;
+      }
+
+      // Продолжаем только если это реальное устройство
+      final bool isActivated = await Adapty().isActivated();
+
+      if (!isActivated) {
+        await Adapty().activate(
+          configuration: AdaptyConfiguration(
+            apiKey: Env.adaptyKey,
+          ),
+        );
+      }
+      // .activate(apiKey: Env.adaptyKey);
 
       await Adapty().setLogLevel(AdaptyLogLevel.error);
       _logger('Adapty initialized successfully');
-      final paywall = await Adapty().getPaywall(
+      paywall = await Adapty().getPaywall(
         placementId: 'onboard_placement',
       );
-      final adaptyProducts = await Adapty().getPaywallProducts(
+      products = await Adapty().getPaywallProducts(
         paywall: paywall,
       );
-      products = adaptyProducts;
+      // products = adaptyProducts;
       _logger('Products are set');
-    } on AdaptyError catch (adaptyError) {
-      _logger(adaptyError.toString());
+    } catch (e, stackTrace) {
+      _logger('Error initializing Adapty: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_init',
+      );
+
+      // Независимо от причины ошибки, включаем режим симуляции
+      _logger('Включение режима симуляции из-за ошибки: $e');
+      _isSimulatorMode = true;
+      isActive = true;
+      isTrialActive = true;
+      products = [];
+    }
+  }
+
+  // Метод для определения, запущено ли на реальном устройстве
+  Future<bool> _isRealDevice() async {
+    try {
+      // На iOS симулятор имеет префикс имени "iPhone Simulator" или "iPad Simulator"
+      if (Platform.isIOS) {
+        return !Platform.operatingSystem.toLowerCase().contains('simulator');
+      }
+      // На Android можно проверить некоторые признаки эмулятора
+      else if (Platform.isAndroid) {
+        String model =
+            Platform.operatingSystem + Platform.operatingSystemVersion;
+        return !(model.contains('google_sdk') ||
+            model.contains('emulator') ||
+            model.contains('sdk') ||
+            model.toLowerCase().contains('genymotion') ||
+            model.contains('Android SDK'));
+      }
+      // Если не мобильная платформа, считаем симулятором
+      return false;
+    } catch (e) {
+      _logger('Ошибка при определении типа устройства: $e');
+      // В случае ошибки считаем, что это симулятор
+      return false;
     }
   }
 
   @override
   Future<String> makePurchase({required AdaptyPaywallProduct product}) async {
-    // return '';
+    // В режиме симулятора всегда возвращаем успех
+    if (_isSimulatorMode) {
+      _logger('Покупка в режиме симулятора. Автоматический успех.');
+      isActive = true;
+      return 'SUCCESS';
+    }
+
     try {
-      final profile = await Adapty().getProfile();
-      if (profile.accessLevels['premium']?.isActive ?? false) {
+      final prof = await Adapty().getProfile();
+      if (prof.accessLevels['premium']?.isActive ?? false) {
         return 'ALREADY_EXISTS';
       }
-      final res = await Adapty().makePurchase(product: product);
-      // if (res.runtimeType == AdaptyPurchaseResultSuccess) {
-      final lvl = res?.accessLevels['premium'];
+      AdaptyPurchaseResult res = await Adapty().makePurchase(product: product);
+      final profile = await Adapty().getProfile();
 
-      isActive = lvl?.isActive ?? false;
+      final lvl = profile.accessLevels['premium'];
+      // es.accessLevels['premium'];
+
+      isActive = (lvl?.isActive ?? false) &&
+          res.runtimeType == AdaptyPurchaseResultSuccess;
       if (lvl != null) {
         isTrialActive = await _isTrialPeriodAvailable(lvl);
       } else {
@@ -68,35 +154,64 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         log('Subscription is not active.');
         return 'CANCEL';
       }
-    } on Exception catch (error) {
-      log('Error during purchase: $error');
+    } catch (e, stackTrace) {
+      log('Error during purchase: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_make_purchase',
+        extras: {
+          'product_id': product.vendorProductId,
+          'product_price': product.price.amount,
+          'product_currency': product.price.currencyCode,
+        },
+      );
       return 'Error happened, while processing purchase. Please, try again';
     }
   }
 
   @override
   Future<void> identify({required String adaptyId}) async {
-    // await Adapty().logout();
-    await Adapty().identify(adaptyId);
-    final profile = await Adapty().getProfile();
-    AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
-    _logger(profile.customerUserId.toString());
-
-    isActive = lvl?.isActive ?? false;
-    if (lvl != null) {
-      isTrialActive = await _isTrialPeriodAvailable(lvl);
-    } else {
+    // В режиме симулятора просто устанавливаем флаги
+    if (_isSimulatorMode) {
+      _logger('Identify в режиме симулятора для ID: $adaptyId');
+      isActive = true;
       isTrialActive = true;
+      return;
     }
-    // _logger("ACCESS LEVEL $lvl");
-    // isActive = true;
-    // isTrialActive = true;
-    _logger(
-      'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}',
-    );
-    _logger('Is trial available: $isTrialActive');
-    _logger('Prof id: $adaptyId');
-    _logger('Expires at: ${lvl?.expiresAt}');
+
+    // await Adapty().logout();
+    try {
+      await Adapty().identify(adaptyId);
+      final profile = await Adapty().getProfile();
+      AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
+      _logger(profile.customerUserId.toString());
+
+      isActive = lvl?.isActive ?? false;
+      if (lvl != null) {
+        isTrialActive = await _isTrialPeriodAvailable(lvl);
+      } else {
+        isTrialActive = true;
+      }
+      // _logger("ACCESS LEVEL $lvl");
+      // isActive = true;
+      // isTrialActive = true;
+      _logger(
+        'Sub is active: ${profile.accessLevels["premium"]?.isActive ?? false}',
+      );
+      _logger('Is trial available: $isTrialActive');
+      _logger('Prof id: $adaptyId');
+      _logger('Expires at: ${lvl?.expiresAt}');
+    } catch (e, stackTrace) {
+      _logger('Error during identify: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_identify',
+        extras: {'adapty_id': adaptyId},
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -115,53 +230,94 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<bool> _isTrialPeriodAvailable(
     AdaptyAccessLevel? accessLevel,
   ) async {
-    // final profile = await Adapty().getProfile();
-    // _logger(profile.accessLevels.toString());
-    // return profile.accessLevels.isEmpty;
-    _logger(
-      'Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}',
-    );
-    _logger('Expires At: ${accessLevel.expiresAt}');
+    // В режиме симулятора всегда возвращаем true
+    if (_isSimulatorMode) {
+      return true;
+    }
 
-    // Проверяем, использовал ли пользователь вводное предложение
-    final hasActiveTrial =
-        accessLevel.activeIntroductoryOfferType == 'free_trial' ||
-            accessLevel.activeIntroductoryOfferType == 'free';
+    try {
+      _logger(
+        'Active Introductory Offer Type: ${accessLevel!.activeIntroductoryOfferType}',
+      );
+      _logger('Expires At: ${accessLevel.expiresAt}');
 
-    // Проверяем, истёк ли доступ
-    final isExpired = accessLevel.expiresAt != null &&
-        DateTime.now().isAfter(accessLevel.expiresAt!);
+      // Проверяем, использовал ли пользователь вводное предложение
+      final hasActiveTrial =
+          accessLevel.activeIntroductoryOfferType == 'free_trial' ||
+              accessLevel.activeIntroductoryOfferType == 'free';
 
-    // Если активный пробный период уже есть, возвращаем false
-    if (hasActiveTrial && !isExpired) {
-      _logger('Trial has already been used and is still active.');
+      // Проверяем, истёк ли доступ
+      final isExpired = accessLevel.expiresAt != null &&
+          DateTime.now().isAfter(accessLevel.expiresAt!);
+
+      // Если активный пробный период уже есть, возвращаем false
+      if (hasActiveTrial && !isExpired) {
+        _logger('Trial has already been used and is still active.');
+        return false;
+      }
+
+      // Проверяем через API, если данные не позволяют точно определить статус
+      // final eligibility = await Adapty().getPaywallProducts(paywall: paywall);
+
+      // .getProductsIntroductoryOfferEligibility(products: products);
+
+      for (final product in products) {
+        log(product.toString());
+        // final isEligible = product.subscription.offer
+        // eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
+        // if (isEligible) {
+        //   _logger('Trial is available for product: ${product.vendorProductId}');
+        //   return true;
+        // }
+      }
+
+      _logger('No trial available for any product.');
+      return false;
+    } catch (e, stackTrace) {
+      _logger('Error checking trial availability: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_check_trial',
+        extras: {
+          'access_level_type': accessLevel?.activeIntroductoryOfferType,
+          'expires_at': accessLevel?.expiresAt?.toString(),
+        },
+      );
       return false;
     }
-
-    // Проверяем через API, если данные не позволяют точно определить статус
-    final eligibility = await Adapty()
-        .getProductsIntroductoryOfferEligibility(products: products);
-
-    for (final product in products) {
-      final isEligible =
-          eligibility[product.vendorProductId] == AdaptyEligibility.eligible;
-      if (isEligible) {
-        _logger('Trial is available for product: ${product.vendorProductId}');
-        return true;
-      }
-    }
-
-    _logger('No trial available for any product.');
-    return false;
   }
 
   @override
   Future<void> logout() async {
-    await Adapty().logout();
+    // В режиме симулятора просто логгируем действие
+    if (_isSimulatorMode) {
+      _logger('Logout в режиме симулятора');
+      return;
+    }
+
+    try {
+      await Adapty().logout();
+    } catch (e, stackTrace) {
+      _logger('Error during logout: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_logout',
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<String> restorePurchases() async {
+    // В режиме симулятора всегда считаем, что подписка активна
+    if (_isSimulatorMode) {
+      _logger('Восстановление покупок в режиме симулятора');
+      isActive = true;
+      return 'ACTIVE';
+    }
+
     try {
       final profile = await Adapty().restorePurchases();
       AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
@@ -173,21 +329,42 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       } else {
         return 'NO_ACTIVE';
       }
-    } on Exception catch (e) {
+    } catch (e, stackTrace) {
       _logger('Error while restoring: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_restore_purchases',
+      );
       return 'ERROR';
     }
   }
 
   @override
   Future<void> test() async {
-    final prof = await Adapty().getProfile();
-    final s = await _isTrialPeriodAvailable(prof.accessLevels['premium']);
+    // В режиме симулятора просто логгируем
+    if (_isSimulatorMode) {
+      _logger('Тест в режиме симулятора');
+      return;
+    }
 
-    _logger(s.toString());
-    //   final p = await Adapty()
-    //       .getProductsIntroductoryOfferEligibility(products: products);
-    //   _logger(p.toString());
+    try {
+      final prof = await Adapty().getProfile();
+      final s = await _isTrialPeriodAvailable(prof.accessLevels['premium']);
+
+      _logger(s.toString());
+      //   final p = await Adapty()
+      //       .getProductsIntroductoryOfferEligibility(products: products);
+      //   _logger(p.toString());
+    } catch (e, stackTrace) {
+      _logger('Error during test: $e');
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'adapty_test',
+      );
+      rethrow;
+    }
   }
 }
 

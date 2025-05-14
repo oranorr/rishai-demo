@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 double kjToKcal = 0.239006;
 double kgToLbs = 2.205;
 
-//Если возвращает false — то прила начнет тащить данные с вупа
+//Если возвращает false — то прила начнет тащить данные с вупа
 
 // bool whoopDateDifference(DateTime askTime) {
 //   final now = DateTime.now();
@@ -14,7 +14,13 @@ double kgToLbs = 2.205;
 // }
 
 bool recompDifference(Duration diff) {
-  return kDebugMode ? diff.inMinutes > 15 : diff.inDays >= 14;
+  // В релизной сборке использовать строгую проверку на 14 полных дней
+  if (!kDebugMode) {
+    // Для продакшена: должно пройти не менее 14 полных дней (14 * 24 часов)
+    return diff.inHours >= 336; // 14 дней * 24 часа
+  }
+  // Для отладки можно использовать короткий период в 15 минут
+  return diff.inMinutes > 15;
 }
 
 // bool chatIsActual(DateTime askTime) {

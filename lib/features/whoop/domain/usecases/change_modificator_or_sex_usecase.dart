@@ -26,7 +26,7 @@ class ChangeModificatorOrSexUsecase
 class ChangeModificatorOrSexParams {
   final double modificator;
   final Gender gender;
-  final double weekTdeeAverage;
+  final int weekTdeeAverage;
   final String userId;
   final int lastTdee;
   ChangeModificatorOrSexParams({

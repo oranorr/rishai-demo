@@ -1,19 +1,13 @@
-// ignore_for_file: public_member_api_docs, sort_constructors_first
-import 'dart:convert';
-
+import 'package:hive/hive.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 
-class DayEntity {
-  final int directusId;
-  final double weekTdeeAverage;
-  final MacrosBreakdown macros;
-  final HealthMetricsEntity healthMetrics;
-  final MealPlanEntity? mealPlanEntity;
-  final DateTime dateTime;
-  final ChatSnapshotEntity snap;
+part 'day_entity.g.dart';
 
+@HiveType(typeId: 12)
+class DayEntity {
   DayEntity({
     required this.directusId,
     required this.weekTdeeAverage,
@@ -21,43 +15,34 @@ class DayEntity {
     required this.healthMetrics,
     required this.snap,
     required this.dateTime,
+    this.cycleId,
     this.mealPlanEntity,
   });
 
-  DayEntity copyWith({
-    int? directusId,
-    double? weekTdeeAverage,
-    MacrosBreakdown? macros,
-    HealthMetricsEntity? healthMetrics,
-    MealPlanEntity? mealPlanEntity,
-    DateTime? dateTime,
-    ChatSnapshotEntity? snap,
-  }) {
+  factory DayEntity.empty({required int requestsLeft}) {
     return DayEntity(
-      directusId: directusId ?? this.directusId,
-      weekTdeeAverage: weekTdeeAverage ?? this.weekTdeeAverage,
-      macros: macros ?? this.macros,
-      healthMetrics: healthMetrics ?? this.healthMetrics,
-      mealPlanEntity: mealPlanEntity ?? this.mealPlanEntity,
-      dateTime: dateTime ?? this.dateTime,
-      snap: snap ?? this.snap,
+      snap: ChatSnapshotEntity(
+        messages: [],
+        date: DateTime.now(),
+        requestsLeft: requestsLeft,
+      ),
+      directusId: 0,
+      dateTime: DateTime.now(),
+      weekTdeeAverage: 0,
+      macros: MacrosBreakdown(kcal: 0, protein: 0, carbs: 0, fat: 0),
+      healthMetrics: const HealthMetricsEntity(
+        bmi: 0,
+        lastTdee: 0,
+        bmr: 0,
+        bodyFatPerc: 0,
+      ),
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'weekTdeeAverage': weekTdeeAverage,
-      'macros': macros.toMap(),
-      'healthMetrics': healthMetrics.toMap(),
-      'mealPlanEntity': mealPlanEntity?.toMap(),
-      'dateTime': dateTime.millisecondsSinceEpoch,
-    };
   }
 
   factory DayEntity.fromMap(Map<String, dynamic> map) {
     return DayEntity(
       directusId: map['id'] as int,
-      weekTdeeAverage: (map['weekTdeeAverage'] as int).toDouble(),
+      weekTdeeAverage: (map['weekTdeeAverage'] as num).toInt(),
       macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
       healthMetrics: HealthMetricsEntity.fromMap(
         map['healthMetrics'] as Map<String, dynamic>,
@@ -65,10 +50,53 @@ class DayEntity {
       mealPlanEntity: map['mealPlan'] != null
           ? MealPlanEntity.fromMap(map['mealPlan'] as Map<String, dynamic>)
           : null,
-      dateTime: DateTime.fromMillisecondsSinceEpoch(int.parse(map['dateTime'])),
+      dateTime: map['dateTime'] is String
+          ? DateTime.fromMillisecondsSinceEpoch(int.parse(map['dateTime']))
+          : map['dateTime'] is int
+              ? DateTime.fromMillisecondsSinceEpoch(map['dateTime'])
+              : DateTime.now(),
       snap: ChatSnapshotEntity.fromDirectus(
         map['chatSnap'],
       ),
+      cycleId: map['cycleId'] != null ? int.parse(map['cycleId']) : null,
+    );
+  }
+  @HiveField(0)
+  final int directusId;
+  @HiveField(1)
+  final int weekTdeeAverage;
+  @HiveField(2)
+  final MacrosBreakdown macros;
+  @HiveField(3)
+  final HealthMetricsEntity healthMetrics;
+  @HiveField(4)
+  final MealPlanEntity? mealPlanEntity;
+  @HiveField(5)
+  final DateTime dateTime;
+  @HiveField(6)
+  final ChatSnapshotEntity snap;
+  @HiveField(7)
+  final int? cycleId;
+
+  DayEntity copyWith({
+    int? directusId,
+    int? weekTdeeAverage,
+    MacrosBreakdown? macros,
+    HealthMetricsEntity? healthMetrics,
+    MealPlanEntity? mealPlanEntity,
+    DateTime? dateTime,
+    ChatSnapshotEntity? snap,
+    int? cycleId,
+  }) {
+    return DayEntity(
+      directusId: directusId ?? this.directusId,
+      weekTdeeAverage: weekTdeeAverage ?? this.weekTdeeAverage,
+      macros: macros ?? this.macros,
+      healthMetrics: healthMetrics ?? this.healthMetrics,
+      mealPlanEntity: mealPlanEntity,
+      dateTime: dateTime ?? this.dateTime,
+      snap: snap ?? this.snap,
+      cycleId: cycleId ?? this.cycleId,
     );
   }
 
@@ -77,10 +105,11 @@ class DayEntity {
       'userId': userId,
       'macros': macros.toMap(),
       'healthMetrics': healthMetrics.toMap(),
-      'dateTime': dateTime.millisecondsSinceEpoch,
-      'weekTdeeAverage': weekTdeeAverage.round(),
+      'dateTime': dateTime.millisecondsSinceEpoch.toString(),
+      'weekTdeeAverage': weekTdeeAverage,
       'mealPlan': mealPlanEntity?.toMap(),
       'chatSnap': snap.toDirectus(),
+      'cycleId': cycleId?.toString(),
     };
   }
 
@@ -91,14 +120,9 @@ class DayEntity {
         dateTime.day == now.day;
   }
 
-  String toJson() => json.encode(toMap());
-
-  factory DayEntity.fromJson(String source) =>
-      DayEntity.fromMap(json.decode(source) as Map<String, dynamic>);
-
   @override
   String toString() {
-    return 'DayEntity(directusId: $directusId, weekTdeeAverage: $weekTdeeAverage, macros: $macros, healthMetrics: $healthMetrics, mealPlanEntity: $mealPlanEntity, dateTime: $dateTime)';
+    return 'DayEntity(cycleId: $cycleId, directusId: $directusId, weekTdeeAverage: $weekTdeeAverage, macros: $macros, healthMetrics: $healthMetrics, mealPlanEntity: $mealPlanEntity, dateTime: $dateTime)';
   }
 
   @override
@@ -110,7 +134,8 @@ class DayEntity {
         other.macros == macros &&
         other.healthMetrics == healthMetrics &&
         other.mealPlanEntity == mealPlanEntity &&
-        other.dateTime == dateTime;
+        other.dateTime == dateTime &&
+        other.snap == snap;
   }
 
   @override
@@ -131,7 +156,7 @@ class DayEntity {
       DateTime subs = dateTime.subtract(Duration(days: length));
       return DayEntity(
         directusId: index,
-        weekTdeeAverage: 1000.0 - index,
+        weekTdeeAverage: 10000 - index,
         macros: MacrosBreakdown(
           kcal: 100 - index,
           protein: 100 - index,
@@ -148,6 +173,62 @@ class DayEntity {
         ),
       ).toDirectus(userId: id);
     });
+  }
+
+  /// Группирует названия блюд по типам из последних дней
+  static Map<String, List<String>> groupMealTitlesByType(List<DayEntity> days) {
+    // Инициализируем map для хранения названий блюд
+    final Map<String, List<String>> groupedMealTitles = {
+      'breakfasts': [], // завтраки
+      'mains': [], // основные блюда (обед, ужин, поздний ужин)
+      'snacks': [], // перекусы
+    };
+
+    // Проходим по всем дням
+    for (final day in days) {
+      if (day.mealPlanEntity == null) continue;
+
+      // Проходим по всем блюдам дня
+      for (final meal in day.mealPlanEntity!.meals) {
+        switch (meal.servingType) {
+          case ServingType.breakfast:
+            groupedMealTitles['breakfasts']!.add(meal.title);
+          case ServingType.snack:
+            groupedMealTitles['snacks']!.add(meal.title);
+          case ServingType.lunch:
+          case ServingType.dinner:
+          case ServingType.supper:
+            groupedMealTitles['mains']!.add(meal.title);
+        }
+      }
+    }
+
+    // Удаляем дубликаты названий
+    groupedMealTitles['breakfasts'] =
+        _removeDuplicateTitles(groupedMealTitles['breakfasts']!);
+    groupedMealTitles['mains'] =
+        _removeDuplicateTitles(groupedMealTitles['mains']!);
+    groupedMealTitles['snacks'] =
+        _removeDuplicateTitles(groupedMealTitles['snacks']!);
+
+    return groupedMealTitles;
+  }
+
+  /// Удаляет дубликаты названий блюд
+  static List<String> _removeDuplicateTitles(List<String> titles) {
+    return titles.toSet().toList();
+  }
+
+  /// Получает историю названий блюд за последние N дней
+  static Map<String, List<String>> getMealHistory(
+    List<DayEntity> days, {
+    int daysLimit = 7,
+  }) {
+    // Берем только последние N дней
+    final recentDays =
+        days.length > daysLimit ? days.sublist(days.length - daysLimit) : days;
+
+    return groupMealTitlesByType(recentDays);
   }
 
   // String getDayTitle() {

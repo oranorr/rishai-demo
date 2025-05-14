@@ -65,7 +65,8 @@ class _PaywallState extends State<Paywall> {
           ],
           if (!isFreeTrialAvailable)
             Text(
-              'To continue enjoying Pivot and all its features, subscribe now for only $price per ${selectedProduct!.subscriptionDetails!.subscriptionPeriod.unit.name}',
+              'To continue enjoying Pivot and all its features, subscribe now for only $price per ${selectedProduct!.subscription!.period.unit.name}',
+              // 'To continue enjoying Pivot and all its features, subscribe now for only $price per ${selectedProduct!.subscriptionDetails!.subscriptionPeriod.unit.name}',
               // 'Subscribe now for $price to continue enjoying Pivot and all its features.',
               style: context.styles.h2.copyWith(color: RishColors.primary),
               textAlign: TextAlign.center,
@@ -99,7 +100,7 @@ class _PaywallState extends State<Paywall> {
           ),
           SizedBox(height: 16.h),
           Text(
-            'Your subscription will automatically renew at $price per ${selectedProduct!.subscriptionDetails!.subscriptionPeriod.unit.name}, after the 1-month trial ends.',
+            'Your subscription will automatically renew at $price per ${selectedProduct!.subscription!.period.unit.name}, after the 1-month trial ends.',
             // 'Your subscription will automatically renew at $price after the trial ends.',
             style: context.styles.regularMedium,
             textAlign: TextAlign.center,
@@ -117,7 +118,10 @@ class _PaywallState extends State<Paywall> {
           SizedBox(height: 16.h),
           if (!isFreeTrialAvailable)
             Text(
-              _getSubtitle(price),
+              _getSubtitle(
+                selectedProduct!.subscription!.period.unit.name,
+                price,
+              ),
               style: context.styles.boldLarge,
               textAlign: TextAlign.center,
             ),
@@ -237,20 +241,8 @@ class _PaywallState extends State<Paywall> {
     });
   }
 
-  String _getSubtitle(String price) {
-    if (selectedProduct!.vendorProductId == 'pivot_sub' ||
-        selectedProduct!.subscriptionDetails!.androidBasePlanId ==
-            'pivot-monthly') {
-      return '1 month for free, then $price per month.';
-      // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per month.';
-    } else if (selectedProduct!.vendorProductId == 'pivot_annual' ||
-        selectedProduct!.subscriptionDetails!.androidBasePlanId ==
-            'pivot-annual') {
-      return '1 month for free, then $price per year.';
-      // return '1 month for free, then ${selectedProduct!.price.currencySymbol}${selectedProduct!.price.amount.toStringAsFixed(2)} per year.';
-    } else {
-      return 'ERRROr';
-    }
+  String _getSubtitle(String duration, String price) {
+    return '1 month for free, then $price per $duration.';
   }
 
   List<String> nices = [
@@ -325,39 +317,35 @@ class __SubButtonsState extends State<_SubButtons> {
                                 ? _getTitleIOs(
                                     adapty.products[i].vendorProductId,
                                   )
-                                : _getTitleAndroid(
-                                    adapty.products[i].subscriptionDetails!
-                                        .androidBasePlanId!,
-                                    // adapty.products[i].subscriptionDetails!
-                                    //     .androidBasePlanId!,
-                                  ),
-                            style: context.styles.boldMedium,
+                                : '1 ${adapty.products[i].subscription!.period.unit.name}',
+                            style:
+                                context.styles.boldMedium.copyWith(height: 0),
                           ),
                           FittedBox(
                             child: _getPrice(i, context, i == indexSelected),
                           ),
-                          // if (i == 1)
-                          //   FittedBox(
-                          //     child: Text(
-                          //       '${adapty.products[i].price.currencySymbol}${(adapty.products[i].price.amount / 12).toStringAsFixed(2)} per month.\nSave 20%',
-                          //       textAlign: TextAlign.center,
-                          //       style: context.styles.regularMedium.copyWith(
-                          //         color: RishColors.primary,
-                          //       ),
-                          //     ),
-                          //   )
+                          if (i == 1)
+                            FittedBox(
+                              child: Text(
+                                '${adapty.products[i].price.currencySymbol}${(adapty.products[i].price.amount / 12).toStringAsFixed(2)} per month.\nSave 20%',
+                                textAlign: TextAlign.center,
+                                style: context.styles.regularSmall.copyWith(
+                                  color: RishColors.primary,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
                   ),
                   if (i == 1)
                     Positioned(
-                      top: -15,
-                      left: 26,
-                      right: 26,
+                      top: -15.h,
+                      left: 26.w,
+                      right: 26.w,
                       child: Container(
-                        width: 100,
-                        height: 30,
+                        width: 100.w,
+                        height: 25.h,
                         decoration: BoxDecoration(
                           color: indexSelected == 1
                               ? RishColors.primary
@@ -368,7 +356,7 @@ class __SubButtonsState extends State<_SubButtons> {
                           Platform.isAndroid ? 'Best offer' : 'Save 20%',
                           style: context.styles.boldSmall.copyWith(
                             color: RishColors.formBackgroun,
-                            height: 1.5.h,
+                            // height: 1.5.h,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -437,18 +425,6 @@ class __SubButtonsState extends State<_SubButtons> {
     widget.callback(
       adapty.products[i],
     );
-  }
-
-  String _getTitleAndroid(String androidBasePlanId) {
-    switch (androidBasePlanId) {
-      case 'pivot-monthly':
-        return '1 month';
-      case 'pivot-annual':
-        return '1 year';
-
-      default:
-        return 'Some error?';
-    }
   }
 
   String _getTitleIOs(String vendorId) {

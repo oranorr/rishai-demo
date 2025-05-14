@@ -22,6 +22,8 @@ class _OnboardState extends State<Onboard> {
   late PageController textController;
   late PageController imageController;
   int currentPage = 0;
+  bool isAnimating = false;
+
   @override
   void initState() {
     textController = PageController();
@@ -37,20 +39,35 @@ class _OnboardState extends State<Onboard> {
   }
 
   Future<void> buttonAction(BuildContext context) async {
+    if (isAnimating) return;
+
     if (currentPage != 2) {
-      await textController.animateToPage(
-        currentPage + 1,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.linear,
-      );
-      await imageController.animateToPage(
-        currentPage + 1,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.linear,
-      );
-      setState(() {
-        currentPage = currentPage + 1;
-      });
+      try {
+        setState(() => isAnimating = true);
+
+        final nextPage = currentPage + 1;
+
+        // Запускаем обе анимации одновременно и ждем их завершения
+        await Future.wait([
+          textController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          ),
+          imageController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          ),
+        ]);
+
+        setState(() {
+          currentPage = nextPage;
+          isAnimating = false;
+        });
+      } catch (e) {
+        setState(() => isAnimating = false);
+      }
     } else {
       await prefsRepo.watchedOnboard();
       appNavigationService.go(path: AppRoutes.login.path);
@@ -138,8 +155,8 @@ class _OnboardState extends State<Onboard> {
                 // const Spacer(),
                 RishButton.primary(
                   title: currentPage == 2 ? "Let's start!" : 'Continue',
-                  enabled: true,
-                  isLoading: false,
+                  enabled: !isAnimating,
+                  isLoading: isAnimating,
                   action: () async {
                     await buttonAction(context);
                   },

@@ -6,12 +6,12 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
 
 @injectable
-class WhoopGetBodyData implements UseCase<BodyMeasurementsEntity, NoParams> {
+class WhoopGetBodyData implements UseCase<BodyMeasurementsEntity?, NoParams> {
   const WhoopGetBodyData(this.whoopRepository);
   final WhoopRepository whoopRepository;
 
   @override
-  Future<Either<Failure, BodyMeasurementsEntity>> call(NoParams params) {
+  Future<Either<Failure, BodyMeasurementsEntity?>> call(NoParams params) {
     return whoopRepository.getBodyData();
   }
 }

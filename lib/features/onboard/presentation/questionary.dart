@@ -50,6 +50,11 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
         setSomething: setCuisines,
       ),
       SelectableList(
+        data: QuestionaryRepository().restrictions,
+        setSomething: setRestrictions,
+        isOptional: true,
+      ),
+      SelectableList(
         data: QuestionaryRepository().goals,
         setSomething: setGoal,
       ),
@@ -69,26 +74,24 @@ class _QuestionaryState extends State<Questionary> with QuestionaryMixin {
               controller: pageController,
               itemCount: data.length,
               itemBuilder: (context, index) {
-                return SizedBox(
-                  height: 540.h,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        data[index].title,
-                        style: context.styles.h3,
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        data[index].subtitle,
-                        style: context.styles.regularLarge
-                            .copyWith(color: const Color(0xffA8A8A8)),
-                      ),
-                      SizedBox(height: 24.h),
-                      bodies[index],
-                      // const Spacer(),
-                    ],
-                  ),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data[index].title,
+                      // 'hsdfkjsdhfkjh',
+                      style: context.styles.h3,
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      data[index].subtitle,
+                      style: context.styles.regularLarge
+                          .copyWith(color: const Color(0xffA8A8A8)),
+                    ),
+                    // SizedBox(height: 24.h),
+                    Expanded(child: bodies[index]),
+                    // const Spacer(),
+                  ],
                 );
               },
             ),

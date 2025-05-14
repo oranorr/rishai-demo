@@ -24,6 +24,7 @@ import 'package:rishai/features/login/domain/usecases/login_via_google_usecase.d
 import 'package:rishai/features/login/presentation/bloc/login_state.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part 'login_event.dart';
@@ -95,11 +96,13 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaGoogleUsecase.call(const NoParams());
-    res.fold((f) {
+    await res.fold((f) {
       RishSnackbar().showSnackBar(f.message);
       emit(state.copyWith(status: Status.error));
-    }, (user) {
+    }, (user) async {
       userBloc.add(CreateUserOnLogin(user: user));
+      // Даем время на обновление состояния userBloc
+      await Future.delayed(const Duration(milliseconds: 100));
       add(const LoginOtpCorrect());
       emit(state.copyWith(status: Status.success));
     });
@@ -140,9 +143,18 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     UserEntity curUser = userBloc.state.user;
     await prefsRepo.setLogin(true);
+
+    // Сначала сохраняем в Hive
+    await hive.saveUser(user: curUser);
+
+    // Затем обновляем в Directus и состоянии
     userBloc.add(UpdateUserEvent(user: curUser));
-    whoopBloc.add(InitWhoopOnLogin());
-    chatBloc.add(const InitChatBloc());
+
+    // Инициализируем другие блоки
+    whoopBloc.add(const InitWhoopOnLogin());
+    chatBloc.add(InitChatBloc(directusId: curUser.directusId));
+    weekPlanBloc.add(const WeekPlanLoad());
+    emit(state.copyWith(status: Status.success));
   }
 
   FutureOr<void> _logout(LogoutEvent event, Emitter<LoginState> emit) async {
@@ -152,6 +164,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     await adapty.logout();
     chatBloc.add(const ChatOnLogout(needsCounterClear: true));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
+    weekPlanBloc.add(const WeekPlanClear());
     appNavigationService.go(path: AppRoutes.login.path);
   }
 
@@ -161,11 +174,13 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaAppleUsecase.call(const NoParams());
-    res.fold((f) {
+    await res.fold((f) {
       RishSnackbar().showSnackBar(f.message);
       emit(state.copyWith(status: Status.error));
-    }, (user) {
+    }, (user) async {
       userBloc.add(CreateUserOnLogin(user: user));
+      // Даем время на обновление состояния userBloc
+      await Future.delayed(const Duration(milliseconds: 100));
       add(const LoginOtpCorrect());
       emit(state.copyWith(status: Status.success));
     });

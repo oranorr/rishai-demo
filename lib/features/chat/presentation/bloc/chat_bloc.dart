@@ -1,20 +1,32 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/status.dart';
-import 'package:rishai/features/chat/data/chat_repository_impl.dart';
-import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart';
+import 'package:rishai/core/widgets/snackbar.dart';
+import 'package:rishai/features/chat/data/chat_repository_impl.dart'
+    as chat_repo;
+import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart'
+    as chat_remote;
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
+import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/fetch_saved_snap_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/init_gpt_usecase.dart';
+import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
+import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
+import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -23,70 +35,8 @@ part 'chat_event.dart';
 
 final chatBloc = getIt.get<ChatBloc>();
 
-int totalRequests = 5;
-// int totalRequests = kDebugMode ? 5000 : 5;
-// Map<String, dynamic> map = {
-//   "meals": [
-//     {
-//       "title": "Scrambled Eggs with Spinach and Avocado",
-//       "type": "Meal 1",
-//       "description":
-//           "Start your day with a hearty breakfast of scrambled eggs mixed with fresh spinach and creamy avocado. This meal provides a great source of protein, healthy fats and leafy greens to fuel your morning. The eggs are rich in essential nutrients while the spinach adds fiber and vitamins. Slice up half an avocado to enjoy the buttery texture alongside your eggs, completing a nutritious and satisfying start to your day.",
-//       "macros": {"kcal": 780, "protein": 36, "carbs": 30, "fat": 60},
-//       "ingredients": [
-//         {"emojiCode": "🥚", "title": "Eggs", "amount": "4 pcs"},
-//         {"emojiCode": "🥬", "title": "Spinach", "amount": "1 cup"},
-//         {"emojiCode": "🥑", "title": "Avocado", "amount": "1/2 piece"},
-//         {"emojiCode": "🧂", "title": "Salt", "amount": "1 pinch"},
-//         {"emojiCode": "🧄", "title": "Garlic powder", "amount": "1 tsp"}
-//       ]
-//     },
-//     {
-//       "title": "Grilled Chicken Salad with Olive Oil Dressing",
-//       "type": "Meal 2",
-//       "description":
-//           "Enjoy a refreshing grilled chicken salad for lunch. The salad includes mixed greens topped with juicy grilled chicken, cherry tomatoes, cucumber slices, and a light drizzle of olive oil. This meal is rich in protein from the chicken, providing energy and supporting muscle recovery. The fresh vegetables add essential vitamins and hydration. The addition of olive oil enhances the flavor while supplying healthy fat for a balanced meal.",
-//       "macros": {"kcal": 900, "protein": 52, "carbs": 30, "fat": 60},
-//       "ingredients": [
-//         {
-//           "emojiCode": "🍗",
-//           "title": "Grilled Chicken Breast",
-//           "amount": "200g"
-//         },
-//         {"emojiCode": "🥗", "title": "Mixed Greens", "amount": "3 cups"},
-//         {"emojiCode": "🍅", "title": "Cherry Tomatoes", "amount": "1/2 cup"},
-//         {"emojiCode": "🥒", "title": "Cucumber", "amount": "1/2 piece"},
-//         {"emojiCode": "🫒", "title": "Olive Oil", "amount": "2 tbsp"}
-//       ]
-//     },
-//     {
-//       "title": "Baked Salmon with Asparagus",
-//       "type": "Meal 3",
-//       "description":
-//           "Savor a delicious baked salmon for dinner paired with tender asparagus. This meal is packed with protein and omega-3 fatty acids from the salmon which supports heart health. The asparagus is rich in vitamins and adds a nice crunch. Season the salmon with lemon juice and herbs to enhance the flavors without extra calories, making this meal both satisfying and nutritious.",
-//       "macros": {"kcal": 800, "protein": 50, "carbs": 12, "fat": 50},
-//       "ingredients": [
-//         {"emojiCode": "🐟", "title": "Salmon Fillet", "amount": "200g"},
-//         {"emojiCode": "🌿", "title": "Asparagus", "amount": "1 bunch"},
-//         {"emojiCode": "🍋", "title": "Lemon", "amount": "1 piece"},
-//         {"emojiCode": "🧂", "title": "Salt", "amount": "1 pinch"},
-//         {"emojiCode": "🕳️", "title": "Black pepper", "amount": "1 pinch"}
-//       ]
-//     },
-//     {
-//       "title": "Nuts and Seeds Snack Mix",
-//       "type": "Snack",
-//       "description":
-//           "Enjoy a handful of mixed nuts and seeds as a satisfying snack. This mix can include almonds, walnuts, and sunflower seeds for a boost of energy and healthy fats. Nuts are a great source of protein while the seeds provide fiber, making it a perfect mid-afternoon snack to keep you full until dinner.",
-//       "macros": {"kcal": 300, "protein": 15, "carbs": 5, "fat": 25},
-//       "ingredients": [
-//         {"emojiCode": "🌰", "title": "Almonds", "amount": "1/4 cup"},
-//         {"emojiCode": "🌰", "title": "Walnuts", "amount": "1/4 cup"},
-//         {"emojiCode": "🌻", "title": "Sunflower Seeds", "amount": "1/4 cup"}
-//       ]
-//     }
-//   ]
-// };
+const int totalRequests = 50;
+const int defaultRequestsLimit = totalRequests;
 
 @injectable
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
@@ -95,12 +45,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     this.requestMealPlan,
     this.sendMessageGptUsecase,
     this.fetchSavedSnapUsecase,
+    this.replaceMealUsecase,
+    this.replaceIngredientUsecase,
+    this.manageDayUsecase,
   ) : super(
-          ChatMainState(
+          const ChatMainState(
             status: Status.initial,
             messages: [],
-            requestsLeft: totalRequests,
-            mealPlan: null,
+            requestsLeft: defaultRequestsLimit,
+            askedQuestions: {},
           ),
         ) {
     on<ChatSendMessage>(_sendMessage);
@@ -111,17 +64,46 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatFetchLastMealPlan>(_fetchLatsPlan);
     on<ChatOnLogout>(_chatOnLogout);
     on<ChatRefreshChat>(_refreshChat);
+    on<ChatReplaceMeal>(_replaceMeal);
+    on<ChatReplaceIngredient>(_replaceIngredient);
+    on<ChatSyncWithSelectedDate>(_syncWithSelectedDate);
   }
+
   final InitGptUsecase initGptUsecase;
   final RequestPlanUsecase requestMealPlan;
   final SendMessageGptUsecase sendMessageGptUsecase;
   final FetchSavedSnapUsecase fetchSavedSnapUsecase;
-  FutureOr<void> _init(InitChatBloc event, Emitter<ChatState> emit) async {
-    final res = await fetchSavedSnapUsecase.call(
-      FetchSavedSnapParams(directusId: userBloc.state.user.directusId),
+  final ReplaceMealUsecase replaceMealUsecase;
+  final ReplaceIngredientUsecase replaceIngredientUsecase;
+  final ManageDayUsecase manageDayUsecase;
+
+  Timer? _syncDebounceTimer;
+
+  bool get isRegenAvailable => kDebugMode
+      ? true
+      : (whoopBloc.state.day.mealPlanEntity != null &&
+          !whoopBloc.state.day.mealPlanEntity!.meals
+              .any((meal) => meal.isRegenerated));
+
+  ChatSnapshotEntity _createSnapshot() {
+    return ChatSnapshotEntity(
+      messages: state.messages,
+      date: DateTime.now(),
+      requestsLeft: state.requestsLeft,
+      threadId: chat_remote.chatRemoteSrc.threadId,
     );
+  }
+
+  FutureOr<void> _init(InitChatBloc event, Emitter<ChatState> emit) async {
+    if (event.directusId == '-1') return;
 
     String? threadId;
+    List<MessageEntity> initialMessages = [];
+    int initialRequestsLeft = defaultRequestsLimit;
+
+    final res = await fetchSavedSnapUsecase.call(
+      FetchSavedSnapParams(directusId: event.directusId),
+    );
 
     res.fold(
       (left) {
@@ -129,22 +111,28 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       },
       (snap) {
         if (snap != null) {
-          log('requests left: ${snap.requestsLeft}');
-          emit(
-            state.copyWith(
-              messages: snap.messages,
-              requestsLeft: snap.requestsLeft,
-              mealPlan: snap.mealPlan,
-            ),
-          );
+          // Load messages and requests from snap, but keep askedQuestions empty
+          initialMessages = snap.messages ?? [];
+          initialRequestsLeft = snap.requestsLeft ?? defaultRequestsLimit;
           threadId = snap.threadId;
-          log('requests left: ${state.requestsLeft}');
         }
       },
     );
 
+    // Emit the initial state with potentially loaded messages/requests
+    // but always empty askedQuestions.
+    emit(
+      state.copyWith(
+        messages: initialMessages,
+        requestsLeft: initialRequestsLeft,
+        askedQuestions: {},
+      ),
+    );
+
     await initGptUsecase.call(InitGptParams(threadId: threadId));
   }
+
+  Set<String> get safeAskedQuestions => state.askedQuestions ?? {};
 
   FutureOr<void> _sendMessage(
     ChatSendMessage event,
@@ -154,118 +142,203 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         MessageEntity(text: event.text, isMe: event.isMe ?? true);
 
     List<MessageEntity> list = List.from(state.messages);
+    Set<String> currentAsked = Set.from(safeAskedQuestions);
 
     if (msg.text.isNotEmpty) {
       list.add(msg);
-      emit(state.copyWith(messages: list));
+      // If it's a question prompt request, add it to askedQuestions
+      if (event.isRequest ?? false) {
+        currentAsked.add(event.text);
+      }
+      emit(state.copyWith(messages: list, askedQuestions: currentAsked));
     }
 
     if (event.isRequest ?? false) {
       emit(state.copyWith(status: Status.loading));
       final res = await sendMessageGptUsecase.call(event.text);
       res.fold((failure) {
-        emit(state.copyWith(status: Status.error));
-      }, (result) {
-        emit(state.copyWith(status: Status.success));
-        final msg = MessageEntity(text: result, isMe: false);
-        list.add(msg);
-        emit(state.copyWith(requestsLeft: state.requestsLeft - 1));
-        userBloc.add(
-          UserManageDay(
-            day: whoopBloc.state.day.copyWith(
-              snap: ChatSnapshotEntity(
-                messages: [],
-                date: DateTime.now(),
-                requestsLeft: state.requestsLeft,
-                threadId: chatRemoteSrc.threadId,
-              ),
-            ),
+        // On failure, remove the question from asked set so user can try again?
+        // Or keep it asked? Let's keep it for now.
+        // currentAsked.remove(event.text);
+        emit(
+          state.copyWith(
+            status: Status.error, /*, askedQuestions: currentAsked*/
           ),
         );
-      });
-    }
+      }, (result) {
+        // Success, update state
+        final responseMsg = MessageEntity(text: result, isMe: false);
+        list.add(responseMsg); // Add response message
+        emit(
+          state.copyWith(
+            status: Status.initial,
+            messages: list,
+            requestsLeft: state.requestsLeft - 1,
+            // askedQuestions is already updated above
+          ),
+        );
 
-    emit(state.copyWith(messages: list));
-    add(ChatSaveSnap());
+        // Create snapshot (askedQuestions not included)
+        final snap = _createSnapshot();
+
+        // Update day via whoopBloc (passing snapshot without askedQuestions)
+        if (whoopBloc.state.day.mealPlanEntity != null) {
+          whoopBloc.add(
+            WhoopUpdateDayByMealPlan(
+              mealPlanEntity: whoopBloc.state.day.mealPlanEntity!,
+              snapshot: snap,
+            ),
+          );
+        } // else: What to do if there's no meal plan? Maybe still save snap?
+      });
+    } // else: If not a request, just update messages (already done above)
   }
 
-  FutureOr<void> _createMealPlan(
+  Future<void> _createMealPlan(
     CreateMealPlan event,
     Emitter<ChatState> emit,
   ) async {
-    emit(state.copyWith(status: Status.loading));
-    final user = userBloc.state.user;
-    final res = await requestMealPlan.call(
-      RequestPlanParams(
-        dietary: user.foodPreferences!.diets,
-        cuisines: user.foodPreferences!.cuisines,
-        calorieTarget: whoopBloc.state.day.macros.kcal,
-        macros: whoopBloc.state.day.macros,
-        trainingToday: event.trainingToday,
-        mealsAmount: event.mealsAmount,
-        snackForToday: event.snackToday,
-      ),
-    );
-    res.fold((failure) {
+    try {
+      emit(state.copyWith(status: Status.loading));
+
+      final result = await requestMealPlan(
+        RequestPlanParams(
+          dietary: userBloc.state.user.foodPreferences?.diets ?? [],
+          cuisines: userBloc.state.user.foodPreferences?.cuisines ?? [],
+          restrictions: userBloc.state.user.foodPreferences?.restrictions ?? [],
+          calorieTarget: whoopBloc.state.day.macros.kcal,
+          macros: whoopBloc.state.day.macros,
+          trainingToday: event.trainingToday,
+          servings: event.meals,
+          snackForToday: event.snackToday,
+          isWeekPlan: false,
+        ),
+      );
+
+      await result.fold(
+        (failure) {
+          emit(state.copyWith(status: Status.error));
+          RishSnackbar().showSnackBar(failure.message);
+        },
+        (mealPlan) async {
+          // Создаем снапшот чата
+          final chatSnap = _createSnapshot();
+
+          // Обновляем день с новым планом питания и снапшотом
+          final updatedDay = whoopBloc.state.day.copyWith(
+            mealPlanEntity: mealPlan,
+            snap: chatSnap,
+          );
+
+          // Сохраняем обновленный день
+          await hive.saveDay(data: updatedDay);
+
+          // Немедленно обновляем в Directus
+          await _saveToDirectus(mealPlan);
+
+          // Обновляем состояние
+          emit(
+            state.copyWith(
+              status: Status.success,
+              requestsLeft: state.requestsLeft - 1,
+            ),
+          );
+
+          // Обновляем состояние в WhoopBloc
+          whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+        },
+      );
+    } catch (e) {
       emit(state.copyWith(status: Status.error));
-    }, (plan) {
-      emit(
-        state.copyWith(
-          mealPlan: plan,
-          requestsLeft: state.requestsLeft - 1,
-          status: Status.success,
-        ),
-      );
-      add(
-        const ChatSendMessage(
-          text: 'Your meal plan is ready. Check it out.',
-          isMe: false,
-        ),
-      );
-      whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: plan));
-    });
-    add(ChatSaveSnap());
+      RishSnackbar().showSnackBar(e.toString());
+    }
   }
 
   FutureOr<void> _saveSnap(ChatSaveSnap event, Emitter<ChatState> emit) async {
-    final chatSnap = ChatSnapshotEntity(
-      messages: state.messages,
-      date: DateTime.now(),
-      requestsLeft: state.requestsLeft,
-      mealPlan: state.mealPlan,
-      threadId: chatRemoteSrc.threadId,
-    );
-    await chatRepo.saveChatSnapShot(chatSnap: chatSnap);
+    // askedQuestions is not saved in the snapshot
+    final chatSnap = _createSnapshot();
+    await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
   }
 
   FutureOr<void> _deleteMealPlan(
     ChatDeleteMealPlan event,
     Emitter<ChatState> emit,
   ) async {
-    // emit(state.copyWith(
-    //   mealPlan: null,
-    //   requestsLeft: state.requestsLeft + 1,
-    //   messages: [],
-    // ));
-    // add(ChatSaveSnap());
+    try {
+      emit(state.copyWith(status: Status.loading));
+
+      // Clear chat state including askedQuestions
+      emit(
+        state.copyWith(
+          requestsLeft: defaultRequestsLimit,
+          messages: [],
+          askedQuestions: {},
+        ),
+      );
+
+      // Create new snapshot (without askedQuestions)
+      final chatSnap = ChatSnapshotEntity(
+        messages: [],
+        date: DateTime.now(),
+        requestsLeft: defaultRequestsLimit,
+        threadId: chat_remote.chatRemoteSrc.threadId,
+      );
+
+      // Создаем день без плана питания, сохраняя остальные данные
+      final updatedDay = whoopBloc.state.day.copyWith(
+        snap: chatSnap,
+      );
+
+      // Обновляем день в WhoopBloc
+      whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+
+      // Очищаем данные в Hive
+      await hive.clearMealPlan();
+
+      emit(state.copyWith(status: Status.success));
+    } catch (e) {
+      log('Error clearing meal plan: $e');
+      emit(state.copyWith(status: Status.error));
+      RishSnackbar()
+          .showSnackBar('Failed to clear meal plan. Please try again.');
+    }
   }
 
-  FutureOr<void> _fetchLatsPlan(
+  Future<void> _fetchLatsPlan(
     ChatFetchLastMealPlan event,
     Emitter<ChatState> emit,
   ) async {
-    emit(state.copyWith(mealPlan: event.day.mealPlanEntity));
+    try {
+      // Load messages/requests from the day's snapshot
+      // Reset askedQuestions as it's not persisted in the snapshot
+      emit(
+        state.copyWith(
+          requestsLeft: event.day.snap.requestsLeft ?? state.requestsLeft,
+          messages: event.day.snap.messages ?? state.messages,
+          askedQuestions: {},
+        ),
+      );
+
+      // Save snapshot (without askedQuestions)
+      final chatSnap = _createSnapshot();
+      await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
+    } catch (e) {
+      RishSnackbar().showSnackBar(e.toString());
+    }
   }
 
   FutureOr<void> _chatOnLogout(
     ChatOnLogout event,
     Emitter<ChatState> emit,
   ) async {
+    // Clear state including askedQuestions
     emit(
       state.copyWith(
         messages: [],
-        requestsLeft: event.needsCounterClear ? 5 : state.requestsLeft,
-        mealPlan: null,
+        requestsLeft:
+            event.needsCounterClear ? defaultRequestsLimit : state.requestsLeft,
+        status: Status.initial,
+        askedQuestions: {},
       ),
     );
   }
@@ -275,12 +348,204 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     await hive.refreshChat();
+    // Clear askedQuestions on refresh
     emit(
       state.copyWith(
         messages: event.needsRequestsAmountRefresh ? [] : state.messages,
-        requestsLeft: event.needsRequestsAmountRefresh ? 5 : state.requestsLeft,
-        mealPlan: null,
+        requestsLeft: event.needsRequestsAmountRefresh
+            ? defaultRequestsLimit
+            : state.requestsLeft,
+        askedQuestions: {},
       ),
     );
+  }
+
+  Future<void> _saveToDirectus(MealPlanEntity updatedMealPlan) async {
+    final updatedDay = whoopBloc.state.day.copyWith(
+      mealPlanEntity: updatedMealPlan,
+    );
+    final data = updatedDay.toDirectus(userId: userBloc.state.user.directusId);
+    await manageDayUsecase.call(
+      ManageDayParams(
+        userId: userBloc.state.user.directusId,
+        dayMap: data,
+        incomingDay: updatedDay,
+      ),
+    );
+  }
+
+  Future<void> _saveToHive(MealPlanEntity updatedMealPlan) async {
+    final updatedDay = whoopBloc.state.day.copyWith(
+      mealPlanEntity: updatedMealPlan,
+    );
+    await hive.saveDay(data: updatedDay);
+  }
+
+  Future<void> _saveChanges(MealPlanEntity updatedMealPlan) async {
+    // Сохраняем в Hive
+    await _saveToHive(updatedMealPlan);
+
+    // Сохраняем в Directus
+    await _saveToDirectus(updatedMealPlan);
+  }
+
+  FutureOr<void> _replaceMeal(
+    ChatReplaceMeal event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(state.copyWith(status: Status.loading));
+    final user = userBloc.state.user;
+    if (user.foodPreferences == null) {
+      emit(state.copyWith(status: Status.error));
+      RishSnackbar().showSnackBar('Please set your food preferences first');
+      return;
+    }
+
+    final res = await replaceMealUsecase.call(
+      ReplaceMealParams(
+        meal: event.meal,
+        foodPreferences: user.foodPreferences!,
+      ),
+    );
+
+    res.fold((failure) {
+      emit(state.copyWith(status: Status.error));
+      add(
+        ChatSendMessage(
+          text:
+              'Sorry, failed to replace ${event.meal.title}. Please try again.',
+          isMe: false,
+        ),
+      );
+      appNavigationService.go(path: AppRoutes.homeScreen.path);
+      RishSnackbar().showSnackBar('Failed to replace meal, try again.');
+    }, (meal) async {
+      final updatedMeals = whoopBloc.state.day.mealPlanEntity!.meals.map((m) {
+        return m.servingType == meal.servingType ? meal : m;
+      }).toList();
+
+      final updatedMealPlan =
+          whoopBloc.state.day.mealPlanEntity!.copyWith(meals: updatedMeals);
+
+      emit(state.copyWith(status: Status.success));
+      add(
+        const ChatSendMessage(
+          text: 'Your meal plan is updated. Check it out.',
+          isMe: false,
+        ),
+      );
+      whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
+
+      // Сохраняем изменения в Hive и Directus
+      await _saveChanges(updatedMealPlan);
+
+      appNavigationService
+        ..pop(path: AppRoutes.homeScreen.path)
+        ..pop(path: AppRoutes.homeScreen.path);
+    });
+  }
+
+  FutureOr<void> _replaceIngredient(
+    ChatReplaceIngredient event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(state.copyWith(status: Status.loading));
+    final res = await replaceIngredientUsecase.call(
+      ReplaceIngredientParams(
+        meal: event.meal,
+        ingredients: event.ingredients,
+        preferences: userBloc.state.user.foodPreferences!,
+      ),
+    );
+
+    res.fold((failure) {
+      emit(state.copyWith(status: Status.error));
+      add(
+        ChatSendMessage(
+          text:
+              'Sorry, failed to replace ingredients in ${event.meal.title}. Please try again.',
+          isMe: false,
+        ),
+      );
+      appNavigationService.go(path: AppRoutes.homeScreen.path);
+      RishSnackbar().showSnackBar('Failed to replace ingredients, try again.');
+    }, (meal) async {
+      final updatedMeals = whoopBloc.state.day.mealPlanEntity!.meals.map((m) {
+        return m.servingType == meal.servingType ? meal : m;
+      }).toList();
+
+      final updatedMealPlan =
+          whoopBloc.state.day.mealPlanEntity!.copyWith(meals: updatedMeals);
+
+      emit(state.copyWith(status: Status.success));
+      add(
+        const ChatSendMessage(
+          text: 'Your meal plan is updated. Check it out.',
+          isMe: false,
+        ),
+      );
+      whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
+
+      // Сохраняем изменения в Hive и Directus
+      await _saveChanges(updatedMealPlan);
+
+      appNavigationService
+        ..pop(path: AppRoutes.homeScreen.path)
+        ..pop(path: AppRoutes.homeScreen.path);
+    });
+  }
+
+  FutureOr<void> _syncWithSelectedDate(
+    ChatSyncWithSelectedDate event,
+    Emitter<ChatState> emit,
+  ) async {
+    _syncDebounceTimer?.cancel();
+    _syncDebounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (emit.isDone) return;
+
+      final selectedDay = whoopBloc.state.day;
+
+      // Check if user is logged in
+      if (userBloc.state.user.directusId == '-1') {
+        if (!emit.isDone) {
+          // Clear state including askedQuestions if logged out
+          emit(
+            state.copyWith(
+              messages: [],
+              requestsLeft: defaultRequestsLimit,
+              askedQuestions: {},
+            ),
+          );
+        }
+        return;
+      }
+
+      // Get data from selected day's snapshot
+      final newMessages = selectedDay.snap.messages ?? [];
+      final newRequestsLeft =
+          selectedDay.snap.requestsLeft ?? state.requestsLeft;
+
+      // Always reset askedQuestions when syncing to a new day
+      // Check if state needs updating (messages, requests, or non-empty askedQuestions)
+      if (!listEquals(state.messages, newMessages) ||
+          state.requestsLeft != newRequestsLeft ||
+          safeAskedQuestions.isNotEmpty) {
+        log('Синхронизация чата: обновляем состояние (сброс askedQuestions)');
+
+        if (!emit.isDone) {
+          emit(
+            state.copyWith(
+              messages: newMessages,
+              requestsLeft: newRequestsLeft,
+              askedQuestions: {},
+            ),
+          );
+        }
+
+        // Save snapshot (without askedQuestions)
+        final chatSnap = _createSnapshot();
+        await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
+      }
+    });
   }
 }

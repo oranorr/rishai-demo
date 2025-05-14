@@ -18,7 +18,7 @@ class Redirect extends StatelessWidget {
             const CircularProgressIndicator(),
             SizedBox(height: 50.h),
             Text(
-              "Please stand by, fetching WHOOP data\n\nDon't close the app",
+              "Please stand by...\nFetching WHOOP data\n\nDon't close the app",
               style: context.styles.h2,
               textAlign: TextAlign.center,
             ),

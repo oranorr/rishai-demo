@@ -93,6 +93,11 @@ final List<Map<String, dynamic>> firstTilesData = [
     'label': 'Other',
     'path': AppRoutes.otherSettings.path,
   },
+  {
+    'asset': 'assets/icons/info.svg',
+    'label': 'Contact',
+    'path': AppRoutes.contactPage.path,
+  },
 ];
 
 final List<Map<String, dynamic>> lastTilesData = [

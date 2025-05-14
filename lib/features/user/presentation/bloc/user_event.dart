@@ -37,4 +37,16 @@ class UserManageDay extends UserEvent {
   });
 }
 
-class UserGetDays extends UserEvent {}
+class UserGetDays extends UserEvent {
+  final DayEntity newDay;
+  const UserGetDays({
+    required this.newDay,
+  });
+}
+
+class UserUpdateDay extends UserEvent {
+  final DayEntity day;
+  const UserUpdateDay({
+    required this.day,
+  });
+}

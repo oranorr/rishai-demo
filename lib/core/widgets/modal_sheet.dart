@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/onboard/domain/entities.dart';
 
@@ -14,6 +15,7 @@ class ModalSheet {
     required Widget child,
     bool? needsButton,
     String? subtitle,
+    String? infoText,
   }) {
     // int selected;
     return StatefulBuilder(
@@ -52,9 +54,30 @@ class ModalSheet {
                   padding: EdgeInsets.symmetric(vertical: 8.h),
                   child: Column(
                     children: [
-                      Text(
-                        text,
-                        style: context.styles.h2,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              text,
+                              style: context.styles.h2,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          if (infoText != null) ...[
+                            GestureDetector(
+                              onTap: () async => RishiDialog.infoPopup(
+                                context,
+                                infoText,
+                              ),
+                              child: const Icon(
+                                Icons.info,
+                                size: 25,
+                                color: RishColors.primary,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (subtitle != null) ...[
                         Text(
@@ -97,6 +120,7 @@ class ModalSheet {
     required double height,
     bool? needsButton,
     String? subtitle,
+    String? infoText,
   }) async {
     await showModalBottomSheet(
       context: context,
@@ -109,6 +133,7 @@ class ModalSheet {
           child: child,
           subtitle: subtitle,
           needsButton: needsButton,
+          infoText: infoText,
         );
       },
     );
@@ -119,6 +144,7 @@ class ModalSheet {
     required BuildContext context,
     required List<Question> data,
     required Function(List<Question>) onSave,
+    bool allowEmptySelection = false,
   }) async {
     await showModalBottomSheet(
       context: context,
@@ -131,6 +157,7 @@ class ModalSheet {
           onSave: onSave,
           data: data,
           needsChildrenScroll: true,
+          allowEmptySelection: allowEmptySelection,
         );
       },
     );
@@ -142,9 +169,9 @@ class ModalSheet {
     required String text,
     required List<Question> data,
     required Function(List<Question>) onSave,
-    // required List<Widget> children,
     bool? needsChildrenScroll = false,
     bool? needsTitle = true,
+    bool allowEmptySelection = false,
   }) {
     List<Question> selected = [];
     FitnessGoal? goalSelected;
@@ -268,20 +295,11 @@ class ModalSheet {
                         }
                         context.pop();
                       },
-                      enabled: selected.isNotEmpty || goalSelected != null,
+                      enabled: allowEmptySelection ||
+                          selected.isNotEmpty ||
+                          goalSelected != null,
                       isLoading: false,
                     ),
-
-                    // RishButton(
-                    //   action: () {
-
-                    //   },
-                    //   isLoading: false,
-                    //   ),
-                    //   type: selected.isNotEmpty || goalSelected != null
-                    //       ? ButtonType.primary
-                    //       : ButtonType.disabled,
-                    // ),
                   ),
                 ),
               ],

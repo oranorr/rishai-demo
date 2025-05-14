@@ -5,7 +5,9 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
+import 'package:rishai/features/settings/presentation/settings_pages/features_page.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/legal_page.dart';
+import 'package:rishai/features/settings/presentation/settings_pages/sentry_test_widget.dart';
 
 class OtherSettings extends StatelessWidget {
   const OtherSettings({super.key});
@@ -31,13 +33,27 @@ class OtherSettings extends StatelessWidget {
         itemBuilder: (context, index) {
           return GestureDetector(
             onTap: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (BuildContext context) => LegalPage(
-                    entity: data[index],
+              if (data[index].type == OtherType.premium) {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) => const FeaturesPage(),
                   ),
-                ),
-              );
+                );
+              } else if (data[index].type == OtherType.sentry) {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) => const SentryTestWidget(),
+                  ),
+                );
+              } else {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (BuildContext context) => LegalPage(
+                      entity: data[index],
+                    ),
+                  ),
+                );
+              }
             },
             child: SizedBox(
               height: 70.h,
@@ -63,8 +79,6 @@ class OtherSettings extends StatelessWidget {
           );
         },
       ),
-
-      // ),
     );
   }
 }
@@ -86,7 +100,7 @@ List<OtherEntity> data = [
     type: OtherType.disclaimer,
   ),
   OtherEntity(
-    title: 'CITATIONS, REFERENCES & SOURCES',
+    title: 'Citations, References & Sources',
     body: LegalTextsRepo().references,
     type: OtherType.ref,
   ),
@@ -96,10 +110,17 @@ List<OtherEntity> data = [
     type: OtherType.help,
   ),
   OtherEntity(
-    title: 'COMING SOON FEATURES',
+    title: 'Features',
     body: LegalTextsRepo().comingSoon,
     type: OtherType.premium,
   ),
+  // if (true) ...[
+  //   OtherEntity(
+  //     title: 'Test Sentry Integration',
+  //     body: '',
+  //     type: OtherType.sentry,
+  //   ),
+  // ],
 ];
 
 class OtherEntity {
@@ -120,8 +141,8 @@ enum OtherType {
   help,
   premium,
   ref,
+  sentry,
 }
-
 
 //  {
 //     'title': 'Terms of Service',

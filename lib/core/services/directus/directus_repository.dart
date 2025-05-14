@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:directus/directus.dart';
 
 abstract interface class DirectusService {
@@ -17,11 +19,13 @@ abstract interface class DirectusService {
   Future<List<Map<String, dynamic>>> readMany({
     required String collection,
     Filters? filters,
+    Query? query,
   });
 
   Future<Map<String, dynamic>> readOne({
     required String collection,
     required String id,
+    Query? query,
   });
 
   Future<void> deleteOne({required String collection, required String id});
@@ -29,5 +33,16 @@ abstract interface class DirectusService {
   Future<void> createMany({
     required String collection,
     required List<Map<String, dynamic>> data,
+  });
+
+  Future<void> deleteMany({
+    required String collection,
+    required List<String> ids,
+  });
+
+  Future<Map<String, dynamic>> readAppConfig();
+
+  Future<String> uploadFile({
+    required File image,
   });
 }

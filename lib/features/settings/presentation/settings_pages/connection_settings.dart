@@ -23,13 +23,14 @@ class ConnectionSettings extends StatelessWidget {
       ),
       child: Column(
         children: [
-          for (int i = 0; i < 6; i++)
+          for (int i = 0; i < data.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: Row(
                 children: [
                   Text(
-                    '${data[i]['title']} is ${data[i]['status'] == ConnectionStatus.connected ? 'connected' : 'disconnected'}',
+                    '${data[i]['title']}',
+                    // '${data[i]['title']} is ${data[i]['status'] == ConnectionStatus.connected ? 'connected' : 'disconnected'}',
                     style: context.styles.regularMedium,
                   ),
                   const Spacer(),
@@ -102,7 +103,7 @@ class ConnectionSettings extends StatelessWidget {
       case ConnectionStatus.disconnected:
         return 'Connect';
       case ConnectionStatus.disabled:
-        return 'Connect (soon)';
+        return 'Coming soon';
     }
   }
 }
@@ -128,10 +129,10 @@ const List<Map<String, dynamic>> data = [
     'title': 'Oura',
     'status': ConnectionStatus.disabled,
   },
-  {
-    'title': 'MyFitnessPal',
-    'status': ConnectionStatus.disabled,
-  },
+  // {
+  //   'title': 'MyFitnessPal',
+  //   'status': ConnectionStatus.disabled,
+  // },
 ];
 
 enum ConnectionStatus {

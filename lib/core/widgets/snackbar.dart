@@ -2,41 +2,99 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:rishai/core/key.dart';
+import 'package:rishai/core/theme/theme_colors.dart';
 
 class RishSnackbar {
-  void showSnackBar(String errorMessage) {
+  void showSnackBar(
+    String errorMessage, {
+    bool isError = true,
+  }) {
     final snackBar = SnackBar(
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'Error!',
+          // if (needsTitle ?? true)
+          Text(
+            isError ? 'Oops...' : 'Success!',
             style: TextStyle(
               fontFamily: 'ProximaNova',
-              color: Color(0xffED544E),
+              color:
+                  isError ? const Color(0xffED544E) : const Color(0xff66C87B),
               fontWeight: FontWeight.w700,
               fontSize: 18,
             ),
           ),
           Text(
             errorMessage,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'ProximaNova',
-              color: Color(0xffED544E),
+              color:
+                  isError ? const Color(0xffED544E) : const Color(0xff66C87B),
               fontWeight: FontWeight.w400,
               fontSize: 16,
             ),
           ),
         ],
       ),
+      // animation: CurvedAnimation(parent: parent, curve: curve),
       padding: const EdgeInsets.all(25),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-        side: const BorderSide(color: Color(0xffED544E)),
+        side: BorderSide(
+          color: isError ? const Color(0xffED544E) : const Color(0xff66C87B),
+        ),
         borderRadius: BorderRadius.circular(20),
       ),
-      backgroundColor: const Color(0xff060327),
-      duration: const Duration(seconds: 3),
+      backgroundColor: const Color.fromRGBO(6, 3, 39, 1),
+      duration: const Duration(seconds: 2),
+    );
+    if (scaffoldKey.currentContext != null) {
+      scaffoldKey.currentState?.showSnackBar(snackBar);
+      // ScaffoldMessenger.of(scaffoldKey.currentContext!).showSnackBar(snackBar);
+    } else {
+      log('CANT SHOW SNACK NOW!');
+    }
+  }
+
+  void showWarningSnackBar({
+    required String message,
+  }) {
+    final snackBar = SnackBar(
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // if (needsTitle ?? true)
+          // const Text(
+          //   'Oops...',
+          //   style: TextStyle(
+          //     fontFamily: 'ProximaNova',
+          //     color: Color(0xffED544E),
+          //     fontWeight: FontWeight.w700,
+          //     fontSize: 18,
+          //   ),
+          // ),
+          Text(
+            message,
+            style: const TextStyle(
+              fontFamily: 'ProximaNova',
+              color: RishColors.primary,
+              fontWeight: FontWeight.w400,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+      // animation: CurvedAnimation(parent: parent, curve: curve),
+      padding: const EdgeInsets.all(25),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: RishColors.primary),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      backgroundColor: const Color.fromRGBO(6, 3, 39, 1),
+      duration: const Duration(seconds: 2),
     );
     if (scaffoldKey.currentContext != null) {
       scaffoldKey.currentState?.showSnackBar(snackBar);

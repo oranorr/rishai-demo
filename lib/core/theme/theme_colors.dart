@@ -18,7 +18,7 @@ abstract class RishColors {
   static const Color stroke = Color(0xff403D64);
   static const Color success = Color(0xff66C87B);
   static const Color warning = Color(0xffF4C700);
-  static const Color primary = Color(0xffF88AF3);
+  static const Color primary = Color(0xFFF88AF3);
   static const Color surface = Color(0xff060327);
   static const Color protein = Color(0xff5E85ED);
   static const Color carbs = Color(0xffCFE887);

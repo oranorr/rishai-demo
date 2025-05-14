@@ -4,10 +4,12 @@ class SelectableList extends StatefulWidget {
   const SelectableList({
     required this.data,
     required this.setSomething,
+    this.isOptional = false,
     super.key,
   });
   final List<Question> data;
   final Function(List<Question>) setSomething;
+  final bool isOptional;
 
   @override
   State<SelectableList> createState() => _SelectableListState();
@@ -27,17 +29,6 @@ class _SelectableListState extends State<SelectableList> {
       } else {
         selected.contains(diet) ? selected.remove(diet) : selected.add(diet);
       }
-      // if (selected.contains(diet)) {
-      //   selected.remove(diet);
-      // } else {
-      //   if (diet.runtimeType == Dietary) {
-      //     if (selected.isEmpty) {
-      //       selected.add(diet);
-      //     }
-      //   } else {
-      //     selected.add(diet);
-      //   }
-      // }
     });
     widget.setSomething(selected);
   }

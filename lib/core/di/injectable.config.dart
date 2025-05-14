@@ -16,6 +16,13 @@ import 'package:rishai/core/services/adapty_service/adapty_repository.dart'
     as _i1067;
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
     as _i910;
+import 'package:rishai/core/services/analytics/analytics_repository.dart'
+    as _i149;
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart'
+    as _i624;
+import 'package:rishai/core/services/day_manager/day_manager.dart' as _i300;
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart'
+    as _i629;
 import 'package:rishai/core/services/directus/directus_repository.dart' as _i89;
 import 'package:rishai/core/services/directus/directus_repository_impl.dart'
     as _i523;
@@ -27,6 +34,10 @@ import 'package:rishai/core/services/notifications/notifications_service.dart'
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart'
     as _i724;
 import 'package:rishai/core/services/pefs/prefs_repository.dart' as _i97;
+import 'package:rishai/core/services/version_check/version_check_service.dart'
+    as _i570;
+import 'package:rishai/core/services/version_check/version_check_service_impl.dart'
+    as _i634;
 import 'package:rishai/core/services/whoop_token_service.dart/token_service.dart'
     as _i820;
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart'
@@ -39,9 +50,15 @@ import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart'
     as _i831;
 import 'package:rishai/features/chat/domain/usecases/fetch_saved_snap_usecase.dart'
-    as _i222;
+    as _i975;
+import 'package:rishai/features/chat/domain/usecases/generate_week_plan_usecase.dart'
+    as _i1015;
 import 'package:rishai/features/chat/domain/usecases/init_gpt_usecase.dart'
     as _i241;
+import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart'
+    as _i208;
+import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart'
+    as _i799;
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart'
     as _i176;
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart'
@@ -65,6 +82,12 @@ import 'package:rishai/features/login/domain/usecases/login_via_google_usecase.d
     as _i1003;
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart'
     as _i1024;
+import 'package:rishai/features/settings/domain/repository/feedback_repository.dart'
+    as _i768;
+import 'package:rishai/features/settings/domain/repository/feedback_repository_impl.dart'
+    as _i534;
+import 'package:rishai/features/settings/domain/usecase/send_feedback_usecase.dart'
+    as _i242;
 import 'package:rishai/features/user/data/data_sources/local/user_local_impl.dart'
     as _i461;
 import 'package:rishai/features/user/data/data_sources/local/user_local_source.dart'
@@ -84,6 +107,8 @@ import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart'
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart'
     as _i663;
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart' as _i984;
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart'
+    as _i1018;
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart'
     as _i734;
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source_impl.dart'
@@ -95,7 +120,7 @@ import 'package:rishai/features/whoop/data/repository/whoop_repository_impl.dart
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart'
     as _i897;
 import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart'
-    as _i741;
+    as _i1055;
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart'
     as _i513;
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart'
@@ -120,7 +145,12 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.factory<_i572.NavigatorKeyProvider>(() => _i572.NavigatorKeyProvider());
     gh.singleton<_i97.PrefsRepository>(() => _i97.PrefsRepository());
+    gh.singleton<_i149.AnalyticsRepository>(
+        () => _i624.AnalyticsRepositoryImpl());
+    gh.singleton<_i300.DayManager>(() => _i629.DayManagerImpl());
     gh.singleton<_i410.HiveRepo>(() => _i410.HiveImpl());
+    gh.singleton<_i768.FeedbackRepository>(
+        () => _i534.FeedbackRepositoryImpl());
     gh.singleton<_i993.FirebaseRepository>(
         () => _i201.FirebaseImplementation());
     gh.singleton<_i89.DirectusService>(() => _i523.DirectusRepositoryImpl());
@@ -138,6 +168,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i467.ChatRemoteDataSourceImpl());
     gh.lazySingleton<_i453.AppNavigationService>(
         () => _i453.AppNavigationService(gh<_i572.NavigatorKeyProvider>()));
+    gh.factory<_i242.SendFeedbackUseCase>(
+        () => _i242.SendFeedbackUseCase(gh<_i768.FeedbackRepository>()));
     gh.singleton<_i492.NotificationsService>(
         () => _i724.NotificationsServiceImpl());
     gh.singleton<_i897.WhoopRepository>(() => _i907.WhoopRepositoryImpl(
@@ -147,15 +179,21 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i926.UserRepository>(() => _i670.UserRepositoryImpl(
           remoteDataSource: gh<_i948.UserRemoteSource>(),
           localDataSource: gh<_i886.UserLocalDataSource>(),
+          dayManager: gh<_i300.DayManager>(),
         ));
-    gh.singleton<_i831.ChatRepository>(
-        () => _i246.ChatRepositoryImpl(gh<_i867.ChatRemoteDataSource>()));
+    gh.singleton<_i831.ChatRepository>(() => _i246.ChatRepositoryImpl(
+          hive: gh<_i410.HiveRepo>(),
+          remote: gh<_i867.ChatRemoteDataSource>(),
+          userRepo: gh<_i926.UserRepository>(),
+        ));
     gh.factory<_i892.ManageDayUsecase>(
         () => _i892.ManageDayUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i663.UpdateUserUsecase>(
         () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i547.GetDaysUsecase>(
         () => _i547.GetDaysUsecase(gh<_i926.UserRepository>()));
+    gh.singleton<_i570.VersionCheckService>(
+        () => _i634.VersionCheckServiceImpl(gh<_i89.DirectusService>()));
     gh.singleton<_i544.LoginRepository>(
         () => _i1025.LoginRepositoryImpl(gh<_i510.LoginRemoteDataSource>()));
     gh.factory<_i1003.LoginViaGoogleUsecase>(
@@ -168,8 +206,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i914.LoginViaAppleUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i1035.WhoopGetBodyData>(
         () => _i1035.WhoopGetBodyData(gh<_i897.WhoopRepository>()));
-    gh.factory<_i741.ChangeModificatorOrSexUsecase>(
-        () => _i741.ChangeModificatorOrSexUsecase(gh<_i897.WhoopRepository>()));
+    gh.factory<_i1055.ChangeModificatorOrSexUsecase>(() =>
+        _i1055.ChangeModificatorOrSexUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i757.WhoopGetDataUsecase>(
         () => _i757.WhoopGetDataUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i62.DisconnectWhoopUsecase>(
@@ -181,20 +219,34 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i547.GetDaysUsecase>(),
           gh<_i892.ManageDayUsecase>(),
         ));
-    gh.factory<_i222.FetchSavedSnapUsecase>(
-        () => _i222.FetchSavedSnapUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i241.InitGptUsecase>(
         () => _i241.InitGptUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i786.SendMessageGptUsecase>(
         () => _i786.SendMessageGptUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i799.ReplaceMealUsecase>(
+        () => _i799.ReplaceMealUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i975.FetchSavedSnapUsecase>(
+        () => _i975.FetchSavedSnapUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i176.RequestPlanUsecase>(
         () => _i176.RequestPlanUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i208.ReplaceIngredientUsecase>(
+        () => _i208.ReplaceIngredientUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i666.ChatBloc>(() => _i666.ChatBloc(
+          gh<_i241.InitGptUsecase>(),
+          gh<_i176.RequestPlanUsecase>(),
+          gh<_i786.SendMessageGptUsecase>(),
+          gh<_i975.FetchSavedSnapUsecase>(),
+          gh<_i799.ReplaceMealUsecase>(),
+          gh<_i208.ReplaceIngredientUsecase>(),
+          gh<_i892.ManageDayUsecase>(),
+        ));
     gh.factory<_i1051.WhoopBloc>(() => _i1051.WhoopBloc(
           gh<_i513.ConnectWhoopUsecase>(),
           gh<_i757.WhoopGetDataUsecase>(),
           gh<_i1035.WhoopGetBodyData>(),
-          gh<_i741.ChangeModificatorOrSexUsecase>(),
+          gh<_i1055.ChangeModificatorOrSexUsecase>(),
           gh<_i62.DisconnectWhoopUsecase>(),
+          gh<_i892.ManageDayUsecase>(),
         ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
           gh<_i1003.LoginViaGoogleUsecase>(),
@@ -202,12 +254,13 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i248.LoginViaEmailUsecase>(),
           gh<_i914.LoginViaAppleUsecase>(),
         ));
-    gh.factory<_i666.ChatBloc>(() => _i666.ChatBloc(
-          gh<_i241.InitGptUsecase>(),
-          gh<_i176.RequestPlanUsecase>(),
-          gh<_i786.SendMessageGptUsecase>(),
-          gh<_i222.FetchSavedSnapUsecase>(),
-        ));
+    gh.factory<_i1015.GenerateWeekPlanUsecase>(
+        () => _i1015.GenerateWeekPlanUsecase(
+              gh<_i831.ChatRepository>(),
+              gh<_i176.RequestPlanUsecase>(),
+            ));
+    gh.factory<_i1018.WeekPlanBloc>(
+        () => _i1018.WeekPlanBloc(gh<_i1015.GenerateWeekPlanUsecase>()));
     return this;
   }
 }

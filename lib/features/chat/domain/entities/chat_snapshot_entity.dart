@@ -20,9 +20,13 @@ class ChatSnapshotEntity {
     return ChatSnapshotEntity(
       messages: [],
       date: DateTime.fromMillisecondsSinceEpoch(map['dateTime']),
-      requestsLeft: map['requestsLeft'],
+      requestsLeft: map['requestsLeft'] is String
+          ? int.parse(map['requestsLeft'])
+          : map['requestsLeft'],
       threadId: map['threadId'],
-      mealPlan: map['mealPlan'],
+      mealPlan: map['mealPlan'] != null
+          ? MealPlanEntity.fromMap(map['mealPlan'])
+          : null,
     );
   }
   @HiveField(0)

@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:bloc/bloc.dart';
+import 'package:directus/directus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -12,13 +14,13 @@ import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -26,8 +28,10 @@ import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 
 part 'user_event.dart';
 
@@ -54,6 +58,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserCheckForRecomp>(_checkForRecomp);
     on<UserManageDay>(_manageDay);
     on<UserGetDays>(_getDays);
+    on<UserUpdateDay>(_updateDay);
   }
 
   final UpdateUserUsecase updateUserUsecase;
@@ -65,6 +70,11 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     Emitter<UserState> emit,
   ) async {
     UserEntity user = event.user;
+    // print('user last day: ${user.daysIds}');
+    // Сохраняем существующий план питания
+    // final currentDay = whoopBloc.state.day;
+    // final currentMealPlan = currentDay.mealPlanEntity;
+
     if (user.adaptyId == null) {
       user = user.copyWith(
         adaptyId: adapty.generateAdaptyId(directusId: user.directusId),
@@ -81,6 +91,19 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       log('User successfully updated!');
       emit(state.copyWith(status: Status.success));
       await adapty.identify(adaptyId: user.adaptyId!);
+
+      // Сохраняем снапшот чата если пользователь авторизован
+      if (user.directusId != '-1') {
+        chatBloc.add(ChatSaveSnap(directusId: user.directusId));
+      }
+
+      // Восстанавливаем план питания
+      // if (currentMealPlan != null) {
+      //   final updatedDay = currentDay.copyWith(
+      //     mealPlanEntity: currentMealPlan,
+      //   );
+      //   whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+      // }
     });
   }
 
@@ -90,22 +113,34 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   ) async {
     UserEntity? user = await hive.retrieveSavedUser();
     final watchedOnboard = prefsRepo.checkForWatchedOnboard();
-
+    print('SAVED USER GOAL: ${user?.userGoal}');
     if (user != null) {
-      final rawUser = await directus.readOne(
-        collection: usersCollection,
-        id: user.directusId,
+      add(const UserCheckForRecomp());
+      // final rawUser = await directus.readOne(
+      //   collection: usersCollection,
+      //   id: user.directusId,
+      // );
+      // print('rawUser last day: ${rawUser['days'].last}');
+
+      List days = await directus.readMany(
+        collection: daysCollection,
+        filters: Filters({'userId': F.eq(user.directusId)}),
+        query: Query(
+          limit: 1000,
+        ),
       );
-      final List<int> ids = List.from(rawUser['days']).cast<int>();
+
+      days = days.map((e) => e['id']).toList();
+
+      final List<int> ids = List.from(days).cast<int>();
       if (user.daysIds != ids) {
         user = user.copyWith(daysIds: ids);
       }
       await adapty.identify(adaptyId: user.adaptyId!);
       emit(state.copyWith(user: user));
-      add(const UserCheckForRecomp());
-      whoopBloc.add(InitWhoopOnLogin());
-      chatBloc.add(const InitChatBloc());
-      // await _getDays(UserGetDays(), emit);
+
+      weekPlanBloc.add(const WeekPlanLoad());
+      whoopBloc.add(const InitWhoopOnLogin());
     } else {
       appNavigationService.go(
         path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,
@@ -117,6 +152,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     CreateUserOnLogin event,
     Emitter<UserState> emit,
   ) async {
+    await hive.saveUser(user: event.user);
     emit(state.copyWith(user: event.user));
   }
 
@@ -139,17 +175,21 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         state.user.userGoal?.goal == GoalType.recomp) {
       UserGoal goal = state.user.userGoal!;
 
-      final diff = DateTime.now().difference(goal.updatedAt);
-
-      if (recompDifference(diff)) {
-        UserGoal updGoal = goal.copyWith(
+      // Условие: прошло ли 14 дней с момента последнего обновления модификатора?
+      log(
+        'Checking recomp modifier change. Last updated: ${goal.updatedAt}',
+        name: 'UserBloc',
+      );
+      if (goal.updatedAt
+          .isBefore(DateTime.now().subtract(const Duration(days: 14)))) {
+        print('its time to change recomp modifier');
+        goal = goal.copyWith(
           modificator: goal.modificator > 0 ? -0.05 : 0.05,
           updatedAt: DateTime.now(),
         );
-        UserEntity userUpd = state.user.copyWith(userGoal: updGoal);
-        add(UpdateUserEvent(user: userUpd));
-      } else {
-        return;
+        final user = state.user.copyWith(userGoal: goal);
+        emit(state.copyWith(user: user));
+        add(UpdateUserEvent(user: user));
       }
     }
   }
@@ -158,21 +198,38 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     UserManageDay event,
     Emitter<UserState> emit,
   ) async {
-    final day = event.day.copyWith(mealPlanEntity: chatBloc.state.mealPlan);
-    final data = day.toDirectus(userId: state.user.directusId);
+    final day = event.day;
 
-    await manageDayUsecase.call(
-      ManageDayParams(
-        userId: state.user.directusId,
-        dayMap: data,
-        incomingDay: event.day,
-      ),
-    );
+    await dayManager.createDay(day: day);
+
+    // // Проверяем, действительно ли изменился день
+    // final existingDay = state.days.firstWhere(
+    //   (d) => d.dateTime.isSameDate(day.dateTime),
+    //   orElse: () => DayEntity.empty(requestsLeft: 0),
+    // );
+
+    // if (existingDay == day) {
+    //   log('No changes detected in day, skipping update');
+    //   return;
+    // }
+
+    // final data = day.toDirectus(userId: state.user.directusId);
+
+    // await manageDayUsecase.call(
+    //   ManageDayParams(
+    //     userId: state.user.directusId,
+    //     dayMap: data,
+    //     incomingDay: event.day,
+    //   ),
+    // );
+
+    // // Обновляем список дней только если день действительно изменился
+    // add(UserGetDays(newDay: day));
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
     emit(state.copyWith(status: Status.loading));
-    DayEntity currentDay = whoopBloc.state.day;
+    DayEntity currentDay = event.newDay;
     final ids = state.user.daysIds;
 
     if (ids.isEmpty) {
@@ -182,10 +239,34 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     final res = await getDaysUsecase
         .call(GetDaysParams(daysIds: ids, userId: state.user.directusId));
 
-    res.fold((l) {
+    await res.fold((l) async {
       RishSnackbar()
           .showSnackBar('Error occured while fetching days. Please, restart.');
-    }, (r) {
+    }, (List<DayEntity> r) async {
+      // Сортируем дни по дате
+      r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+      // Ищем существующий день с той же датой
+      final existingDayIndex = r.indexWhere(
+        (day) => day.dateTime.isSameDate(currentDay.dateTime),
+      );
+
+      if (existingDayIndex != -1) {
+        // Проверяем, действительно ли нужно обновлять день
+        final existingDay = r[existingDayIndex];
+        if (existingDay != currentDay) {
+          r[existingDayIndex] = currentDay.copyWith(
+            mealPlanEntity:
+                currentDay.mealPlanEntity ?? existingDay.mealPlanEntity,
+            snap: currentDay.snap,
+          );
+        }
+      } else {
+        // Добавляем новый день
+        r.add(currentDay);
+        r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      }
+
       emit(state.copyWith(status: Status.success, days: r));
     });
   }
@@ -227,5 +308,14 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       data: day.mockDays(length: 30, id: '139'),
     );
     // print('done');
+  }
+
+  FutureOr<void> _updateDay(UserUpdateDay event, Emitter<UserState> emit) {
+    List<DayEntity> days = List.from(state.days);
+    if (!state.days.any((d) => d.cycleId == event.day.cycleId)) {
+      print('DAY ADDED!!!');
+      days.add(event.day);
+      emit(state.copyWith(days: days));
+    }
   }
 }

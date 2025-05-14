@@ -1,7 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-// ignore_for_file: unnecessary_breaks
-
 part of 'user_entity.dart';
 
 // **************************************************************************
@@ -25,6 +23,7 @@ class UserEntityAdapter extends TypeAdapter<UserEntity> {
       name: fields[3] as String,
       daysIds: (fields[9] as List).cast<int>(),
       adaptyId: fields[10] as String?,
+      weekPlanIds: (fields[11] as List).cast<int>(),
       age: fields[4] as int?,
       gender: fields[5] as Gender?,
       foodPreferences: fields[6] as FoodPreferences?,
@@ -36,7 +35,7 @@ class UserEntityAdapter extends TypeAdapter<UserEntity> {
   @override
   void write(BinaryWriter writer, UserEntity obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.directusId)
       ..writeByte(1)
@@ -58,7 +57,9 @@ class UserEntityAdapter extends TypeAdapter<UserEntity> {
       ..writeByte(9)
       ..write(obj.daysIds)
       ..writeByte(10)
-      ..write(obj.adaptyId);
+      ..write(obj.adaptyId)
+      ..writeByte(11)
+      ..write(obj.weekPlanIds);
   }
 
   @override
