@@ -10,6 +10,7 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -101,30 +102,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> test(DayEntity day) async {
-    userBloc.add(const UserCheckForRecomp());
-    // final res = await hive.saveDay(data: day);
-    // print(res);
-    // final local = await hive.retrieveSavedDays();
-    // final contains =
-    //     local.indexWhere((element) => element.directusId == day.directusId);
-    // print(local.last.directusId);
-    // final pp = local[local.indexOf(local.last) - 1];
-    // print(local.last.directusId);
-    // print(local.length);
-    // final res = await directus.readMany(
-    //   collection: daysCollection,
-    //   filters: Filters({'userId': F.eq(userBloc.state.user.directusId)}),
-    //   query: Query(
-    //     limit: 1000,
-    //   ),
-    // );
-    // print(userBloc.state.user.daysIds.last);
-  }
+  Future<void> test(DayEntity day) async {}
 
   @override
   Widget build(BuildContext context) {
-    test(userBloc.state.days.last);
+    // test(userBloc.state.days.last);
     return BlocConsumer<UserBloc, UserState>(
       bloc: userBloc,
       listener: (context, state) {

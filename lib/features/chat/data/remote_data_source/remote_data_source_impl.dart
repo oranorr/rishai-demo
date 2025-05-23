@@ -22,10 +22,10 @@ final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 @Singleton(as: ChatRemoteDataSource)
 class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   late GenerativeModel chatModel;
-  // late GenerativeModel mealPlanModel;
   late GenerativeModel breakfastModel;
   late GenerativeModel mealsModel;
   late GenerativeModel snackModel;
+
   late ChatSession chatSession;
 
   @override
@@ -300,7 +300,6 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     bool isWeekPlan,
   ) async {
     final results = <String, dynamic>{};
-    print('hello');
     // Трекинг создания плана питания
     await analytics.logCustomEvent(
       name: isWeekPlan ? 'create_5day_meal_plan' : 'create_1day_meal_plan',

@@ -30,7 +30,7 @@ class MessageWidget extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              text,
+              text.trim(),
               style: context.styles.regularMedium
                   .copyWith(color: isMe ? RishColors.surface : null),
               maxLines: 100,

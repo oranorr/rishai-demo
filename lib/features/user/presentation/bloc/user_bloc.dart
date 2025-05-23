@@ -5,9 +5,7 @@ import 'package:bloc/bloc.dart';
 import 'package:directus/directus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
@@ -25,7 +23,6 @@ import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
-import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
@@ -43,7 +40,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   UserBloc(
     this.updateUserUsecase,
     this.getDaysUsecase,
-    this.manageDayUsecase,
   ) : super(
           UserMainState(
             status: Status.initial,
@@ -59,11 +55,34 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserManageDay>(_manageDay);
     on<UserGetDays>(_getDays);
     on<UserUpdateDay>(_updateDay);
+
+    // Инициализируем таймер для регулярной проверки рекомпа
+    _initRecompCheckTimer();
   }
 
+  Timer? _recompCheckTimer;
   final UpdateUserUsecase updateUserUsecase;
   final GetDaysUsecase getDaysUsecase;
-  final ManageDayUsecase manageDayUsecase;
+
+  void _initRecompCheckTimer() {
+    // Отменяем существующий таймер если он есть
+    _recompCheckTimer?.cancel();
+
+    // Проверяем каждые 12 часов
+    _recompCheckTimer = Timer.periodic(
+      const Duration(hours: 12),
+      (_) {
+        log('Running scheduled recomp check', name: 'UserBloc');
+        add(const UserCheckForRecomp());
+      },
+    );
+  }
+
+  @override
+  Future<void> close() {
+    _recompCheckTimer?.cancel();
+    return super.close();
+  }
 
   FutureOr<void> _updateUser(
     UpdateUserEvent event,
@@ -114,7 +133,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     UserEntity? user = await hive.retrieveSavedUser();
     final watchedOnboard = prefsRepo.checkForWatchedOnboard();
     print('SAVED USER GOAL: ${user?.userGoal}');
-    if (user != null) {
+    if (user != null && user != UserEntity.unauthorized()) {
+      log('USER found: $user');
       add(const UserCheckForRecomp());
       // final rawUser = await directus.readOne(
       //   collection: usersCollection,
@@ -136,7 +156,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       if (user.daysIds != ids) {
         user = user.copyWith(daysIds: ids);
       }
+      // if (user.adaptyId != null) {
       await adapty.identify(adaptyId: user.adaptyId!);
+      // }
       emit(state.copyWith(user: user));
 
       weekPlanBloc.add(const WeekPlanLoad());
@@ -171,26 +193,96 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     UserCheckForRecomp event,
     Emitter<UserState> emit,
   ) async {
-    if (state.user.userGoal?.goal != null &&
-        state.user.userGoal?.goal == GoalType.recomp) {
-      UserGoal goal = state.user.userGoal!;
+    try {
+      if (state.user.userGoal?.goal != null &&
+          state.user.userGoal?.goal == GoalType.recomp) {
+        UserGoal goal = state.user.userGoal!;
 
-      // Условие: прошло ли 14 дней с момента последнего обновления модификатора?
-      log(
-        'Checking recomp modifier change. Last updated: ${goal.updatedAt}',
-        name: 'UserBloc',
-      );
-      if (goal.updatedAt
-          .isBefore(DateTime.now().subtract(const Duration(days: 14)))) {
-        print('its time to change recomp modifier');
-        goal = goal.copyWith(
-          modificator: goal.modificator > 0 ? -0.05 : 0.05,
-          updatedAt: DateTime.now(),
+        log(
+          'Checking recomp modifier change:\n'
+          'Last updated: ${goal.updatedAt}\n'
+          'Current time: ${DateTime.now()}\n'
+          'Days since update: ${DateTime.now().difference(goal.updatedAt).inDays}\n'
+          'Current modifier: ${goal.modificator}',
+          name: 'UserBloc',
         );
-        final user = state.user.copyWith(userGoal: goal);
-        emit(state.copyWith(user: user));
-        add(UpdateUserEvent(user: user));
+
+        if (goal.updatedAt
+            .isBefore(DateTime.now().subtract(const Duration(days: 14)))) {
+          log('Initiating recomp modifier change', name: 'UserBloc');
+
+          final oldModifier = goal.modificator;
+          goal = goal.copyWith(
+            modificator: goal.modificator > 0 ? -0.05 : 0.05,
+            updatedAt: DateTime.now(),
+          );
+
+          final user = state.user.copyWith(userGoal: goal);
+
+          // Сначала обновляем локальное состояние
+          emit(state.copyWith(user: user));
+
+          // Затем пытаемся синхронизировать с бэкендом
+          final updateResult = await updateUserUsecase.call(user);
+
+          await updateResult.fold(
+            (failure) async {
+              log(
+                'Failed to update recomp modifier:\n'
+                'Error: ${failure.message}\n'
+                'Old modifier: $oldModifier\n'
+                'Attempted new modifier: ${goal.modificator}',
+                name: 'UserBloc',
+                error: failure,
+              );
+
+              // Откатываем изменения в локальном состоянии при ошибке
+              emit(
+                state.copyWith(
+                  user: state.user.copyWith(
+                    userGoal: state.user.userGoal!.copyWith(
+                      modificator: oldModifier,
+                      updatedAt: goal.updatedAt,
+                    ),
+                  ),
+                ),
+              );
+
+              // Показываем уведомление пользователю
+              RishSnackbar().showSnackBar(
+                'Не удалось обновить настройки фитнес-цели. Пожалуйста, попробуйте снова.',
+              );
+            },
+            (_) {
+              log(
+                'Successfully updated recomp modifier:\n'
+                'Old modifier: $oldModifier\n'
+                'New modifier: ${goal.modificator}',
+                name: 'UserBloc',
+              );
+            },
+          );
+        } else {
+          log(
+            'Recomp modifier change not needed yet:\n'
+            'Days until next change: ${14 - DateTime.now().difference(goal.updatedAt).inDays}',
+            name: 'UserBloc',
+          );
+        }
       }
+    } catch (e, stackTrace) {
+      log(
+        'Unexpected error in recomp modifier check:\n'
+        'Error: $e\n'
+        'Stack trace: $stackTrace',
+        name: 'UserBloc',
+        error: e,
+      );
+
+      // Показываем уведомление пользователю о неожиданной ошибке
+      RishSnackbar().showSnackBar(
+        'Произошла неожиданная ошибка при обновлении фитнес-цели. Пожалуйста, попробуйте перезапустить приложение.',
+      );
     }
   }
 
@@ -228,21 +320,35 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
+    log('Starting days loading, status -> loading', name: 'UserBloc');
     emit(state.copyWith(status: Status.loading));
     DayEntity currentDay = event.newDay;
     final ids = state.user.daysIds;
 
+    log('Days IDs to load: ${ids.length}', name: 'UserBloc');
+
     if (ids.isEmpty) {
+      log('No days IDs found, returning only current day', name: 'UserBloc');
       emit(state.copyWith(status: Status.success, days: [currentDay]));
       return;
     }
+
+    log('Fetching days through getDaysUsecase', name: 'UserBloc');
     final res = await getDaysUsecase
         .call(GetDaysParams(daysIds: ids, userId: state.user.directusId));
 
     await res.fold((l) async {
+      log('Error fetching days: ${l.message}', name: 'UserBloc');
       RishSnackbar()
           .showSnackBar('Error occured while fetching days. Please, restart.');
+      log('Setting status -> error', name: 'UserBloc');
+      emit(state.copyWith(status: Status.error));
     }, (List<DayEntity> r) async {
+      log(
+        'Days fetched successfully, processing ${r.length} days',
+        name: 'UserBloc',
+      );
+
       // Сортируем дни по дате
       r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
@@ -255,6 +361,10 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         // Проверяем, действительно ли нужно обновлять день
         final existingDay = r[existingDayIndex];
         if (existingDay != currentDay) {
+          log(
+            'Updating existing day at index $existingDayIndex',
+            name: 'UserBloc',
+          );
           r[existingDayIndex] = currentDay.copyWith(
             mealPlanEntity:
                 currentDay.mealPlanEntity ?? existingDay.mealPlanEntity,
@@ -263,10 +373,15 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         }
       } else {
         // Добавляем новый день
+        log('Adding new day to the list', name: 'UserBloc');
         r.add(currentDay);
         r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
       }
 
+      log(
+        'Successfully loaded ${r.length} days, setting status -> success',
+        name: 'UserBloc',
+      );
       emit(state.copyWith(status: Status.success, days: r));
     });
   }

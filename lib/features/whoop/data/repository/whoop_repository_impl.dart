@@ -211,8 +211,10 @@ class WhoopRepositoryImpl implements WhoopRepository {
     try {
       final isTokenValid = await wTokenService.isAccessTokenValid();
       if (!isTokenValid) {
-        log('Token is invalid in repository, attempting to refresh...',
-            name: 'WhoopRepo');
+        log(
+          'Token is invalid in repository, attempting to refresh...',
+          name: 'WhoopRepo',
+        );
         final refreshSuccess =
             await wTokenService.refreshToken(wTokenService.refToken);
         if (!refreshSuccess) {
@@ -245,9 +247,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }) async {
     bool? isCurrentCycleEnded;
     try {
+      final int? lastCycleId = await getLastCycleId(userId: params.userId);
+      log('lastCycleId: $lastCycleId');
       isCurrentCycleEnded = await tryFetch(
         () async => remoteDataSource.pingLastCycle(
-          cycleId: await getLastCycleId(userId: params.userId),
+          cycleId: lastCycleId,
         ),
       );
 
@@ -289,10 +293,12 @@ class WhoopRepositoryImpl implements WhoopRepository {
       final days = await dayManager.getDaysIds(userId: userId);
 
       if (days.isEmpty) return null;
+
       final rawLastDay = await directus.readOne(
         collection: daysCollection,
         id: days.last.toString(),
       );
+
       return rawLastDay['cycleId'] != null
           ? int.parse(rawLastDay['cycleId'])
           : null;
@@ -639,12 +645,34 @@ class WhoopRepositoryImpl implements WhoopRepository {
           '>>> [changeModificatorOfSex] Modificator/Sex changed. Old day data: $r',
         );
         try {
-          // await remoteDataSource.updateDirectus(day: r);
-          final res = await dayManager.createDay(day: r);
+          // Отложенное обновление: вместо полной синхронизации день с сервером
+          // возвращаем локально рассчитанные макросы, а синхронизацию выполним позже
+          // final res = await dayManager.createDay(day: r);
           print(
-            '>>> [changeModificatorOfSex] New day created/updated. New Macros: ${res.macros}',
+            '>>> [changeModificatorOfSex] New day updated. New Macros: ${r.macros}',
           );
-          return Right(res.macros);
+
+          // Планируем отложенное обновление директуса
+          Future.delayed(const Duration(milliseconds: 300), () async {
+            try {
+              await dayManager.createDay(day: r);
+              print(
+                '>>> [changeModificatorOfSex] Background day update completed',
+              );
+            } catch (e, stackTrace) {
+              await WhoopErrorHandler.handleError(
+                e,
+                stackTrace,
+                context: 'whoop_change_modificator_background_update',
+                extras: {
+                  'modificator': params.modificator,
+                  'gender': params.gender.toString(),
+                },
+              );
+            }
+          });
+
+          return Right(r.macros);
         } catch (e, stackTrace) {
           await WhoopErrorHandler.handleError(
             e,

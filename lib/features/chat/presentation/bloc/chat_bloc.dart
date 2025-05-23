@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
@@ -26,7 +27,6 @@ import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
-import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -47,7 +47,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     this.fetchSavedSnapUsecase,
     this.replaceMealUsecase,
     this.replaceIngredientUsecase,
-    this.manageDayUsecase,
   ) : super(
           const ChatMainState(
             status: Status.initial,
@@ -75,7 +74,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final FetchSavedSnapUsecase fetchSavedSnapUsecase;
   final ReplaceMealUsecase replaceMealUsecase;
   final ReplaceIngredientUsecase replaceIngredientUsecase;
-  final ManageDayUsecase manageDayUsecase;
 
   Timer? _syncDebounceTimer;
 
@@ -231,7 +229,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           );
 
           // Сохраняем обновленный день
-          await hive.saveDay(data: updatedDay);
+          await dayManager.createDay(day: updatedDay);
 
           // Немедленно обновляем в Directus
           await _saveToDirectus(mealPlan);
@@ -364,29 +362,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final updatedDay = whoopBloc.state.day.copyWith(
       mealPlanEntity: updatedMealPlan,
     );
-    final data = updatedDay.toDirectus(userId: userBloc.state.user.directusId);
-    await manageDayUsecase.call(
-      ManageDayParams(
-        userId: userBloc.state.user.directusId,
-        dayMap: data,
-        incomingDay: updatedDay,
-      ),
-    );
-  }
-
-  Future<void> _saveToHive(MealPlanEntity updatedMealPlan) async {
-    final updatedDay = whoopBloc.state.day.copyWith(
-      mealPlanEntity: updatedMealPlan,
-    );
-    await hive.saveDay(data: updatedDay);
+    await dayManager.createDay(day: updatedDay);
   }
 
   Future<void> _saveChanges(MealPlanEntity updatedMealPlan) async {
-    // Сохраняем в Hive
-    await _saveToHive(updatedMealPlan);
-
-    // Сохраняем в Directus
-    await _saveToDirectus(updatedMealPlan);
+    // Сохраняем через DayManager (и в Hive, и в Directus)
+    final updatedDay = whoopBloc.state.day.copyWith(
+      mealPlanEntity: updatedMealPlan,
+    );
+    await dayManager.createDay(day: updatedDay);
   }
 
   FutureOr<void> _replaceMeal(
@@ -408,7 +392,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ),
     );
 
-    res.fold((failure) {
+    await res.fold((failure) {
       emit(state.copyWith(status: Status.error));
       add(
         ChatSendMessage(
@@ -436,7 +420,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
       whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
 
-      // Сохраняем изменения в Hive и Directus
+      // Сохраняем изменения через DayManager
       await _saveChanges(updatedMealPlan);
 
       appNavigationService
@@ -458,7 +442,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       ),
     );
 
-    res.fold((failure) {
+    await res.fold((failure) {
       emit(state.copyWith(status: Status.error));
       add(
         ChatSendMessage(
@@ -486,7 +470,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       );
       whoopBloc.add(WhoopUpdateDayByMealPlan(mealPlanEntity: updatedMealPlan));
 
-      // Сохраняем изменения в Hive и Directus
+      // Сохраняем изменения через DayManager
       await _saveChanges(updatedMealPlan);
 
       appNavigationService

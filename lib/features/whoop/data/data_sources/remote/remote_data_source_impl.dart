@@ -22,7 +22,6 @@ import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
-import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 part './remote_data_source.dart';
@@ -42,13 +41,17 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       // Проверяем и обновляем токен перед запросом
       final isTokenValid = await wTokenService.isAccessTokenValid();
       if (!isTokenValid) {
-        log('Token is invalid, attempting to refresh...',
-            name: 'WhoopBodyData');
+        log(
+          'Token is invalid, attempting to refresh...',
+          name: 'WhoopBodyData',
+        );
         final refreshSuccess =
             await wTokenService.refreshToken(wTokenService.refToken);
         if (!refreshSuccess) {
-          log('Failed to refresh token for body data request',
-              name: 'WhoopBodyData');
+          log(
+            'Failed to refresh token for body data request',
+            name: 'WhoopBodyData',
+          );
           return null;
         }
         log('Token successfully refreshed', name: 'WhoopBodyData');
@@ -58,8 +61,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       final rawBm = await _makeRequest(WhoopEndpoints().bodyMeasurements);
 
       if (rawBm == null) {
-        log('Failed to get body measurements: API returned null',
-            name: 'WhoopBodyData');
+        log(
+          'Failed to get body measurements: API returned null',
+          name: 'WhoopBodyData',
+        );
         return null;
       }
 
@@ -68,8 +73,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       if (!rawBm.containsKey('height_meter') ||
           !rawBm.containsKey('weight_kilogram') ||
           !rawBm.containsKey('max_heart_rate')) {
-        log('Body measurements data is incomplete: $rawBm',
-            name: 'WhoopBodyData');
+        log(
+          'Body measurements data is incomplete: $rawBm',
+          name: 'WhoopBodyData',
+        );
         return null;
       }
 
@@ -79,8 +86,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         maxHeartRate: rawBm['max_heart_rate'],
       );
 
-      log('Successfully parsed body measurements: $bodyData',
-          name: 'WhoopBodyData');
+      log(
+        'Successfully parsed body measurements: $bodyData',
+        name: 'WhoopBodyData',
+      );
       return bodyData;
     } catch (e, stackTrace) {
       log('Error getting body measurements: $e', name: 'WhoopBodyData');

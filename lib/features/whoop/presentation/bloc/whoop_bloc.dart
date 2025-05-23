@@ -6,16 +6,19 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
     show adapty;
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
+
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
+
 import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
@@ -28,7 +31,6 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
-import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
     show whoopRemote;
@@ -42,7 +44,7 @@ import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 
 part 'whoop_event.dart';
 
-final whoopBloc = getIt.get<WhoopBloc>();
+final whoopBloc = GetIt.I<WhoopBloc>();
 final chatRemoteSrc = chat_remote.chatRemoteSrc;
 final chatRepo = chat_repo.chatRepo;
 
@@ -54,7 +56,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     this.getBodyUsecase,
     this.changeModificatorOrSexUsecase,
     this.disconnectWhoopUsecase,
-    this.manageDayUsecase,
   ) : super(
           WhoopMainState(
             status: Status.initial,
@@ -78,7 +79,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   final WhoopGetBodyData getBodyUsecase;
   final ChangeModificatorOrSexUsecase changeModificatorOrSexUsecase;
   final DisconnectWhoopUsecase disconnectWhoopUsecase;
-  final ManageDayUsecase manageDayUsecase;
 
   FutureOr<void> _connectWhoop(
     WhoopConnectEvent event,
@@ -235,8 +235,183 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
         if (state.status != Status.loading && state.status != Status.error) {
           chatBloc.add(InitChatBloc(directusId: user.directusId));
+
+          // Создаем комплитер для ожидания загрузки дней
+          final completer = Completer<bool>();
+
+          // Переменная для отслеживания статуса загрузки
+          bool loadingHasStarted = false;
+          bool loadingInProgress = false;
+          int totalDaysToLoad = userBloc.state.user.daysIds.length;
+          int daysLoadedSoFar = 0;
+
+          // Вычисляем адаптивное время ожидания в зависимости от количества дней
+          // Базовое время 20 секунд + дополнительное время на каждые 50 дней
+          const baseTimeout = 20;
+          final adaptiveTimeout =
+              baseTimeout + ((totalDaysToLoad / 50).ceil() * 10);
+          log(
+            'Using adaptive timeout of $adaptiveTimeout seconds for $totalDaysToLoad days',
+            name: 'WhoopBloc',
+          );
+
+          // Подписываемся на состояние UserBloc
+          final subscription = userBloc.stream.listen((userState) {
+            log(
+              'UserBloc state change: ${userState.status}, days: ${userState.days.length}',
+              name: 'WhoopBloc',
+            );
+
+            // Проверяем начало загрузки
+            if (userState.status == Status.loading) {
+              loadingHasStarted = true;
+              loadingInProgress = true;
+              log('Days loading has started', name: 'WhoopBloc');
+            }
+
+            // Отслеживаем прогресс загрузки
+            if (loadingInProgress && userState.days.length > daysLoadedSoFar) {
+              daysLoadedSoFar = userState.days.length;
+              log(
+                'Loading progress: $daysLoadedSoFar/$totalDaysToLoad days',
+                name: 'WhoopBloc',
+              );
+            }
+
+            // Успешное завершение загрузки
+            if (userState.status == Status.success &&
+                loadingHasStarted &&
+                !completer.isCompleted) {
+              loadingInProgress = false;
+              log(
+                'Days loading completed successfully (${userState.days.length} days)',
+                name: 'WhoopBloc',
+              );
+
+              // Проверяем, что в списке есть хотя бы один день
+              if (userState.days.isNotEmpty) {
+                completer.complete(true);
+              } else {
+                log(
+                  'Warning: Successful state but empty days list',
+                  name: 'WhoopBloc',
+                );
+                completer.complete(false);
+              }
+            }
+
+            // Завершение с ошибкой
+            if (userState.status == Status.error &&
+                loadingHasStarted &&
+                !completer.isCompleted) {
+              loadingInProgress = false;
+              log('Days loading completed with error', name: 'WhoopBloc');
+              completer.complete(false);
+            }
+          });
+
+          // Запускаем загрузку дней
+          log('Starting days loading...', name: 'WhoopBloc');
           userBloc.add(UserGetDays(newDay: state.day));
 
+          // Ждем загрузки дней с таймаутом
+          bool loadingResult = false;
+          bool didTimeout = false;
+
+          try {
+            // Создаем Future для таймаута
+            final timeoutFuture =
+                Future.delayed(Duration(seconds: adaptiveTimeout)).then((_) {
+              if (!completer.isCompleted) {
+                log(
+                  'Timeout waiting for days to load after $adaptiveTimeout seconds',
+                  name: 'WhoopBloc',
+                );
+
+                // Проверяем, идет ли загрузка все еще
+                if (loadingInProgress && daysLoadedSoFar > 0) {
+                  // Если загрузка идет и уже загружено какое-то количество дней,
+                  // считаем это частичным успехом и не прерываем загрузку
+                  log(
+                    'Loading still in progress with $daysLoadedSoFar days loaded, continuing without error',
+                    name: 'WhoopBloc',
+                  );
+                  // Здесь мы НЕ завершаем completer, чтобы загрузка могла продолжиться
+                  didTimeout = true;
+                  return true; // Считаем частичный успех
+                } else {
+                  // Если нет прогресса, завершаем с ошибкой
+                  didTimeout = true;
+                  completer.complete(false);
+                  return false;
+                }
+              }
+              return true;
+            });
+
+            // Ждем результата от completer
+            loadingResult = await completer.future;
+
+            // Отменяем таймаут, если возможно (хотя это не всегда работает)
+            timeoutFuture.ignore();
+
+            log(
+              'Days loading result: $loadingResult, timeout: $didTimeout, days loaded: $daysLoadedSoFar',
+              name: 'WhoopBloc',
+            );
+          } catch (e) {
+            log('Error waiting for days: $e', name: 'WhoopBloc');
+            loadingResult = false;
+          } finally {
+            // Отписываемся от стрима
+            subscription.cancel();
+          }
+
+          // Обработка результата загрузки - показываем сообщение только если действительно произошла ошибка
+          if (!loadingResult && didTimeout && daysLoadedSoFar == 0) {
+            // Реальная ошибка таймаута - ничего не загрузилось
+            RishSnackbar().showSnackBar(
+              'Loading time exceeded. Possible connection issues.',
+            );
+          } else if (!loadingResult && !didTimeout) {
+            // Другая ошибка загрузки
+            RishSnackbar().showSnackBar(
+              'An error occurred while loading data. Please check your connection.',
+            );
+          } else if (didTimeout && daysLoadedSoFar > 0) {
+            // Частичная загрузка - успешно загрузилась часть данных
+            log(
+              'Partial success: loaded $daysLoadedSoFar days before timeout',
+              name: 'WhoopBloc',
+            );
+            // Не показываем ошибку, т.к. загрузка частично успешна
+          } else {
+            log('All days loaded successfully', name: 'WhoopBloc');
+          }
+
+          // Переходим на домашний экран только после завершения загрузки или таймаута
+          log('Navigation to home screen', name: 'WhoopBloc');
+
+          // Делаем финальную проверку состояний перед навигацией
+          bool userBlocReady = userBloc.state.status == Status.success &&
+              userBloc.state.days.isNotEmpty;
+          bool partialSuccess = didTimeout &&
+              daysLoadedSoFar > 0; // Считаем частичный успех тоже приемлемым
+          bool whoopBlocReady = state.status != Status.error;
+
+          log(
+            'Final check before navigation: UserBloc ready: $userBlocReady, Partial success: $partialSuccess, WhoopBloc ready: $whoopBlocReady',
+            name: 'WhoopBloc',
+          );
+
+          if (!userBlocReady && !partialSuccess) {
+            log(
+              'Warning: UserBloc is not fully ready for navigation!',
+              name: 'WhoopBloc',
+            );
+          }
+
+          // Даже если полная загрузка не завершена, но есть частичный успех - продолжаем
           appNavigationService.go(
             path: adapty.isActive
                 ? AppRoutes.homeScreen.path
@@ -311,6 +486,63 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     // Сохраняем текущий план питания
     final currentMealPlan = state.day.mealPlanEntity;
 
+    // Предварительное обновление UI для мгновенной реакции
+    // Делаем предварительный расчет макросов на основе новых значений
+    final estimatedCalories =
+        (1 + event.modificator) * state.day.weekTdeeAverage;
+    final estimatedKcal = estimatedCalories.round();
+
+    // Считаем примерное соотношение макросов по текущим
+    // Используем пропорции из текущих макросов
+    final currentMacros = state.day.macros;
+    final currentTotal = currentMacros.kcal > 0
+        ? currentMacros.kcal
+        : 1; // Защита от деления на ноль
+
+    // Проверяем, что текущие макросы не нулевые
+    bool hasValidCurrentMacros = currentMacros.protein > 0 &&
+        currentMacros.carbs > 0 &&
+        currentMacros.fat > 0;
+
+    // Создаем временные макросы с проверкой на валидность
+    int tempProtein = 0;
+    int tempCarbs = 0;
+    int tempFat = 0;
+
+    if (hasValidCurrentMacros) {
+      // Если текущие макросы валидны, используем пропорции
+      tempProtein =
+          (currentMacros.protein * estimatedKcal / currentTotal).round();
+      tempCarbs = (currentMacros.carbs * estimatedKcal / currentTotal).round();
+      tempFat = (currentMacros.fat * estimatedKcal / currentTotal).round();
+    } else {
+      // Если текущие макросы невалидны, используем стандартное распределение
+      // Примерно 30% белка, 50% углеводов, 20% жиров
+      tempProtein = (0.3 * estimatedKcal / 4).round(); // Белки: 4 ккал/г
+      tempCarbs = (0.5 * estimatedKcal / 4).round(); // Углеводы: 4 ккал/г
+      tempFat = (0.2 * estimatedKcal / 9).round(); // Жиры: 9 ккал/г
+    }
+
+    // Проверка на нулевые значения
+    tempProtein = tempProtein > 0 ? tempProtein : 1;
+    tempCarbs = tempCarbs > 0 ? tempCarbs : 1;
+    tempFat = tempFat > 0 ? tempFat : 1;
+
+    final estimatedMacros = MacrosBreakdown(
+      protein: tempProtein,
+      carbs: tempCarbs,
+      fat: tempFat,
+      kcal: estimatedKcal,
+    );
+
+    // Обновляем UI с предварительными данными
+    final preliminaryDay = state.day.copyWith(
+      macros: estimatedMacros,
+      mealPlanEntity: currentMealPlan,
+    );
+    emit(state.copyWith(day: preliminaryDay));
+
+    // Затем запускаем полное обновление через usecase
     final res = await changeModificatorOrSexUsecase.call(
       ChangeModificatorOrSexParams(
         modificator: event.modificator,
@@ -328,13 +560,40 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       }
     }, (macros) {
       success = true;
-      // Обновляем день, сохраняя план питания
-      final updatedDay = state.day.copyWith(
-        macros: macros,
-        mealPlanEntity: currentMealPlan,
-      );
-      emit(state.copyWith(day: updatedDay));
-      // userBloc.add(UserManageDay(day: updatedDay));
+
+      // Проверяем, что полученные макросы валидны
+      bool isValidMacros =
+          macros.protein > 0 && macros.carbs > 0 && macros.fat > 0;
+
+      if (isValidMacros) {
+        // Обновляем день с точными данными из usecase
+        final updatedDay = state.day.copyWith(
+          macros: macros,
+          mealPlanEntity: currentMealPlan,
+        );
+        emit(state.copyWith(day: updatedDay));
+      } else {
+        // Если полученные макросы невалидны, оставляем предварительные данные
+        // и логируем проблему
+        log(
+          'Получены невалидные макросы из usecase: $macros',
+          name: 'WhoopBloc',
+        );
+
+        // Можно также попробовать исправить невалидные значения
+        MacrosBreakdown fixedMacros = macros.copyWith(
+          protein:
+              macros.protein > 0 ? macros.protein : estimatedMacros.protein,
+          carbs: macros.carbs > 0 ? macros.carbs : estimatedMacros.carbs,
+          fat: macros.fat > 0 ? macros.fat : estimatedMacros.fat,
+        );
+
+        final updatedDay = state.day.copyWith(
+          macros: fixedMacros,
+          mealPlanEntity: currentMealPlan,
+        );
+        emit(state.copyWith(day: updatedDay));
+      }
     });
 
     if (!success) {
@@ -431,15 +690,17 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
     // Если нужно, синхронизируем с бэкендом
     if (needsDirectusUpdate) {
-      final data =
-          updatedDay.toDirectus(userId: userBloc.state.user.directusId);
-      await manageDayUsecase.call(
-        ManageDayParams(
-          userId: userBloc.state.user.directusId,
-          dayMap: data,
-          incomingDay: updatedDay,
-        ),
-      );
+      // final data =
+      //     updatedDay.toDirectus(userId: userBloc.state.user.directusId);
+      await dayManager.createDay(day: updatedDay);
+
+      // await manageDayUsecase.call(
+      //   ManageDayParams(
+      //     userId: userBloc.state.user.directusId,
+      //     dayMap: data,
+      //     incomingDay: updatedDay,
+      //   ),
+      // );
 
       // Обновляем кэш чата
       await chatRepo.saveChatSnapShot(chatSnap: updatedDay.snap);
@@ -613,15 +874,16 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       // Если план питания был очищен, обновляем в Directus
       if (state.day.mealPlanEntity != null &&
           event.day.mealPlanEntity == null) {
-        final data =
-            event.day.toDirectus(userId: userBloc.state.user.directusId);
-        await manageDayUsecase.call(
-          ManageDayParams(
-            userId: userBloc.state.user.directusId,
-            dayMap: data,
-            incomingDay: event.day,
-          ),
-        );
+        // final data =
+        //     event.day.toDirectus(userId: userBloc.state.user.directusId);
+        await dayManager.createDay(day: event.day);
+        // await manageDayUsecase.call(
+        //   ManageDayParams(
+        //     userId: userBloc.state.user.directusId,
+        //     dayMap: data,
+        //     incomingDay: event.day,
+        //   ),
+        // );
       }
 
       // Синхронизируем чат с новым днем

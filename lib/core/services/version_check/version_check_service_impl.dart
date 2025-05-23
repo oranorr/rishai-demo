@@ -40,6 +40,13 @@ class VersionCheckServiceImpl implements VersionCheckService {
       return false; // Не можем проверить, считаем, что обновление не нужно
     }
 
+    // Проверяем, включена ли проверка версий
+    final bool versionCheckOn = appConfig['versionCheckOn'] as bool? ?? true;
+    if (!versionCheckOn) {
+      log('Version check is disabled in app config.');
+      return false; // Проверка версий отключена, считаем, что обновление не нужно
+    }
+
     try {
       final currentVersionStr = packageInfo.version;
       final currentBuildNumber = packageInfo.buildNumber;

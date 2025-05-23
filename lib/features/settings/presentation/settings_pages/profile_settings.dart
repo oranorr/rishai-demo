@@ -32,6 +32,29 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
   bool planCreated =
       kDebugMode ? false : whoopBloc.state.day.mealPlanEntity != null;
 
+  // Добавляем проверку, является ли день "вчерашним"
+  bool get isYesterday {
+    final day = whoopBloc.state.day;
+    final today = DateTime.now();
+
+    // dateTime уже является DateTime объектом
+    final dayDate = day.dateTime;
+
+    // Приводим к одному формату даты без времени для сравнения
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final normalizedDayDate =
+        DateTime(dayDate.year, dayDate.month, dayDate.day);
+
+    // Проверяем, является ли день "вчерашним"
+    final difference = todayDate.difference(normalizedDayDate).inDays;
+    return difference == 1;
+  }
+
+  // Проверка доступности изменения цели
+  bool get canChangeGoal {
+    return !planCreated && !isYesterday;
+  }
+
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
@@ -126,9 +149,8 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           RishDropdownMenu(
             title: 'Fitness goal',
             preSelectedData: updUser.userGoal!.getGoalTypeName(),
-            action: planCreated
-                ? _showDialog
-                : () async {
+            action: canChangeGoal
+                ? () async {
                     await ModalSheet.showQuestionarySheet(
                       title: 'Fitness goal',
                       context: context,
@@ -137,7 +159,8 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                         updateGoal(selectedGoal.first as FitnessGoal);
                       },
                     );
-                  },
+                  }
+                : _showDialog,
           ),
           SizedBox(height: 16.h),
           RishDropdownMenu(
@@ -146,7 +169,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                 '${(updUser.userGoal!.modificator * 100).round()} %',
             action: !modificatorChangable
                 ? () {}
-                : modificatorChangable && !planCreated
+                : modificatorChangable && canChangeGoal
                     ? () async {
                         await ModificatorSelectorSheet(
                           goal: updUser.userGoal!,
@@ -275,12 +298,15 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
   }
 
   Future<void> _showDialog() async {
+    String message = isYesterday
+        ? 'This setting can only be changed tomorrow, AFTER the new day starts'
+        : 'This setting can only be changed tomorrow, BEFORE creating a new meal plan';
+
     await RishiDialog.showCustomDialog(
       context,
       type: DialogType.info,
       actionDialogType: ActionDialogType.warning,
-      text:
-          'This setting can only be changed tomorrow, BEFORE creating a new meal plan',
+      text: message,
       action: () {
         context.pop();
       },

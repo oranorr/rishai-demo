@@ -14,16 +14,42 @@ class AnalyticsRepositoryImpl implements AnalyticsRepository {
 
   @override
   Future<void> init() async {
+    // Выводим информацию о Firebase Analytics
+    if (kDebugMode) {
+      print('🔥 Инициализация Analytics Repository');
+      print('🔥 Firebase Analytics instance: $_analytics');
+    }
+
     // Включаем сбор аналитики и режим отладки
     await _analytics.setAnalyticsCollectionEnabled(true);
+
+    // Проверяем работу аналитики
+    try {
+      if (kDebugMode) {
+        await _analytics.logEvent(
+          name: 'analytics_repository_init',
+          parameters: {
+            'init_time': DateTime.now().toIso8601String(),
+            'debug_mode': 'true', // Используем строку вместо bool
+          },
+        );
+        print('🔥 Тестовое событие analytics_repository_init отправлено');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Ошибка отправки тестового события: $e');
+      }
+    }
 
     // Включаем режим отладки для Firebase Analytics (только в режиме разработки)
     if (kDebugMode) {
       // В новых версиях Firebase Analytics используется другой метод для отладки
       print(
-          '🔍 Firebase Analytics debug mode enabled through Firebase console');
+        '🔍 Firebase Analytics debug mode enabled through Firebase console',
+      );
       print(
-          '👉 Check "DebugView" in Firebase console to see events in real-time');
+        '👉 Check "DebugView" in Firebase console to see events in real-time',
+      );
 
       // При необходимости можно использовать консольные логи для отладки событий
       // Для просмотра событий в консоли Firebase можно воспользоваться инструкцией:

@@ -281,11 +281,10 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
               ),
               SizedBox(height: 20.h),
               RishButton.primary(
-                title: 'Update',
-                enabled: filter.hasActiveFilters,
+                title: 'Close',
+                enabled: true,
                 isLoading: false,
                 action: () {
-                  weekPlanBloc.add(WeekPlanFilter(filter: filter));
                   Navigator.of(context).pop();
                 },
               ),
@@ -317,11 +316,13 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
         dietaryPreferences: prefs,
       );
     });
-    // setState(() {
-    //   filter = filter.copyWith(
-    //     dietaryPreferences: incPrefs,
-    //   );
-    // });
+
+    // Автоматически применять фильтр
+    if (filter.hasActiveFilters) {
+      weekPlanBloc.add(WeekPlanFilter(filter: filter));
+    } else {
+      weekPlanBloc.add(const WeekPlanEvent.clearFilter());
+    }
   }
 
   void updateFilterGoal(String incGoal) {
@@ -333,6 +334,13 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
         fitnessGoal: goals,
       );
     });
+
+    // Автоматически применять фильтр
+    if (filter.hasActiveFilters) {
+      weekPlanBloc.add(WeekPlanFilter(filter: filter));
+    } else {
+      weekPlanBloc.add(const WeekPlanEvent.clearFilter());
+    }
   }
 
   void clearFilter() {
@@ -361,6 +369,13 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
         cuisines: cuisines,
       );
     });
+
+    // Автоматически применять фильтр
+    if (filter.hasActiveFilters) {
+      weekPlanBloc.add(WeekPlanFilter(filter: filter));
+    } else {
+      weekPlanBloc.add(const WeekPlanEvent.clearFilter());
+    }
   }
 
   void updateFilterMealsTypes(String incMealType) {
@@ -374,6 +389,13 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
         mealsTypes: mealsTypes,
       );
     });
+
+    // Автоматически применять фильтр
+    if (filter.hasActiveFilters) {
+      weekPlanBloc.add(WeekPlanFilter(filter: filter));
+    } else {
+      weekPlanBloc.add(const WeekPlanEvent.clearFilter());
+    }
   }
 }
 

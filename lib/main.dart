@@ -1,28 +1,30 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:rishai/app.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/analytics/analytics_event_tracker.dart';
 import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/version_check/version_check_service.dart';
-import 'package:rishai/core/widgets/update_dialog.dart';
 import 'package:rishai/core/theme/themes.dart';
+import 'package:rishai/core/widgets/update_dialog.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/firebase_options.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 void main() async {
   await SentryFlutter.init(
@@ -40,7 +42,62 @@ void main() async {
 
       FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-      await Firebase.initializeApp();
+      // Инициализируем Firebase только если приложение еще не инициализировано
+      try {
+        // Проверяем, не инициализирован ли Firebase уже
+        final apps = Firebase.apps;
+        if (apps.isEmpty) {
+          // Если еще не инициализирован, инициализируем
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+          print('Firebase инициализирован в Dart');
+        } else {
+          print('Firebase уже инициализирован ранее');
+        }
+      } catch (e) {
+        print('Ошибка при инициализации Firebase: $e');
+      }
+
+      // Явно включаем отладку Firebase Analytics для тестирования
+      if (kDebugMode) {
+        FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+        await analytics.setAnalyticsCollectionEnabled(true);
+        print('🔥 Firebase Analytics collection enabled explicitly');
+
+        // Создаем несколько тестовых событий для проверки работы аналитики
+        print('🔥 Отправляем тестовые события Firebase analytics...');
+
+        // Тестовое событие 1
+        await analytics.logEvent(
+          name: 'test_analytics_event_1',
+          parameters: {
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'debug': 'true',
+            'platform': 'Flutter',
+            'test_number': 1,
+          },
+        );
+
+        // Тестовое событие 2
+        await analytics.logEvent(
+          name: 'test_analytics_event_2',
+          parameters: {
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'debug': 'true',
+            'platform': 'Flutter',
+            'test_number': 2,
+          },
+        );
+
+        // Тестовое стандартное событие
+        await analytics.logScreenView(
+          screenName: 'test_screen',
+          screenClass: 'TestScreen',
+        );
+
+        print('🔥 Тестовые события Firebase analytics отправлены');
+      }
 
       await configureDependencies();
 

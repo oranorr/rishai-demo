@@ -5,7 +5,6 @@ import 'package:directus/directus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/day_manager/day_manager.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
@@ -24,37 +23,102 @@ class DayManagerImpl implements DayManager {
     required List<int> daysIds,
   }) async {
     try {
+      _logger('Начало получения дней, всего ID: ${daysIds.length}');
       final res = await hive.retrieveSavedDays();
       final savedIds = res.map((e) => e.directusId).toList();
       final missingIds = daysIds.where((id) => !savedIds.contains(id)).toList();
-      if (missingIds.isEmpty) return Right(res);
+
+      _logger(
+        'Найдено в кэше: ${savedIds.length}, отсутствует: ${missingIds.length}',
+      );
+
+      if (missingIds.isEmpty) {
+        _logger('Все дни найдены в кэше, возвращаем локальные данные');
+        return Right(res);
+      }
+
+      int successCount = 0;
+      int failCount = 0;
 
       for (final id in missingIds) {
-        print('fetching day with id: $id');
-        try {
-          final day = await directus.readOne(
-            collection: daysCollection,
-            id: id.toString(),
-          );
-          final dayEntity = DayEntity.fromMap(day);
-          await hive.saveDay(data: dayEntity);
-          res.add(dayEntity);
-        } catch (e, stackTrace) {
-          await WhoopErrorHandler.handleError(
-            e,
-            stackTrace,
-            context: 'day_manager_fetch_day',
-            extras: {
-              'day_id': id,
-              'saved_ids': savedIds,
-              'missing_ids': missingIds,
-            },
-          );
-          return Left(FailedToGetUserData('Failed to fetch day with id: $id'));
+        const maxRetries = 2; // Количество повторных попыток для каждого дня
+        bool dayFetched = false;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+          try {
+            if (attempt > 0) {
+              _logger('Повторная попытка #$attempt получения дня с id: $id');
+              await Future.delayed(
+                Duration(
+                  milliseconds: 300 * attempt,
+                ),
+              ); // Увеличиваем задержку с каждой попыткой
+            } else {
+              _logger('Получение дня с id: $id');
+            }
+
+            final day = await directus.readOne(
+              collection: daysCollection,
+              id: id.toString(),
+            );
+
+            final dayEntity = DayEntity.fromMap(day);
+            await hive.saveDay(data: dayEntity);
+            res.add(dayEntity);
+
+            _logger('День с id: $id успешно получен и сохранен');
+            dayFetched = true;
+            successCount++;
+            break; // Выходим из цикла повторных попыток
+          } catch (e, stackTrace) {
+            if (attempt < maxRetries) {
+              _logger(
+                'Ошибка при получении дня с id: $id, попытка: ${attempt + 1}/$maxRetries, ошибка: $e',
+              );
+              continue; // Пробуем еще раз
+            }
+
+            // Все попытки исчерпаны
+            _logger(
+              'Не удалось получить день с id: $id после ${maxRetries + 1} попыток',
+            );
+            await WhoopErrorHandler.handleError(
+              e,
+              stackTrace,
+              context: 'day_manager_fetch_day',
+              extras: {
+                'day_id': id,
+                'saved_ids': savedIds,
+                'missing_ids': missingIds,
+                'attempt': attempt + 1,
+              },
+            );
+
+            failCount++;
+          }
         }
       }
-      return Right(res);
+
+      _logger(
+        'Завершено получение дней. Успешно: $successCount, не удалось: $failCount',
+      );
+
+      // Если хотя бы какие-то дни загружены, считаем это частичным успехом
+      if (res.isNotEmpty) {
+        if (failCount > 0) {
+          _logger(
+            'Возвращаем частично загруженные данные (${res.length} дней)',
+          );
+        } else {
+          _logger('Все дни успешно загружены (${res.length} дней)');
+        }
+        return Right(res);
+      } else {
+        _logger('Не удалось загрузить ни одного дня');
+        return const Left(FailedToGetUserData('Failed to fetch any days'));
+      }
     } catch (e, stackTrace) {
+      _logger('Общая ошибка при получении дней: $e');
       await WhoopErrorHandler.handleError(
         e,
         stackTrace,

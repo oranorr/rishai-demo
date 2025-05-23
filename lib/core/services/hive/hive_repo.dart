@@ -19,6 +19,7 @@ abstract class HiveRepo {
 
   Future<void> saveUserData({required UserDataEntity dataEntity});
   Future<UserDataEntity?> fetchUserDataEntity({required String userId});
+  Future<List<UserDataEntity>> retrieveAllUserData();
 
   Future<void> disconnectWhoop();
 

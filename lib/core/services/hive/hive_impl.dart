@@ -34,7 +34,9 @@ class HiveImpl implements HiveRepo {
   @override
   Future<void> initHive() async {
     try {
+      log('STARTING HIVE INITIALIZATION');
       await Hive.initFlutter();
+      log('REGISTERING HIVE ADAPTERS');
       Hive
         ..registerAdapter<UserEntity>(UserEntityAdapter())
         ..registerAdapter(GenderAdapter())
@@ -55,13 +57,22 @@ class HiveImpl implements HiveRepo {
         ..registerAdapter(WeekPlanEntityAdapter())
         ..registerAdapter(HealthMetricsEntityAdapter())
         ..registerAdapter(MeasurementUnitAdapter());
-
+      log('OPENING HIVE BOXES');
       userBox = await Hive.openBox<UserEntity>('user_box');
       chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
       dayBox = await Hive.openBox<DayEntity>('day_box');
       userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
       weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
+      log('HIVE INITIALIZATION COMPLETE');
+      log(
+        'BOX STATUSES - USER: ${userBox.isEmpty ? "empty" : "${userBox.length} items"}, '
+        'USER DATA: ${userDataBox.isEmpty ? "empty" : "${userDataBox.length} items"}, '
+        'DAY: ${dayBox.isEmpty ? "empty" : "${dayBox.length} items"}, '
+        'CHAT: ${chatBox.isEmpty ? "empty" : "${chatBox.length} items"}, '
+        'WEEK PLAN: ${weekPlanBox.isEmpty ? "empty" : "${weekPlanBox.length} items"}',
+      );
     } on Exception catch (e, stackTrace) {
+      log('ERROR DURING HIVE INITIALIZATION: $e');
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -374,17 +385,27 @@ class HiveImpl implements HiveRepo {
   @override
   Future<void> saveUserData({required UserDataEntity dataEntity}) async {
     try {
+      log('ATTEMPTING TO SAVE USER DATA FOR USER ID: ${dataEntity.userId}');
+      log('CURRENT USER DATA BOX IS EMPTY: ${userDataBox.isEmpty}, COUNT: ${userDataBox.length}');
+
       if (userDataBox.isEmpty) {
         final index = await userDataBox.add(dataEntity);
-        log('SAVED AT $index');
+        log('SAVED NEW USER DATA AT INDEX $index FOR USER ID: ${dataEntity.userId}');
         return;
       } else {
         int indexOfLast = 0;
         final listEntities = userDataBox.values.toList();
+        log('EXISTING USER DATA COUNT: ${listEntities.length}');
+
+        // Логируем все существующие userId для понимания
+        final existingUserIds =
+            listEntities.map((data) => data.userId).toList();
+        log('EXISTING USER IDS IN BOX: $existingUserIds');
 
         for (final data in listEntities) {
           if (data.userId == dataEntity.userId) {
             indexOfLast = listEntities.indexOf(data);
+            log('FOUND EXISTING USER DATA FOR USER ID: ${dataEntity.userId} AT INDEX: $indexOfLast');
             break;
           } else {
             indexOfLast = 0;
@@ -392,10 +413,19 @@ class HiveImpl implements HiveRepo {
         }
 
         await userDataBox.putAt(indexOfLast, dataEntity);
-        log('SAVED AT $indexOfLast');
+        log('UPDATED USER DATA AT INDEX $indexOfLast FOR USER ID: ${dataEntity.userId}');
+
+        // Проверка после сохранения
+        final updatedUserData = userDataBox.getAt(indexOfLast);
+        log('AFTER SAVE: USER DATA IS NULL: ${updatedUserData == null}');
+        if (updatedUserData != null) {
+          log('AFTER SAVE: USER ID IN SAVED DATA: ${updatedUserData.userId}');
+        }
+
         return;
       }
     } on Exception catch (e, stackTrace) {
+      log('ERROR SAVING USER DATA: $e');
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -414,21 +444,41 @@ class HiveImpl implements HiveRepo {
   @override
   Future<UserDataEntity?> fetchUserDataEntity({required String userId}) async {
     try {
+      log('ATTEMPTING TO FETCH USER DATA FOR USER ID: $userId');
+      log('USER DATA BOX STATUS - IS EMPTY: ${userDataBox.isEmpty}, COUNT: ${userDataBox.length}');
+
       if (userDataBox.isEmpty) {
-        log('NO USER DATA FOUND');
+        log('NO USER DATA FOUND - BOX IS EMPTY');
         return null;
       }
-      UserDataEntity? last;
+
       final listEntities = userDataBox.values.toList().reversed;
+      log('FOUND ${listEntities.length} USER DATA ENTRIES');
+
+      // Логируем все имеющиеся userId для понимания
+      final availableUserIds = listEntities.map((data) => data.userId).toList();
+      log('AVAILABLE USER IDS IN BOX: $availableUserIds');
+
+      UserDataEntity? last;
 
       for (final data in listEntities) {
+        log('CHECKING USER DATA WITH ID: ${data.userId}');
         if (data.userId == userId) {
           last = data;
+          log('FOUND MATCHING USER DATA FOR USER ID: $userId');
+          break;
         }
+      }
+
+      if (last == null) {
+        log('NO MATCHING USER DATA FOUND FOR USER ID: $userId');
+      } else {
+        log('RETURNING USER DATA: $last');
       }
 
       return last;
     } on Exception catch (e, stackTrace) {
+      log('ERROR FETCHING USER DATA: $e');
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,
@@ -442,11 +492,42 @@ class HiveImpl implements HiveRepo {
   }
 
   @override
+  Future<List<UserDataEntity>> retrieveAllUserData() async {
+    try {
+      if (userDataBox.isEmpty) {
+        log('UserDataBox is empty');
+        return [];
+      }
+      return userDataBox.values.toList();
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_user_data',
+        operation: 'retrieve_all_user_data',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> disconnectWhoop() async {
     try {
+      log('DISCONNECTING WHOOP - STARTING DATA CLEANUP');
+      log('BEFORE CLEANUP - DAY BOX COUNT: ${dayBox.length}, USER DATA BOX COUNT: ${userDataBox.length}');
+
+      if (userDataBox.isNotEmpty) {
+        final userData = userDataBox.values.toList();
+        log('USER DATA BEFORE CLEANUP - COUNT: ${userData.length}, USER IDS: ${userData.map((data) => data.userId).toList()}');
+      }
+
       await dayBox.clear();
       await userDataBox.clear();
+
+      log('AFTER CLEANUP - DAY BOX COUNT: ${dayBox.length}, USER DATA BOX COUNT: ${userDataBox.length}');
     } on Exception catch (e, stackTrace) {
+      log('ERROR DURING WHOOP DISCONNECT: $e');
       await LocalStorageErrorHandler.handleError(
         e,
         stackTrace,

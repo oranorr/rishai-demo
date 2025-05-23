@@ -8,6 +8,7 @@ import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/day_manager/day_manager.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/data/data_sources/local/user_local_source.dart';
@@ -15,10 +16,7 @@ import 'package:rishai/features/user/data/data_sources/remote/user_remote_source
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
-import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
-import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/core/services/error/whoop_error_handler.dart';
 
 @Singleton(as: UserRepository)
 class UserRepositoryImpl implements UserRepository {
@@ -97,79 +95,73 @@ class UserRepositoryImpl implements UserRepository {
     return const Left(UnknownFailure());
   }
 
-  @override
-  Future<Either<Failure, void>> manageDay({
-    required ManageDayParams params,
-  }) async {
-    // final day = await dayManager.createDay(day: params.incomingDay);
-    return const Right(null);
-    // try {
-    //   final ids = await dayManager.getDaysIds(userId: params.userId);
+  // try {
+  //   final ids = await dayManager.getDaysIds(userId: params.userId);
 
-    //   if (ids.isEmpty) {
-    //     final result = await directus.createOne(
-    //       collection: daysCollection,
-    //       data: params.dayMap,
-    //     );
-    //     log('Day is created with id: ${result['id']}');
-    //     return const Right(null);
-    //   }
+  //   if (ids.isEmpty) {
+  //     final result = await directus.createOne(
+  //       collection: daysCollection,
+  //       data: params.dayMap,
+  //     );
+  //     log('Day is created with id: ${result['id']}');
+  //     return const Right(null);
+  //   }
 
-    //   final lastRecord = await directus.readOne(
-    //     collection: daysCollection,
-    //     id: ids.last.toString(),
-    //   );
+  //   final lastRecord = await directus.readOne(
+  //     collection: daysCollection,
+  //     id: ids.last.toString(),
+  //   );
 
-    //   final needsFreshDay = await whoopRemote.pingLastCycle(
-    //     cycleId: int.parse(lastRecord['cycleId']),
-    //   );
+  //   final needsFreshDay = await whoopRemote.pingLastCycle(
+  //     cycleId: int.parse(lastRecord['cycleId']),
+  //   );
 
-    //   if (!needsFreshDay) {
-    //     final lastEntity = DayEntity.fromMap(lastRecord);
+  //   if (!needsFreshDay) {
+  //     final lastEntity = DayEntity.fromMap(lastRecord);
 
-    //     // Проверяем, изменились ли параметры, требующие обновления
-    //     bool needsUpdate = params.incomingDay.mealPlanEntity != null;
+  //     // Проверяем, изменились ли параметры, требующие обновления
+  //     bool needsUpdate = params.incomingDay.mealPlanEntity != null;
 
-    //     // Также проверяем, изменились ли макросы и другие важные параметры
-    //     if (!needsUpdate) {
-    //       needsUpdate = lastEntity.macros != params.incomingDay.macros ||
-    //           lastEntity.healthMetrics != params.incomingDay.healthMetrics;
+  //     // Также проверяем, изменились ли макросы и другие важные параметры
+  //     if (!needsUpdate) {
+  //       needsUpdate = lastEntity.macros != params.incomingDay.macros ||
+  //           lastEntity.healthMetrics != params.incomingDay.healthMetrics;
 
-    //       if (needsUpdate) {
-    //         log('Day needs update due to changes in macros or health metrics:');
-    //         log('Old macros: ${lastEntity.macros}');
-    //         log('New macros: ${params.incomingDay.macros}');
-    //       }
-    //     }
+  //       if (needsUpdate) {
+  //         log('Day needs update due to changes in macros or health metrics:');
+  //         log('Old macros: ${lastEntity.macros}');
+  //         log('New macros: ${params.incomingDay.macros}');
+  //       }
+  //     }
 
-    //     if (needsUpdate) {
-    //       log('Updating day with ID: ${lastRecord['id']} (changes detected)');
+  //     if (needsUpdate) {
+  //       log('Updating day with ID: ${lastRecord['id']} (changes detected)');
 
-    //       // Всегда обновляем весь объект для обеспечения целостности данных
-    //       final updateResult = await directus.updateOne(
-    //         collection: daysCollection,
-    //         itemId: lastRecord['id'].toString(),
-    //         updateData: params.dayMap,
-    //       );
-    //       await saveDay(data: DayEntity.fromMap(updateResult));
-    //       log('Day updated successfully. Update result: $updateResult');
-    //     } else {
-    //       log('No updates needed for the day. All data is up to date.');
-    //     }
-    //     return const Right(null);
-    //   } else {
-    //     final result = await directus.createOne(
-    //       collection: daysCollection,
-    //       data: params.dayMap,
-    //     );
-    //     log('New day created with id: ${result['id']}');
-    //     return const Right(null);
-    //   }
-    // } on Exception catch (e) {
-    //   log('Error while managing day: $e', name: 'UserRepositoryImpl');
-    //   return Left(FailedUpdateUser(e.toString()));
-    // }
-  }
+  //       // Всегда обновляем весь объект для обеспечения целостности данных
+  //       final updateResult = await directus.updateOne(
+  //         collection: daysCollection,
+  //         itemId: lastRecord['id'].toString(),
+  //         updateData: params.dayMap,
+  //       );
+  //       await saveDay(data: DayEntity.fromMap(updateResult));
+  //       log('Day updated successfully. Update result: $updateResult');
+  //     } else {
+  //       log('No updates needed for the day. All data is up to date.');
+  //     }
+  //     return const Right(null);
+  //   } else {
+  //     final result = await directus.createOne(
+  //       collection: daysCollection,
+  //       data: params.dayMap,
+  //     );
+  //     log('New day created with id: ${result['id']}');
+  //     return const Right(null);
+  //   }
+  // } on Exception catch (e) {
+  //   log('Error while managing day: $e', name: 'UserRepositoryImpl');
+  //   return Left(FailedUpdateUser(e.toString()));
+  // }
+  // }
   // @override
   // Future<Either<Failure, void>> manageDay({
   //   required ManageDayParams params,
@@ -245,30 +237,35 @@ class UserRepositoryImpl implements UserRepository {
       }
 
       // Ищем день с такой же датой
+      bool dayUpdated = false;
       for (final id in ids.reversed) {
-        final day = await directus.readOne(
+        final dayRaw = await directus.readOne(
           collection: daysCollection,
           id: id.toString(),
         );
 
-        final dayDate = DateTime.fromMillisecondsSinceEpoch(
-          int.parse(day['dateTime']),
-        );
+        final dayEntity = DayEntity.fromMap(dayRaw);
+        final dayDate = dayEntity.dateTime;
 
         if (dayDate.isSameDate(snapshot.date)) {
-          await directus.updateOne(
-            collection: daysCollection,
-            itemId: id.toString(),
-            updateData: {
-              'mealPlan': mealPlan.toMap(),
-              'chatSnap': snapshot.toDirectus(),
-            },
+          // Создаем обновленный день с новым планом питания и снапшотом
+          final updatedDay = dayEntity.copyWith(
+            mealPlanEntity: mealPlan,
+            snap: snapshot,
           );
-          return const Right(null);
+
+          // Используем dayManager для обновления
+          await dayManager.createDay(day: updatedDay);
+          dayUpdated = true;
+          break;
         }
       }
 
-      return const Left(FailedUpdateUser('Day not found'));
+      if (!dayUpdated) {
+        return const Left(FailedUpdateUser('Day not found'));
+      }
+
+      return const Right(null);
     } on Exception catch (e) {
       log('Error updating day with meal plan: $e');
       return Left(FailedUpdateUser(e.toString()));
@@ -317,26 +314,11 @@ class UserRepositoryImpl implements UserRepository {
 
   Future<void> saveDay({required DayEntity data}) async {
     try {
-      final box = await Hive.openBox<DayEntity>('days');
-
-      // Сохраняем день
-      await box.put(data.directusId.toString(), data);
-
-      // Дополнительно сохраняем ссылку на последний день для быстрого доступа
-      final metaBox = await Hive.openBox<String>('days_meta');
-      await metaBox.put('latest_day_id', data.directusId.toString());
-
+      await dayManager.createDay(day: data);
       // Для удобства отладки
-      log('День сохранен в Hive: ID=${data.directusId}, Макросы=${data.macros}');
+      log('День сохранен через dayManager: ID=${data.directusId}, Макросы=${data.macros}');
     } catch (e, stackTrace) {
-      log('Ошибка при сохранении дня в Hive: $e');
-      // await LocalStorageErrorHandler.handleError(
-      //   e,
-      //   stackTrace,
-      //   context: 'hive_storage',
-      //   operation: 'save_day',
-      //   extras: {'day_id': data.directusId, 'macros': data.macros.toString()},
-      // );
+      log('Ошибка при сохранении дня через dayManager: $e');
       rethrow;
     }
   }

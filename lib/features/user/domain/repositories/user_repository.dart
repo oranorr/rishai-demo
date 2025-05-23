@@ -4,7 +4,6 @@ import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
-import 'package:rishai/features/user/domain/usecases/manage_day_usecase.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
 abstract class UserRepository {
@@ -12,7 +11,6 @@ abstract class UserRepository {
   Future<Either<Failure, List<DayEntity>>> getDays({
     required GetDaysParams params,
   });
-  Future<Either<Failure, void>> manageDay({required ManageDayParams params});
 
   Future<Either<Failure, void>> updateDayWithMealPlan({
     required String userId,

@@ -65,6 +65,6 @@ class DefaultFirebaseOptions {
     storageBucket: 'rishai.appspot.com',
     androidClientId:
         '922501061929-55mor8s2stqjo0736k3tg94gbebdv1bg.apps.googleusercontent.com',
-    iosBundleId: 'com.mvpLab.rishai',
+    iosBundleId: 'com.HealthspanCulture.Pivot',
   );
 }

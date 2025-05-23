@@ -2,16 +2,20 @@ import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
+import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/error/local_storage_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
+import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
+
+final userBloc = getIt.get<UserBloc>();
 
 @Singleton(as: WhoopLocalDataSource)
 class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
@@ -35,7 +39,7 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
   @override
   Future<void> saveData({required DayEntity data}) async {
     try {
-      await hive.saveDay(data: data);
+      await dayManager.createDay(day: data);
     } catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
@@ -58,51 +62,164 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
     required ChangeModificatorOrSexParams params,
   }) async {
     try {
+      log('Starting changeModificatorOrSexLocal with params: userId=${params.userId}, modificator=${params.modificator}, weekTdeeAverage=${params.weekTdeeAverage}');
+
       UserDataEntity? userData;
       final newCalorieGoal = (1 + params.modificator) * params.weekTdeeAverage;
+
+      log('Attempting to fetch user data from Hive...');
       userData = await hive.fetchUserDataEntity(userId: params.userId);
 
       if (userData == null) {
-        log('userData is dead, need to refresh');
-        await LocalStorageErrorHandler.handleError(
-          'User data is null',
-          StackTrace.current,
-          context: 'whoop_local_storage',
-          operation: 'change_modificator',
-          storageType: 'hive',
-          extras: {
-            'user_id': params.userId,
-            'modificator': params.modificator,
-            'week_tdee_average': params.weekTdeeAverage,
-          },
+        log('userData is null - checking userDataBox status');
+        log('Requesting information about userDataBox from Hive...');
+        final allUserData = await hive.retrieveAllUserData();
+        final isEmpty = allUserData.isEmpty;
+        final count = allUserData.length;
+        log('userDataBox isEmpty: $isEmpty, count: $count');
+
+        if (!isEmpty) {
+          log('userDataBox has data but none matching userId: ${params.userId}');
+          final allUserIds = allUserData.map((e) => e.userId).toList();
+          log('Available userIds in box: $allUserIds');
+        }
+
+        log('Attempting to create UserDataEntity from existing DayEntity');
+
+        // Попытка получить последний день из кэша или с сервера
+        DayEntity? latestDay;
+        final cachedDays = await hive.retrieveSavedDays();
+
+        if (cachedDays.isNotEmpty) {
+          cachedDays.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+          latestDay = cachedDays.last;
+          log('Found latest day in cache: directusId=${latestDay.directusId}, cycleId=${latestDay.cycleId}');
+        }
+
+        if (latestDay == null) {
+          final savedDays = await dayManager.getDaysIds(userId: params.userId);
+          if (savedDays.isEmpty) {
+            log('No saved days found for user, cannot create UserDataEntity');
+            await LocalStorageErrorHandler.handleError(
+              'User data is null and no days found',
+              StackTrace.current,
+              context: 'whoop_local_storage',
+              operation: 'change_modificator',
+              storageType: 'hive',
+              extras: {
+                'user_id': params.userId,
+                'modificator': params.modificator,
+                'week_tdee_average': params.weekTdeeAverage,
+                'box_is_empty': isEmpty,
+                'data_count': count,
+              },
+            );
+            return const Left(WhoopDataDueToRefresh());
+          }
+
+          log('Fetching last day from server: ${savedDays.last}');
+          final savedDayRaw = await directus.readOne(
+            collection: daysCollection,
+            id: savedDays.last.toString(),
+          );
+          latestDay = DayEntity.fromMap(savedDayRaw);
+          log('Created day from server data: directusId=${latestDay.directusId}, cycleId=${latestDay.cycleId}');
+        }
+
+        // Создаем UserDataEntity на основе данных дня
+        final newCalorieGoal =
+            (1 + params.modificator) * params.weekTdeeAverage;
+
+        // Получаем дополнительную информацию из UserBloc, если возможно
+        final user = userBloc.state.user;
+
+        // Создаем базовый UserDataEntity с минимальными данными для расчета макросов
+        userData = UserDataEntity(
+          userId: params.userId,
+          workouts: [], // Пустой список, так как данные отсутствуют
+          userWeightLbs: user.bodyMeasurements?.weight != null
+              ? user.bodyMeasurements!.weight * 2.20462
+              : 75 * 2.20462, // конвертация из кг в фунты
+          gender: params.gender,
+          strainValue: 10, // стандартное значение
+          recoveryScore: 70, // стандартное значение
+          sleepPerformance: 80, // стандартное значение
+          calorieGoal: newCalorieGoal.round(),
+          askTime: DateTime.now(),
+          currentCycleId: latestDay.cycleId ?? 0,
         );
-        return const Left(WhoopDataDueToRefresh());
+
+        // Проверка созданного объекта
+        if (userData.userWeightLbs <= 0) {
+          log('WARNING: Created UserDataEntity with zero weight, defaulting to 75kg');
+          userData = userData.copyWith(userWeightLbs: 75 * 2.20462);
+        }
+
+        // Сохраняем созданный UserDataEntity
+        await hive.saveUserData(dataEntity: userData);
+        log('Created and saved new UserDataEntity for userId: ${params.userId}');
       }
 
+      log('Found userData: $userData');
+
       try {
+        log('Updating userData with new calorie goal: $newCalorieGoal');
+
+        // Проверяем, что вес пользователя не равен 0
+        double userWeight = userData.userWeightLbs;
+        if (userWeight <= 0) {
+          // Получаем актуальный вес из userBloc
+          final user = userBloc.state.user;
+          userWeight = user.bodyMeasurements?.weight != null
+              ? user.bodyMeasurements!.weight *
+                  2.20462 // конвертация из кг в фунты
+              : 75 * 2.20462; // стандартный вес, если не указан
+
+          log('Correcting user weight from 0 to: $userWeight lbs');
+        }
+
         userData = userData.copyWith(
           calorieGoal: newCalorieGoal.round(),
           gender: params.gender,
+          userWeightLbs: userWeight, // Убеждаемся, что вес не равен 0
         );
+
         await hive.saveUserData(dataEntity: userData);
+        log('UserData saved successfully');
         final newMacros = userData.calcMacros();
+        log('New macros calculated: $newMacros');
 
-        final savedDays = await dayManager.getDaysIds(userId: params.userId);
-        final savedDayRaw = await directus.readOne(
-          collection: daysCollection,
-          id: savedDays.last.toString(),
-        );
-        final savedDay = DayEntity.fromMap(savedDayRaw);
+        final cachedDays = await hive.retrieveSavedDays();
+        DayEntity? latestDay;
 
-        final dayData = savedDay.copyWith(
+        if (cachedDays.isNotEmpty) {
+          cachedDays.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+          latestDay = cachedDays.last;
+        }
+
+        if (latestDay == null) {
+          final savedDays = await dayManager.getDaysIds(userId: params.userId);
+          if (savedDays.isEmpty) {
+            log('No saved days found for user');
+            return const Left(WhoopDataDueToRefresh());
+          }
+
+          final savedDayRaw = await directus.readOne(
+            collection: daysCollection,
+            id: savedDays.last.toString(),
+          );
+          latestDay = DayEntity.fromMap(savedDayRaw);
+        }
+
+        final dayData = latestDay.copyWith(
           weekTdeeAverage: params.weekTdeeAverage,
           macros: newMacros,
-          healthMetrics: savedDay.healthMetrics.copyWith(
+          healthMetrics: latestDay.healthMetrics.copyWith(
             lastTdee: params.lastTdee,
           ),
         );
+
         await dayManager.createDay(day: dayData);
-        // await hive.saveDay(data: dayData);
         return Right(dayData);
       } catch (e, stackTrace) {
         await LocalStorageErrorHandler.handleError(

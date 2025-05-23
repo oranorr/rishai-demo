@@ -122,19 +122,58 @@ class UserDataEntity {
   }
 
   MacrosBreakdown calcMacros() {
+    log('Calculating macros with userWeightLbs: $userWeightLbs, calorieGoal: $calorieGoal, gender: $gender');
+
+    // Проверка на нулевой вес
+    if (userWeightLbs <= 0) {
+      log('WARNING: userWeightLbs is zero or negative: $userWeightLbs');
+
+      // Возвращаем стандартное распределение макросов
+      final standardProtein =
+          (0.3 * calorieGoal / 4).round(); // 30% калорий от белка
+      final standardFat =
+          (0.2 * calorieGoal / 9).round(); // 20% калорий от жиров
+      final standardCarbs =
+          (0.5 * calorieGoal / 4).round(); // 50% калорий от углеводов
+
+      log('Using standard macros distribution: P=$standardProtein, C=$standardCarbs, F=$standardFat');
+
+      return MacrosBreakdown(
+        kcal: calorieGoal,
+        protein: standardProtein,
+        carbs: standardCarbs,
+        fat: standardFat,
+      );
+    }
+
     final protein = calcProteins();
     final fats = clacFats();
+
+    log('Calculated protein: $protein, fats: $fats');
+
     final carbs = calcCarbs(
       kalorieGoal: calorieGoal,
       proteinsInKcal: protein * 4,
       fatsInKcal: fats * 9,
     );
 
+    // Проверка на нулевые значения
+    final validProtein =
+        protein > 0 ? protein : (0.3 * calorieGoal / 4).round();
+    final validFat = fats > 0 ? fats : (0.2 * calorieGoal / 9).round();
+    final validCarbs = carbs > 0 ? carbs : (0.5 * calorieGoal / 4).round();
+
+    if (protein == 0 || fats == 0 || carbs == 0) {
+      log('WARNING: One or more macro values are zero. Using valid values instead.');
+      log('Original values - protein: $protein, carbs: $carbs, fat: $fats');
+      log('Fixed values - protein: $validProtein, carbs: $validCarbs, fat: $validFat');
+    }
+
     return MacrosBreakdown(
       kcal: calorieGoal,
-      protein: protein,
-      carbs: carbs,
-      fat: clacFats(),
+      protein: validProtein,
+      carbs: validCarbs,
+      fat: validFat,
     );
   }
 
