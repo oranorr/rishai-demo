@@ -48,18 +48,21 @@ class ChatRepositoryImpl implements ChatRepository {
     _isSaving = true;
 
     try {
+      log('Сохранение снапшота чата: ${chatSnap.messages.length} сообщений, ${chatSnap.requestsLeft} запросов осталось');
+
       // Проверяем, действительно ли изменились данные
       if (_lastSavedSnap != null &&
           listEquals(_lastSavedSnap!.messages, chatSnap.messages) &&
           _lastSavedSnap!.requestsLeft == chatSnap.requestsLeft &&
           _lastSavedSnap!.mealPlan == chatSnap.mealPlan) {
-        log('No changes detected in chat snapshot, skipping save');
+        log('Изменений в снапшоте чата не обнаружено, пропускаем сохранение');
         return;
       }
 
       // Сохраняем в локальное хранилище
       await hive.saveChatSnapshot(chatSnap, date);
       _lastSavedSnap = chatSnap;
+      log('Снапшот чата сохранен в локальное хранилище');
 
       // Если есть план питания и пользователь авторизован, обновляем в Directus
       if (chatSnap.mealPlan != null && userBloc.state.user.directusId != '-1') {
@@ -67,7 +70,7 @@ class ChatRepositoryImpl implements ChatRepository {
         if (currentDay.mealPlanEntity == chatSnap.mealPlan &&
             currentDay.snap.messages == chatSnap.messages &&
             currentDay.snap.requestsLeft == chatSnap.requestsLeft) {
-          log('No changes detected in chat snapshot, skipping update');
+          log('Изменений в снапшоте чата не обнаружено, пропускаем обновление в Directus');
           return;
         }
 
@@ -78,14 +81,15 @@ class ChatRepositoryImpl implements ChatRepository {
         );
 
         res.fold(
-          (failure) => log('Failed to update day with meal plan: $failure'),
-          (_) => log('Successfully updated day with meal plan'),
+          (failure) =>
+              log('Не удалось обновить день с планом питания: $failure'),
+          (_) => log('День с планом питания успешно обновлен в Directus'),
         );
       } else {
-        log('User not authorized. User: ${userBloc.state.user}');
+        log('Пользователь не авторизован или нет плана питания. Пользователь: ${userBloc.state.user}');
       }
     } catch (e) {
-      log('Error saving chat snapshot: $e');
+      log('Ошибка при сохранении снапшота чата: $e');
     } finally {
       _isSaving = false;
     }
@@ -174,26 +178,49 @@ class ChatRepositoryImpl implements ChatRepository {
       final date = targetDate ?? DateTime.now();
       final dateKey = date.toIso8601String().substring(0, 10);
 
-      if (!forceUpdate) {
-        ChatSnapshotEntity? snap = hive.chatBox.get(dateKey);
-        if (snap != null) {
-          return Right(snap);
+      // Сначала проверяем локальное хранилище
+      ChatSnapshotEntity? localSnap = hive.chatBox.get(dateKey);
+
+      if (!forceUpdate && localSnap != null) {
+        log('Загружен снапшот из локального хранилища: ${localSnap.messages.length} сообщений');
+        return Right(localSnap);
+      }
+
+      // Если локальных данных нет или требуется принудительное обновление, загружаем с сервера
+      final map = await remote.fetchLastChatSnap(directusId, date);
+      log('Получены данные с сервера: $map');
+
+      if (map != null && map.isNotEmpty) {
+        final serverSnap = ChatSnapshotEntity.fromDirectus(map);
+
+        // Если есть локальные данные с сообщениями, объединяем их с серверными данными
+        if (localSnap != null && localSnap.messages.isNotEmpty) {
+          log('Объединяем локальные сообщения (${localSnap.messages.length}) с серверными данными');
+          final combinedSnap = serverSnap.copyWith(
+            messages: localSnap.messages,
+            requestsLeft: localSnap.requestsLeft,
+          );
+          await saveChatSnapShot(chatSnap: combinedSnap, date: date);
+          return Right(combinedSnap);
+        } else {
+          log('Используем только серверные данные (сообщений: ${serverSnap.messages.length})');
+          await saveChatSnapShot(chatSnap: serverSnap, date: date);
+          return Right(serverSnap);
         }
       }
 
-      final map = await remote.fetchLastChatSnap(directusId, date);
-      print('map: $map');
-      if (map != null && map.isNotEmpty) {
-        final serverSnap = ChatSnapshotEntity.fromDirectus(map);
-        await saveChatSnapShot(chatSnap: serverSnap, date: date);
-        print('serverSnap: ${serverSnap.mealPlan?.meals.first.title}');
-        return Right(serverSnap);
+      // Если серверных данных нет, но есть локальные, возвращаем локальные
+      if (localSnap != null) {
+        log('Серверных данных нет, используем локальные: ${localSnap.messages.length} сообщений');
+        return Right(localSnap);
       }
 
+      // Если данных нет вообще, удаляем ключ и возвращаем null
       await hive.chatBox.delete(dateKey);
+      log('Данных чата не найдено');
       return const Right(null);
     } catch (e) {
-      log('Error fetching chat snapshot: $e');
+      log('Ошибка при загрузке снапшота чата: $e');
       return const Left(UnknownFailure());
     }
   }

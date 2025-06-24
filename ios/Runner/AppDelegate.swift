@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import FirebaseCore
 import FirebaseAnalytics
+import BranchSDK
 // import flutter_web_auth_2
 
 @main
@@ -14,6 +15,14 @@ import FirebaseAnalytics
     FirebaseApp.configure() // Инициализация Firebase
     Analytics.setAnalyticsCollectionEnabled(true)
     print("🔥 AppDelegate: Firebase configured successfully")
+    
+    // --- Branch SDK initialization ---
+    // Инициализация Branch для обработки диплинков и универсальных ссылок
+    Branch.getInstance().initSession(launchOptions: launchOptions) { (params, error) in
+      // params содержит данные диплинка, если приложение открыто по ссылке
+      print("[AppDelegate] Branch params: \(String(describing: params))")
+    }
+    // --- End Branch SDK initialization ---
     
     #if DEBUG
     // Явно включаем режим отладки для физических устройств
@@ -39,5 +48,17 @@ import FirebaseAnalytics
     }
     
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // --- Обработка Universal Links (Branch) ---
+  override func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+    Branch.getInstance().continue(userActivity)
+    return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+  }
+
+  // --- Обработка URI Scheme (Branch) ---
+  override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+    Branch.getInstance().application(app, open: url, options: options)
+    return super.application(app, open: url, options: options)
   }
 }

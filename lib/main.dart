@@ -25,6 +25,8 @@ import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart'
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/firebase_options.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
+import 'package:rishai/core/services/branch_service.dart';
 
 void main() async {
   await SentryFlutter.init(
@@ -118,6 +120,13 @@ void main() async {
       await notes.initNotificationsService();
 
       await notes.requestPermissions();
+
+      await FlutterBranchSdk.init(enableLogging: true);
+      // FlutterBranchSdk.validateSDKIntegration();75lyh.test-app.link
+      // BranchService().initDeepLinkListener();
+
+      // Test Branch Integration
+      //
 
       FlutterNativeSplash.remove();
 

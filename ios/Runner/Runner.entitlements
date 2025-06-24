@@ -6,5 +6,10 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:75lyh.test-app.link</string>
+		<string>applinks:75lyh-alternate.test-app.link</string>
+	</array>
 </dict>
 </plist>

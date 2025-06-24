@@ -64,9 +64,29 @@
 		<key>UNNotificationAlertStyle</key>
 		<integer>1</integer>
 		<!-- <key>NSAppTransportSecurity</key>
-		<dict>
+		<dict>ну
 			<key>NSAllowsArbitraryLoads</key>
 			<true/>
 		</dict> -->
+		<!-- Branch.io Associated Domains -->
+		<key>com.apple.developer.associated-domains</key>
+		<array>
+			<string>applinks:75lyh.test-app.link</string>
+			<string>applinks:75lyh-alternate.test-app.link</string>
+		</array>
+
+		<!-- <key>branch_universal_link_domains</key>
+		<array>
+			<string>applinks:75lyh.test-app.link</string>
+			<string>applinks:75lyh-alternate.test-app.link</string>
+		</array> -->
+		<!-- Branch Keys -->
+		<key>branch_key</key>
+		<string>key_test_bvFnrp1Yvth9XpJU6kI7idjiuxpLxhaa</string>
+		<key>branch_universal_link_domains</key>
+		<array>
+			<string>75lyh.test-app.link</string>
+			<string>75lyh-alternate.test-app.link</string>
+		</array>
 	</dict>
 </plist>

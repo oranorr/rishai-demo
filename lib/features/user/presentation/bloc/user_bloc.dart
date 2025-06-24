@@ -163,6 +163,10 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
       weekPlanBloc.add(const WeekPlanLoad());
       whoopBloc.add(const InitWhoopOnLogin());
+
+      // Инициализируем чат при восстановлении пользователя из локального хранилища
+      // Это обеспечивает восстановление переписки при рестарте приложения
+      chatBloc.add(InitChatBloc(directusId: user.directusId));
     } else {
       appNavigationService.go(
         path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,

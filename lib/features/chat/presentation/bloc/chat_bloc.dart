@@ -95,6 +95,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   FutureOr<void> _init(InitChatBloc event, Emitter<ChatState> emit) async {
     if (event.directusId == '-1') return;
 
+    log('Инициализация чата для пользователя: ${event.directusId}');
+
     String? threadId;
     List<MessageEntity> initialMessages = [];
     int initialRequestsLeft = defaultRequestsLimit;
@@ -105,7 +107,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     res.fold(
       (left) {
-        // Handle error if necessary
+        log('Ошибка при загрузке снапшота чата: $left');
       },
       (snap) {
         if (snap != null) {
@@ -113,6 +115,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           initialMessages = snap.messages ?? [];
           initialRequestsLeft = snap.requestsLeft ?? defaultRequestsLimit;
           threadId = snap.threadId;
+
+          log('Загружен снапшот чата: ${initialMessages.length} сообщений, $initialRequestsLeft запросов осталось');
+        } else {
+          log('Снапшот чата не найден, используем пустое состояние');
         }
       },
     );
@@ -126,6 +132,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         askedQuestions: {},
       ),
     );
+
+    log('Состояние чата обновлено: ${initialMessages.length} сообщений');
 
     await initGptUsecase.call(InitGptParams(threadId: threadId));
   }
@@ -488,9 +496,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (emit.isDone) return;
 
       final selectedDay = whoopBloc.state.day;
+      log('Синхронизация чата с выбранной датой: ${selectedDay.dateTime}');
 
       // Check if user is logged in
       if (userBloc.state.user.directusId == '-1') {
+        log('Пользователь не авторизован, очищаем состояние чата');
         if (!emit.isDone) {
           // Clear state including askedQuestions if logged out
           emit(
@@ -508,6 +518,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final newMessages = selectedDay.snap.messages ?? [];
       final newRequestsLeft =
           selectedDay.snap.requestsLeft ?? state.requestsLeft;
+
+      log('Данные из снапшота дня: ${newMessages.length} сообщений, $newRequestsLeft запросов');
+      log('Текущее состояние чата: ${state.messages.length} сообщений, ${state.requestsLeft} запросов');
 
       // Always reset askedQuestions when syncing to a new day
       // Check if state needs updating (messages, requests, or non-empty askedQuestions)
@@ -529,6 +542,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Save snapshot (without askedQuestions)
         final chatSnap = _createSnapshot();
         await chat_repo.chatRepo.saveChatSnapShot(chatSnap: chatSnap);
+        log('Снапшот чата сохранен после синхронизации');
+      } else {
+        log('Синхронизация чата: изменения не требуются');
       }
     });
   }

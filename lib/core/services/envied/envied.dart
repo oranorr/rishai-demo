@@ -32,4 +32,7 @@ abstract class Env {
 
   @EnviedField(varName: 'ADAPTY_SDK_KEY')
   static const String adaptyKey = _Env.adaptyKey;
+
+  @EnviedField(varName: 'AUTH_HEADER_KEY')
+  static const String authHeaderKey = _Env.authHeaderKey;
 }

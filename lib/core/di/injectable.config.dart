@@ -43,6 +43,8 @@ import 'package:rishai/core/services/whoop_token_service.dart/token_service.dart
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart'
     as _i597;
 import 'package:rishai/features/chat/data/chat_repository_impl.dart' as _i246;
+import 'package:rishai/features/chat/data/remote_data_source/llm_proxy_client.dart'
+    as _i947;
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart'
     as _i867;
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart'
@@ -142,6 +144,7 @@ extension GetItInjectableX on _i174.GetIt {
       environmentFilter,
     );
     gh.factory<_i572.NavigatorKeyProvider>(() => _i572.NavigatorKeyProvider());
+    gh.factory<_i947.LlmProxyClient>(() => _i947.LlmProxyClient());
     gh.singleton<_i97.PrefsRepository>(() => _i97.PrefsRepository());
     gh.singleton<_i149.AnalyticsRepository>(
         () => _i624.AnalyticsRepositoryImpl());
@@ -162,8 +165,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i675.WhoopRemoteDataSourceImpl());
     gh.singleton<_i886.UserLocalDataSource>(() => _i461.UserLocalDataImpl());
     gh.singleton<_i948.UserRemoteSource>(() => _i526.UserRemoteImpl());
-    gh.singleton<_i867.ChatRemoteDataSource>(
-        () => _i467.ChatRemoteDataSourceImpl());
     gh.lazySingleton<_i453.AppNavigationService>(
         () => _i453.AppNavigationService(gh<_i572.NavigatorKeyProvider>()));
     gh.factory<_i242.SendFeedbackUseCase>(
@@ -179,15 +180,12 @@ extension GetItInjectableX on _i174.GetIt {
           localDataSource: gh<_i886.UserLocalDataSource>(),
           dayManager: gh<_i300.DayManager>(),
         ));
-    gh.singleton<_i831.ChatRepository>(() => _i246.ChatRepositoryImpl(
-          hive: gh<_i410.HiveRepo>(),
-          remote: gh<_i867.ChatRemoteDataSource>(),
-          userRepo: gh<_i926.UserRepository>(),
-        ));
     gh.factory<_i663.UpdateUserUsecase>(
         () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i547.GetDaysUsecase>(
         () => _i547.GetDaysUsecase(gh<_i926.UserRepository>()));
+    gh.singleton<_i867.ChatRemoteDataSource>(
+        () => _i467.ChatRemoteDataSourceImpl(gh<_i947.LlmProxyClient>()));
     gh.singleton<_i570.VersionCheckService>(
         () => _i634.VersionCheckServiceImpl(gh<_i89.DirectusService>()));
     gh.singleton<_i544.LoginRepository>(
@@ -210,6 +208,28 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i62.DisconnectWhoopUsecase(gh<_i897.WhoopRepository>()));
     gh.factory<_i513.ConnectWhoopUsecase>(
         () => _i513.ConnectWhoopUsecase(gh<_i897.WhoopRepository>()));
+    gh.factory<_i1051.WhoopBloc>(() => _i1051.WhoopBloc(
+          gh<_i513.ConnectWhoopUsecase>(),
+          gh<_i757.WhoopGetDataUsecase>(),
+          gh<_i1035.WhoopGetBodyData>(),
+          gh<_i1055.ChangeModificatorOrSexUsecase>(),
+          gh<_i62.DisconnectWhoopUsecase>(),
+        ));
+    gh.singleton<_i831.ChatRepository>(() => _i246.ChatRepositoryImpl(
+          hive: gh<_i410.HiveRepo>(),
+          remote: gh<_i867.ChatRemoteDataSource>(),
+          userRepo: gh<_i926.UserRepository>(),
+        ));
+    gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
+          gh<_i663.UpdateUserUsecase>(),
+          gh<_i547.GetDaysUsecase>(),
+        ));
+    gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
+          gh<_i1003.LoginViaGoogleUsecase>(),
+          gh<_i734.CreateNewUserUsecase>(),
+          gh<_i248.LoginViaEmailUsecase>(),
+          gh<_i914.LoginViaAppleUsecase>(),
+        ));
     gh.factory<_i241.InitGptUsecase>(
         () => _i241.InitGptUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i786.SendMessageGptUsecase>(
@@ -222,13 +242,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i176.RequestPlanUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i208.ReplaceIngredientUsecase>(
         () => _i208.ReplaceIngredientUsecase(gh<_i831.ChatRepository>()));
-    gh.factory<_i1051.WhoopBloc>(() => _i1051.WhoopBloc(
-          gh<_i513.ConnectWhoopUsecase>(),
-          gh<_i757.WhoopGetDataUsecase>(),
-          gh<_i1035.WhoopGetBodyData>(),
-          gh<_i1055.ChangeModificatorOrSexUsecase>(),
-          gh<_i62.DisconnectWhoopUsecase>(),
-        ));
     gh.factory<_i666.ChatBloc>(() => _i666.ChatBloc(
           gh<_i241.InitGptUsecase>(),
           gh<_i176.RequestPlanUsecase>(),
@@ -236,16 +249,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i975.FetchSavedSnapUsecase>(),
           gh<_i799.ReplaceMealUsecase>(),
           gh<_i208.ReplaceIngredientUsecase>(),
-        ));
-    gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
-          gh<_i663.UpdateUserUsecase>(),
-          gh<_i547.GetDaysUsecase>(),
-        ));
-    gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
-          gh<_i1003.LoginViaGoogleUsecase>(),
-          gh<_i734.CreateNewUserUsecase>(),
-          gh<_i248.LoginViaEmailUsecase>(),
-          gh<_i914.LoginViaAppleUsecase>(),
         ));
     gh.factory<_i1015.GenerateWeekPlanUsecase>(
         () => _i1015.GenerateWeekPlanUsecase(

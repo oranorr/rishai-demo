@@ -4,7 +4,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:injectable/injectable.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -54,11 +53,10 @@ class NotificationsServiceImpl implements NotificationsService {
             sound: true,
           );
 
-      InitializationSettings initializationSettings = InitializationSettings(
+      InitializationSettings initializationSettings =
+          const InitializationSettings(
         android: initializationSettingsAndroid,
-        iOS: DarwinInitializationSettings(
-          onDidReceiveLocalNotification: onDidReceiveLocalNotification,
-        ),
+        iOS: DarwinInitializationSettings(),
       );
 
       await flutterLocalNotificationsPlugin.initialize(
@@ -75,8 +73,8 @@ class NotificationsServiceImpl implements NotificationsService {
   Future<void> _initializeTimeZone() async {
     try {
       tz.initializeTimeZones();
-      final String currentTimeZone = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(currentTimeZone));
+      // Используем системную таймзону по умолчанию
+      final String currentTimeZone = tz.local.name;
       log('Time zone initialized to $currentTimeZone');
     } on Exception catch (e) {
       log('Error initializing time zone: $e');
@@ -147,8 +145,6 @@ class NotificationsServiceImpl implements NotificationsService {
         notificationTime,
         platformChannelSpecifics,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.wallClockTime,
         matchDateTimeComponents: DateTimeComponents.time,
       )
           .then((_) {
@@ -209,8 +205,6 @@ class NotificationsServiceImpl implements NotificationsService {
         notificationTime,
         platformChannelSpecifics,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.dateAndTime,
       )
           .then((_) {

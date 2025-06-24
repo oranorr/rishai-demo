@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/features/chat/data/local_data_source.dart';
+import 'package:rishai/features/chat/data/remote_data_source/llm_proxy_client.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
@@ -21,79 +20,24 @@ final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
 @Singleton(as: ChatRemoteDataSource)
 class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
-  late GenerativeModel chatModel;
-  late GenerativeModel breakfastModel;
-  late GenerativeModel mealsModel;
-  late GenerativeModel snackModel;
+  ChatRemoteDataSourceImpl(this._llmProxyClient);
+  final LlmProxyClient _llmProxyClient;
 
-  late ChatSession chatSession;
+  // История сообщений для чата
+  final List<PreviousMessage> _chatHistory = [];
 
   @override
   String? get threadId => '';
 
-  static String key = 'AIzaSyBuyrn8T1_7RvVQYno1Z7A-GekW4eM5FHI';
-  static String model = 'models/gemini-2.0-flash';
-
   @override
   Future<bool> initGpt(String? savedThreadId) async {
     try {
-      chatModel = GenerativeModel(
-        apiKey: key,
-        model: model,
-        systemInstruction: Content(
-          'system',
-          [
-            TextPart(
-              ChatLocalDataSoucre.chatPrompt,
-            ),
-          ],
-        ),
-      );
-      chatSession = chatModel.startChat();
-
-      breakfastModel = GenerativeModel(
-        apiKey: key,
-        model: model,
-        systemInstruction: Content('system', [
-          TextPart(
-            ChatLocalDataSoucre.breakfastPrompt,
-          ),
-        ]),
-        generationConfig: GenerationConfig(
-          responseMimeType: 'application/json',
-          // responseSchema: ChatLocalDataSoucre.schema,
-        ),
-      );
-      mealsModel = GenerativeModel(
-        apiKey: key,
-        model: model,
-        systemInstruction: Content('system', [
-          TextPart(
-            ChatLocalDataSoucre.mealsPrompt,
-          ),
-        ]),
-        generationConfig: GenerationConfig(
-          responseMimeType: 'application/json',
-          // responseSchema: ChatLocalDataSoucre.schema,
-        ),
-      );
-      snackModel = GenerativeModel(
-        apiKey: key,
-        model: model,
-        systemInstruction: Content('system', [
-          TextPart(
-            ChatLocalDataSoucre.snackPrompt,
-          ),
-        ]),
-        generationConfig: GenerationConfig(
-          responseMimeType: 'application/json',
-          // responseSchema: ChatLocalDataSoucre.schema,
-        ),
-      );
-
+      log('✅ Инициализация LLM прокси клиента');
+      // Очищаем историю чата при инициализации
+      _chatHistory.clear();
       return true;
     } on Exception catch (e) {
-      log('Ошибка инициализации GPT: $e');
+      log('❌ Ошибка инициализации LLM прокси: $e');
       return false;
     }
   }
@@ -101,39 +45,116 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   Future<Map<String, dynamic>> requestAssistant({
     required String prompt,
     required bool isChat,
-    required GenerativeModel model,
+    required LlmRequestType type,
   }) async {
     int retryCount = 0;
     const int maxRetries = 3;
-    GenerateContentResponse? response;
 
     while (retryCount < maxRetries) {
       try {
         log('❗PROMPT: $prompt');
-        // log('🔍 Chat history: ${chatSession.history.map((e) => e.toJson()).toList()}');
+        log('🔍 Тип запроса: ${type.name}, isChat: $isChat');
+
+        String responseText;
 
         if (isChat) {
-          response = await chatSession.sendMessage(Content.text(prompt));
+          // Получаем текущий план питания для контекста
+          final currentMealPlan = whoopBloc.state.day.mealPlanEntity;
+          List<PreviousMessage> contextMessages = [];
+
+          // Добавляем информацию о текущем плане питания в контекст
+          if (currentMealPlan != null && currentMealPlan.meals.isNotEmpty) {
+            final mealPlanContext = _buildMealPlanContext(currentMealPlan);
+            log('🍽️ Добавляем контекст плана питания: ${mealPlanContext.substring(0, mealPlanContext.length > 200 ? 200 : mealPlanContext.length)}...');
+            contextMessages.add(
+              PreviousMessage(
+                text: mealPlanContext,
+                role: 'user',
+              ),
+            );
+            contextMessages.add(
+              PreviousMessage(
+                text:
+                    'Понял, у вас есть план питания на сегодня. Чем могу помочь?',
+                role: 'model',
+              ),
+            );
+          } else {
+            log('⚠️ План питания не найден или пуст');
+          }
+
+          // Добавляем историю чата
+          if (_chatHistory.isNotEmpty) {
+            log('💬 Добавляем ${_chatHistory.length} сообщений из истории чата');
+            contextMessages.addAll(_chatHistory);
+          }
+
+          log('📤 Отправляем запрос с ${contextMessages.length} сообщениями в контексте');
+
+          // Отправляем запрос с контекстом
+          responseText = await _llmProxyClient.sendChatMessage(
+            prompt,
+            previousMessages:
+                contextMessages.isNotEmpty ? contextMessages : null,
+          );
+
+          // Добавляем сообщения в историю
+          _chatHistory.add(PreviousMessage(text: prompt, role: 'user'));
+          _chatHistory.add(PreviousMessage(text: responseText, role: 'model'));
         } else {
-          final chat = model.startChat();
-          response = await chat.sendMessage(Content.text(prompt));
+          // Для генерации блюд не используем историю
+          responseText = await _llmProxyClient.generateMeal(type, prompt);
         }
 
-        if (response.text == null || response.text!.isEmpty) {
-          log('⚠️ Пустой ответ от ассистента, пересоздаю chatSession');
-          chatSession = chatModel.startChat();
+        if (responseText.isEmpty) {
+          log('⚠️ Пустой ответ от ассистента');
           return {'error': 'Пустой ответ от ассистента'};
         }
-        log('GEMINI RESPONSE: ${response.text}');
-        return isChat ? {'answer': response.text} : jsonDecode(response.text!);
+
+        log('GEMINI RESPONSE: $responseText');
+
+        if (isChat) {
+          return {'answer': responseText};
+        } else {
+          try {
+            final parsedResponse = jsonDecode(responseText);
+            log('✅ Успешно распарсили JSON ответ');
+            return parsedResponse;
+          } catch (e) {
+            log('❌ Ошибка парсинга JSON: $e');
+            return {'error': 'Ошибка парсинга ответа от ассистента'};
+          }
+        }
       } catch (e) {
-        log('Ошибка запроса к Gemini: $e');
+        log('❌ Ошибка запроса к LLM прокси: $e');
         retryCount++;
         await Future.delayed(const Duration(seconds: 1));
       }
     }
 
     return {'error': 'Произошла ошибка при запросе к ассистенту.'};
+  }
+
+  /// Строит контекст с информацией о текущем плане питания
+  String _buildMealPlanContext(MealPlanEntity mealPlan) {
+    final meals = mealPlan.meals;
+    final mealsInfo = meals.map((meal) {
+      final ingredients = meal.ingredients
+          .map((i) => '${i.title} (${i.quantity} ${i.unit.toDisplayString()})')
+          .join(', ');
+      return '''
+${meal.title} (${meal.type})
+Описание: ${meal.description}
+Макросы: ${meal.macros.kcal} ккал, ${meal.macros.protein}г белка, ${meal.macros.carbs}г углеводов, ${meal.macros.fat}г жиров
+Ингредиенты: $ingredients
+Инструкции по приготовлению: ${meal.cookingInstructions.join('; ')}''';
+    }).join('\n\n');
+
+    return '''У меня есть план питания на сегодня:
+
+$mealsInfo
+
+Пожалуйста, используй эту информацию, когда отвечаешь на мои вопросы о питании.''';
   }
 
   @override
@@ -150,7 +171,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     final res = await requestAssistant(
       prompt: userMessage,
       isChat: true,
-      model: chatModel,
+      type: LlmRequestType.chat,
     );
     return res['answer'];
   }
@@ -195,12 +216,13 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
   @override
   Future<void> closeGpt() async {
-    // Clean up resources if necessary
+    // Очищаем историю чата при закрытии
+    _chatHistory.clear();
   }
 
   @override
   set threadId(String? value) {
-    threadId = value;
+    // Не используется в новой реализации
   }
 
   @override
@@ -255,31 +277,27 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     required String prompt,
   }) async {
     Map<String, dynamic> newMeal;
+    LlmRequestType requestType;
+
     switch (type) {
       case ServingType.breakfast:
-        newMeal = await requestAssistant(
-          prompt: prompt,
-          model: breakfastModel,
-          isChat: false,
-        );
+        requestType = LlmRequestType.breakfast;
         break;
       case ServingType.dinner || ServingType.lunch || ServingType.supper:
-        newMeal = await requestAssistant(
-          prompt: prompt,
-          model: mealsModel,
-          isChat: false,
-        );
+        requestType = LlmRequestType.meal;
         break;
       case ServingType.snack:
-        newMeal = await requestAssistant(
-          prompt: prompt,
-          model: snackModel,
-          isChat: false,
-        );
+        requestType = LlmRequestType.snack;
         break;
-      // default:
-      //   throw ArgumentError('Invalid meal type: ${params.meal.servingType}');
     }
+
+    final responseText = await requestAssistant(
+      prompt: prompt,
+      isChat: false,
+      type: requestType,
+    );
+
+    newMeal = responseText;
 
     return Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
   }
@@ -290,7 +308,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     await requestAssistant(
       prompt: prompt,
       isChat: true,
-      model: chatModel,
+      type: LlmRequestType.chat,
     );
   }
 
@@ -314,30 +332,41 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       final mealType = entry.key;
       final mealPrompt = entry.value;
 
+      LlmRequestType requestType;
       switch (mealType) {
         case ServingType.breakfast:
-          results['breakfast'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: breakfastModel,
-            isChat: false,
-          );
+          requestType = LlmRequestType.breakfast;
           break;
         case ServingType.dinner:
-          results['generalMeals'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: mealsModel,
-            isChat: false,
-          );
+        case ServingType.lunch:
+          requestType = LlmRequestType.meal;
           break;
         case ServingType.snack:
-          results['snack'] = await requestAssistant(
-            prompt: mealPrompt,
-            model: snackModel,
-            isChat: false,
-          );
+          requestType = LlmRequestType.snack;
           break;
-        default:
-          throw ArgumentError('Invalid meal type: $mealType');
+        case ServingType.supper:
+          requestType = LlmRequestType.meal;
+          break;
+      }
+
+      final response = await requestAssistant(
+        prompt: mealPrompt,
+        isChat: false,
+        type: requestType,
+      );
+
+      switch (mealType) {
+        case ServingType.breakfast:
+          results['breakfast'] = response;
+          break;
+        case ServingType.dinner:
+        case ServingType.lunch:
+        case ServingType.supper:
+          results['generalMeals'] = response;
+          break;
+        case ServingType.snack:
+          results['snack'] = response;
+          break;
       }
     }
 
@@ -352,7 +381,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       final dot = await requestAssistant(
         prompt: "{'meals': $meals}",
         isChat: true,
-        model: chatModel,
+        type: LlmRequestType.chat,
       );
       log('CHAT ASSISTANT: $dot');
     }

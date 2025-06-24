@@ -29,4 +29,6 @@ final class _Env {
       '586052816326-cot6vmm79shkq9q716irslskjskoh87b.apps.googleusercontent.com';
 
   static const String adaptyKey = 'public_live_LKsqyHpI.uNBDvmJqMT1WEzHrJDsL';
+
+  static const String authHeaderKey = 'QIG6b1131PQWMUdSbBPcEufvDN0BAv';
 }
