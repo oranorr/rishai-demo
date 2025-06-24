@@ -238,41 +238,73 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
   @override
   Future<DayEntity?> fetchDirectusData() async {
-    final rawUser = await directus.readOne(
-      collection: usersCollection,
-      id: userBloc.state.user.directusId,
-    );
-    final daysIds =
-        await dayManager.getDaysIds(userId: rawUser['id'].toString());
+    try {
+      final rawUser = await directus.readOne(
+        collection: usersCollection,
+        id: userBloc.state.user.directusId,
+      );
 
-    int lastDayId = daysIds.last;
-    final lastDayRes = await directus.readOne(
-      collection: daysCollection,
-      id: lastDayId.toString(),
-    );
-    if (rawUser.isNotEmpty && lastDayRes.isNotEmpty) {
-      final data = rawUser['whoopData'];
-      if (data != null && data.isNotEmpty) {
-        final dayEntity = DayEntity(
-          directusId: lastDayId,
-          cycleId: lastDayRes['cycleId'] != null
-              ? int.parse(lastDayRes['cycleId'])
-              : null,
-          weekTdeeAverage: data['weekTdeeAverage'],
-          macros: MacrosBreakdown.fromMap(data['macros']),
-          mealPlanEntity: lastDayRes['mealPlan'] != null
-              ? MealPlanEntity.fromMap(lastDayRes['mealPlan'])
-              : null,
-          healthMetrics:
-              HealthMetricsEntity.fromMap(lastDayRes['healthMetrics']),
-          snap: ChatSnapshotEntity.fromDirectus(lastDayRes['chatSnap']),
-          dateTime: DateTime.fromMillisecondsSinceEpoch(data['askTime']),
-        );
-        return dayEntity;
-      } else {
+      if (rawUser.isEmpty) {
+        log('User data is empty in fetchDirectusData');
         return null;
       }
-    } else {
+
+      final daysIds =
+          await dayManager.getDaysIds(userId: rawUser['id'].toString());
+
+      if (daysIds.isEmpty) {
+        log('No days found for user in fetchDirectusData');
+        return null;
+      }
+
+      int lastDayId = daysIds.last;
+      final lastDayRes = await directus.readOne(
+        collection: daysCollection,
+        id: lastDayId.toString(),
+      );
+
+      if (lastDayRes.isEmpty) {
+        log('Last day data is empty in fetchDirectusData');
+        return null;
+      }
+
+      if (rawUser.isNotEmpty && lastDayRes.isNotEmpty) {
+        final data = rawUser['whoopData'];
+
+        // Проверяем, что whoopData существует и содержит необходимые поля
+        if (data != null &&
+            data.isNotEmpty &&
+            data['weekTdeeAverage'] != null &&
+            data['macros'] != null &&
+            data['askTime'] != null) {
+          log('Using whoopData from user: weekTdeeAverage=${data['weekTdeeAverage']}');
+
+          final dayEntity = DayEntity(
+            directusId: lastDayId,
+            cycleId: lastDayRes['cycleId'] != null
+                ? int.parse(lastDayRes['cycleId'])
+                : null,
+            weekTdeeAverage: data['weekTdeeAverage'],
+            macros: MacrosBreakdown.fromMap(data['macros']),
+            mealPlanEntity: lastDayRes['mealPlan'] != null
+                ? MealPlanEntity.fromMap(lastDayRes['mealPlan'])
+                : null,
+            healthMetrics:
+                HealthMetricsEntity.fromMap(lastDayRes['healthMetrics']),
+            snap: ChatSnapshotEntity.fromDirectus(lastDayRes['chatSnap']),
+            dateTime: DateTime.fromMillisecondsSinceEpoch(data['askTime']),
+          );
+          return dayEntity;
+        } else {
+          log('whoopData is missing or incomplete: $data');
+          return null;
+        }
+      } else {
+        log('User or last day data is empty');
+        return null;
+      }
+    } catch (e, stackTrace) {
+      log('Error in fetchDirectusData: $e');
       return null;
     }
   }

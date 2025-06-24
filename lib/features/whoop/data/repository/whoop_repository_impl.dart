@@ -247,34 +247,40 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }) async {
     bool? isCurrentCycleEnded;
     try {
+      log('>>> [getData] Starting data fetch for user: ${params.userId}');
+      log('>>> [getData] User goal modificator: ${params.goal.modificator}');
+
       final int? lastCycleId = await getLastCycleId(userId: params.userId);
-      log('lastCycleId: $lastCycleId');
+      log('>>> [getData] Last cycle ID: $lastCycleId');
+
       isCurrentCycleEnded = await tryFetch(
         () async => remoteDataSource.pingLastCycle(
           cycleId: lastCycleId,
         ),
       );
 
-      log('Cycle is finished: $isCurrentCycleEnded');
+      log('>>> [getData] Cycle is finished: $isCurrentCycleEnded');
 
       if (isCurrentCycleEnded == false) {
-        print('cycle IS NOT finished, pulling old data');
+        log('>>> [getData] Cycle is NOT finished, attempting to get local/remote data');
         final res = await _getLocalOrRemoteData();
 
         return res.fold(
           (l) async {
-            print('stored data came null, fetching fresh data');
+            log('>>> [getData] Local/remote data failed, fetching fresh data: ${l.message}');
             return _fetchAndSaveFreshData(params, isCurrentCycleEnded!);
           },
           (r) {
+            log('>>> [getData] Successfully retrieved local/remote data with calories: ${r.macros.kcal}');
             return Right(r);
           },
         );
       }
 
+      log('>>> [getData] Cycle is finished, fetching fresh data');
       return await _fetchAndSaveFreshData(params, isCurrentCycleEnded!);
     } catch (e, stackTrace) {
-      log('ERROR WHILE FETCHING WHOOP DATA: $e');
+      log('>>> [getData] ERROR WHILE FETCHING WHOOP DATA: $e');
       await WhoopErrorHandler.handleError(
         e,
         stackTrace,
@@ -336,25 +342,22 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   Future<Either<Failure, DayEntity>> _getLocalOrRemoteData() async {
+    log('>>> [_getLocalOrRemoteData] Checking for local data...');
     final localData = await localDataSource.retrieveSavedDays();
 
     if (localData.isNotEmpty) {
       final sortedDays = localData
         ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-      print('local data is: ${sortedDays.last.directusId}');
+      log('>>> [_getLocalOrRemoteData] Found local data: ${sortedDays.last.directusId} with calories: ${sortedDays.last.macros.kcal}');
       return Right(sortedDays.last);
     }
 
-    final remoteData =
-        await tryFetch(() => remoteDataSource.fetchDirectusData());
-
-    if (remoteData != null) {
-      // await localDataSource.saveData(data: remoteData);
-      return Right(remoteData);
-    } else {
-      log('remote data empty, fetching any data now.');
-      return const Left(FailedToGetUserData('Remote data is empty'));
-    }
+    // Если локальные данные пусты, не пытаемся получить данные с сервера
+    // так как они могут быть устаревшими или некорректными
+    log('>>> [_getLocalOrRemoteData] Local data is empty, will fetch fresh data instead of remote data');
+    return const Left(
+      FailedToGetUserData('Local data is empty, need fresh data'),
+    );
   }
 
   Future<Either<Failure, DayEntity>> _fetchFreshData({
