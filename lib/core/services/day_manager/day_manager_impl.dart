@@ -261,6 +261,7 @@ class DayManagerImpl implements DayManager {
 
   @override
   Future<List<int>> getDaysIds({required String userId}) async {
+    _logger('Получение daysIds для пользователя: $userId');
     List days = await directus.readMany(
       collection: daysCollection,
       filters: Filters({'userId': F.eq(userId)}),
@@ -269,7 +270,9 @@ class DayManagerImpl implements DayManager {
       ),
     );
 
-    return days.map((e) => e['id']).toList().cast<int>();
+    final daysIds = days.map((e) => e['id']).toList().cast<int>();
+    _logger('Найдено дней в Directus: ${daysIds.length}');
+    return daysIds;
   }
 }
 

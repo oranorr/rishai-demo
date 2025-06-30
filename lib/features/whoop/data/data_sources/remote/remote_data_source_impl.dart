@@ -6,7 +6,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
-import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart' as dm;
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/network/request_timer.dart';
@@ -250,7 +250,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       }
 
       final daysIds =
-          await dayManager.getDaysIds(userId: rawUser['id'].toString());
+          await dm.dayManager.getDaysIds(userId: rawUser['id'].toString());
 
       if (daysIds.isEmpty) {
         log('No days found for user in fetchDirectusData');
@@ -344,7 +344,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<bool> clearWhoopUserDataOnDisconnect({required String userId}) async {
     try {
-      final daysIds = await dayManager.getDaysIds(userId: userId);
+      final daysIds = await dm.dayManager.getDaysIds(userId: userId);
       await directus.deleteOne(
         collection: daysCollection,
         id: daysIds.last.toString(),
@@ -358,19 +358,30 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
   @override
   Future<bool> doesChatNeedsRefreshment({required String userId}) async {
-    final rawUser =
-        await directus.readOne(collection: usersCollection, id: userId);
-    final daysIds = List.from(rawUser['days']).cast<int>();
-    if (daysIds.isEmpty) {
-      return true;
+    try {
+      // Используем dm.dayManager.getDaysIds вместо прямого чтения из rawUser['days']
+      // чтобы избежать проблем с обрезанным массивом
+      final daysIds = await dm.dayManager.getDaysIds(userId: userId);
+
+      if (daysIds.isEmpty) {
+        return true;
+      }
+
+      final rawLast = await directus.readOne(
+        collection: daysCollection,
+        id: daysIds.last.toString(),
+      );
+
+      final dateOfLast =
+          DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
+      return !dateOfLast.isSameDate(DateTime.now());
+    } catch (e) {
+      log(
+        'Ошибка в doesChatNeedsRefreshment: $e',
+        name: 'WhoopRemoteDataSource',
+      );
+      return true; // В случае ошибки считаем, что чат нуждается в обновлении
     }
-    final rawLast = await directus.readOne(
-      collection: daysCollection,
-      id: daysIds.last.toString(),
-    );
-    final dateOfLast =
-        DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
-    return !dateOfLast.isSameDate(DateTime.now());
   }
 
   // @override

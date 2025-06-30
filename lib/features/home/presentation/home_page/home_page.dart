@@ -213,6 +213,19 @@ class _HomePageBodyState extends State<_HomePageBody> {
             shrinkWrap: true,
             padding: EdgeInsets.zero,
             children: [
+              if (kDebugMode)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: RishButton.primary(
+                    title: 'Добавить 200 дней истории',
+                    enabled: true,
+                    isLoading: false,
+                    action: () {
+                      // Отправляем событие в UserBloc
+                      context.read<UserBloc>().add(const UserAddHistoryDays());
+                    },
+                  ),
+                ),
               _CalendarWidget(widget: widget),
               SizedBox(height: 20.h),
               Row(

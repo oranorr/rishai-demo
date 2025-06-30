@@ -50,3 +50,8 @@ class UserUpdateDay extends UserEvent {
     required this.day,
   });
 }
+
+/// Событие для добавления 200 дней истории пользователю
+class UserAddHistoryDays extends UserEvent {
+  const UserAddHistoryDays();
+}

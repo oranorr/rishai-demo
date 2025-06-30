@@ -12,13 +12,25 @@ class UserRemoteImpl implements UserRemoteSource {
   @override
   Future<bool> updateUser({required UserEntity user}) async {
     try {
+      log(
+        'Обновление пользователя в Directus: ${user.directusId}',
+        name: 'UserRemoteImpl',
+      );
+      log(
+        'daysIds для отправки: ${user.daysIds.length} элементов',
+        name: 'UserRemoteImpl',
+      );
+
       final res = await directus.updateOne(
         collection: usersCollection,
         itemId: user.directusId,
         updateData: user.toMap(),
       );
+
+      log('Пользователь успешно обновлен в Directus', name: 'UserRemoteImpl');
       return res.isNotEmpty;
-    } on Exception {
+    } on Exception catch (e) {
+      log('Ошибка при обновлении пользователя: $e', name: 'UserRemoteImpl');
       rethrow;
     }
   }

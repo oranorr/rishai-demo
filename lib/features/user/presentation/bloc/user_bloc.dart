@@ -19,6 +19,9 @@ import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
+import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -27,8 +30,8 @@ import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 
 part 'user_event.dart';
 
@@ -55,6 +58,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserManageDay>(_manageDay);
     on<UserGetDays>(_getDays);
     on<UserUpdateDay>(_updateDay);
+    on<UserAddHistoryDays>(_addHistoryDays);
 
     // Инициализируем таймер для регулярной проверки рекомпа
     _initRecompCheckTimer();
@@ -135,6 +139,10 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     print('SAVED USER GOAL: ${user?.userGoal}');
     if (user != null && user != UserEntity.unauthorized()) {
       log('USER found: $user');
+      log(
+        'Локальные daysIds: ${user.daysIds.length} элементов',
+        name: 'UserBloc',
+      );
       add(const UserCheckForRecomp());
       // final rawUser = await directus.readOne(
       //   collection: usersCollection,
@@ -153,8 +161,19 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       days = days.map((e) => e['id']).toList();
 
       final List<int> ids = List.from(days).cast<int>();
+      log('Directus daysIds: ${ids.length} элементов', name: 'UserBloc');
+
       if (user.daysIds != ids) {
+        log(
+          'Синхронизация daysIds: локально ${user.daysIds.length} -> Directus ${ids.length}',
+          name: 'UserBloc',
+        );
         user = user.copyWith(daysIds: ids);
+      } else {
+        log(
+          'daysIds синхронизированы: ${ids.length} элементов',
+          name: 'UserBloc',
+        );
       }
       // if (user.adaptyId != null) {
       await adapty.identify(adaptyId: user.adaptyId!);
@@ -435,6 +454,97 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       print('DAY ADDED!!!');
       days.add(event.day);
       emit(state.copyWith(days: days));
+    }
+  }
+
+  FutureOr<void> _addHistoryDays(
+    UserAddHistoryDays event,
+    Emitter<UserState> emit,
+  ) async {
+    try {
+      log('Начинаю добавление 200 дней истории пользователю', name: 'UserBloc');
+
+      // Получаем текущего пользователя
+      final currentUser = state.user;
+      if (currentUser.directusId == '-1') {
+        log('Пользователь не авторизован', name: 'UserBloc');
+        RishSnackbar().showSnackBar('Пользователь должен быть авторизован');
+        return;
+      }
+
+      // Создаем базовый день на основе текущего дня пользователя
+      final baseDay = state.days.isNotEmpty
+          ? state.days.last
+          : DayEntity.empty(requestsLeft: 13);
+
+      // Создаем список дней для добавления в Directus
+      final List<Map<String, dynamic>> daysToCreate = [];
+
+      // Генерируем 200 дней, начиная с сегодня и уходя в прошлое
+      for (int i = 0; i < 200; i++) {
+        // Вычисляем дату для каждого дня (сегодня - i дней)
+        final dayDate = DateTime.now().subtract(Duration(days: i));
+
+        // Создаем день с уникальными данными
+        final historyDay = DayEntity(
+          directusId: 0, // Будет установлен Directus
+          weekTdeeAverage: baseDay.weekTdeeAverage + (i % 100), // Вариация TDEE
+          macros: MacrosBreakdown(
+            kcal: baseDay.macros.kcal + (i % 50),
+            protein: baseDay.macros.protein + (i % 10),
+            carbs: baseDay.macros.carbs + (i % 15),
+            fat: baseDay.macros.fat + (i % 8),
+          ),
+          healthMetrics: baseDay.healthMetrics,
+          snap: ChatSnapshotEntity(
+            messages: [],
+            date: dayDate,
+            requestsLeft: 13,
+          ),
+          dateTime: dayDate,
+          cycleId: baseDay.cycleId != null
+              ? baseDay.cycleId! + i
+              : i + 1, // Уникальный cycleId
+        );
+
+        // Добавляем день в список для создания
+        daysToCreate.add(historyDay.toDirectus(userId: currentUser.directusId));
+      }
+
+      log('Создаю ${daysToCreate.length} дней в Directus', name: 'UserBloc');
+
+      // Создаем все дни в Directus одним запросом
+      final createdDays = await directus.createMany(
+        collection: daysCollection,
+        data: daysToCreate,
+      );
+
+      // Получаем обновленный список ID дней пользователя
+      final updatedDaysIds =
+          await dayManager.getDaysIds(userId: currentUser.directusId);
+
+      // Обновляем пользователя с новыми ID дней
+      final updatedUser = currentUser.copyWith(daysIds: updatedDaysIds);
+
+      // Обновляем состояние пользователя
+      add(UpdateUserEvent(user: updatedUser));
+
+      // Перезагружаем дни
+      if (state.days.isNotEmpty) {
+        add(UserGetDays(newDay: state.days.last));
+      }
+
+      log(
+        'История из 200 дней успешно добавлена пользователю',
+        name: 'UserBloc',
+      );
+      RishSnackbar().showSnackBar('История из 200 дней успешно добавлена!');
+    } catch (e, stackTrace) {
+      log('Ошибка при добавлении истории дней: $e', name: 'UserBloc');
+      log('Stack trace: $stackTrace', name: 'UserBloc');
+      RishSnackbar().showSnackBar(
+        'Ошибка при добавлении истории дней. Попробуйте снова.',
+      );
     }
   }
 }

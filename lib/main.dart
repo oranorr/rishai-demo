@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -25,8 +26,6 @@ import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart'
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/firebase_options.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
-import 'package:rishai/core/services/branch_service.dart';
 
 void main() async {
   await SentryFlutter.init(
@@ -121,8 +120,11 @@ void main() async {
 
       await notes.requestPermissions();
 
-      await FlutterBranchSdk.init(enableLogging: true);
-      // FlutterBranchSdk.validateSDKIntegration();75lyh.test-app.link
+      await FlutterBranchSdk.init(
+        enableLogging: kDebugMode,
+      ); // Включаем логирование только в debug режиме для продакшена
+      // FlutterBranchSdk
+      // .validateSDKIntegration(); // Убираем валидацию для продакшена
       // BranchService().initDeepLinkListener();
 
       // Test Branch Integration
@@ -133,7 +135,7 @@ void main() async {
       final versionCheckService = getIt<VersionCheckService>();
       final bool updateRequired = await versionCheckService.isUpdateRequired();
       print('updateRequired: $updateRequired');
-      if (updateRequired) {
+      if (updateRequired && !kDebugMode) {
         final storeUrl = await versionCheckService.getStoreUrl();
         if (storeUrl != null) {
           runApp(

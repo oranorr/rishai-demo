@@ -71,22 +71,17 @@
 		<!-- Branch.io Associated Domains -->
 		<key>com.apple.developer.associated-domains</key>
 		<array>
-			<string>applinks:75lyh.test-app.link</string>
-			<string>applinks:75lyh-alternate.test-app.link</string>
+			<string>applinks:75lyh.app.link</string>
+			<string>applinks:75lyh-alternate.app.link</string>
 		</array>
 
-		<!-- <key>branch_universal_link_domains</key>
-		<array>
-			<string>applinks:75lyh.test-app.link</string>
-			<string>applinks:75lyh-alternate.test-app.link</string>
-		</array> -->
 		<!-- Branch Keys -->
 		<key>branch_key</key>
-		<string>key_test_bvFnrp1Yvth9XpJU6kI7idjiuxpLxhaa</string>
+		<string>key_live_guvoqm49tveW5nOI8oV8okafrCgPh1W1</string>
 		<key>branch_universal_link_domains</key>
 		<array>
-			<string>75lyh.test-app.link</string>
-			<string>75lyh-alternate.test-app.link</string>
+			<string>75lyh.app.link</string>
+			<string>75lyh-alternate.app.link</string>
 		</array>
 	</dict>
 </plist>

@@ -4,7 +4,7 @@ import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart' as dm;
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/error/local_storage_error_handler.dart';
@@ -39,7 +39,7 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
   @override
   Future<void> saveData({required DayEntity data}) async {
     try {
-      await dayManager.createDay(day: data);
+      await dm.dayManager.createDay(day: data);
     } catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
@@ -97,7 +97,8 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
         }
 
         if (latestDay == null) {
-          final savedDays = await dayManager.getDaysIds(userId: params.userId);
+          final savedDays =
+              await dm.dayManager.getDaysIds(userId: params.userId);
           if (savedDays.isEmpty) {
             log('No saved days found for user, cannot create UserDataEntity');
             await LocalStorageErrorHandler.handleError(
@@ -198,7 +199,8 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
         }
 
         if (latestDay == null) {
-          final savedDays = await dayManager.getDaysIds(userId: params.userId);
+          final savedDays =
+              await dm.dayManager.getDaysIds(userId: params.userId);
           if (savedDays.isEmpty) {
             log('No saved days found for user');
             return const Left(WhoopDataDueToRefresh());
@@ -219,7 +221,7 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
           ),
         );
 
-        await dayManager.createDay(day: dayData);
+        await dm.dayManager.createDay(day: dayData);
         return Right(dayData);
       } catch (e, stackTrace) {
         await LocalStorageErrorHandler.handleError(

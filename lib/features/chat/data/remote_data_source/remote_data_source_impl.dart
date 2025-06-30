@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'dart:developer';
+
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/features/chat/data/remote_data_source/llm_proxy_client.dart';
@@ -12,9 +13,9 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
-import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
+    as whoop_remote;
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
-import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
 
@@ -182,15 +183,13 @@ $mealsInfo
     DateTime date,
   ) async {
     try {
-      final rawUser = await directus.readOne(
-        collection: usersCollection,
-        id: directusId,
-      );
-      if (rawUser['days'].isEmpty) {
+      // Используем dayManager.getDaysIds вместо прямого чтения из rawUser['days']
+      // чтобы избежать проблем с обрезанным массивом
+      final daysIds = await dayManager.getDaysIds(userId: directusId);
+
+      if (daysIds.isEmpty) {
         return null;
       }
-
-      final daysIds = await dayManager.getDaysIds(userId: directusId);
 
       final lastDay = await directus.readOne(
         collection: daysCollection,
@@ -198,7 +197,7 @@ $mealsInfo
       );
       if (lastDay['cycleId'] == null) return null;
 
-      final isCycleEnded = await whoopRemote.pingLastCycle(
+      final isCycleEnded = await whoop_remote.whoopRemote.pingLastCycle(
         cycleId: int.parse(lastDay['cycleId']),
       );
 

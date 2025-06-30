@@ -15,8 +15,9 @@
 
     <application android:label="Pivot" android:name="${applicationName}" android:icon="@mipmap/ic_launcher" android:usesCleartextTraffic="true" android:allowBackup="false" android:screenOrientation="portrait">
 
-        <meta-data android:name="io.branch.sdk.BranchKey" android:value="key_test_bvFnrp1Yvth9XpJU6kI7idjiuxpLxhaa" />
-        <meta-data android:name="io.branch.sdk.TestMode" android:value="true" />
+        <meta-data android:name="io.branch.sdk.BranchKey" android:value="key_live_guvoqm49tveW5nOI8oV8okafrCgPh1W1" />
+        <!-- Убираем TestMode для продакшена -->
+        <!-- <meta-data android:name="io.branch.sdk.TestMode" android:value="true" /> -->
 
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
@@ -58,8 +59,8 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="75lyh.test-app.link" />
-                <data android:scheme="https" android:host="75lyh-alternate.test-app.link" />
+                <data android:scheme="https" android:host="75lyh.app.link" />
+                <data android:scheme="https" android:host="75lyh-alternate.app.link" />
             </intent-filter>
 
             <intent-filter>
