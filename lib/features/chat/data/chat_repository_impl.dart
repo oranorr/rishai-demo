@@ -178,8 +178,18 @@ class ChatRepositoryImpl implements ChatRepository {
       final date = targetDate ?? DateTime.now();
       final dateKey = date.toIso8601String().substring(0, 10);
 
-      // Сначала проверяем локальное хранилище
-      ChatSnapshotEntity? localSnap = hive.chatBox.get(dateKey);
+      log('Загрузка снапшота чата для даты: $dateKey');
+
+      // Проверяем локальные данные с защитой от ошибок схемы
+      ChatSnapshotEntity? localSnap;
+      try {
+        localSnap = hive.chatBox.get(dateKey);
+        log('Локальный снапшот ${localSnap != null ? 'найден' : 'не найден'}');
+      } on Exception catch (e) {
+        log('Ошибка при чтении локального снапшота: $e');
+        // При ошибке чтения локальных данных продолжаем работу с сервером
+        localSnap = null;
+      }
 
       if (!forceUpdate && localSnap != null) {
         log('Загружен снапшот из локального хранилища: ${localSnap.messages.length} сообщений');

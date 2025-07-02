@@ -110,9 +110,11 @@ void main() async {
 
       await adapty.initAdapty();
 
-      await hive.initHive();
-
+      // ВАЖНО: преференсы должны инициализироваться ДО Hive,
+      // так как версионирование схемы данных зависит от SharedPreferences
       await prefsRepo.init();
+
+      await hive.initHive();
 
       await directus.initDirectus();
 

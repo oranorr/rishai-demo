@@ -103,4 +103,28 @@ class PrefsRepository {
       return null;
     }
   }
+
+  /// Получает сохраненную версию схемы данных Hive
+  ///
+  /// Возвращает null, если версия не была сохранена ранее (первый запуск)
+  int? getHiveSchemaVersion() {
+    return _prefs.getInt(hiveSchemaVersion);
+  }
+
+  /// Сохраняет текущую версию схемы данных Hive
+  ///
+  /// Вызывается после успешной инициализации или сброса Hive
+  Future<void> setHiveSchemaVersion(int version) async {
+    await _prefs.setInt(hiveSchemaVersion, version);
+  }
+
+  /// Проверяет, совпадает ли сохраненная версия схемы с ожидаемой
+  ///
+  /// Возвращает false если:
+  /// - Версия не была сохранена ранее (первый запуск)
+  /// - Сохраненная версия отличается от ожидаемой
+  bool isHiveSchemaVersionCompatible(int expectedVersion) {
+    final savedVersion = getHiveSchemaVersion();
+    return savedVersion == expectedVersion;
+  }
 }

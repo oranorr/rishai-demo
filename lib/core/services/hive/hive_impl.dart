@@ -3,7 +3,9 @@ import 'dart:developer';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/services/error/local_storage_error_handler.dart';
+import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
@@ -35,6 +37,23 @@ class HiveImpl implements HiveRepo {
   Future<void> initHive() async {
     try {
       log('STARTING HIVE INITIALIZATION');
+
+      // Проверяем версию схемы данных ПЕРЕД инициализацией Hive
+      final isSchemaCompatible =
+          prefsRepo.isHiveSchemaVersionCompatible(hiveSchemaVersion);
+      final savedVersion = prefsRepo.getHiveSchemaVersion();
+
+      log('SCHEMA VERSION CHECK - Expected: $hiveSchemaVersion, Saved: $savedVersion, Compatible: $isSchemaCompatible');
+
+      // Если схема несовместима, принудительно сбрасываем данные
+      if (!isSchemaCompatible) {
+        log('SCHEMA VERSION MISMATCH - Performing automatic storage reset');
+        await _resetStorageForSchemaUpdate(
+          expectedVersion: hiveSchemaVersion,
+          currentVersion: savedVersion,
+        );
+      }
+
       await Hive.initFlutter();
       log('REGISTERING HIVE ADAPTERS');
       Hive
@@ -71,6 +90,10 @@ class HiveImpl implements HiveRepo {
         'CHAT: ${chatBox.isEmpty ? "empty" : "${chatBox.length} items"}, '
         'WEEK PLAN: ${weekPlanBox.isEmpty ? "empty" : "${weekPlanBox.length} items"}',
       );
+
+      // Сохраняем текущую версию схемы после успешной инициализации
+      await prefsRepo.setHiveSchemaVersion(hiveSchemaVersion);
+      log('SCHEMA VERSION SAVED: $hiveSchemaVersion');
     } on Exception catch (e, stackTrace) {
       log('ERROR DURING HIVE INITIALIZATION: $e');
       await LocalStorageErrorHandler.handleError(
@@ -84,6 +107,50 @@ class HiveImpl implements HiveRepo {
       // При ошибке инициализации пытаемся сбросить хранилище
       await resetStorageOnFatalError();
       rethrow;
+    }
+  }
+
+  /// Сбрасывает хранилище при изменении версии схемы данных
+  ///
+  /// Этот метод вызывается автоматически при обнаружении несовместимости версий схемы.
+  /// Он безопасно удаляет все данные Hive и подготавливает чистое хранилище.
+  Future<void> _resetStorageForSchemaUpdate({
+    required int expectedVersion,
+    required int? currentVersion,
+  }) async {
+    try {
+      log('Начинается сброс хранилища из-за обновления схемы данных');
+      log('Текущая версия схемы: $currentVersion, Ожидаемая: $expectedVersion');
+
+      // Закрываем все потенциально открытые боксы
+      try {
+        await Hive.close();
+        log('Все боксы Hive закрыты');
+      } catch (e) {
+        log('Ошибка при закрытии боксов Hive: $e');
+      }
+
+      // Удаляем все файлы боксов с диска
+      final boxNames = [
+        'user_box',
+        'chat_box',
+        'day_box',
+        'userData_box',
+        'weekPlan_box',
+      ];
+      for (final boxName in boxNames) {
+        try {
+          await Hive.deleteBoxFromDisk(boxName);
+          log('Удален бокс: $boxName');
+        } catch (e) {
+          log('Ошибка при удалении бокса $boxName: $e');
+        }
+      }
+
+      log('Сброс хранилища для обновления схемы выполнен успешно');
+    } catch (e) {
+      log('Ошибка при сбросе хранилища для обновления схемы: $e');
+      // Продолжаем выполнение, чтобы попытаться инициализировать Hive с нуля
     }
   }
 
@@ -541,12 +608,34 @@ class HiveImpl implements HiveRepo {
 
   @override
   Future<void> refreshChat() async {
-    await chatBox.clear();
+    try {
+      await chatBox.clear();
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_chat',
+        operation: 'refresh_chat',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<void> flushSavedDays() async {
-    await dayBox.clear();
+    try {
+      await dayBox.clear();
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_day',
+        operation: 'flush_saved_days',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -596,18 +685,48 @@ class HiveImpl implements HiveRepo {
 
   @override
   Future<List<WeekPlanEntity>?> retrieveWeekPlan() async {
-    return weekPlanBox.values.toList();
+    try {
+      if (weekPlanBox.isEmpty) {
+        return [];
+      }
+      return weekPlanBox.values.toList();
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_week_plan',
+        operation: 'retrieve_week_plan',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
   }
 
   @override
   Future<void> saveWeekPlan({required WeekPlanEntity weekPlan}) async {
-    await weekPlanBox.add(weekPlan);
+    try {
+      await weekPlanBox.add(weekPlan);
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_week_plan',
+        operation: 'save_week_plan',
+        storageType: 'hive',
+        extras: {'plan_start_date': weekPlan.startDate.toString()},
+      );
+      rethrow;
+    }
   }
 
   @override
   void test() {
-    final res = weekPlanBox.values.toList();
-    log(res.toString());
+    try {
+      final res = weekPlanBox.values.toList();
+      log(res.toString());
+    } on Exception catch (e) {
+      log('Ошибка в test методе: $e');
+    }
   }
 
   @override

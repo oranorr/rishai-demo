@@ -62,6 +62,7 @@ class LocalStorageErrorHandler {
     // 1. Ошибки схемы данных (HiveError)
     // 2. Ошибки десериализации (типично при изменении структуры классов)
     // 3. Ошибки формата (старый формат хранилища)
+    // 4. Ошибки доступа к данным (индексы, состояние боксов)
 
     if (error is HiveError) {
       final errorMessage = error.toString().toLowerCase();
@@ -73,13 +74,28 @@ class LocalStorageErrorHandler {
           errorMessage.contains('could not read') ||
           errorMessage.contains('type conflict') ||
           errorMessage.contains('wrong signature') ||
-          errorMessage.contains('unexpected value');
+          errorMessage.contains('unexpected value') ||
+          errorMessage.contains('unknown type') ||
+          errorMessage.contains('version mismatch') ||
+          errorMessage.contains('schema') ||
+          errorMessage.contains('adapter');
     }
 
-    // Проверяем ошибки десериализации
+    // Проверяем ошибки десериализации и доступа к данным
     if (error is TypeError ||
         error is FormatException ||
-        error is ArgumentError) {
+        error is ArgumentError ||
+        error is RangeError || // Доступ к несуществующим индексам
+        error is StateError || // Работа с закрытыми боксами
+        error is NoSuchMethodError) {
+      // Вызов несуществующих методов на null объектах
+      return true;
+    }
+
+    // Проверяем специфические ошибки Flutter/Dart
+    if (error.toString().contains("type 'Null' is not a subtype") ||
+        error.toString().contains('Failed assertion') ||
+        error.toString().contains('RangeError')) {
       return true;
     }
 

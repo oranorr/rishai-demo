@@ -16,7 +16,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   late List<AdaptyPaywallProduct> products;
 
   @override
-  late bool isActive;
+  late bool isActive = false;
 
   @override
   late bool isTrialActive;

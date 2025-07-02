@@ -6,3 +6,8 @@ const String calibrating = 'calibratingCompleteDate';
 const String notesTime = 'notesTime';
 const String acceptedWhoopDisclaimer = 'acceptedWhoopDisclaimer';
 const String whoopExpiresAt = 'whoopExpiresAt';
+
+/// Ключ для хранения версии схемы данных Hive
+/// При изменении схемы данных (добавление/изменение HiveType/HiveField)
+/// эта версия должна увеличиваться для автоматического сброса локальных данных
+const String hiveSchemaVersion = 'hiveSchemaVersion';
