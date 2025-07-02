@@ -107,12 +107,8 @@ class LoginRepositoryImpl implements LoginRepository {
             'name': res.first['name'],
           },
         );
-        final daysIds =
-            await dayManager.getDaysIds(userId: res.first['id'].toString());
-
-        return Right(
-          UserModel.fromMap(rawUpd).toEntity().copyWith(daysIds: daysIds),
-        );
+        final user = UserModel.fromMap(rawUpd).toEntity();
+        return Right(user);
       }
     } on Exception catch (e) {
       log(e.toString());

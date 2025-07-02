@@ -183,30 +183,19 @@ $mealsInfo
     DateTime date,
   ) async {
     try {
-      // Используем dayManager.getDaysIds вместо прямого чтения из rawUser['days']
-      // чтобы избежать проблем с обрезанным массивом
-      final daysIds = await dayManager.getDaysIds(userId: directusId);
+      // Используем унифицированный метод вместо дублирующей логики
+      final result = await dayManager.getLastDayWithCycleStatus(
+        userId: directusId,
+      );
 
-      if (daysIds.isEmpty) {
+      // Если день не найден или цикл завершен, возвращаем null
+      if (result == null || !result.isCycleActive) {
         return null;
       }
 
-      final lastDay = await directus.readOne(
-        collection: daysCollection,
-        id: daysIds.last.toString(),
-      );
-      if (lastDay['cycleId'] == null) return null;
-
-      final isCycleEnded = await whoop_remote.whoopRemote.pingLastCycle(
-        cycleId: int.parse(lastDay['cycleId']),
-      );
-
-      if (isCycleEnded) {
-        return null;
-      }
-
-      return (lastDay['chatSnap'] as Map<String, dynamic>)
-        ..addAll({'mealPlan': lastDay['mealPlan']});
+      // Возвращаем chatSnap с мealPlan
+      return (result.day.snap.toDirectus())
+        ..addAll({'mealPlan': result.day.mealPlanEntity?.toMap()});
     } on Exception catch (e) {
       log('failed to fetch last Chat snap, with error: $e');
       rethrow;

@@ -5,5 +5,7 @@ import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
 abstract class UserRemoteSource {
   Future<bool> updateUser({required UserEntity user});
-  Future<List<DayEntity>> fetchRemoteDays({required List<int> daysIds});
+
+  // === НОВАЯ УПРОЩЕННАЯ АРХИТЕКТУРА ===
+  Future<List<DayEntity>> fetchUserDays({required String userId});
 }

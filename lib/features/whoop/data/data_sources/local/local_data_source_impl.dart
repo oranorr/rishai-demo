@@ -97,9 +97,10 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
         }
 
         if (latestDay == null) {
-          final savedDays =
-              await dm.dayManager.getDaysIds(userId: params.userId);
-          if (savedDays.isEmpty) {
+          // Используем новую архитектуру - получаем последний день напрямую
+          latestDay = await dm.dayManager.getLastUserDay(userId: params.userId);
+
+          if (latestDay == null) {
             log('No saved days found for user, cannot create UserDataEntity');
             await LocalStorageErrorHandler.handleError(
               'User data is null and no days found',
@@ -117,13 +118,6 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
             );
             return const Left(WhoopDataDueToRefresh());
           }
-
-          log('Fetching last day from server: ${savedDays.last}');
-          final savedDayRaw = await directus.readOne(
-            collection: daysCollection,
-            id: savedDays.last.toString(),
-          );
-          latestDay = DayEntity.fromMap(savedDayRaw);
           log('Created day from server data: directusId=${latestDay.directusId}, cycleId=${latestDay.cycleId}');
         }
 
@@ -199,18 +193,13 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
         }
 
         if (latestDay == null) {
-          final savedDays =
-              await dm.dayManager.getDaysIds(userId: params.userId);
-          if (savedDays.isEmpty) {
+          // Используем новую архитектуру - получаем последний день напрямую
+          latestDay = await dm.dayManager.getLastUserDay(userId: params.userId);
+
+          if (latestDay == null) {
             log('No saved days found for user');
             return const Left(WhoopDataDueToRefresh());
           }
-
-          final savedDayRaw = await directus.readOne(
-            collection: daysCollection,
-            id: savedDays.last.toString(),
-          );
-          latestDay = DayEntity.fromMap(savedDayRaw);
         }
 
         final dayData = latestDay.copyWith(

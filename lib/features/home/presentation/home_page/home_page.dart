@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:directus/directus.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,10 +9,8 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
+import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
@@ -29,13 +26,12 @@ import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
-import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 
+part 'widgets/calendar_widget.dart';
 part 'widgets/calories_widget.dart';
 part 'widgets/health_metrics_widget.dart';
 part 'widgets/macros_breakdown_widget.dart';
 part 'widgets/meal_plan_widget.dart';
-part 'widgets/calendar_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -101,8 +97,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
   }
-
-  Future<void> test(DayEntity day) async {}
 
   @override
   Widget build(BuildContext context) {
@@ -182,16 +176,46 @@ class _HomePageBodyState extends State<_HomePageBody> {
   }
 
   Future<void> test() async {
-    await directus.deleteOne(
-      collection: daysCollection,
-      id: userBloc.state.user.daysIds.last.toString(),
-    );
-    await hive.deleteLastDay();
+    print('=== ТЕСТ НОВОЙ АРХИТЕКТУРЫ ===');
+
+    final userId = userBloc.state.user.directusId;
+    print('Тестирую для пользователя: $userId');
+
+    try {
+      // Тест 1: Получение всех дней пользователя
+      final userDaysResult = await dayManager.getUserDays(userId: userId);
+      userDaysResult.fold(
+        (failure) => print('❌ Ошибка получения дней: ${failure.message}'),
+        (days) => print('✅ Получено ${days.length} дней пользователя'),
+      );
+
+      // Тест 2: Получение последнего дня
+      final lastDay = await dayManager.getLastUserDay(userId: userId);
+      if (lastDay != null) {
+        print('✅ Последний день: ${lastDay.dateTime}');
+      } else {
+        print('❌ Последний день не найден');
+      }
+
+      // Тест 3: Получение активного дня (текущий незавершенный цикл)
+      final activeDay = await dayManager.getActiveDay(userId: userId);
+      if (activeDay != null) {
+        print(
+          '✅ Найден активный день: cycleId=${activeDay.cycleId}, дата=${activeDay.dateTime}',
+        );
+      } else {
+        print('❌ Активный день не найден');
+      }
+
+      print('=== ТЕСТ ЗАВЕРШЕН ===');
+    } catch (e) {
+      print('❌ Ошибка во время теста: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // test();
+    // test(); // Тестируем новую архитектуру (временно отключено)
     return BlocConsumer<WhoopBloc, WhoopState>(
       listener: (context, state) {
         if ((state.status != Status.loading) &&
@@ -213,19 +237,6 @@ class _HomePageBodyState extends State<_HomePageBody> {
             shrinkWrap: true,
             padding: EdgeInsets.zero,
             children: [
-              if (kDebugMode)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: RishButton.primary(
-                    title: 'Добавить 200 дней истории',
-                    enabled: true,
-                    isLoading: false,
-                    action: () {
-                      // Отправляем событие в UserBloc
-                      context.read<UserBloc>().add(const UserAddHistoryDays());
-                    },
-                  ),
-                ),
               _CalendarWidget(widget: widget),
               SizedBox(height: 20.h),
               Row(

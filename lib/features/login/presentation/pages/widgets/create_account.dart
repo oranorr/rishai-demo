@@ -7,6 +7,8 @@ class CreateAccountPage extends StatelessWidget {
     required this.emailController,
     required this.tabController,
     required this.buttonAction,
+    required this.shouldCreateHistoryDays,
+    required this.onHistoryDaysChanged,
     super.key,
   }) : _formKey = formKey;
   final GlobalKey<FormState> _formKey;
@@ -15,6 +17,8 @@ class CreateAccountPage extends StatelessWidget {
 
   final TabController tabController;
   final VoidCallback buttonAction;
+  final bool shouldCreateHistoryDays;
+  final ValueChanged<bool> onHistoryDaysChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +78,28 @@ class CreateAccountPage extends StatelessWidget {
                   hintText: '-',
                   validator: _emailValidator,
                 ),
+                // Debug-only checkbox для создания исторических дней
+                if (kDebugMode) ...[
+                  SizedBox(height: 20.h),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: shouldCreateHistoryDays,
+                        onChanged: (value) =>
+                            onHistoryDaysChanged(value ?? false),
+                        activeColor: RishColors.primary,
+                      ),
+                      Expanded(
+                        child: Text(
+                          'Добавить 200 дней истории (Debug)',
+                          style: context.styles.regularMedium.copyWith(
+                            color: RishColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 // SizedBox(
                 //   height: 16.h,
                 // ),

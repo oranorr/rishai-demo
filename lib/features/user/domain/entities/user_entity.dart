@@ -13,7 +13,6 @@ class UserEntity extends HiveObject {
     required this.whoopId,
     required this.email,
     required this.name,
-    required this.daysIds,
     required this.adaptyId,
     required this.weekPlanIds,
     this.age,
@@ -28,7 +27,6 @@ class UserEntity extends HiveObject {
         whoopId: 0,
         email: '',
         name: '',
-        daysIds: [],
         bodyMeasurements: const BodyMeasurementsEntity(
           height: 0,
           weight: 0,
@@ -63,10 +61,8 @@ class UserEntity extends HiveObject {
   @HiveField(8)
   final UserGoal? userGoal;
   @HiveField(9)
-  final List<int> daysIds;
-  @HiveField(10)
   final String? adaptyId;
-  @HiveField(11)
+  @HiveField(10)
   final List<int> weekPlanIds;
 
   UserEntity copyWith({
@@ -79,7 +75,6 @@ class UserEntity extends HiveObject {
     FoodPreferences? foodPreferences,
     BodyMeasurementsEntity? bodyMeasurements,
     UserGoal? userGoal,
-    List<int>? daysIds,
     String? adaptyId,
     List<int>? weekPlanIds,
   }) {
@@ -93,7 +88,6 @@ class UserEntity extends HiveObject {
       foodPreferences: foodPreferences ?? this.foodPreferences,
       bodyMeasurements: bodyMeasurements ?? this.bodyMeasurements,
       userGoal: userGoal ?? this.userGoal,
-      daysIds: daysIds ?? this.daysIds,
       adaptyId: adaptyId ?? this.adaptyId,
       weekPlanIds: weekPlanIds ?? this.weekPlanIds,
     );
@@ -101,7 +95,7 @@ class UserEntity extends HiveObject {
 
   @override
   String toString() {
-    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, daysIds: $daysIds, adaptyId: $adaptyId, weekPlanIds: $weekPlanIds)';
+    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, adaptyId: $adaptyId, weekPlanIds: $weekPlanIds)';
   }
 
   Map<String, dynamic> toMap() {
@@ -118,16 +112,17 @@ class UserEntity extends HiveObject {
       'cuisines': foodPreferences?.cuisines,
       'userGoal': userGoal?.toMap(),
       'adaptyId': adaptyId,
-      'daysIds': daysIds,
+      'weekPlanIds': weekPlanIds,
     };
   }
 
   bool get needsQuestionary {
+    // bodyMeasurements исключены из проверки, так как они получаются отдельно от Whoop API
+    // а не заполняются пользователем в опроснике
     return foodPreferences == null ||
         foodPreferences!.cuisines.isEmpty ||
         foodPreferences!.diets.isEmpty ||
         userGoal == null ||
-        bodyMeasurements == null ||
         gender == null ||
         age == null;
   }

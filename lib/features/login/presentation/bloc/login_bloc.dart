@@ -9,6 +9,7 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
@@ -84,7 +85,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       emit(state.copyWith(status: Status.error));
       RishSnackbar().showSnackBar(fail.message);
     }, (user) {
-      userBloc.add(CreateUserOnLogin(user: user));
+      userBloc.add(
+        CreateUserOnLogin(
+          user: user,
+          shouldCreateHistoryDays: event.shouldCreateHistoryDays,
+        ),
+      );
       appNavigationService.push(path: AppRoutes.enterOtp.path);
       emit(state.copyWith(status: Status.success));
     });
@@ -142,11 +148,17 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     Emitter<LoginState> emit,
   ) async {
     UserEntity curUser = userBloc.state.user;
+    if (curUser.adaptyId == null) {
+      curUser = curUser.copyWith(
+        adaptyId: adapty.generateAdaptyId(directusId: curUser.directusId),
+      );
+    }
+
     await prefsRepo.setLogin(true);
 
     // Сначала сохраняем в Hive
     await hive.saveUser(user: curUser);
-
+    await adapty.initAdapty();
     // Затем обновляем в Directus и состоянии
     userBloc.add(UpdateUserEvent(user: curUser));
 
@@ -162,6 +174,14 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     await prefsRepo.flush();
     await notes.cancelNotifications();
     await adapty.logout();
+
+    // Очищаем хранилище дней через DayManager
+    try {
+      await dayManager.clearUserDays();
+    } catch (e) {
+      log('[LoginBloc] Ошибка при очистке дней: $e');
+    }
+
     chatBloc.add(const ChatOnLogout(needsCounterClear: true));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
     weekPlanBloc.add(const WeekPlanClear());

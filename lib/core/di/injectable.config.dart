@@ -182,14 +182,19 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.factory<_i663.UpdateUserUsecase>(
         () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
-    gh.factory<_i547.GetDaysUsecase>(
-        () => _i547.GetDaysUsecase(gh<_i926.UserRepository>()));
+    // Старый GetDaysUsecase удалён
+    gh.factory<_i547.GetUserDaysUsecase>(
+        () => _i547.GetUserDaysUsecase(gh<_i926.UserRepository>()));
     gh.singleton<_i867.ChatRemoteDataSource>(
         () => _i467.ChatRemoteDataSourceImpl(gh<_i947.LlmProxyClient>()));
     gh.singleton<_i570.VersionCheckService>(
         () => _i634.VersionCheckServiceImpl(gh<_i89.DirectusService>()));
     gh.singleton<_i544.LoginRepository>(
         () => _i1025.LoginRepositoryImpl(gh<_i510.LoginRemoteDataSource>()));
+    gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
+          gh<_i663.UpdateUserUsecase>(),
+          gh<_i547.GetUserDaysUsecase>(),
+        ));
     gh.factory<_i1003.LoginViaGoogleUsecase>(
         () => _i1003.LoginViaGoogleUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i734.CreateNewUserUsecase>(
@@ -219,10 +224,6 @@ extension GetItInjectableX on _i174.GetIt {
           hive: gh<_i410.HiveRepo>(),
           remote: gh<_i867.ChatRemoteDataSource>(),
           userRepo: gh<_i926.UserRepository>(),
-        ));
-    gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
-          gh<_i663.UpdateUserUsecase>(),
-          gh<_i547.GetDaysUsecase>(),
         ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
           gh<_i1003.LoginViaGoogleUsecase>(),

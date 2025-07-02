@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -38,6 +39,9 @@ class _LoginScreenState extends State<LoginScreen>
   late TextEditingController emailController2;
   late TabController tabController;
 
+  /// Флаг для создания исторических дней (только в debug режиме)
+  bool shouldCreateHistoryDays = false;
+
   @override
   void initState() {
     nameController = TextEditingController();
@@ -74,6 +78,12 @@ class _LoginScreenState extends State<LoginScreen>
                 emailController: emailController,
                 tabController: tabController,
                 buttonAction: createAccountAction,
+                shouldCreateHistoryDays: shouldCreateHistoryDays,
+                onHistoryDaysChanged: (value) {
+                  setState(() {
+                    shouldCreateHistoryDays = value;
+                  });
+                },
               ),
               LoginPage(
                 formKey: _formKeyLogin,
@@ -95,6 +105,7 @@ class _LoginScreenState extends State<LoginScreen>
         CreateAccountEvent(
           name: nameController.text.trim(),
           email: emailController.text.trim(),
+          shouldCreateHistoryDays: shouldCreateHistoryDays,
         ),
       );
     } else {

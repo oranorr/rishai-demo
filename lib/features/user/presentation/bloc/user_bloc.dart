@@ -2,12 +2,10 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:bloc/bloc.dart';
-import 'package:directus/directus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
-import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
@@ -21,7 +19,6 @@ import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -42,7 +39,7 @@ final userBloc = getIt.get<UserBloc>();
 class UserBloc extends Bloc<UserEvent, UserState> {
   UserBloc(
     this.updateUserUsecase,
-    this.getDaysUsecase,
+    this.getUserDaysUsecase,
   ) : super(
           UserMainState(
             status: Status.initial,
@@ -56,7 +53,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserDeleteAccount>(_deleteAccount);
     on<UserCheckForRecomp>(_checkForRecomp);
     on<UserManageDay>(_manageDay);
-    on<UserGetDays>(_getDays);
+    on<UserGetDays>(_getDays); // Используем новую архитектуру
     on<UserUpdateDay>(_updateDay);
     on<UserAddHistoryDays>(_addHistoryDays);
 
@@ -66,7 +63,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
   Timer? _recompCheckTimer;
   final UpdateUserUsecase updateUserUsecase;
-  final GetDaysUsecase getDaysUsecase;
+  // Удаляем старый use case, оставляем только новый
+  final GetUserDaysUsecase getUserDaysUsecase;
 
   void _initRecompCheckTimer() {
     // Отменяем существующий таймер если он есть
@@ -93,102 +91,62 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     Emitter<UserState> emit,
   ) async {
     UserEntity user = event.user;
-    // print('user last day: ${user.daysIds}');
-    // Сохраняем существующий план питания
-    // final currentDay = whoopBloc.state.day;
-    // final currentMealPlan = currentDay.mealPlanEntity;
-
     if (user.adaptyId == null) {
       user = user.copyWith(
         adaptyId: adapty.generateAdaptyId(directusId: user.directusId),
       );
     }
+    // print('user last day: ${user.directusId}');
 
-    emit(state.copyWith(user: user, status: Status.loading));
-    final res = await updateUserUsecase.call(user);
-    await res.fold((Failure fail) async {
-      log(fail.toString());
-      emit(state.copyWith(status: Status.error));
-      RishSnackbar().showSnackBar('Updating failed, please try again.');
-    }, (_) async {
-      log('User successfully updated!');
-      emit(state.copyWith(status: Status.success));
-      await adapty.identify(adaptyId: user.adaptyId!);
-
-      // Сохраняем снапшот чата если пользователь авторизован
-      if (user.directusId != '-1') {
-        chatBloc.add(ChatSaveSnap(directusId: user.directusId));
-      }
-
-      // Восстанавливаем план питания
-      // if (currentMealPlan != null) {
-      //   final updatedDay = currentDay.copyWith(
-      //     mealPlanEntity: currentMealPlan,
-      //   );
-      //   whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
-      // }
-    });
+    try {
+      log('Обновление пользователя: ${user.directusId}', name: 'UserBloc');
+      final res = await updateUserUsecase.call(user);
+      res.fold((l) {
+        log('Ошибка обновления пользователя: ${l.message}', name: 'UserBloc');
+        RishSnackbar().showSnackBar('Error updating user data');
+      }, (r) {
+        log('Пользователь успешно обновлен', name: 'UserBloc');
+        emit(state.copyWith(user: user));
+      });
+    } on Exception catch (e) {
+      log('Ошибка обновления пользователя: $e', name: 'UserBloc');
+      RishSnackbar().showSnackBar('Error updating user data');
+    }
   }
 
   FutureOr<void> _checkForSavedUser(
     CheckForSavedUser event,
     Emitter<UserState> emit,
   ) async {
-    UserEntity? user = await hive.retrieveSavedUser();
-    final watchedOnboard = prefsRepo.checkForWatchedOnboard();
-    print('SAVED USER GOAL: ${user?.userGoal}');
-    if (user != null && user != UserEntity.unauthorized()) {
-      log('USER found: $user');
-      log(
-        'Локальные daysIds: ${user.daysIds.length} элементов',
-        name: 'UserBloc',
-      );
-      add(const UserCheckForRecomp());
-      // final rawUser = await directus.readOne(
-      //   collection: usersCollection,
-      //   id: user.directusId,
-      // );
-      // print('rawUser last day: ${rawUser['days'].last}');
-
-      List days = await directus.readMany(
-        collection: daysCollection,
-        filters: Filters({'userId': F.eq(user.directusId)}),
-        query: Query(
-          limit: 1000,
-        ),
-      );
-
-      days = days.map((e) => e['id']).toList();
-
-      final List<int> ids = List.from(days).cast<int>();
-      log('Directus daysIds: ${ids.length} элементов', name: 'UserBloc');
-
-      if (user.daysIds != ids) {
+    try {
+      log('Проверка сохраненного пользователя', name: 'UserBloc');
+      final user = await hive.retrieveSavedUser();
+      final watchedOnboard = prefsRepo.checkForWatchedOnboard();
+      if (user != null && user.directusId != '-1') {
         log(
-          'Синхронизация daysIds: локально ${user.daysIds.length} -> Directus ${ids.length}',
+          'Найден сохраненный пользователь: ${user.directusId}',
           name: 'UserBloc',
         );
-        user = user.copyWith(daysIds: ids);
+
+        // Обновляем пользователя (дни будут загружены при необходимости)
+        emit(state.copyWith(user: user));
+        await adapty.identify(adaptyId: user.adaptyId!);
+        // }
+        emit(state.copyWith(user: user));
+
+        weekPlanBloc.add(const WeekPlanLoad());
+        whoopBloc.add(const InitWhoopOnLogin());
+        log('Пользователь загружен из кэша', name: 'UserBloc');
       } else {
-        log(
-          'daysIds синхронизированы: ${ids.length} элементов',
-          name: 'UserBloc',
+        log('Сохраненный пользователь не найден', name: 'UserBloc');
+        appNavigationService.go(
+          path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,
         );
       }
-      // if (user.adaptyId != null) {
-      await adapty.identify(adaptyId: user.adaptyId!);
-      // }
-      emit(state.copyWith(user: user));
-
-      weekPlanBloc.add(const WeekPlanLoad());
-      whoopBloc.add(const InitWhoopOnLogin());
-
-      // Инициализируем чат при восстановлении пользователя из локального хранилища
-      // Это обеспечивает восстановление переписки при рестарте приложения
-      chatBloc.add(InitChatBloc(directusId: user.directusId));
-    } else {
-      appNavigationService.go(
-        path: !watchedOnboard ? AppRoutes.onboard.path : AppRoutes.login.path,
+    } on Exception catch (e) {
+      log(
+        'Ошибка при проверке сохраненного пользователя: $e',
+        name: 'UserBloc',
       );
     }
   }
@@ -199,6 +157,30 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   ) async {
     await hive.saveUser(user: event.user);
     emit(state.copyWith(user: event.user));
+
+    // Если флаг установлен, создаем исторические дни СИНХРОННО
+    if (event.shouldCreateHistoryDays) {
+      log(
+        'Начинаем создание 200 дней истории для нового пользователя',
+        name: 'UserBloc',
+      );
+
+      try {
+        // Вызываем метод создания истории напрямую, дожидаемся завершения
+        await _createHistoryDaysSync(event.user);
+
+        log(
+          'Завершено создание 200 дней истории для нового пользователя',
+          name: 'UserBloc',
+        );
+      } catch (e) {
+        log(
+          'Ошибка при создании истории дней: $e. Продолжаем регистрацию без истории.',
+          name: 'UserBloc',
+        );
+        // Не прерываем процесс регистрации, если создание истории не удалось
+      }
+    }
   }
 
   FutureOr<void> _deleteAccount(
@@ -343,69 +325,74 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
-    log('Starting days loading, status -> loading', name: 'UserBloc');
+    log(
+      '[_getDays] Начинаем загрузку дней, статус -> loading',
+      name: 'UserBloc',
+    );
     emit(state.copyWith(status: Status.loading));
     DayEntity currentDay = event.newDay;
-    final ids = state.user.daysIds;
 
-    log('Days IDs to load: ${ids.length}', name: 'UserBloc');
-
-    if (ids.isEmpty) {
-      log('No days IDs found, returning only current day', name: 'UserBloc');
-      emit(state.copyWith(status: Status.success, days: [currentDay]));
-      return;
-    }
-
-    log('Fetching days through getDaysUsecase', name: 'UserBloc');
-    final res = await getDaysUsecase
-        .call(GetDaysParams(daysIds: ids, userId: state.user.directusId));
+    log(
+      '[_getDays] Получаем дни через новую архитектуру getUserDaysUsecase',
+      name: 'UserBloc',
+    );
+    final res = await getUserDaysUsecase
+        .call(GetUserDaysParams(userId: state.user.directusId));
 
     await res.fold((l) async {
-      log('Error fetching days: ${l.message}', name: 'UserBloc');
-      RishSnackbar()
-          .showSnackBar('Error occured while fetching days. Please, restart.');
-      log('Setting status -> error', name: 'UserBloc');
-      emit(state.copyWith(status: Status.error));
-    }, (List<DayEntity> r) async {
       log(
-        'Days fetched successfully, processing ${r.length} days',
+        '[_getDays] Ошибка при получении дней: ${l.message}',
         name: 'UserBloc',
       );
 
-      // Сортируем дни по дате
-      r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      // Если не удалось загрузить дни, возвращаем только текущий день
+      log(
+        '[_getDays] Возвращаем только текущий день из-за ошибки',
+        name: 'UserBloc',
+      );
+      emit(state.copyWith(status: Status.success, days: [currentDay]));
+    }, (List<DayEntity> r) async {
+      log(
+        '[_getDays] Дни успешно получены, обрабатываем ${r.length} дней',
+        name: 'UserBloc',
+      );
+
+      // Создаём копию списка для изменения
+      final daysList = List<DayEntity>.from(r);
 
       // Ищем существующий день с той же датой
-      final existingDayIndex = r.indexWhere(
+      final existingDayIndex = daysList.indexWhere(
         (day) => day.dateTime.isSameDate(currentDay.dateTime),
       );
 
       if (existingDayIndex != -1) {
-        // Проверяем, действительно ли нужно обновлять день
-        final existingDay = r[existingDayIndex];
-        if (existingDay != currentDay) {
-          log(
-            'Updating existing day at index $existingDayIndex',
-            name: 'UserBloc',
-          );
-          r[existingDayIndex] = currentDay.copyWith(
-            mealPlanEntity:
-                currentDay.mealPlanEntity ?? existingDay.mealPlanEntity,
-            snap: currentDay.snap,
-          );
-        }
+        // Обновляем существующий день
+        final existingDay = daysList[existingDayIndex];
+        log(
+          '[_getDays] Обновляем существующий день на индексе $existingDayIndex',
+          name: 'UserBloc',
+        );
+
+        daysList[existingDayIndex] = currentDay.copyWith(
+          directusId: existingDay.directusId, // Сохраняем ID существующего дня
+          mealPlanEntity:
+              currentDay.mealPlanEntity ?? existingDay.mealPlanEntity,
+          snap: currentDay.snap,
+        );
       } else {
         // Добавляем новый день
-        log('Adding new day to the list', name: 'UserBloc');
-        r.add(currentDay);
-        r.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+        log('[_getDays] Добавляем новый день в список', name: 'UserBloc');
+        daysList.add(currentDay);
       }
 
+      // Сортируем дни по дате
+      daysList.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
       log(
-        'Successfully loaded ${r.length} days, setting status -> success',
+        '[_getDays] Успешно загружено ${daysList.length} дней, статус -> success',
         name: 'UserBloc',
       );
-      emit(state.copyWith(status: Status.success, days: r));
+      emit(state.copyWith(status: Status.success, days: daysList));
     });
   }
 
@@ -472,18 +459,39 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         return;
       }
 
-      // Создаем базовый день на основе текущего дня пользователя
+      // Создаем реалистичный базовый день для истории
       final baseDay = state.days.isNotEmpty
           ? state.days.last
-          : DayEntity.empty(requestsLeft: 13);
+          : DayEntity(
+              directusId: 0,
+              weekTdeeAverage: 2200,
+              macros: MacrosBreakdown(
+                kcal: 2000,
+                protein: 150,
+                carbs: 200,
+                fat: 67,
+              ),
+              healthMetrics: const HealthMetricsEntity(
+                bmi: 23,
+                lastTdee: 2200,
+                bmr: 1800,
+                bodyFatPerc: 15,
+              ),
+              snap: ChatSnapshotEntity(
+                messages: [],
+                date: DateTime.now(),
+                requestsLeft: 13,
+              ),
+              dateTime: DateTime.now(),
+            );
 
       // Создаем список дней для добавления в Directus
       final List<Map<String, dynamic>> daysToCreate = [];
 
-      // Генерируем 200 дней, начиная с сегодня и уходя в прошлое
+      // Генерируем 200 дней, начиная со вчера и уходя в прошлое
       for (int i = 0; i < 200; i++) {
-        // Вычисляем дату для каждого дня (сегодня - i дней)
-        final dayDate = DateTime.now().subtract(Duration(days: i));
+        // Вычисляем дату для каждого дня (вчера - i дней)
+        final dayDate = DateTime.now().subtract(Duration(days: i + 1));
 
         // Создаем день с уникальными данными
         final historyDay = DayEntity(
@@ -514,20 +522,12 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       log('Создаю ${daysToCreate.length} дней в Directus', name: 'UserBloc');
 
       // Создаем все дни в Directus одним запросом
-      final createdDays = await directus.createMany(
+      await directus.createMany(
         collection: daysCollection,
         data: daysToCreate,
       );
 
-      // Получаем обновленный список ID дней пользователя
-      final updatedDaysIds =
-          await dayManager.getDaysIds(userId: currentUser.directusId);
-
-      // Обновляем пользователя с новыми ID дней
-      final updatedUser = currentUser.copyWith(daysIds: updatedDaysIds);
-
-      // Обновляем состояние пользователя
-      add(UpdateUserEvent(user: updatedUser));
+      log('Создано ${daysToCreate.length} дней в Directus', name: 'UserBloc');
 
       // Перезагружаем дни
       if (state.days.isNotEmpty) {
@@ -547,4 +547,91 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       );
     }
   }
+
+  /// Синхронное создание исторических дней для нового пользователя
+  /// (без emit-ов и снекбаров, используется в _createUserOnLogin)
+  Future<void> _createHistoryDaysSync(UserEntity user) async {
+    try {
+      log('Начинаю синхронное создание 200 дней истории', name: 'UserBloc');
+
+      if (user.directusId == '-1') {
+        throw Exception('Пользователь не авторизован');
+      }
+
+      // Создаем реалистичный базовый день для истории
+      final baseDay = DayEntity(
+        directusId: 0,
+        weekTdeeAverage: 2200, // Реалистичный TDEE для среднего взрослого
+        macros: MacrosBreakdown(
+          kcal: 2000, // Базовое количество калорий
+          protein: 150, // ~30% калорий от белков
+          carbs: 200, // ~40% калорий от углеводов
+          fat: 67, // ~30% калорий от жиров
+        ),
+        healthMetrics: const HealthMetricsEntity(
+          bmi: 23, // Нормальный ИМТ
+          lastTdee: 2200, // Соответствует weekTdeeAverage
+          bmr: 1800, // Базальный метаболизм
+          bodyFatPerc: 15, // Средний процент жира
+        ),
+        snap: ChatSnapshotEntity(
+          messages: [],
+          date: DateTime.now(),
+          requestsLeft: 13,
+        ),
+        dateTime: DateTime.now(),
+      );
+
+      // Создаем список дней для добавления в Directus
+      final List<Map<String, dynamic>> daysToCreate = [];
+
+      // Генерируем 200 дней, начиная со вчера и уходя в прошлое
+      for (int i = 0; i < 200; i++) {
+        // Вычисляем дату для каждого дня (вчера - i дней)
+        final dayDate = DateTime.now().subtract(Duration(days: i + 1));
+
+        // Создаем день с уникальными данными
+        final historyDay = DayEntity(
+          directusId: 0, // Будет установлен Directus
+          weekTdeeAverage: baseDay.weekTdeeAverage + (i % 100), // Вариация TDEE
+          macros: MacrosBreakdown(
+            kcal: baseDay.macros.kcal + (i % 50),
+            protein: baseDay.macros.protein + (i % 10),
+            carbs: baseDay.macros.carbs + (i % 15),
+            fat: baseDay.macros.fat + (i % 8),
+          ),
+          healthMetrics: baseDay.healthMetrics,
+          snap: ChatSnapshotEntity(
+            messages: [],
+            date: dayDate,
+            requestsLeft: 13,
+          ),
+          dateTime: dayDate,
+          cycleId: i + 1, // Уникальный cycleId
+        );
+
+        // Добавляем день в список для создания
+        daysToCreate.add(historyDay.toDirectus(userId: user.directusId));
+      }
+
+      log('Создаю ${daysToCreate.length} дней в Directus', name: 'UserBloc');
+
+      // Создаем все дни в Directus одним запросом
+      await directus.createMany(
+        collection: daysCollection,
+        data: daysToCreate,
+      );
+
+      log(
+        'Синхронно создано ${daysToCreate.length} дней в Directus',
+        name: 'UserBloc',
+      );
+    } catch (e, stackTrace) {
+      log('Ошибка при синхронном создании истории дней: $e', name: 'UserBloc');
+      log('Stack trace: $stackTrace', name: 'UserBloc');
+      rethrow; // Пробрасываем ошибку выше
+    }
+  }
+
+  // Старый метод _getUserDaysNew удалён - используем обновлённый _getDays
 }

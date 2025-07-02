@@ -15,7 +15,7 @@ import 'package:rishai/features/user/data/data_sources/local/user_local_source.d
 import 'package:rishai/features/user/data/data_sources/remote/user_remote_source.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
-import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
+// Удалён импорт старого GetDaysParams
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
 @Singleton(as: UserRepository)
@@ -44,56 +44,7 @@ class UserRepositoryImpl implements UserRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, List<DayEntity>>> getDays({
-    required GetDaysParams params,
-  }) async {
-    const maxRetries = 3;
-    const retryDelay = Duration(seconds: 2);
-
-    for (int attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        List<DayEntity> days = [];
-        final res = await dayManager.fetchDays(daysIds: params.daysIds);
-        return res.fold(
-          (failure) {
-            if (attempt < maxRetries - 1) {
-              return const Left(UnknownFailure());
-            }
-            return Left(failure);
-          },
-          (r) {
-            days = r;
-            // Сортируем дни по дате
-            final sortedDays = days
-              ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-            log('LAST DAY: ${sortedDays.last}');
-            return Right(sortedDays);
-          },
-        );
-      } on Exception catch (e, stackTrace) {
-        log('Error getting days (attempt ${attempt + 1}): $e');
-        await WhoopErrorHandler.handleError(
-          e,
-          stackTrace,
-          context: 'user_repository_get_days',
-          extras: {
-            'attempt': attempt + 1,
-            'max_retries': maxRetries,
-            'user_id': params.userId,
-            'days_ids': params.daysIds,
-          },
-        );
-
-        if (attempt < maxRetries - 1) {
-          await Future.delayed(retryDelay);
-          continue;
-        }
-        return const Left(UnknownFailure());
-      }
-    }
-    return const Left(UnknownFailure());
-  }
+  // Старый метод getDays удалён - используем только getUserDays
 
   // try {
   //   final ids = await dayManager.getDaysIds(userId: params.userId);
@@ -231,43 +182,69 @@ class UserRepositoryImpl implements UserRepository {
     required MealPlanEntity mealPlan,
   }) async {
     try {
-      final ids = await dayManager.getDaysIds(userId: userId);
-      if (ids.isEmpty) {
-        return const Left(FailedUpdateUser('No days found'));
-      }
+      log(
+        'Обновление дня планом питания: пользователь $userId',
+        name: 'UserRepositoryImpl',
+      );
 
-      // Ищем день с такой же датой
-      bool dayUpdated = false;
-      for (final id in ids.reversed) {
-        final dayRaw = await directus.readOne(
-          collection: daysCollection,
-          id: id.toString(),
+      DayEntity? dayEntity;
+
+      // Если в плане питания есть cycleId, ищем день по нему
+      if (mealPlan.cycleId != null) {
+        log(
+          'Поиск дня по cycleId из плана питания: ${mealPlan.cycleId}',
+          name: 'UserRepositoryImpl',
         );
-
-        final dayEntity = DayEntity.fromMap(dayRaw);
-        final dayDate = dayEntity.dateTime;
-
-        if (dayDate.isSameDate(snapshot.date)) {
-          // Создаем обновленный день с новым планом питания и снапшотом
-          final updatedDay = dayEntity.copyWith(
-            mealPlanEntity: mealPlan,
-            snap: snapshot,
-          );
-
-          // Используем dayManager для обновления
-          await dayManager.createDay(day: updatedDay);
-          dayUpdated = true;
-          break;
-        }
+        dayEntity = await dayManager.getDayByCycleId(
+          userId: userId,
+          cycleId: mealPlan.cycleId!,
+        );
       }
 
-      if (!dayUpdated) {
-        return const Left(FailedUpdateUser('Day not found'));
+      // Если день не найден по cycleId, ищем активный день
+      if (dayEntity == null) {
+        log(
+          'День по cycleId не найден, ищем активный день для пользователя $userId',
+          name: 'UserRepositoryImpl',
+        );
+        dayEntity = await dayManager.getActiveDay(userId: userId);
       }
 
+      if (dayEntity == null) {
+        log(
+          'Активный день не найден для пользователя $userId',
+          name: 'UserRepositoryImpl',
+        );
+        return const Left(FailedUpdateUser('No active day found'));
+      }
+
+      // Проверяем совместимость cycleId если он есть в обоих местах
+      if (mealPlan.cycleId != null &&
+          dayEntity.cycleId != null &&
+          mealPlan.cycleId != dayEntity.cycleId) {
+        log(
+          'Несоответствие cycleId: план=${mealPlan.cycleId}, день=${dayEntity.cycleId}',
+          name: 'UserRepositoryImpl',
+        );
+        return const Left(FailedUpdateUser('Cycle ID mismatch'));
+      }
+
+      // Создаем обновленный день с новым планом питания и снапшотом
+      final updatedDay = dayEntity.copyWith(
+        mealPlanEntity: mealPlan,
+        snap: snapshot,
+      );
+
+      // Используем метод dayManager для обновления
+      await dayManager.createOrUpdateDay(day: updatedDay);
+
+      log('День успешно обновлен планом питания', name: 'UserRepositoryImpl');
       return const Right(null);
     } on Exception catch (e) {
-      log('Error updating day with meal plan: $e');
+      log(
+        'Ошибка обновления дня планом питания: $e',
+        name: 'UserRepositoryImpl',
+      );
       return Left(FailedUpdateUser(e.toString()));
     }
   }
@@ -320,6 +297,51 @@ class UserRepositoryImpl implements UserRepository {
     } catch (e, stackTrace) {
       log('Ошибка при сохранении дня через dayManager: $e');
       rethrow;
+    }
+  }
+
+  // === НОВЫЕ МЕТОДЫ (упрощенная архитектура) ===
+
+  @override
+  Future<Either<Failure, List<DayEntity>>> getUserDays({
+    required String userId,
+  }) async {
+    try {
+      log(
+        'Получение дней пользователя через новый метод: $userId',
+        name: 'UserRepositoryImpl',
+      );
+
+      final result = await dayManager.getUserDays(userId: userId);
+
+      return result.fold(
+        (failure) {
+          log(
+            'Ошибка при получении дней: ${failure.message}',
+            name: 'UserRepositoryImpl',
+          );
+          return Left(failure);
+        },
+        (days) {
+          log(
+            'Успешно получено ${days.length} дней через новый метод',
+            name: 'UserRepositoryImpl',
+          );
+          return Right(days);
+        },
+      );
+    } on Exception catch (e, stackTrace) {
+      log(
+        'Исключение при получении дней пользователя: $e',
+        name: 'UserRepositoryImpl',
+      );
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'user_repository_get_user_days',
+        extras: {'user_id': userId},
+      );
+      return const Left(UnknownFailure());
     }
   }
 }

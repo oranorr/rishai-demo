@@ -189,7 +189,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       emit(state.copyWith(status: Status.loading));
       UserEntity user = userBloc.state.user;
       final isTokenOk = await wTokenService.initService();
-
+      await adapty.initAdapty();
       emit(state.copyWith(whoopConnected: isTokenOk));
       log('INIT TOKEN SERVICE RES: $isTokenOk');
 
@@ -236,184 +236,39 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         if (state.status != Status.loading && state.status != Status.error) {
           chatBloc.add(InitChatBloc(directusId: user.directusId));
 
-          // Создаем комплитер для ожидания загрузки дней
-          final completer = Completer<bool>();
-
-          // Переменная для отслеживания статуса загрузки
-          bool loadingHasStarted = false;
-          bool loadingInProgress = false;
-          int totalDaysToLoad = userBloc.state.user.daysIds.length;
-          int daysLoadedSoFar = 0;
-
-          // Вычисляем адаптивное время ожидания в зависимости от количества дней
-          // Базовое время 20 секунд + дополнительное время на каждые 50 дней
-          const baseTimeout = 20;
-          final adaptiveTimeout =
-              baseTimeout + ((totalDaysToLoad / 50).ceil() * 10);
+          // Используем централизованную логику инициализации дней из DayManager
           log(
-            'Using adaptive timeout of $adaptiveTimeout seconds for $totalDaysToLoad days',
+            'Инициализация загрузки дней через DayManager',
             name: 'WhoopBloc',
           );
+          final initResult = await dayManager.initializeUserDaysOnLogin(
+            userId: user.directusId,
+            newDay: state.day,
+          );
 
-          // Подписываемся на состояние UserBloc
-          final subscription = userBloc.stream.listen((userState) {
-            log(
-              'UserBloc state change: ${userState.status}, days: ${userState.days.length}',
-              name: 'WhoopBloc',
-            );
-
-            // Проверяем начало загрузки
-            if (userState.status == Status.loading) {
-              loadingHasStarted = true;
-              loadingInProgress = true;
-              log('Days loading has started', name: 'WhoopBloc');
-            }
-
-            // Отслеживаем прогресс загрузки
-            if (loadingInProgress && userState.days.length > daysLoadedSoFar) {
-              daysLoadedSoFar = userState.days.length;
-              log(
-                'Loading progress: $daysLoadedSoFar/$totalDaysToLoad days',
-                name: 'WhoopBloc',
-              );
-            }
-
-            // Успешное завершение загрузки
-            if (userState.status == Status.success &&
-                loadingHasStarted &&
-                !completer.isCompleted) {
-              loadingInProgress = false;
-              log(
-                'Days loading completed successfully (${userState.days.length} days)',
-                name: 'WhoopBloc',
-              );
-
-              // Проверяем, что в списке есть хотя бы один день
-              if (userState.days.isNotEmpty) {
-                completer.complete(true);
-              } else {
-                log(
-                  'Warning: Successful state but empty days list',
-                  name: 'WhoopBloc',
-                );
-                completer.complete(false);
-              }
-            }
-
-            // Завершение с ошибкой
-            if (userState.status == Status.error &&
-                loadingHasStarted &&
-                !completer.isCompleted) {
-              loadingInProgress = false;
-              log('Days loading completed with error', name: 'WhoopBloc');
-              completer.complete(false);
-            }
-          });
-
-          // Запускаем загрузку дней
-          log('Starting days loading...', name: 'WhoopBloc');
-          userBloc.add(UserGetDays(newDay: state.day));
-
-          // Ждем загрузки дней с таймаутом
-          bool loadingResult = false;
-          bool didTimeout = false;
-
-          try {
-            // Создаем Future для таймаута
-            final timeoutFuture =
-                Future.delayed(Duration(seconds: adaptiveTimeout)).then((_) {
-              if (!completer.isCompleted) {
-                log(
-                  'Timeout waiting for days to load after $adaptiveTimeout seconds',
-                  name: 'WhoopBloc',
-                );
-
-                // Проверяем, идет ли загрузка все еще
-                if (loadingInProgress && daysLoadedSoFar > 0) {
-                  // Если загрузка идет и уже загружено какое-то количество дней,
-                  // считаем это частичным успехом и не прерываем загрузку
-                  log(
-                    'Loading still in progress with $daysLoadedSoFar days loaded, continuing without error',
-                    name: 'WhoopBloc',
-                  );
-                  // Здесь мы НЕ завершаем completer, чтобы загрузка могла продолжиться
-                  didTimeout = true;
-                  return true; // Считаем частичный успех
-                } else {
-                  // Если нет прогресса, завершаем с ошибкой
-                  didTimeout = true;
-                  completer.complete(false);
-                  return false;
-                }
-              }
-              return true;
-            });
-
-            // Ждем результата от completer
-            loadingResult = await completer.future;
-
-            // Отменяем таймаут, если возможно (хотя это не всегда работает)
-            timeoutFuture.ignore();
-
-            log(
-              'Days loading result: $loadingResult, timeout: $didTimeout, days loaded: $daysLoadedSoFar',
-              name: 'WhoopBloc',
-            );
-          } catch (e) {
-            log('Error waiting for days: $e', name: 'WhoopBloc');
-            loadingResult = false;
-          } finally {
-            // Отписываемся от стрима
-            subscription.cancel();
-          }
-
-          // Обработка результата загрузки - показываем сообщение только если действительно произошла ошибка
-          if (!loadingResult && didTimeout && daysLoadedSoFar == 0) {
-            // Реальная ошибка таймаута - ничего не загрузилось
+          // Обработка результата инициализации
+          if (!initResult.success) {
+            // Показываем сообщение об ошибке только если загрузка полностью провалилась
             RishSnackbar().showSnackBar(
-              'Loading time exceeded. Possible connection issues.',
+              initResult.errorMessage ?? 'Failed to load user data',
             );
-          } else if (!loadingResult && !didTimeout) {
-            // Другая ошибка загрузки
-            RishSnackbar().showSnackBar(
-              'An error occurred while loading data. Please check your connection.',
-            );
-          } else if (didTimeout && daysLoadedSoFar > 0) {
-            // Частичная загрузка - успешно загрузилась часть данных
+          } else if (initResult.partialSuccess) {
+            // Частичная загрузка - не показываем ошибку
             log(
-              'Partial success: loaded $daysLoadedSoFar days before timeout',
+              'Частичная загрузка: ${initResult.daysLoaded} дней',
               name: 'WhoopBloc',
             );
-            // Не показываем ошибку, т.к. загрузка частично успешна
           } else {
-            log('All days loaded successfully', name: 'WhoopBloc');
-          }
-
-          // Переходим на домашний экран только после завершения загрузки или таймаута
-          log('Navigation to home screen', name: 'WhoopBloc');
-
-          // Делаем финальную проверку состояний перед навигацией
-          bool userBlocReady = userBloc.state.status == Status.success &&
-              userBloc.state.days.isNotEmpty;
-          bool partialSuccess = didTimeout &&
-              daysLoadedSoFar > 0; // Считаем частичный успех тоже приемлемым
-          bool whoopBlocReady = state.status != Status.error;
-
-          log(
-            'Final check before navigation: UserBloc ready: $userBlocReady, Partial success: $partialSuccess, WhoopBloc ready: $whoopBlocReady',
-            name: 'WhoopBloc',
-          );
-
-          if (!userBlocReady && !partialSuccess) {
             log(
-              'Warning: UserBloc is not fully ready for navigation!',
+              'Все дни загружены успешно: ${initResult.daysLoaded} дней',
               name: 'WhoopBloc',
             );
           }
 
-          // Даже если полная загрузка не завершена, но есть частичный успех - продолжаем
+          // Переходим на домашний экран после завершения инициализации
+          log('Навигация на главный экран', name: 'WhoopBloc');
           appNavigationService.go(
-            path: adapty.isActive
+            path: adapty.isActive ?? false
                 ? AppRoutes.homeScreen.path
                 : AppRoutes.paywall.path,
           );

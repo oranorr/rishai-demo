@@ -11,7 +11,6 @@ import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/network/request_timer.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
-import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
@@ -21,7 +20,6 @@ import 'package:rishai/features/whoop/data/models/recovery_model.dart';
 import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 part './remote_data_source.dart';
@@ -249,59 +247,41 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         return null;
       }
 
-      final daysIds =
-          await dm.dayManager.getDaysIds(userId: rawUser['id'].toString());
+      // Используем новую архитектуру - получаем последний день напрямую
+      final lastDay = await dm.dayManager.getLastUserDay(
+        userId: rawUser['id'].toString(),
+      );
 
-      if (daysIds.isEmpty) {
+      if (lastDay == null) {
         log('No days found for user in fetchDirectusData');
         return null;
       }
 
-      int lastDayId = daysIds.last;
-      final lastDayRes = await directus.readOne(
-        collection: daysCollection,
-        id: lastDayId.toString(),
+      log(
+        'Found last day for user: ${lastDay.dateTime}',
+        name: 'RemoteDataSourceImpl',
       );
 
-      if (lastDayRes.isEmpty) {
-        log('Last day data is empty in fetchDirectusData');
-        return null;
-      }
+      // Проверяем наличие whoopData в пользователе
+      final data = rawUser['whoopData'];
+      if (data != null &&
+          data.isNotEmpty &&
+          data['weekTdeeAverage'] != null &&
+          data['macros'] != null &&
+          data['askTime'] != null) {
+        log('Using whoopData from user: weekTdeeAverage=${data['weekTdeeAverage']}');
 
-      if (rawUser.isNotEmpty && lastDayRes.isNotEmpty) {
-        final data = rawUser['whoopData'];
-
-        // Проверяем, что whoopData существует и содержит необходимые поля
-        if (data != null &&
-            data.isNotEmpty &&
-            data['weekTdeeAverage'] != null &&
-            data['macros'] != null &&
-            data['askTime'] != null) {
-          log('Using whoopData from user: weekTdeeAverage=${data['weekTdeeAverage']}');
-
-          final dayEntity = DayEntity(
-            directusId: lastDayId,
-            cycleId: lastDayRes['cycleId'] != null
-                ? int.parse(lastDayRes['cycleId'])
-                : null,
-            weekTdeeAverage: data['weekTdeeAverage'],
-            macros: MacrosBreakdown.fromMap(data['macros']),
-            mealPlanEntity: lastDayRes['mealPlan'] != null
-                ? MealPlanEntity.fromMap(lastDayRes['mealPlan'])
-                : null,
-            healthMetrics:
-                HealthMetricsEntity.fromMap(lastDayRes['healthMetrics']),
-            snap: ChatSnapshotEntity.fromDirectus(lastDayRes['chatSnap']),
-            dateTime: DateTime.fromMillisecondsSinceEpoch(data['askTime']),
-          );
-          return dayEntity;
-        } else {
-          log('whoopData is missing or incomplete: $data');
-          return null;
-        }
+        // Создаём обновлённый день с данными из whoopData
+        final dayEntity = lastDay.copyWith(
+          weekTdeeAverage: data['weekTdeeAverage'],
+          macros: MacrosBreakdown.fromMap(data['macros']),
+          dateTime: DateTime.fromMillisecondsSinceEpoch(data['askTime']),
+        );
+        return dayEntity;
       } else {
-        log('User or last day data is empty');
-        return null;
+        log('whoopData is missing or incomplete: $data');
+        // Возвращаем последний день как есть
+        return lastDay;
       }
     } catch (e, stackTrace) {
       log('Error in fetchDirectusData: $e');
@@ -344,14 +324,17 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<bool> clearWhoopUserDataOnDisconnect({required String userId}) async {
     try {
-      final daysIds = await dm.dayManager.getDaysIds(userId: userId);
-      await directus.deleteOne(
-        collection: daysCollection,
-        id: daysIds.last.toString(),
-      );
+      // Используем новую архитектуру - получаем последний день
+      final lastDay = await dm.dayManager.getLastUserDay(userId: userId);
+      if (lastDay != null) {
+        await directus.deleteOne(
+          collection: daysCollection,
+          id: lastDay.directusId.toString(),
+        );
+      }
       return true;
     } on Exception catch (e) {
-      log('Error: $e', name: 'Diconnect Whoop RDS');
+      log('Error: $e', name: 'Disconnect Whoop RDS');
       return false;
     }
   }
@@ -359,22 +342,15 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<bool> doesChatNeedsRefreshment({required String userId}) async {
     try {
-      // Используем dm.dayManager.getDaysIds вместо прямого чтения из rawUser['days']
-      // чтобы избежать проблем с обрезанным массивом
-      final daysIds = await dm.dayManager.getDaysIds(userId: userId);
+      // Используем новую архитектуру - получаем последний день напрямую
+      final lastDay = await dm.dayManager.getLastUserDay(userId: userId);
 
-      if (daysIds.isEmpty) {
+      if (lastDay == null) {
         return true;
       }
 
-      final rawLast = await directus.readOne(
-        collection: daysCollection,
-        id: daysIds.last.toString(),
-      );
-
-      final dateOfLast =
-          DateTime.fromMillisecondsSinceEpoch(int.parse(rawLast['dateTime']));
-      return !dateOfLast.isSameDate(DateTime.now());
+      // Проверяем, отличается ли дата последнего дня от сегодняшней
+      return !lastDay.dateTime.isSameDate(DateTime.now());
     } catch (e) {
       log(
         'Ошибка в doesChatNeedsRefreshment: $e',

@@ -17,7 +17,6 @@ class UserModel extends Equatable {
   final FoodPreferences? foodPreferences;
   final BodyMeasurementsEntity? bodyMeasurementsEntity;
   final UserGoal? userGoal;
-  final List<int> daysIds;
   final String? adaptyId;
   final List<int> weekPlanIds;
 
@@ -26,7 +25,6 @@ class UserModel extends Equatable {
     required this.whoopId,
     required this.email,
     required this.name,
-    required this.daysIds,
     required this.adaptyId,
     required this.weekPlanIds,
     this.age,
@@ -46,7 +44,6 @@ class UserModel extends Equatable {
     UserGoal? userGoal,
     FoodPreferences? foodPreferences,
     BodyMeasurementsEntity? bodyMeasurementsEntity,
-    List<int>? daysIds,
     int? userWhoopId,
     String? adaptyId,
     List<int>? weekPlanIds,
@@ -62,7 +59,6 @@ class UserModel extends Equatable {
       foodPreferences: foodPreferences ?? this.foodPreferences,
       bodyMeasurementsEntity:
           bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
-      daysIds: daysIds ?? this.daysIds,
       adaptyId: adaptyId ?? this.adaptyId,
       weekPlanIds: weekPlanIds ?? this.weekPlanIds,
     );
@@ -95,9 +91,8 @@ class UserModel extends Equatable {
       userGoal: map['userGoal'] != null && map['userGoal'].isNotEmpty
           ? UserGoal.fromMap(map['userGoal'])
           : null,
-      daysIds: List.from(map['days']).cast<int>(),
       adaptyId: map['adaptyId'],
-      weekPlanIds: List.from(map['weekPlanIds']).cast<int>(),
+      weekPlanIds: List.from(map['weekPlanIds'] ?? []).cast<int>(),
       // userWhoopId: map['userWhoopId'] as int,
     );
   }
@@ -132,7 +127,6 @@ class UserModel extends Equatable {
       gender: gender != null ? Gender.values.byName(gender!) : null,
       foodPreferences: foodPreferences,
       userGoal: userGoal,
-      daysIds: daysIds,
       adaptyId: adaptyId,
       weekPlanIds: weekPlanIds,
       // userWhoopId: userWhoopId,

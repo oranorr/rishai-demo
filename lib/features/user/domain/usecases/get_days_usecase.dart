@@ -7,31 +7,35 @@ import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
+// === НОВАЯ УПРОЩЕННАЯ АРХИТЕКТУРА ===
+
 @injectable
-class GetDaysUsecase implements UseCase<List<DayEntity>, GetDaysParams> {
+class GetUserDaysUsecase
+    implements UseCase<List<DayEntity>, GetUserDaysParams> {
   final UserRepository userRepository;
-  const GetDaysUsecase(this.userRepository);
+  const GetUserDaysUsecase(this.userRepository);
 
   @override
-  Future<Either<Failure, List<DayEntity>>> call(params) async {
+  Future<Either<Failure, List<DayEntity>>> call(
+    GetUserDaysParams params,
+  ) async {
     try {
-      final days = await userRepository.getDays(params: params);
+      final days = await userRepository.getUserDays(userId: params.userId);
       return days.fold(
         (failure) => Left(failure),
         (days) => Right(days),
       );
-      // return Right(days);
     } catch (e) {
       return const Left(UnknownFailure());
     }
   }
 }
 
-class GetDaysParams {
-  final List<int> daysIds;
+// === ПАРАМЕТРЫ ===
+
+class GetUserDaysParams {
   final String userId;
-  GetDaysParams({
-    required this.daysIds,
+  GetUserDaysParams({
     required this.userId,
   });
 }

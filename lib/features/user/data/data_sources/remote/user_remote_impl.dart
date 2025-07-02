@@ -16,10 +16,6 @@ class UserRemoteImpl implements UserRemoteSource {
         'Обновление пользователя в Directus: ${user.directusId}',
         name: 'UserRemoteImpl',
       );
-      log(
-        'daysIds для отправки: ${user.daysIds.length} элементов',
-        name: 'UserRemoteImpl',
-      );
 
       final res = await directus.updateOne(
         collection: usersCollection,
@@ -35,18 +31,37 @@ class UserRemoteImpl implements UserRemoteSource {
     }
   }
 
+  // Старый метод fetchRemoteDays удалён - используем fetchUserDays
+
   @override
-  Future<List<DayEntity>> fetchRemoteDays({
-    required List<int> daysIds,
+  Future<List<DayEntity>> fetchUserDays({
+    required String userId,
   }) async {
     try {
-      final res = await dayManager.fetchDays(daysIds: daysIds);
+      log(
+        'Получение дней пользователя $userId через новый метод',
+        name: 'UserRemoteImpl',
+      );
+
+      final res = await dayManager.getUserDays(userId: userId);
       return res.fold(
-        (l) => [],
-        (r) => r,
+        (failure) {
+          log(
+            'Ошибка получения дней: ${failure.message}',
+            name: 'UserRemoteImpl',
+          );
+          return [];
+        },
+        (days) {
+          log('Успешно получено ${days.length} дней', name: 'UserRemoteImpl');
+          return days;
+        },
       );
     } catch (e) {
-      log('Error fetching remote days: $e');
+      log(
+        'Исключение при получении дней пользователя: $e',
+        name: 'UserRemoteImpl',
+      );
       return [];
     }
   }

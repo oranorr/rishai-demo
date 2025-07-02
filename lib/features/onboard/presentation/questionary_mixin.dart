@@ -123,8 +123,22 @@ mixin QuestionaryMixin on State<Questionary> {
         userGoal: fitnessGoal!.toUseGoal(),
         // bodyMeasurements: whoopBloc.state.day.bodyMeasurements,
       );
+
+      // Обновляем пользователя и ждем завершения
       userBloc.add(UpdateUserEvent(user: updUser));
-      // await Future.delayed(Durations.short1);
+
+      // Ждем обновления состояния UserBloc перед инициализацией WHOOP
+      // Это критически важно для правильной работы проверки needsQuestionary
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Дополнительно проверяем, что состояние действительно обновилось
+      int attempts = 0;
+      const maxAttempts = 10;
+      while (userBloc.state.user.needsQuestionary && attempts < maxAttempts) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+      }
+
       whoopBloc.add(const InitWhoopOnLogin());
       context.go(AppRoutes.redirect.path);
     }

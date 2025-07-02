@@ -8,13 +8,18 @@ abstract class LoginEvent extends Equatable {
 class CreateAccountEvent extends LoginEvent {
   final String name;
   final String email;
+
+  /// Флаг для создания 200 дней истории (только для тестирования)
+  final bool shouldCreateHistoryDays;
+
   const CreateAccountEvent({
     required this.name,
     required this.email,
+    this.shouldCreateHistoryDays = false,
   });
 
   @override
-  List<Object?> get props => [name, email];
+  List<Object?> get props => [name, email, shouldCreateHistoryDays];
 }
 
 class LoginViaGoogle extends LoginEvent {

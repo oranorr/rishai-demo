@@ -296,18 +296,12 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
   Future<int?> getLastCycleId({required String userId}) async {
     try {
-      final days = await dayManager.getDaysIds(userId: userId);
-
-      if (days.isEmpty) return null;
-
-      final rawLastDay = await directus.readOne(
-        collection: daysCollection,
-        id: days.last.toString(),
+      final result = await dayManager.getLastDayWithCycleStatus(
+        userId: userId,
+        checkCycleStatus: false,
       );
 
-      return rawLastDay['cycleId'] != null
-          ? int.parse(rawLastDay['cycleId'])
-          : null;
+      return result?.cycleId;
     } catch (e, stackTrace) {
       await WhoopErrorHandler.handleError(
         e,

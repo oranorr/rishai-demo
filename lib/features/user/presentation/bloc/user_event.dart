@@ -19,8 +19,13 @@ class CheckForSavedUser extends UserEvent {}
 
 class CreateUserOnLogin extends UserEvent {
   final UserEntity user;
+
+  /// Флаг для создания 200 дней истории при первом входе (только для тестирования)
+  final bool shouldCreateHistoryDays;
+
   const CreateUserOnLogin({
     required this.user,
+    this.shouldCreateHistoryDays = false,
   });
 }
 

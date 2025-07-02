@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as m;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/cupertino.dart';
@@ -11,7 +10,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
-import 'package:rishai/core/services/emoji_parser.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 

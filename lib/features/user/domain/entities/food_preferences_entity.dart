@@ -54,7 +54,8 @@ class FoodPreferences {
   }
 
   @override
-  String toString() => 'foodPreferences(diets: $diets, cuisines: $cuisines, )';
+  String toString() =>
+      'foodPreferences(diets: $diets, cuisines: $cuisines, restrictions: $restrictions)';
 
   @override
   bool operator ==(covariant FoodPreferences other) {
