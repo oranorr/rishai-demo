@@ -11,17 +11,17 @@ class _CaloriesWidget extends StatelessWidget {
     return BlocBuilder<UserBloc, UserState>(
       bloc: userBloc,
       builder: (context, userState) {
-        final mod = day.isToday
-            ? userState.user.userGoal!.modificator
-            : ((day.macros.kcal / day.weekTdeeAverage) - 1);
-
-        bool isPositive = mod > 0;
-        // print('isPositive: $isPositive');
         return BlocBuilder<WhoopBloc, WhoopState>(
           bloc: whoopBloc,
           builder: (context, whoopState) {
-            int kcal =
-                day.isToday ? whoopState.day.macros.kcal : day.macros.kcal;
+            // [FIX] Всегда рассчитываем модификатор на основе данных дня
+            // Это гарантирует актуальность отображения после обновления цели
+            final currentDay = day.isToday ? whoopState.day : day;
+            final mod =
+                (currentDay.macros.kcal / currentDay.weekTdeeAverage) - 1;
+
+            bool isPositive = mod > 0;
+            int kcal = currentDay.macros.kcal;
             return SizedBox(
               height: 225.h,
               child: Row(
@@ -48,7 +48,7 @@ class _CaloriesWidget extends StatelessWidget {
                           Expanded(
                             child: _SimpleBarChart(
                               xValue: kcal.toDouble(),
-                              yValue: day.weekTdeeAverage.toDouble(),
+                              yValue: currentDay.weekTdeeAverage.toDouble(),
                             ),
                           ),
                         ],
@@ -102,7 +102,7 @@ class _CaloriesWidget extends StatelessWidget {
                                 ),
                                 SizedBox(height: 10.h),
                                 Text(
-                                  '${day.weekTdeeAverage.comaThisNumber()} kcal',
+                                  '${currentDay.weekTdeeAverage.comaThisNumber()} kcal',
                                   style: context.styles.numsM
                                       .copyWith(color: RishColors.protein),
                                 ),

@@ -101,9 +101,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     });
 
     if (success) {
-      await _getBodyData(WhoopRetrieveBodyData(), emit);
+      // [FIX] Убираем race condition - _getBodyData вызывается только один раз
+      // Если пользователь нуждается в опроснике, данные будут загружены после его завершения
       if (!needsQuestionary) {
         await _initWhoopOnLogin(const InitWhoopOnLogin(), emit);
+      } else {
+        // Для пользователей с опросником загружаем только body данные
+        await _getBodyData(WhoopRetrieveBodyData(), emit);
       }
       await Future.delayed(Durations.medium1, () {
         appNavigationService.go(
@@ -252,6 +256,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
             RishSnackbar().showSnackBar(
               initResult.errorMessage ?? 'Failed to load user data',
             );
+            emit(state.copyWith(status: Status.error));
+            return;
           } else if (initResult.partialSuccess) {
             // Частичная загрузка - не показываем ошибку
             log(
@@ -262,6 +268,53 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
             log(
               'Все дни загружены успешно: ${initResult.daysLoaded} дней',
               name: 'WhoopBloc',
+            );
+          }
+
+          // Дополнительная проверка состояния UserBloc перед навигацией
+          log('Проверка состояния UserBloc перед навигацией',
+              name: 'WhoopBloc');
+
+          // [FIX] Поддерживаем состояние загрузки во время ожидания дней
+          emit(state.copyWith(status: Status.loading));
+
+          // Ждем, пока UserBloc завершит загрузку или достигнет стабильного состояния
+          const maxWaitTime = Duration(seconds: 10);
+          final waitStartTime = DateTime.now();
+
+          while (DateTime.now().difference(waitStartTime) < maxWaitTime) {
+            final userState = userBloc.state;
+
+            // Проверяем, что UserBloc находится в стабильном состоянии
+            if (userState.status == Status.success &&
+                userState.days.isNotEmpty) {
+              log('UserBloc готов к навигации: ${userState.days.length} дней загружено',
+                  name: 'WhoopBloc');
+              break;
+            } else if (userState.status == Status.error) {
+              log('UserBloc завершился с ошибкой', name: 'WhoopBloc');
+              break;
+            }
+
+            // Ждем небольшую задержку перед следующей проверкой
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+
+          // Финальная проверка состояния перед навигацией
+          final finalUserState = userBloc.state;
+          if (finalUserState.status == Status.loading) {
+            log('UserBloc все еще загружается, но продолжаем навигацию с предупреждением',
+                name: 'WhoopBloc');
+            RishSnackbar().showSnackBar(
+              'Данные все еще загружаются. Это может занять некоторое время.',
+              isError: false,
+            );
+          } else if (finalUserState.days.isEmpty) {
+            log('UserBloc не содержит дней, показываем предупреждение',
+                name: 'WhoopBloc');
+            RishSnackbar().showSnackBar(
+              'Не удалось загрузить некоторые данные. Попробуйте обновить позже.',
+              isError: false,
             );
           }
 

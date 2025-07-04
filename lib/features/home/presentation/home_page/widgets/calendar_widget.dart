@@ -26,16 +26,41 @@ class _CalendarWidget extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onTap: () async {
+                // [FIX] Блокируем выбор даты во время загрузки
+                if (widget.isLoading) return;
+
                 await userBloc.showDataPicker(
                   context: context,
                   initalDate: widget.day.dateTime,
                   controller: widget.homePageController,
                 );
               },
-              child: Text(
-                widget.day.dateTime.formatAsDayString(),
-                style: context.styles.h2,
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.day.dateTime.formatAsDayString(),
+                    style: context.styles.h2.copyWith(
+                      // [FIX] Уменьшаем непрозрачность текста во время загрузки
+                      color: widget.isLoading
+                          ? context.styles.h2.color?.withOpacity(0.6)
+                          : context.styles.h2.color,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  // [FIX] Показываем индикатор загрузки под датой
+                  if (widget.isLoading) ...[
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Loading...',
+                      style: context.styles.regularMedium.copyWith(
+                        color: RishColors.textSecondary,
+                        fontSize: 12.sp,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -47,7 +72,7 @@ class _CalendarWidget extends StatelessWidget {
                 curve: Curves.ease,
               );
             },
-            isLoading: false,
+            isLoading: widget.isLoading,
             isDisabled: widget.isFirstPage,
           ),
           SizedBox(width: 2.w),
@@ -83,19 +108,11 @@ class _CalendarWidget extends StatelessWidget {
                   ),
                 ],
         ),
-        child: isLoading
-            ? const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(
-                  color: RishColors.primary,
-                  strokeWidth: 2,
-                ),
-              )
-            : Icon(
-                icon,
-                color: isDisabled ? Colors.transparent : RishColors.stroke,
-                size: 32.w,
-              ),
+        child: Icon(
+          icon,
+          color: isDisabled ? Colors.transparent : RishColors.stroke,
+          size: 32.w,
+        ),
       ),
     );
   }

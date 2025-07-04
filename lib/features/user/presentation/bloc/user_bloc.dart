@@ -91,26 +91,33 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     Emitter<UserState> emit,
   ) async {
     UserEntity user = event.user;
+    log('user.userGoal: ${user.userGoal}', name: 'UserBloc');
+
     if (user.adaptyId == null) {
       user = user.copyWith(
         adaptyId: adapty.generateAdaptyId(directusId: user.directusId),
       );
     }
-    // print('user last day: ${user.directusId}');
 
     try {
       log('Обновление пользователя: ${user.directusId}', name: 'UserBloc');
+
+      // [FIX] Всегда обновляем локальное состояние сразу
+      emit(state.copyWith(user: UserEntity.unauthorized()));
+      emit(state.copyWith(user: user));
+      log('state: ${state.user.userGoal}', name: 'UserBloc');
+      // Пытаемся синхронизировать с backend в фоновом режиме
       final res = await updateUserUsecase.call(user);
       res.fold((l) {
-        log('Ошибка обновления пользователя: ${l.message}', name: 'UserBloc');
-        RishSnackbar().showSnackBar('Error updating user data');
+        log('Ошибка синхронизации с backend: ${l.message}', name: 'UserBloc');
+        // Не показываем snackbar для ошибок сети - пользователь может не знать о проблеме
+        // Данные уже сохранены локально и будут синхронизированы позже
       }, (r) {
-        log('Пользователь успешно обновлен', name: 'UserBloc');
-        emit(state.copyWith(user: user));
+        log('Пользователь успешно синхронизирован с backend', name: 'UserBloc');
       });
     } on Exception catch (e) {
       log('Ошибка обновления пользователя: $e', name: 'UserBloc');
-      RishSnackbar().showSnackBar('Error updating user data');
+      // Локальное состояние уже обновлено, просто логируем ошибку
     }
   }
 

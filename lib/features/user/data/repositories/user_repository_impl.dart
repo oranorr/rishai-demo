@@ -32,14 +32,30 @@ class UserRepositoryImpl implements UserRepository {
   @override
   Future<Either<Failure, void>> updateUser({required UserEntity user}) async {
     try {
-      final remoteRes = await remoteDataSource.updateUser(user: user);
+      // [FIX] Сначала всегда сохраняем локально
       final localRes = await localDataSource.updateUser(user: user);
-      if (remoteRes && localRes) {
+
+      // Затем пытаемся синхронизировать с backend
+      final remoteRes = await remoteDataSource.updateUser(user: user);
+
+      // Если локальное сохранение успешно, возвращаем успех
+      // даже если remote операция фэйлится (данные синхронизируются позже)
+      if (localRes) {
+        if (!remoteRes) {
+          log(
+            'Пользователь сохранен локально, но не синхронизирован с сервером',
+            name: 'UserRepositoryImpl',
+          );
+        }
         return const Right(null);
       } else {
-        return const Left(FailedUpdateUser(''));
+        return const Left(FailedUpdateUser('Ошибка локального сохранения'));
       }
     } on Exception catch (error) {
+      log(
+        'Ошибка при обновлении пользователя: $error',
+        name: 'UserRepositoryImpl',
+      );
       return Left(FailedUpdateUser(error.toString()));
     }
   }

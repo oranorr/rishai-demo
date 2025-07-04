@@ -19,7 +19,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   late bool isActive = false;
 
   @override
-  late bool isTrialActive;
+  late bool isTrialActive = false;
 
   late AdaptyPaywall paywall;
 

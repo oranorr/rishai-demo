@@ -1,15 +1,15 @@
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
+import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/error/local_storage_error_handler.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
-import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -36,176 +36,293 @@ class HiveImpl implements HiveRepo {
   @override
   Future<void> initHive() async {
     try {
-      log('STARTING HIVE INITIALIZATION');
+      log('[HIVE] Начинаем инициализацию Hive');
 
-      // Проверяем версию схемы данных ПЕРЕД инициализацией Hive
+      // Проверяем совместимость версии схемы данных
       final isSchemaCompatible =
           prefsRepo.isHiveSchemaVersionCompatible(hiveSchemaVersion);
       final savedVersion = prefsRepo.getHiveSchemaVersion();
 
-      log('SCHEMA VERSION CHECK - Expected: $hiveSchemaVersion, Saved: $savedVersion, Compatible: $isSchemaCompatible');
+      log('[HIVE] Проверка версии схемы - Ожидаемая: $hiveSchemaVersion, Сохраненная: $savedVersion, Совместимая: $isSchemaCompatible');
 
-      // Если схема несовместима, принудительно сбрасываем данные
-      if (!isSchemaCompatible) {
-        log('SCHEMA VERSION MISMATCH - Performing automatic storage reset');
-        await _resetStorageForSchemaUpdate(
-          expectedVersion: hiveSchemaVersion,
-          currentVersion: savedVersion,
-        );
-      }
+      // ЭЛЕГАНТНОЕ РЕШЕНИЕ: Используем уникальные пути для каждой версии схемы
+      // Вместо сложного удаления, просто используем разные директории
+      const hiveDirectory = 'hive_v$hiveSchemaVersion';
 
-      await Hive.initFlutter();
-      log('REGISTERING HIVE ADAPTERS');
-      Hive
-        ..registerAdapter<UserEntity>(UserEntityAdapter())
-        ..registerAdapter(GenderAdapter())
-        ..registerAdapter(FoodPreferencesAdapter())
-        ..registerAdapter(ChatSnapshotEntityAdapter())
-        ..registerAdapter(MessageEntityAdapter())
-        ..registerAdapter(MealPlanEntityAdapter())
-        ..registerAdapter(UserGoalAdapter())
-        ..registerAdapter(MealAdapter())
-        ..registerAdapter(IngredientAdapter())
-        ..registerAdapter(MacrosBreakdownAdapter())
-        ..registerAdapter(GoalTypeAdapter())
-        ..registerAdapter(DayEntityAdapter())
-        ..registerAdapter(UserDataEntityAdapter())
-        ..registerAdapter(WorkoutModelAdapter())
-        ..registerAdapter(WorkoutScoreAdapter())
-        ..registerAdapter(BodyMeasurementsEntityAdapter())
-        ..registerAdapter(WeekPlanEntityAdapter())
-        ..registerAdapter(HealthMetricsEntityAdapter())
-        ..registerAdapter(MeasurementUnitAdapter());
-      log('OPENING HIVE BOXES');
-      userBox = await Hive.openBox<UserEntity>('user_box');
-      chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
-      dayBox = await Hive.openBox<DayEntity>('day_box');
-      userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
-      weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
-      log('HIVE INITIALIZATION COMPLETE');
-      log(
-        'BOX STATUSES - USER: ${userBox.isEmpty ? "empty" : "${userBox.length} items"}, '
-        'USER DATA: ${userDataBox.isEmpty ? "empty" : "${userDataBox.length} items"}, '
-        'DAY: ${dayBox.isEmpty ? "empty" : "${dayBox.length} items"}, '
-        'CHAT: ${chatBox.isEmpty ? "empty" : "${chatBox.length} items"}, '
-        'WEEK PLAN: ${weekPlanBox.isEmpty ? "empty" : "${weekPlanBox.length} items"}',
-      );
+      // Инициализируем Hive с версионированной директорией
+      await Hive.initFlutter(hiveDirectory);
+      log('[HIVE] Hive.initFlutter() выполнен с директорией: $hiveDirectory');
+
+      // Регистрируем адаптеры
+      _registerHiveAdapters();
+      log('[HIVE] Все адаптеры Hive зарегистрированы');
+
+      // Открываем боксы
+      await _openHiveBoxes();
+      log('[HIVE] Все боксы Hive открыты успешно');
 
       // Сохраняем текущую версию схемы после успешной инициализации
       await prefsRepo.setHiveSchemaVersion(hiveSchemaVersion);
-      log('SCHEMA VERSION SAVED: $hiveSchemaVersion');
-    } on Exception catch (e, stackTrace) {
-      log('ERROR DURING HIVE INITIALIZATION: $e');
+      log('[HIVE] Версия схемы сохранена: $hiveSchemaVersion');
+
+      log('[HIVE] Инициализация завершена успешно');
+      _logBoxStatuses();
+    } catch (e, stackTrace) {
+      log('[HIVE] КРИТИЧЕСКАЯ ОШИБКА при инициализации: $e');
+      log('[HIVE] StackTrace: $stackTrace');
+
+      // При критической ошибке выполняем экстренный сброс и повторную инициализацию
+      await _handleCriticalInitializationError(e, stackTrace);
+    }
+  }
+
+  /// Выполняет сброс локального хранилища при обновлении схемы
+  Future<void> _performStorageReset() async {
+    log('[HIVE] Выполняем сброс хранилища для обеспечения совместимости схемы');
+
+    try {
+      // Закрываем все боксы если они открыты (с безопасной проверкой)
+      await _closeBoxesSafely();
+
+      // Полное закрытие Hive перед сбросом
+      try {
+        await Hive.close();
+        log('[HIVE] Все боксы Hive закрыты');
+      } catch (e) {
+        log('[HIVE] Ошибка при закрытии Hive: $e');
+      }
+
+      // МАКСИМАЛЬНО АГРЕССИВНОЕ удаление данных
+      bool deletionSuccessful = false;
+
+      // Попытка 1: Массовое удаление через Hive API
+      try {
+        await Hive.deleteFromDisk();
+        log('[HIVE] Hive.deleteFromDisk() выполнен');
+      } catch (e) {
+        log('[HIVE] Ошибка при Hive.deleteFromDisk(): $e');
+      }
+
+      // Попытка 2: Удаление боксов по отдельности
+      try {
+        await _deleteBoxesIndividually();
+      } catch (e) {
+        log('[HIVE] Ошибка при удалении боксов по отдельности: $e');
+      }
+
+      // Попытка 3: ФИЗИЧЕСКОЕ удаление файлов из файловой системы
+      try {
+        await _physicallyDeleteHiveFiles();
+        deletionSuccessful = true;
+        log('[HIVE] ✅ Физическое удаление файлов выполнено успешно');
+      } catch (e) {
+        log('[HIVE] ❌ Ошибка при физическом удалении файлов: $e');
+      }
+
+      // Даем время системе освободить файлы
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      if (deletionSuccessful) {
+        log('[HIVE] ✅ Сброс хранилища завершен успешно');
+      } else {
+        log('[HIVE] ⚠️ Сброс хранилища завершен с частичными ошибками');
+      }
+    } catch (e) {
+      log('[HIVE] Критическая ошибка при сбросе хранилища: $e');
+      // Пытаемся выполнить финальную очистку
+      try {
+        await _physicallyDeleteHiveFiles();
+      } catch (e2) {
+        log('[HIVE] Финальная очистка неудачна: $e2');
+      }
+    }
+  }
+
+  /// Удаляет боксы по отдельности если массовое удаление не сработало
+  Future<void> _deleteBoxesIndividually() async {
+    final boxNames = [
+      'user_box',
+      'chat_box',
+      'day_box',
+      'userData_box',
+      'weekPlan_box',
+    ];
+
+    log('[HIVE] Удаляем боксы по отдельности...');
+
+    for (final boxName in boxNames) {
+      // Делаем несколько попыток для каждого бокса
+      bool deleted = false;
+
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await Hive.deleteBoxFromDisk(boxName);
+          log('[HIVE] ✅ Удален бокс: $boxName (попытка $attempt)');
+          deleted = true;
+          break;
+        } catch (e) {
+          log('[HIVE] ❌ Ошибка при удалении бокса $boxName (попытка $attempt): $e');
+          if (attempt < 3) {
+            // Пауза между попытками
+            await Future.delayed(Duration(milliseconds: 200 * attempt));
+          }
+        }
+      }
+
+      if (!deleted) {
+        log('[HIVE] ⚠️ Не удалось удалить бокс $boxName после 3 попыток');
+      }
+    }
+
+    log('[HIVE] Завершено удаление боксов по отдельности');
+  }
+
+  /// Регистрирует все необходимые адаптеры Hive
+  void _registerHiveAdapters() {
+    Hive
+      ..registerAdapter<UserEntity>(UserEntityAdapter())
+      ..registerAdapter(GenderAdapter())
+      ..registerAdapter(FoodPreferencesAdapter())
+      ..registerAdapter(ChatSnapshotEntityAdapter())
+      ..registerAdapter(MessageEntityAdapter())
+      ..registerAdapter(MealPlanEntityAdapter())
+      ..registerAdapter(UserGoalAdapter())
+      ..registerAdapter(MealAdapter())
+      ..registerAdapter(IngredientAdapter())
+      ..registerAdapter(MacrosBreakdownAdapter())
+      ..registerAdapter(GoalTypeAdapter())
+      ..registerAdapter(DayEntityAdapter())
+      ..registerAdapter(UserDataEntityAdapter())
+      ..registerAdapter(WorkoutModelAdapter())
+      ..registerAdapter(WorkoutScoreAdapter())
+      ..registerAdapter(BodyMeasurementsEntityAdapter())
+      ..registerAdapter(WeekPlanEntityAdapter())
+      ..registerAdapter(HealthMetricsEntityAdapter())
+      ..registerAdapter(MeasurementUnitAdapter());
+  }
+
+  /// Открывает все необходимые боксы Hive
+  Future<void> _openHiveBoxes() async {
+    userBox = await Hive.openBox<UserEntity>('user_box');
+    chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
+    dayBox = await Hive.openBox<DayEntity>('day_box');
+    userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
+    weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
+  }
+
+  /// Обрабатывает критические ошибки инициализации
+  Future<void> _handleCriticalInitializationError(
+    error,
+    StackTrace stackTrace,
+  ) async {
+    try {
+      // Логируем ошибку через систему обработки ошибок
       await LocalStorageErrorHandler.handleError(
-        e,
+        error is Exception ? error : Exception(error.toString()),
         stackTrace,
-        context: 'hive_init',
-        operation: 'init',
+        context: 'hive_critical_init',
+        operation: 'critical_initialization_failure',
         storageType: 'hive',
       );
 
-      // При ошибке инициализации пытаемся сбросить хранилище
-      await resetStorageOnFatalError();
+      log('[HIVE] Пытаемся выполнить экстренное восстановление');
+
+      // ПРОСТОЕ РЕШЕНИЕ: Просто пересоздаем с новой версионированной директорией
+      const hiveDirectory = 'hive_v${hiveSchemaVersion}_recovery';
+
+      // Повторная попытка инициализации с recovery директорией
+      await Hive.initFlutter(hiveDirectory);
+      log('[HIVE] Экстренная инициализация с директорией: $hiveDirectory');
+
+      // Регистрируем адаптеры
+      try {
+        _registerHiveAdapters();
+        log('[HIVE] Адаптеры зарегистрированы при восстановлении');
+      } catch (e) {
+        log('[HIVE] Адаптеры уже зарегистрированы или ошибка регистрации: $e');
+      }
+
+      await _openHiveBoxes();
+
+      log('[HIVE] Экстренное восстановление выполнено успешно');
+    } catch (e) {
+      log('[HIVE] ПОЛНЫЙ ПРОВАЛ ИНИЦИАЛИЗАЦИИ: $e');
       rethrow;
     }
   }
 
-  /// Сбрасывает хранилище при изменении версии схемы данных
-  ///
-  /// Этот метод вызывается автоматически при обнаружении несовместимости версий схемы.
-  /// Он безопасно удаляет все данные Hive и подготавливает чистое хранилище.
-  Future<void> _resetStorageForSchemaUpdate({
-    required int expectedVersion,
-    required int? currentVersion,
-  }) async {
-    try {
-      log('Начинается сброс хранилища из-за обновления схемы данных');
-      log('Текущая версия схемы: $currentVersion, Ожидаемая: $expectedVersion');
+  /// Выполняет экстренный сброс всех данных
+  Future<void> _emergencyDataReset() async {
+    log('[HIVE] 🚨 ЭКСТРЕННЫЙ СБРОС ДАННЫХ');
 
-      // Закрываем все потенциально открытые боксы
+    try {
+      // Шаг 1: Полное закрытие Hive
       try {
         await Hive.close();
-        log('Все боксы Hive закрыты');
+        log('[HIVE] Все боксы принудительно закрыты');
       } catch (e) {
-        log('Ошибка при закрытии боксов Hive: $e');
+        log('[HIVE] Ошибка при закрытии Hive: $e');
       }
 
-      // Удаляем все файлы боксов с диска
-      final boxNames = [
-        'user_box',
-        'chat_box',
-        'day_box',
-        'userData_box',
-        'weekPlan_box',
-      ];
-      for (final boxName in boxNames) {
-        try {
-          await Hive.deleteBoxFromDisk(boxName);
-          log('Удален бокс: $boxName');
-        } catch (e) {
-          log('Ошибка при удалении бокса $boxName: $e');
-        }
+      // НЕ сбрасываем адаптеры - это удалит встроенные адаптеры для DateTime и других типов
+      // Hive.resetAdapters(); // УБРАНО - вызывает ошибки с DateTime
+
+      // Шаг 3: МАКСИМАЛЬНО АГРЕССИВНОЕ удаление данных
+      bool deletionSuccessful = false;
+
+      // Попытка 1: Полное удаление через Hive API
+      try {
+        await Hive.deleteFromDisk();
+        log('[HIVE] Экстренное Hive.deleteFromDisk() выполнено');
+      } catch (e) {
+        log('[HIVE] ❌ Ошибка при экстренном Hive.deleteFromDisk(): $e');
       }
 
-      log('Сброс хранилища для обновления схемы выполнен успешно');
+      // Попытка 2: Удаление по боксам
+      try {
+        await _deleteBoxesIndividually();
+        log('[HIVE] Экстренное удаление по боксам выполнено');
+      } catch (e) {
+        log('[HIVE] ❌ Ошибка при экстренном удалении по боксам: $e');
+      }
+
+      // Попытка 3: ФИЗИЧЕСКОЕ удаление файлов (самая агрессивная)
+      try {
+        await _physicallyDeleteHiveFiles();
+        deletionSuccessful = true;
+        log('[HIVE] ✅ ЭКСТРЕННОЕ физическое удаление файлов выполнено');
+      } catch (e) {
+        log('[HIVE] ❌ Ошибка при экстренном физическом удалении: $e');
+      }
+
+      // Даем больше времени системе освободить файлы
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      if (deletionSuccessful) {
+        log('[HIVE] 🚨 ЭКСТРЕННЫЙ СБРОС ЗАВЕРШЕН УСПЕШНО');
+      } else {
+        log('[HIVE] 🚨 ЭКСТРЕННЫЙ СБРОС ЗАВЕРШЕН С ОШИБКАМИ');
+      }
     } catch (e) {
-      log('Ошибка при сбросе хранилища для обновления схемы: $e');
-      // Продолжаем выполнение, чтобы попытаться инициализировать Hive с нуля
+      log('[HIVE] 💥 КРИТИЧЕСКАЯ ОШИБКА ЭКСТРЕННОГО СБРОСА: $e');
+      // Последняя попытка - только физическое удаление
+      try {
+        await _physicallyDeleteHiveFiles();
+        log('[HIVE] 💾 Последняя попытка физического удаления выполнена');
+      } catch (e2) {
+        log('[HIVE] 💥 ФИНАЛЬНАЯ ОШИБКА: $e2');
+      }
     }
   }
 
-  /// Сбрасывает локальное хранилище при критических ошибках
-  ///
-  /// Этот метод очищает все боксы Hive, удаляет все данные из хранилища
-  /// и перезагружает пустые боксы, чтобы приложение могло начать с чистого листа
-  /// при обновлении или критических ошибках в схеме данных
-  @override
-  Future<void> resetStorageOnFatalError() async {
-    log('Выполняется сброс локального хранилища из-за критической ошибки');
-    try {
-      // Вызываем событие выхода из системы
-      loginBloc.add(LogoutEvent());
-      log('Событие LogoutEvent вызвано для сброса состояния приложения');
-
-      // Закрываем все боксы, если они открыты
-      await _closeBoxesSafely();
-
-      // Удаляем все боксы из хранилища
-      await Hive.deleteBoxFromDisk('user_box');
-      await Hive.deleteBoxFromDisk('chat_box');
-      await Hive.deleteBoxFromDisk('day_box');
-      await Hive.deleteBoxFromDisk('userData_box');
-      await Hive.deleteBoxFromDisk('weekPlan_box');
-
-      // Переоткрываем пустые боксы
-      userBox = await Hive.openBox<UserEntity>('user_box');
-      chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
-      dayBox = await Hive.openBox<DayEntity>('day_box');
-      userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
-      weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
-
-      log('Сброс локального хранилища успешно выполнен');
-    } on Exception catch (e) {
-      log('Ошибка при сбросе локального хранилища: $e');
-      // Здесь мы не вызываем handleError, чтобы избежать рекурсивной обработки ошибок
-      // Вместо этого просто логируем ошибку
-    }
-
-    // Возвращаем пустоту, чтобы инициализация переключилась на удаленные данные
-    return;
-  }
-
-  // Безопасное закрытие боксов
-  Future<void> _closeBoxesSafely() async {
-    try {
-      if (userBox.isOpen) await userBox.close();
-      if (chatBox.isOpen) await chatBox.close();
-      if (dayBox.isOpen) await dayBox.close();
-      if (userDataBox.isOpen) await userDataBox.close();
-      if (weekPlanBox.isOpen) await weekPlanBox.close();
-    } on Exception catch (e) {
-      log('Ошибка при закрытии боксов: $e');
-    }
+  /// Выводит статистику по боксам
+  void _logBoxStatuses() {
+    log('[HIVE] Статистика боксов:');
+    log('  - USER: ${userBox.isEmpty ? "пустой" : "${userBox.length} записей"}');
+    log('  - CHAT: ${chatBox.isEmpty ? "пустой" : "${chatBox.length} записей"}');
+    log('  - DAY: ${dayBox.isEmpty ? "пустой" : "${dayBox.length} записей"}');
+    log('  - USER_DATA: ${userDataBox.isEmpty ? "пустой" : "${userDataBox.length} записей"}');
+    log('  - WEEK_PLAN: ${weekPlanBox.isEmpty ? "пустой" : "${weekPlanBox.length} записей"}');
   }
 
   @override
@@ -742,6 +859,212 @@ class HiveImpl implements HiveRepo {
         storageType: 'hive',
       );
       rethrow;
+    }
+  }
+
+  /// Сбрасывает локальное хранилище при критических ошибках
+  ///
+  /// Этот метод теперь использует элегантное решение с версионированными директориями
+  /// вместо агрессивной очистки файлов
+  @override
+  Future<void> resetStorageOnFatalError() async {
+    log('[HIVE] Выполняется сброс локального хранилища из-за критической ошибки');
+    try {
+      // ЭЛЕГАНТНОЕ РЕШЕНИЕ: Используем новую версионированную директорию
+      const recoveryDirectory = 'hive_v${hiveSchemaVersion}_fatal_recovery';
+
+      // Переоткрываем с чистой директорией
+      await Hive.initFlutter(recoveryDirectory);
+      log('[HIVE] Инициализация с recovery директорией: $recoveryDirectory');
+
+      // Регистрируем адаптеры
+      try {
+        _registerHiveAdapters();
+        log('[HIVE] Адаптеры зарегистрированы при сбросе');
+      } catch (e) {
+        log('[HIVE] Адаптеры уже зарегистрированы или ошибка регистрации: $e');
+      }
+
+      await _openHiveBoxes();
+
+      log('[HIVE] Сброс локального хранилища успешно выполнен');
+    } on Exception catch (e) {
+      log('[HIVE] Ошибка при сбросе локального хранилища: $e');
+      // Здесь мы не вызываем handleError, чтобы избежать рекурсивной обработки ошибок
+      // Вместо этого просто логируем ошибку
+    }
+  }
+
+  // Безопасное закрытие боксов
+  Future<void> _closeBoxesSafely() async {
+    try {
+      // Проверяем инициализацию боксов перед попыткой их закрытия
+      try {
+        if (userBox.isOpen) await userBox.close();
+      } catch (e) {
+        log('[HIVE] userBox не инициализирован или уже закрыт: $e');
+      }
+
+      try {
+        if (chatBox.isOpen) await chatBox.close();
+      } catch (e) {
+        log('[HIVE] chatBox не инициализирован или уже закрыт: $e');
+      }
+
+      try {
+        if (dayBox.isOpen) await dayBox.close();
+      } catch (e) {
+        log('[HIVE] dayBox не инициализирован или уже закрыт: $e');
+      }
+
+      try {
+        if (userDataBox.isOpen) await userDataBox.close();
+      } catch (e) {
+        log('[HIVE] userDataBox не инициализирован или уже закрыт: $e');
+      }
+
+      try {
+        if (weekPlanBox.isOpen) await weekPlanBox.close();
+      } catch (e) {
+        log('[HIVE] weekPlanBox не инициализирован или уже закрыт: $e');
+      }
+    } catch (e) {
+      log('[HIVE] Общая ошибка при закрытии боксов: $e');
+    }
+  }
+
+  /// Выполняет физическое удаление всех файлов Hive из файловой системы
+  Future<void> _physicallyDeleteHiveFiles() async {
+    log('[HIVE] 🗂️ ФИЗИЧЕСКОЕ УДАЛЕНИЕ ФАЙЛОВ HIVE');
+
+    try {
+      // Пытаемся найти и удалить файлы Hive разными способами
+      bool anyFilesDeleted = false;
+
+      // Способ 1: Ищем в текущей директории
+      try {
+        final currentDir = Directory.current;
+        await _searchAndDeleteHiveFiles(currentDir, recursive: true);
+        anyFilesDeleted = true;
+      } catch (e) {
+        log('[HIVE] Поиск в текущей директории неудачен: $e');
+      }
+
+      // Способ 2: Ищем в типичных местах для Flutter приложений
+      final potentialPaths = [
+        '/data/data', // Android data directory
+        '/var/mobile/Containers/Data', // iOS data directory
+        'Documents', // Relative documents
+        'Library', // Relative library
+        '.', // Current directory
+      ];
+
+      for (final path in potentialPaths) {
+        try {
+          final dir = Directory(path);
+          if (await dir.exists()) {
+            final deleted =
+                await _searchAndDeleteHiveFiles(dir, recursive: true);
+            if (deleted) anyFilesDeleted = true;
+          }
+        } catch (e) {
+          // Продолжаем поиск в других местах
+          log('[HIVE] Поиск в $path неудачен: $e');
+        }
+      }
+
+      if (anyFilesDeleted) {
+        log('[HIVE] ✅ Физическое удаление файлов выполнено');
+        // Пауза для освобождения ресурсов файловой системы
+        await Future.delayed(const Duration(milliseconds: 500));
+      } else {
+        log('[HIVE] ⚠️ Файлы Hive не найдены для физического удаления');
+      }
+    } catch (e) {
+      log('[HIVE] ❌ Общая ошибка физического удаления файлов: $e');
+    }
+  }
+
+  /// Ищет и удаляет файлы Hive в указанной директории
+  Future<bool> _searchAndDeleteHiveFiles(
+    Directory directory, {
+    bool recursive = false,
+  }) async {
+    bool anyFilesDeleted = false;
+
+    try {
+      log('[HIVE] 🔍 Поиск файлов Hive в: ${directory.path}');
+
+      final files = await directory.list(recursive: recursive).toList();
+
+      for (final file in files) {
+        if (file is File) {
+          final fileName = file.path.split(Platform.pathSeparator).last;
+
+          // Удаляем файлы, связанные с нашими боксами
+          if (_isHiveFile(fileName)) {
+            try {
+              await file.delete();
+              log('[HIVE] 🗑️ Удален файл: ${file.path}');
+              anyFilesDeleted = true;
+            } catch (e) {
+              log('[HIVE] ❌ Не удалось удалить файл: ${file.path}, ошибка: $e');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log('[HIVE] ❌ Ошибка поиска в директории ${directory.path}: $e');
+    }
+
+    return anyFilesDeleted;
+  }
+
+  /// Проверяет, является ли файл файлом Hive
+  bool _isHiveFile(String fileName) {
+    return fileName.startsWith('user_box') ||
+        fileName.startsWith('chat_box') ||
+        fileName.startsWith('day_box') ||
+        fileName.startsWith('userData_box') ||
+        fileName.startsWith('weekPlan_box') ||
+        fileName.endsWith('.hive') ||
+        fileName.endsWith('.lock') ||
+        fileName.contains('hive'); // Общий паттерн для файлов Hive
+  }
+
+  /// Альтернативный метод удаления файлов Hive
+  Future<void> _deleteHiveFilesAlternativeMethod() async {
+    log('[HIVE] 🔄 Альтернативный метод удаления файлов');
+
+    try {
+      // Пытаемся удалить файлы по известным именам в текущей директории
+      final boxNames = [
+        'user_box.hive',
+        'chat_box.hive',
+        'day_box.hive',
+        'userData_box.hive',
+        'weekPlan_box.hive',
+        'user_box.lock',
+        'chat_box.lock',
+        'day_box.lock',
+        'userData_box.lock',
+        'weekPlan_box.lock',
+      ];
+
+      for (final fileName in boxNames) {
+        try {
+          final file = File(fileName);
+          if (await file.exists()) {
+            await file.delete();
+            log('[HIVE] 🗑️ Удален файл: $fileName');
+          }
+        } catch (e) {
+          // Файл может не существовать - это нормально
+          log('[HIVE] Файл $fileName не найден или не может быть удален: $e');
+        }
+      }
+    } catch (e) {
+      log('[HIVE] ❌ Ошибка альтернативного метода: $e');
     }
   }
 }

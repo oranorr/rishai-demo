@@ -108,24 +108,74 @@ class _HomePageState extends State<HomePage> {
           _resetPageController();
         }
       },
-      builder: (context, state) {
+      builder: (context, userState) {
         //
-        // print(state.user.daysIds);
-        // print(state.days.last.dateTime);
-        return PageView.builder(
-          controller: pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          reverse: true,
-          itemCount: state.days.length,
-          itemBuilder: (context, index) {
-            final days = state.days.reversed.toList();
-            return _HomePageBody(
-              homePageController: pageController,
-              controller: widget.controller,
-              isLoading: state.status == Status.loading,
-              day: days[index],
-              isLastPage: index == state.days.length - 1,
-              isFirstPage: index == 0,
+        print(userState.user.userGoal);
+        // print(userState.days.last.dateTime);
+        return BlocBuilder<WhoopBloc, WhoopState>(
+          bloc: whoopBloc,
+          builder: (context, whoopState) {
+            // [FIX] Синхронизируем состояние загрузки между блоками
+            // Считаем, что данные загружаются, если любой из блоков в состоянии загрузки
+            final isLoading = userState.status == Status.loading ||
+                whoopState.status == Status.loading;
+
+            // [FIX] Обрабатываем случай, когда дни еще не загружены
+            if (userState.days.isEmpty) {
+              if (isLoading) {
+                // Показываем индикатор загрузки, если дни еще загружаются
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: RishColors.primary,
+                  ),
+                );
+              } else {
+                // Показываем сообщение об ошибке, если дни не загружены и загрузка не идет
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: RishColors.textSecondary,
+                      ),
+                      SizedBox(height: 16.h),
+                      Text(
+                        'Данные не загружены',
+                        style: context.styles.h3,
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        'Попробуйте обновить приложение',
+                        style: context.styles.regularMedium.copyWith(
+                          color: RishColors.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+            }
+
+            return PageView.builder(
+              controller: pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              reverse: true,
+              itemCount: userState.days.length,
+              itemBuilder: (context, index) {
+                final days = userState.days.reversed.toList();
+                return _HomePageBody(
+                  homePageController: pageController,
+                  controller: widget.controller,
+                  isLoading: isLoading,
+                  day: days[index],
+                  isLastPage: index == userState.days.length - 1,
+                  isFirstPage: index == 0,
+                );
+              },
             );
           },
         );

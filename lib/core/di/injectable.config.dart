@@ -182,7 +182,6 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.factory<_i663.UpdateUserUsecase>(
         () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
-    // Старый GetDaysUsecase удалён
     gh.factory<_i547.GetUserDaysUsecase>(
         () => _i547.GetUserDaysUsecase(gh<_i926.UserRepository>()));
     gh.singleton<_i867.ChatRemoteDataSource>(

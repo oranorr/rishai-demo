@@ -6,6 +6,7 @@ mixin ProfileMixin on State<ProfileSettings> {
   late UserEntity updUser;
   bool buttonIsActive = false;
   bool modificatorChangable = false;
+  // late UserBloc bloc;
   @override
   void initState() {
     updUser = userBloc.state.user;
@@ -17,8 +18,8 @@ mixin ProfileMixin on State<ProfileSettings> {
 
   @override
   void dispose() {
-    updUser = userBloc.state.user;
-
+    updUser = UserEntity.unauthorized();
+    print('haha');
     buttonIsActive = false;
     super.dispose();
   }
@@ -98,6 +99,28 @@ mixin ProfileMixin on State<ProfileSettings> {
         mealPlanEntity: currentMealPlan,
       );
       whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+    }
+  }
+
+  // [FIX] Метод для сброса изменений к актуальному состоянию UserBloc
+  void resetToUserState() {
+    setState(() {
+      updUser = userBloc.state.user;
+      buttonIsActive = false;
+      modificatorChangable = updUser.userGoal!.goal == GoalType.aesthetics ||
+          updUser.userGoal!.goal == GoalType.performance;
+    });
+  }
+
+  // [FIX] Добавляем метод для синхронизации данных пользователя с UserBloc
+  void syncUserData() {
+    final currentUser = userBloc.state.user;
+    if (currentUser != updUser && !buttonIsActive) {
+      setState(() {
+        updUser = currentUser;
+        modificatorChangable = updUser.userGoal!.goal == GoalType.aesthetics ||
+            updUser.userGoal!.goal == GoalType.performance;
+      });
     }
   }
 }

@@ -104,10 +104,48 @@ class PrefsRepository {
     }
   }
 
+  /// Проверяет, совпадает ли сохраненная версия схемы с ожидаемой
+  ///
+  /// Возвращает true если:
+  /// - Сохраненная версия совпадает с ожидаемой
+  /// Возвращает false если:
+  /// - Версия не была сохранена ранее (старые данные без версионирования)
+  /// - Сохраненная версия отличается от ожидаемой
+  bool isHiveSchemaVersionCompatible(int expectedVersion) {
+    final savedVersion = getHiveSchemaVersion();
+
+    // Если версия не сохранена (null), это может быть:
+    // 1. Первый запуск приложения (данных нет)
+    // 2. Обновление со старой версии, где версионирование не использовалось (данные есть)
+    //
+    // Поскольку мы не можем точно определить это здесь, возвращаем false
+    // Логика Hive сама определит есть ли данные при открытии боксов
+    if (savedVersion == null) {
+      return false; // Принудительно сбрасываем данные для безопасности
+    }
+
+    return savedVersion == expectedVersion;
+  }
+
+  /// Безопасная проверка инициализации SharedPreferences
+  ///
+  /// Бросает исключение если _prefs не инициализирован
+  void _ensureInitialized() {
+    try {
+      // Проверяем доступность _prefs через простой вызов
+      _prefs.getString('_test_key');
+    } catch (e) {
+      throw StateError(
+        'PrefsRepository не инициализирован. Вызовите await prefsRepo.init() перед использованием.',
+      );
+    }
+  }
+
   /// Получает сохраненную версию схемы данных Hive
   ///
   /// Возвращает null, если версия не была сохранена ранее (первый запуск)
   int? getHiveSchemaVersion() {
+    _ensureInitialized();
     return _prefs.getInt(hiveSchemaVersion);
   }
 
@@ -115,16 +153,7 @@ class PrefsRepository {
   ///
   /// Вызывается после успешной инициализации или сброса Hive
   Future<void> setHiveSchemaVersion(int version) async {
+    _ensureInitialized();
     await _prefs.setInt(hiveSchemaVersion, version);
-  }
-
-  /// Проверяет, совпадает ли сохраненная версия схемы с ожидаемой
-  ///
-  /// Возвращает false если:
-  /// - Версия не была сохранена ранее (первый запуск)
-  /// - Сохраненная версия отличается от ожидаемой
-  bool isHiveSchemaVersionCompatible(int expectedVersion) {
-    final savedVersion = getHiveSchemaVersion();
-    return savedVersion == expectedVersion;
   }
 }

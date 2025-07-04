@@ -642,32 +642,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
           '>>> [changeModificatorOfSex] Modificator/Sex changed. Old day data: $r',
         );
         try {
-          // Отложенное обновление: вместо полной синхронизации день с сервером
-          // возвращаем локально рассчитанные макросы, а синхронизацию выполним позже
-          // final res = await dayManager.createDay(day: r);
+          // [FIX] Убираем двойное обновление дня - выполняем обновление сразу
+          final dayUpdateResult = await dayManager.createDay(day: r);
           print(
-            '>>> [changeModificatorOfSex] New day updated. New Macros: ${r.macros}',
+            '>>> [changeModificatorOfSex] Day updated successfully. New Macros: ${r.macros}',
           );
-
-          // Планируем отложенное обновление директуса
-          Future.delayed(const Duration(milliseconds: 300), () async {
-            try {
-              await dayManager.createDay(day: r);
-              print(
-                '>>> [changeModificatorOfSex] Background day update completed',
-              );
-            } catch (e, stackTrace) {
-              await WhoopErrorHandler.handleError(
-                e,
-                stackTrace,
-                context: 'whoop_change_modificator_background_update',
-                extras: {
-                  'modificator': params.modificator,
-                  'gender': params.gender.toString(),
-                },
-              );
-            }
-          });
 
           return Right(r.macros);
         } catch (e, stackTrace) {

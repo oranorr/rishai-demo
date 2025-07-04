@@ -1,17 +1,117 @@
 part of '../questionary.dart';
 
-class BmiWidget extends StatelessWidget {
+class BmiWidget extends StatefulWidget {
   const BmiWidget({
     super.key,
   });
+
+  @override
+  State<BmiWidget> createState() => _BmiWidgetState();
+}
+
+class _BmiWidgetState extends State<BmiWidget> {
+  Timer? _retryTimer;
+  int _retryAttempts = 0;
+  final int _maxRetryAttempts = 5;
+  final Duration _retryInterval = const Duration(seconds: 3);
+  bool _isRetrying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startRetryMechanism();
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startRetryMechanism() {
+    log('[BmiWidget] Starting retry mechanism', name: 'BmiWidget');
+    _retryTimer = Timer.periodic(_retryInterval, (timer) {
+      if (_retryAttempts >= _maxRetryAttempts) {
+        log('[BmiWidget] Max retry attempts reached', name: 'BmiWidget');
+        timer.cancel();
+        return;
+      }
+
+      // Проверяем, есть ли данные
+      final hasData = userBloc.state.user.bodyMeasurements != null;
+      if (hasData) {
+        log(
+          '[BmiWidget] Data found, stopping retry mechanism',
+          name: 'BmiWidget',
+        );
+        timer.cancel();
+        return;
+      }
+
+      // Увеличиваем счетчик попыток
+      _retryAttempts++;
+      log(
+        '[BmiWidget] Retry attempt $_retryAttempts/$_maxRetryAttempts',
+        name: 'BmiWidget',
+      );
+
+      // Делаем попытку загрузить данные
+      _retryLoadData();
+    });
+  }
+
+  void _retryLoadData() {
+    setState(() {
+      _isRetrying = true;
+    });
+
+    // Запускаем повторную загрузку данных из WhoopBloc
+    whoopBloc.add(WhoopRetrieveBodyData());
+
+    // Через короткое время убираем флаг retry
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _isRetrying = false;
+        });
+      }
+    });
+  }
+
+  void _manualRetry() {
+    log('[BmiWidget] Manual retry triggered', name: 'BmiWidget');
+    _retryAttempts = 0;
+    _retryLoadData();
+    _startRetryMechanism();
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UserBloc, UserState>(
       bloc: userBloc,
       builder: (context, state) {
+        log(
+          '[BmiWidget] bodyMeasurements: ${state.user.bodyMeasurements}',
+          name: 'BmiWidget',
+        );
+
+        // [FIX] Проверяем на null чтобы избежать крашей
+        if (state.user.bodyMeasurements == null) {
+          // Если превышено количество попыток, показываем fallback UI
+          if (_retryAttempts >= _maxRetryAttempts) {
+            return _buildFallbackUI();
+          }
+
+          // Показываем загрузку с информацией о попытках
+          return _buildLoadingUI();
+        }
+
+        // Останавливаем retry механизм если данные получены
+        _retryTimer?.cancel();
+
         final double height = state.user.bodyMeasurements!.height * 100;
         final double weight = state.user.bodyMeasurements!.weight.toDouble();
+
         return Column(
           children: [
             Row(
@@ -36,6 +136,79 @@ class BmiWidget extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildLoadingUI() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          SizedBox(height: 16.h),
+          Text(
+            'Загружаем данные из WHOOP...',
+            style: context.styles.regularMedium,
+          ),
+          if (_retryAttempts > 0) ...[
+            SizedBox(height: 8.h),
+            Text(
+              'Попытка $_retryAttempts из $_maxRetryAttempts',
+              style: context.styles.regularSmall.copyWith(
+                color: const Color(0xffA8A8A8),
+              ),
+            ),
+          ],
+          if (_isRetrying) ...[
+            SizedBox(height: 8.h),
+            Text(
+              'Повторная загрузка...',
+              style: context.styles.regularSmall.copyWith(
+                color: Colors.orange,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFallbackUI() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 48.h,
+            color: Colors.orange,
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'Не удалось загрузить данные',
+            style: context.styles.regularMedium,
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'Проверьте подключение к WHOOP',
+            style: context.styles.regularSmall.copyWith(
+              color: const Color(0xffA8A8A8),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          ElevatedButton(
+            onPressed: _manualRetry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Попробовать снова'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -168,7 +341,7 @@ class _RulerWidget extends StatelessWidget {
               value: getValue(value),
               backgroundColor: Colors.transparent,
               valueColor: AlwaysStoppedAnimation(
-                context.theme.colorScheme.primary.withOpacity(0.32),
+                context.theme.colorScheme.primary.withValues(alpha: 0.32),
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
