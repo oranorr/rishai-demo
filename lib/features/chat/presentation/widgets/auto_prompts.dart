@@ -147,7 +147,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
                   ..add(
                     const ChatSendMessage(
                       text:
-                          "Hold on, I'm creating a personalized meal plan for you",
+                          "I'm creating your personalized meal plan for today. Please wait a minute.",
                       isMe: false,
                     ),
                   );

@@ -102,30 +102,30 @@ class QuestionaryRepository {
 
   final List<FitnessGoal> goals = [
     FitnessGoal(
-      name: 'Aesthetics',
+      name: 'Fat Loss',
       assetPath: 'assets/fitness/loose_weight.svg',
-      subtitle: 'Fat and Weight loss',
+      // subtitle: 'Fat and Weight loss',
       goal: GoalType.aesthetics,
       modificator: -0.05,
     ),
     FitnessGoal(
-      name: 'Performance',
+      name: 'Muscle Gain',
       assetPath: 'assets/fitness/performance.svg',
-      subtitle: 'Strength and Muscle mass gain',
+      // subtitle: 'Strength and Muscle mass gain',
       goal: GoalType.performance,
       modificator: 0.05,
     ),
     FitnessGoal(
-      name: 'Recomp',
+      name: 'Lean Gains',
       assetPath: 'assets/fitness/recomp.svg',
-      subtitle: 'Muscle gain and Fat loss',
+      // subtitle: 'Muscle gain and Fat loss',
       goal: GoalType.recomp,
       modificator: -0.05,
     ),
     FitnessGoal(
       name: 'Optimize Me',
       assetPath: 'assets/fitness/optimize.svg',
-      subtitle: 'Healthspan x Longevity',
+      // subtitle: 'Healthspan x Longevity',
       goal: GoalType.optimize,
       modificator: 0,
     ),

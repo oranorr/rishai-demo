@@ -96,21 +96,36 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<Either<Failure, MealPlanEntity>> requestMealPlan({
+  Future<Either<Failure, MealPlanEntity>> requestMealPlanV2({
     required RequestPlanParams params,
   }) async {
     try {
-      final res = await remote.requestMealPlan(
-        params.generatePrompt(),
+      log('[requestMealPlanV2] Начинаем генерацию плана питания с новой структурой API');
+
+      // Генерируем запросы блюд с новой структурой
+      final mealRequests = params.generateMealRequestsV2();
+
+      log('[requestMealPlanV2] Сгенерировано ${mealRequests.length} запросов блюд');
+      for (int i = 0; i < mealRequests.length; i++) {
+        final request = mealRequests[i];
+        log('[requestMealPlanV2] Запрос ${i + 1}: ${request.type.name} с ${request.meals.length} блюдами');
+      }
+
+      // Отправляем запросы через новый метод remote data source
+      final res = await remote.requestMealPlanV2(
+        mealRequests,
         params.isWeekPlan,
       );
+
       // Проверяем наличие ошибки в ответе
       if (res.containsKey('error')) {
+        log('[requestMealPlanV2] Ошибка в ответе: ${res['error']}');
         return Left(ChatGptRequestMealFailures(res['error']));
       }
 
       // Проверяем что ответ не пустой и содержит необходимые данные
       if (res.isEmpty || !res.containsKey('meals') || res['meals'] == null) {
+        log('[requestMealPlanV2] Получен пустой или некорректный ответ от ассистента');
         return const Left(
           ChatGptRequestMealFailures(
             'Received empty or invalid response from assistant',
@@ -121,31 +136,38 @@ class ChatRepositoryImpl implements ChatRepository {
       // Проверяем что массив meals не пустой
       final meals = res['meals'] as List?;
       if (meals == null || meals.isEmpty) {
+        log('[requestMealPlanV2] Не сгенерированы блюда');
         return const Left(
           ChatGptRequestMealFailures('No meals were generated'),
         );
       }
 
       try {
+        log('[requestMealPlanV2] Парсим план питания с ${meals.length} блюдами');
+
         final mealPlan = MealPlanEntity.fromMap({
           ...res,
           'cycleId': whoopBloc.state.day.cycleId,
         });
+
         // Дополнительная проверка что план содержит блюда
         if (mealPlan.meals.isEmpty) {
+          log('[requestMealPlanV2] Сгенерированный план питания пуст');
           return const Left(
             ChatGptRequestMealFailures('Generated meal plan is empty'),
           );
         }
+
+        log('[requestMealPlanV2] Успешно создан план питания с ${mealPlan.meals.length} блюдами');
         return Right(mealPlan);
       } catch (e) {
-        log('Error parsing meal plan: $e');
+        log('[requestMealPlanV2] Ошибка парсинга плана питания: $e');
         return Left(
           ChatGptRequestMealFailures('Failed to parse meal plan: $e'),
         );
       }
     } catch (e) {
-      log('Error requesting meal plan: $e');
+      log('[requestMealPlanV2] Ошибка запроса плана питания: $e');
       return Left(
         ChatGptRequestMealFailures('Failed to generate meal plan: $e'),
       );
@@ -283,6 +305,48 @@ class ChatRepositoryImpl implements ChatRepository {
       }
     } on Exception catch (e) {
       log(e.toString());
+      return const Left(FailureReplaceMeal());
+    }
+  }
+
+  /// Новые методы для регенерации блюд с использованием новой структуры API V2
+
+  @override
+  Future<Either<Failure, Meal>> replaceMealV2({
+    required ReplaceMealParams params,
+  }) async {
+    try {
+      log('[ChatRepository.replaceMealV2] Начинаем замену блюда через V2 API');
+      final res = await remote.replaceMealV2(params);
+      if (res == null) {
+        log('[ChatRepository.replaceMealV2] Получен null результат');
+        return const Left(UnknownFailure());
+      } else {
+        log('[ChatRepository.replaceMealV2] Успешно заменили блюдо: ${res.title}');
+        return Right(res);
+      }
+    } on Exception catch (e) {
+      log('[ChatRepository.replaceMealV2] Ошибка: $e');
+      return const Left(FailureReplaceMeal());
+    }
+  }
+
+  @override
+  Future<Either<Failure, Meal>> replaceIngredientV2({
+    required ReplaceIngredientParams params,
+  }) async {
+    try {
+      log('[ChatRepository.replaceIngredientV2] Начинаем замену ингредиентов через V2 API');
+      final res = await remote.replaceIngredientV2(params);
+      if (res == null) {
+        log('[ChatRepository.replaceIngredientV2] Получен null результат');
+        return const Left(UnknownFailure());
+      } else {
+        log('[ChatRepository.replaceIngredientV2] Успешно заменили ингредиенты в блюде: ${res.title}');
+        return Right(res);
+      }
+    } on Exception catch (e) {
+      log('[ChatRepository.replaceIngredientV2] Ошибка: $e');
       return const Left(FailureReplaceMeal());
     }
   }

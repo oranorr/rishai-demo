@@ -209,7 +209,7 @@ class FitnessGoal extends Question {
   FitnessGoal({
     required super.name,
     required super.assetPath,
-    required super.subtitle,
+    // required super.subtitle,
     required super.goal,
     required this.modificator,
   });
@@ -264,18 +264,18 @@ class FitnessGoal extends Question {
                 assetPath,
                 fit: BoxFit.scaleDown,
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 6.h),
               Text(name, style: context.styles.regularLarge),
-              SizedBox(height: 4.h),
-              SizedBox(
-                width: 130.w,
-                child: Text(
-                  subtitle!,
-                  style: context.styles.regularSmall
-                      .copyWith(color: const Color(0xffA8A8A8)),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+              // SizedBox(height: 4.h),
+              // SizedBox(
+              //   width: 130.w,
+              //   child: Text(
+              //     subtitle!,
+              //     style: context.styles.regularSmall
+              //         .copyWith(color: const Color(0xffA8A8A8)),
+              //     textAlign: TextAlign.center,
+              //   ),
+              // ),
             ],
           ),
         ),
@@ -296,7 +296,7 @@ class FitnessGoal extends Question {
       modificator: modificator ?? this.modificator,
       name: name,
       assetPath: assetPath,
-      subtitle: subtitle,
+      // subtitle: subtitle,
       goal: goal,
     );
   }

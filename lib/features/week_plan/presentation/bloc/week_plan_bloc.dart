@@ -41,13 +41,16 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
     on<WeekPlanClearFilter>(_onClearFilter);
   }
 
-  final GenerateWeekPlanUsecase _generateWeekPlanUsecase;
+  final GenerateWeekPlanUsecaseV2 _generateWeekPlanUsecase;
 
   Future<void> _onGenerate(
     WeekPlanGenerate event,
     Emitter<WeekPlanState> emit,
   ) async {
     emit(state.copyWith(isLoading: true));
+
+    // Используем новую структуру API с GenerateWeekPlanUsecaseV2
+
     final prefs = userBloc.state.user.foodPreferences;
     final params = WeekPlanParams(
       dietary: prefs!.diets,

@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:math' as math;
 import 'dart:io' show Platform;
 import 'package:adapty_flutter/adapty_flutter.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository.dart';
@@ -68,6 +69,33 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
       await Adapty().setLogLevel(AdaptyLogLevel.error);
       _logger('Adapty initialized successfully');
+
+      // === НОВАЯ ИНТЕГРАЦИЯ: Firebase Analytics + Adapty ===
+      try {
+        // Получаем Firebase App Instance ID для интеграции с Adapty Analytics
+        final String? firebaseAppInstanceId =
+            await FirebaseAnalytics.instance.appInstanceId;
+
+        if (firebaseAppInstanceId != null) {
+          // Устанавливаем Firebase App Instance ID в Adapty для связи аналитики
+          await Adapty().setIntegrationIdentifier(
+            key: 'firebase_app_instance_id',
+            value: firebaseAppInstanceId,
+          );
+
+          _logger(
+              '[Firebase-Adapty Integration] ✅ Firebase App Instance ID успешно установлен в Adapty: $firebaseAppInstanceId');
+        } else {
+          _logger(
+              '[Firebase-Adapty Integration] ⚠️ Не удалось получить Firebase App Instance ID');
+        }
+      } catch (e) {
+        _logger(
+            '[Firebase-Adapty Integration] ❌ Ошибка при интеграции Firebase с Adapty: $e');
+        // Не прерываем инициализацию Adapty из-за ошибки интеграции
+      }
+      // === КОНЕЦ ИНТЕГРАЦИИ ===
+
       paywall = await Adapty().getPaywall(
         placementId: 'onboard_placement',
       );

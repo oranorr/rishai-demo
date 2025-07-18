@@ -236,27 +236,33 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i786.SendMessageGptUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i799.ReplaceMealUsecase>(
         () => _i799.ReplaceMealUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i799.ReplaceMealUsecaseV2>(
+        () => _i799.ReplaceMealUsecaseV2(gh<_i831.ChatRepository>()));
     gh.factory<_i975.FetchSavedSnapUsecase>(
         () => _i975.FetchSavedSnapUsecase(gh<_i831.ChatRepository>()));
-    gh.factory<_i176.RequestPlanUsecase>(
-        () => _i176.RequestPlanUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i176.RequestPlanUsecaseV2>(
+        () => _i176.RequestPlanUsecaseV2(gh<_i831.ChatRepository>()));
     gh.factory<_i208.ReplaceIngredientUsecase>(
         () => _i208.ReplaceIngredientUsecase(gh<_i831.ChatRepository>()));
+    gh.factory<_i208.ReplaceIngredientUsecaseV2>(
+        () => _i208.ReplaceIngredientUsecaseV2(gh<_i831.ChatRepository>()));
     gh.factory<_i666.ChatBloc>(() => _i666.ChatBloc(
           gh<_i241.InitGptUsecase>(),
-          gh<_i176.RequestPlanUsecase>(),
+          gh<_i176.RequestPlanUsecaseV2>(),
           gh<_i786.SendMessageGptUsecase>(),
           gh<_i975.FetchSavedSnapUsecase>(),
           gh<_i799.ReplaceMealUsecase>(),
           gh<_i208.ReplaceIngredientUsecase>(),
+          gh<_i799.ReplaceMealUsecaseV2>(),
+          gh<_i208.ReplaceIngredientUsecaseV2>(),
         ));
-    gh.factory<_i1015.GenerateWeekPlanUsecase>(
-        () => _i1015.GenerateWeekPlanUsecase(
+    gh.factory<_i1015.GenerateWeekPlanUsecaseV2>(
+        () => _i1015.GenerateWeekPlanUsecaseV2(
               gh<_i831.ChatRepository>(),
-              gh<_i176.RequestPlanUsecase>(),
+              gh<_i176.RequestPlanUsecaseV2>(),
             ));
     gh.factory<_i1018.WeekPlanBloc>(
-        () => _i1018.WeekPlanBloc(gh<_i1015.GenerateWeekPlanUsecase>()));
+        () => _i1018.WeekPlanBloc(gh<_i1015.GenerateWeekPlanUsecaseV2>()));
     return this;
   }
 }

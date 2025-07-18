@@ -11,9 +11,12 @@ abstract interface class ChatRepository {
     required ChatSnapshotEntity chatSnap,
     DateTime? date,
   });
-  Future<Either<Failure, MealPlanEntity>> requestMealPlan({
+
+  /// Новый метод для запроса планов питания с использованием новой структуры API
+  Future<Either<Failure, MealPlanEntity>> requestMealPlanV2({
     required RequestPlanParams params,
   });
+
   Future<Either<Failure, void>> initGpt(String? threadId);
   Future<Either<Failure, String>> sendMessage(String userMessage);
   Future<Either<Failure, ChatSnapshotEntity?>> fetchSavedSnap({
@@ -24,6 +27,15 @@ abstract interface class ChatRepository {
     required ReplaceMealParams params,
   });
   Future<Either<Failure, Meal>> replaceIngredient({
+    required ReplaceIngredientParams params,
+  });
+
+  /// Новые методы для регенерации блюд с использованием новой структуры API V2
+  Future<Either<Failure, Meal>> replaceMealV2({
+    required ReplaceMealParams params,
+  });
+
+  Future<Either<Failure, Meal>> replaceIngredientV2({
     required ReplaceIngredientParams params,
   });
 

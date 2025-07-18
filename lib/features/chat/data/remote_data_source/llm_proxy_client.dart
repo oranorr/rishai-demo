@@ -68,6 +68,114 @@ class LlmProxyResponse {
   final String role;
 }
 
+/// Модель для запроса к новому чат endpoint'у /llm-proxy-chat
+class LlmChatRequest {
+  LlmChatRequest({
+    required this.message,
+    this.previousMessages,
+  });
+  final String message;
+  final List<PreviousMessage>? previousMessages;
+
+  Map<String, dynamic> toJson() => {
+        'message': message,
+        if (previousMessages != null)
+          'previousMessages': previousMessages!.map((m) => m.toJson()).toList(),
+      };
+}
+
+/// Модель для ответа от нового чат endpoint'а /llm-proxy-chat
+class LlmChatResponse {
+  LlmChatResponse({
+    required this.message,
+  });
+
+  factory LlmChatResponse.fromJson(Map<String, dynamic> json) {
+    return LlmChatResponse(
+      message: json['message'] as String,
+    );
+  }
+  final String message;
+}
+
+/// Типы запросов для генерации блюд
+enum LlmMealRequestType {
+  breakfast,
+  meal,
+  snack,
+}
+
+/// Модель отдельного блюда в запросе
+class LlmMealDto {
+  LlmMealDto({
+    required this.type,
+    required this.kcal,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
+
+  /// Тип блюда: "Lunch", "Dinner", "Supper", "Savoury Breakfast", "Sweet Breakfast", "Savoury Snack", "Sweet Snack"
+  final String type;
+  final int kcal;
+  final int protein;
+  final int carbs;
+  final int fat;
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'kcal': kcal,
+        'protein': protein,
+        'carbs': carbs,
+        'fat': fat,
+      };
+}
+
+/// Модель запроса для генерации блюд
+class LlmMealRequest {
+  LlmMealRequest({
+    required this.type,
+    required this.message,
+    required this.meals,
+  });
+
+  final LlmMealRequestType type;
+  final String message;
+  final List<LlmMealDto> meals;
+
+  Map<String, dynamic> toJson() => {
+        'type': type.name,
+        'message': message,
+        'meals': meals.map((meal) => meal.toJson()).toList(),
+      };
+}
+
+/// Модель запроса для регенерации блюда
+class LlmRegenerateMealRequest {
+  LlmRegenerateMealRequest({
+    required this.type,
+    required this.message,
+    required this.targetMeal,
+  });
+
+  /// Тип блюда для регенерации
+  final LlmMealRequestType type;
+
+  /// Сообщение с описанием что нужно заменить/изменить
+  final String message;
+
+  /// Целевое блюдо с требуемыми макросами
+  final LlmMealDto targetMeal;
+
+  Map<String, dynamic> toJson() => {
+        'type': type.name,
+        'message': message,
+        'meals': [
+          targetMeal.toJson(),
+        ], // Оборачиваем в массив для совместимости с API
+      };
+}
+
 /// HTTP клиент для взаимодействия с LLM прокси
 @injectable
 class LlmProxyClient {
@@ -128,7 +236,7 @@ class LlmProxyClient {
     }
   }
 
-  /// Отправляет чат сообщение
+  /// Отправляет чат сообщение (старый метод для совместимости)
   Future<String> sendChatMessage(
     String message, {
     List<PreviousMessage>? previousMessages,
@@ -148,6 +256,72 @@ class LlmProxyClient {
     }
 
     throw Exception('Не получен ответ от модели');
+  }
+
+  /// Отправляет чат сообщение через новый endpoint /llm-proxy-chat
+  Future<String> sendChatMessageV2(
+    String message, {
+    List<PreviousMessage>? previousMessages,
+  }) async {
+    try {
+      log('🔄 [ChatV2] Отправляем чат сообщение через /llm-proxy-chat');
+      log('📝 [ChatV2] Сообщение: $message');
+      if (previousMessages != null) {
+        log('📚 [ChatV2] Предыдущих сообщений: ${previousMessages.length}');
+      }
+
+      final request = LlmChatRequest(
+        message: message,
+        previousMessages: previousMessages,
+      );
+
+      final url = '$_baseUrl/llm-proxy-chat';
+      final requestBody = jsonEncode(request.toJson());
+
+      log('📦 [ChatV2] ПОЛНЫЙ JSON ЗАПРОС:');
+      log('📦 [ChatV2] URL: $url');
+      log('📦 [ChatV2] BODY: $requestBody');
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          _authHeaderKey: _authHeaderValue,
+        },
+        body: requestBody,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // API возвращает массив сообщений, как в старом API
+        final List<dynamic> responseData = jsonDecode(response.body);
+        final List<LlmProxyResponse> responses = responseData
+            .map((item) => LlmProxyResponse.fromJson(item))
+            .toList();
+
+        log('✅ [ChatV2] Получен ответ от чат API: ${responses.length} сообщений');
+        for (int i = 0; i < responses.length; i++) {
+          log('📨 [ChatV2] Сообщение $i (${responses[i].role}): ${responses[i].text}');
+        }
+
+        // Возвращаем последний ответ от модели
+        final modelResponses =
+            responses.where((r) => r.role == 'model').toList();
+        if (modelResponses.isNotEmpty) {
+          final message = modelResponses.last.text;
+          log('💬 [ChatV2] Финальное сообщение: $message');
+          return message;
+        } else {
+          log('⚠️ [ChatV2] Не найдено ответов от модели');
+          throw Exception('Не получен ответ от модели в новом чат API');
+        }
+      } else {
+        log('❌ [ChatV2] Ошибка от чат API: ${response.statusCode} - ${response.body}');
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      log('💥 [ChatV2] Исключение при запросе к чат API: $e');
+      rethrow;
+    }
   }
 
   /// Отправляет запрос для генерации блюда
@@ -177,5 +351,109 @@ class LlmProxyClient {
     }
 
     throw Exception('Не получен ответ от модели');
+  }
+
+  /// Отправляет запрос для генерации блюд с новой структурой API
+  Future<Map<String, dynamic>> generateMeals(LlmMealRequest request) async {
+    try {
+      log('🔄 [generateMeals] Отправляем запрос генерации блюд: ${request.type.name}');
+      log('📝 [generateMeals] Сообщение: ${request.message}');
+      log('🍽️ [generateMeals] Блюд в запросе: ${request.meals.length}');
+
+      for (int i = 0; i < request.meals.length; i++) {
+        final meal = request.meals[i];
+        log('📋 [generateMeals] Блюдо $i: ${meal.type} (${meal.kcal} ккал, ${meal.protein}г белка, ${meal.carbs}г углеводов, ${meal.fat}г жиров)');
+      }
+
+      final url = '$_baseUrl/llm-proxy-meal';
+      final requestBody = jsonEncode(request.toJson());
+
+      // 🎯 ПОЛНЫЙ ЗАПРОС - вот что вы хотели увидеть!
+      log('📦 [generateMeals] ПОЛНЫЙ JSON ЗАПРОС:');
+      log('📦 URL: $url');
+      log('📦 BODY: $requestBody');
+
+      final response = await http.post(
+        Uri.parse(url), // Используем новый эндпоинт для блюд
+        headers: {
+          'Content-Type': 'application/json',
+          _authHeaderKey: _authHeaderValue,
+        },
+        body: requestBody,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+        log('✅ [generateMeals] Получен ответ от LLM прокси: ${responseData.keys.join(', ')}');
+
+        // 🎯 ПОЛНЫЙ ОТВЕТ - тоже может быть полезно
+        log('📦 [generateMeals] ПОЛНЫЙ JSON ОТВЕТ: ${jsonEncode(responseData)}');
+
+        // Проверяем наличие meals в ответе
+        if (responseData.containsKey('meals')) {
+          final meals = responseData['meals'] as List?;
+          log('🍽️ [generateMeals] Получено блюд: ${meals?.length ?? 0}');
+        }
+
+        return responseData;
+      } else {
+        log('❌ [generateMeals] Ошибка от LLM прокси URL: $url - Статус: ${response.statusCode} - Ответ: ${response.body}');
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      log('💥 [generateMeals] Исключение при запросе к LLM прокси: $e');
+      rethrow;
+    }
+  }
+
+  /// Отправляет запрос для регенерации блюда с новой структурой API
+  Future<Map<String, dynamic>> regenerateMeal(
+      LlmRegenerateMealRequest request) async {
+    try {
+      log('🔄 [regenerateMeal] Отправляем запрос регенерации блюда: ${request.type.name}');
+      log('📝 [regenerateMeal] Сообщение: ${request.message}');
+      log('🍽️ [regenerateMeal] Целевое блюдо: ${request.targetMeal.type} (${request.targetMeal.kcal} ккал, ${request.targetMeal.protein}г белка, ${request.targetMeal.carbs}г углеводов, ${request.targetMeal.fat}г жиров)');
+
+      final url = '$_baseUrl/llm-proxy-meal';
+      final requestBody = jsonEncode(request.toJson());
+
+      // 🎯 ПОЛНЫЙ ЗАПРОС для регенерации
+      log('📦 [regenerateMeal] ПОЛНЫЙ JSON ЗАПРОС:');
+      log('📦 URL: $url');
+      log('📦 BODY: $requestBody');
+
+      final response = await http.post(
+        Uri.parse(url), // Используем тот же эндпоинт что и для генерации блюд
+        headers: {
+          'Content-Type': 'application/json',
+          _authHeaderKey: _authHeaderValue,
+        },
+        body: requestBody,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+        log('✅ [regenerateMeal] Получен ответ от LLM прокси: ${responseData.keys.join(', ')}');
+
+        // 🎯 ПОЛНЫЙ ОТВЕТ регенерации
+        log('📦 [regenerateMeal] ПОЛНЫЙ JSON ОТВЕТ: ${jsonEncode(responseData)}');
+
+        // Проверяем наличие meals в ответе
+        if (responseData.containsKey('meals')) {
+          final meals = responseData['meals'] as List?;
+          log('🍽️ [regenerateMeal] Получено регенерированных блюд: ${meals?.length ?? 0}');
+        }
+
+        return responseData;
+      } else {
+        log('❌ [regenerateMeal] Ошибка от LLM прокси URL: $url - Статус: ${response.statusCode} - Ответ: ${response.body}');
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      log('💥 [regenerateMeal] Исключение при запросе к LLM прокси: $e');
+      rethrow;
+    }
   }
 }

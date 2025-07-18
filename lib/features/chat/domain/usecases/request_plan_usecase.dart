@@ -2,24 +2,27 @@ import 'dart:core';
 import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
-
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/usecase/usecase.dart';
+import 'package:rishai/features/chat/data/remote_data_source/llm_proxy_client.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
+/// Новый UseCase для работы с новой структурой API
 @injectable
-class RequestPlanUsecase implements UseCase<MealPlanEntity, RequestPlanParams> {
-  RequestPlanUsecase(
+class RequestPlanUsecaseV2
+    implements UseCase<MealPlanEntity, RequestPlanParams> {
+  RequestPlanUsecaseV2(
     this.chatRepository,
   );
   final ChatRepository chatRepository;
+
   @override
   Future<Either<Failure, MealPlanEntity>> call(RequestPlanParams params) async {
-    return chatRepository.requestMealPlan(params: params);
+    return chatRepository.requestMealPlanV2(params: params);
   }
 }
 
@@ -47,109 +50,26 @@ class RequestPlanParams {
   final bool isWeekPlan;
   final Map<String, List<String>>? excludedMeals;
 
-  String generateSinglePrompt() {
-    List<Map<String, dynamic>> meals = [];
-    Map<String, String> userPrefs = {
-      'dietary_preferences': dietary.join(', '),
-      'cuisine_preferences': cuisines.join(', '),
-      'restrictions': restrictions.join(', '),
-    };
-
-    // Инициализируем переменные
-    List<double> mealDistribution = [];
-    bool snackRequested = snackForToday;
-    bool hadTraining = trainingToday;
-    MacrosBreakdown macross = macros;
-
-    double totalCalories = macross.kcal.toDouble();
-    double totalProtein = macross.protein.toDouble();
-    double totalCarbs = macross.carbs.toDouble();
-    double totalFats = macross.fat.toDouble();
-
-    // Определяем распределение калорий
-    if (servings.length == 2) {
-      mealDistribution = snackRequested ? [50, 40, 10] : [60, 40];
-    } else if (servings.length == 3) {
-      mealDistribution = hadTraining
-          ? (snackRequested ? [40, 30, 20, 10] : [45, 30, 25])
-          : (snackRequested ? [35, 30, 25, 10] : [40, 35, 25]);
-    } else if (servings.length == 4) {
-      mealDistribution = hadTraining
-          ? (snackRequested ? [26.5, 22.5, 21.5, 19.5, 10] : [30, 25, 24, 21])
-          : (snackRequested ? [24.5, 23.5, 22.5, 19.5, 10] : [27, 26, 25, 22]);
-    } else if (servings.length == 5) {
-      mealDistribution = hadTraining
-          ? (snackRequested
-              ? [26.5, 22.5, 21.5, 19.5, 10]
-              : [26.5, 22.5, 21.5, 19.5, 10])
-          : (snackRequested
-              ? [24.5, 23.5, 22.5, 19.5, 10]
-              : [24.5, 23.5, 22.5, 19.5, 10]);
-    } else {
-      double percent =
-          snackRequested ? (100 - 10) / servings.length : 100 / servings.length;
-      mealDistribution = List.filled(servings.length, percent).toList();
-      if (snackRequested) {
-        mealDistribution.add(10);
-      }
-    }
-
-    // Корректируем суммарное распределение (точность до 100%)
-    double totalMealDistribution = mealDistribution.reduce((a, b) => a + b);
-    double difference = 100 - totalMealDistribution;
-    if (difference.abs() > 0.1) {
-      mealDistribution[mealDistribution.length - 1] += difference;
-    }
-
-    // Распределяем калории и макросы
-    List<double> mealCalories = mealDistribution
-        .map((percent) => totalCalories * percent / 100)
-        .toList();
-    List<double> proteinDistribution = mealDistribution
-        .map((percent) => totalProtein * percent / 100)
-        .toList();
-    List<double> carbsDistribution =
-        mealDistribution.map((percent) => totalCarbs * percent / 100).toList();
-    List<double> fatsDistribution =
-        mealDistribution.map((percent) => totalFats * percent / 100).toList();
-
-    // Заполняем список `meals`
-    for (int i = 0; i < servings.length; i++) {
-      final serving = servings[i];
-      meals.add({
-        'type': serving.type.name,
-        'comment': serving.comment,
-        'calories': '${mealCalories[i].round()} kcal',
-        'protein': '${proteinDistribution[i].round()} g',
-        'carbs': '${carbsDistribution[i].round()} g',
-        'fats': '${fatsDistribution[i].round()} g',
-      });
-    }
-
-    // Возвращаем общий массив
-    return 'generate_meal_plan_for_me. My data is: $userPrefs, meals: $meals';
-  }
-
-  List<Map<ServingType, String>> generatePrompt() {
+  /// Генерирует запросы блюд для новой структуры API
+  List<LlmMealRequest> generateMealRequests() {
+    log('[generateMealRequests] Начинаем генерацию запросов блюд');
     log(toString());
+
     final days = userBloc.state.days;
-    final alreadyGenereatedMeals =
+    final alreadyGeneratedMeals =
         isWeekPlan ? excludedMeals : DayEntity.getMealHistory(days);
+
     if (dietary.contains('Carnivore')) {
-      // print('CARNIVORE DETECTED');
       dietary.remove('Carnivore');
     }
+
     final userPrefs = {
       'dietary_preferences': dietary.join(', '),
       'cuisine_preferences': cuisines.join(', '),
       'restrictions': restrictions.join(', '),
     };
 
-    List<Map<String, dynamic>> generalMeals = [];
-    Map<String, dynamic>? snack;
-    Map<String, dynamic>? breakfast;
-
-    // Инициализируем переменные
+    // Инициализируем переменные для расчета макросов
     List<double> mealDistribution = [];
     bool snackRequested = snackForToday;
     bool hadTraining = trainingToday;
@@ -162,7 +82,11 @@ class RequestPlanParams {
 
     int length = snackRequested ? servings.length - 1 : servings.length;
 
-    // Распределяем проценты в зависимости от условий
+//     3 питания + снек, без активности
+// ожидаемый : 35%+30%+25%+10%
+// фактический 35%+25%+30%+10%
+
+    // Распределяем проценты калорий между приемами пищи
     if (length == 2) {
       mealDistribution = hadTraining
           ? (snackRequested ? [50, 40, 10] : [60, 40]) // с тренировкой
@@ -182,7 +106,7 @@ class RequestPlanParams {
               ? [24.5, 23.5, 22.5, 19.5, 10]
               : [27, 26, 25, 22]); // без тренировки
     }
-
+    // Корректируем суммарное распределение
     double totalMealDistribution = mealDistribution.reduce((a, b) => a + b);
     double difference = 100 - totalMealDistribution;
     if (difference.abs() > 0.1) {
@@ -201,52 +125,159 @@ class RequestPlanParams {
     List<double> fatsDistribution =
         mealDistribution.map((percent) => totalFats * percent / 100).toList();
 
-    // Обрабатываем servings
+    // Группируем блюда по типам запросов
+    List<LlmMealDto> breakfastMeals = [];
+    List<LlmMealDto> mainMeals = [];
+    List<LlmMealDto> snackMeals = [];
+
     for (int i = 0; i < servings.length; i++) {
       final serving = servings[i];
-      final mealData = {
-        'calories': '${mealCalories[i].round()} kcal',
-        'protein': '${proteinDistribution[i].round()} g',
-        'carbs': '${carbsDistribution[i].round()} g',
-        'fats': '${fatsDistribution[i].round()} g',
-      };
 
+      // Создаем DTO для блюда с правильным форматированием типа
+      final mealDto = LlmMealDto(
+        type: _formatMealType(serving),
+        kcal: mealCalories[i].round(),
+        protein: proteinDistribution[i].round(),
+        carbs: carbsDistribution[i].round(),
+        fat: fatsDistribution[i].round(),
+      );
+
+      // Группируем по типам запросов
       if (serving.type == ServingType.breakfast) {
-        breakfast = {
-          ...userPrefs,
-          'type': '${serving.comment} ${serving.type.name}',
-          ...mealData,
-        };
+        breakfastMeals.add(mealDto);
       } else if (serving.type == ServingType.snack) {
-        snack = {
-          ...userPrefs,
-          'type': '${serving.comment} ${serving.type.name}',
-          ...mealData,
-        };
+        snackMeals.add(mealDto);
       } else {
-        mealData.addAll({'type': serving.type.name});
-        generalMeals.add(mealData);
+        // lunch, dinner, supper идут в один запрос типа "meal"
+        mainMeals.add(mealDto);
       }
     }
 
-    // Возвращаем итог с исключением уже сгенерированных блюд
-    return [
-      if (breakfast != null)
-        {
-          ServingType.breakfast:
-              'generate_meal_plan_for_me. My data is: $breakfast. Please exclude following meals: ${alreadyGenereatedMeals?["breakfasts"] ?? []}',
-        },
-      if (generalMeals.isNotEmpty)
-        {
-          ServingType.dinner:
-              'generate_meal_plan_for_me. My data is: $userPrefs, meals: $generalMeals. Please exclude following meals: ${alreadyGenereatedMeals?["mains"] ?? []}',
-        },
-      if (snack != null)
-        {
-          ServingType.snack:
-              'generate_meal_plan_for_me. My data is: $snack. Please exclude following meals: ${alreadyGenereatedMeals?["snacks"] ?? []}',
-        },
-    ];
+    // Создаем список запросов
+    List<LlmMealRequest> requests = [];
+
+    // Запрос для завтрака
+    if (breakfastMeals.isNotEmpty) {
+      final excludedBreakfasts = alreadyGeneratedMeals?['breakfasts'] ?? [];
+
+      // Формируем информацию о блюдах для промпта
+      final mealsInfo = breakfastMeals
+          .map(
+            (meal) => {
+              'calories': '${meal.kcal} kcal',
+              'protein': '${meal.protein} g',
+              'carbs': '${meal.carbs} g',
+              'fats': '${meal.fat} g',
+              'type': meal.type,
+            },
+          )
+          .toList();
+
+      final message =
+          'generate_meal_plan_for_me. My data is: $userPrefs, meals: $mealsInfo. Please exclude following meals: $excludedBreakfasts';
+
+      requests.add(
+        LlmMealRequest(
+          type: LlmMealRequestType.breakfast,
+          message: message,
+          meals: breakfastMeals,
+        ),
+      );
+
+      log('[generateMealRequests] Добавлен запрос завтрака: ${breakfastMeals.length} блюд');
+    }
+
+    // Запрос для основных блюд (lunch, dinner, supper)
+    if (mainMeals.isNotEmpty) {
+      final excludedMains = alreadyGeneratedMeals?['mains'] ?? [];
+
+      // Формируем информацию о блюдах для промпта
+      final mealsInfo = mainMeals
+          .map(
+            (meal) => {
+              'calories': '${meal.kcal} kcal',
+              'protein': '${meal.protein} g',
+              'carbs': '${meal.carbs} g',
+              'fats': '${meal.fat} g',
+              'type': meal.type,
+            },
+          )
+          .toList();
+
+      final message =
+          'generate_meal_plan_for_me. My data is: $userPrefs, meals: $mealsInfo. Please exclude following meals: $excludedMains';
+
+      requests.add(
+        LlmMealRequest(
+          type: LlmMealRequestType.meal,
+          message: message,
+          meals: mainMeals,
+        ),
+      );
+
+      log('[generateMealRequests] Добавлен запрос основных блюд: ${mainMeals.length} блюд');
+    }
+
+    // Запрос для перекусов
+    if (snackMeals.isNotEmpty) {
+      final excludedSnacks = alreadyGeneratedMeals?['snacks'] ?? [];
+
+      // Формируем информацию о блюдах для промпта
+      final mealsInfo = snackMeals
+          .map(
+            (meal) => {
+              'calories': '${meal.kcal} kcal',
+              'protein': '${meal.protein} g',
+              'carbs': '${meal.carbs} g',
+              'fats': '${meal.fat} g',
+              'type': meal.type,
+            },
+          )
+          .toList();
+
+      final message =
+          'generate_meal_plan_for_me. My data is: $userPrefs, meals: $mealsInfo. Please exclude following meals: $excludedSnacks';
+
+      requests.add(
+        LlmMealRequest(
+          type: LlmMealRequestType.snack,
+          message: message,
+          meals: snackMeals,
+        ),
+      );
+
+      log('[generateMealRequests] Добавлен запрос перекусов: ${snackMeals.length} блюд');
+    }
+
+    log('[generateMealRequests] Создано ${requests.length} запросов блюд');
+    return requests;
+  }
+
+  /// Форматирует тип блюда согласно новому API
+  String _formatMealType(ServingEntity serving) {
+    switch (serving.type) {
+      case ServingType.breakfast:
+        // "Savoury Breakfast" или "Sweet Breakfast"
+        final comment = serving.comment?.trim() ?? '';
+        return comment.isNotEmpty ? '$comment Breakfast' : 'Breakfast';
+      case ServingType.snack:
+        // "Savoury Snack" или "Sweet Snack"
+        final comment = serving.comment?.trim() ?? '';
+        return comment.isNotEmpty ? '$comment Snack' : 'Snack';
+      case ServingType.lunch:
+        return 'Lunch';
+      case ServingType.dinner:
+        return 'Dinner';
+      case ServingType.supper:
+        return 'Supper';
+      default:
+        throw ArgumentError('Неподдерживаемый тип блюда: ${serving.type}');
+    }
+  }
+
+  /// Публичный метод для генерации запросов блюд с новой структурой API
+  List<LlmMealRequest> generateMealRequestsV2() {
+    return generateMealRequests();
   }
 
   @override
@@ -255,276 +286,5 @@ class RequestPlanParams {
   }
 }
 
-
-  // List<Map<ServingType, String>> generatePrompt() {
-  //   log(toString(), name: 'RequestUseCase params');
-  //   List<Map<String, dynamic>> generalMeals = [];
-  //   Map<String, dynamic>? snack;
-  //   Map<String, dynamic>? breakfast;
-  //   Map<String, String> userPrefs = {
-  //     'dietary_preferences': dietary.join(', '),
-  //     'cuisine_preferences': cuisines.join(', '),
-  //     'restrictions': restrictions.join(', '),
-  //   };
-
-  //   List<double> mealDistribution = [];
-  //   bool snackRequested = snackForToday;
-  //   bool hadTraining = trainingToday;
-  //   MacrosBreakdown macross = macros;
-
-  //   double totalCalories = macross.kcal.toDouble();
-  //   double totalProtein = macross.protein.toDouble();
-  //   double totalCarbs = macross.carbs.toDouble();
-  //   double totalFats = macross.fat.toDouble();
-
-  //   if (snackRequested) {
-  //     double snackPercent = 10;
-  //     int mealCount = servings.length - 1;
-  //     double mealPercent = (100 - snackPercent) / mealCount;
-  //     mealDistribution = List.generate(mealCount, (_) => mealPercent);
-  //     if (snackRequested) {
-  //       mealDistribution.add(snackPercent);
-  //     }
-  //   } else {
-  //     if (servings.length == 2) {
-  //       mealDistribution = hadTraining ? [60, 40] : [60, 40];
-  //     } else if (servings.length == 3) {
-  //       mealDistribution = hadTraining ? [45, 30, 25] : [40, 35, 25];
-  //     } else if (servings.length == 4) {
-  //       mealDistribution = hadTraining ? [45, 30, 25] : [40, 35, 25];
-  //     } else if (servings.length == 5) {
-  //       mealDistribution = hadTraining
-  //           ? [26.5, 22.5, 21.5, 19.5, 10]
-  //           : [24.5, 23.5, 22.5, 19.5, 10];
-  //     } else {
-  //       double percent = 100 / servings.length;
-  //       mealDistribution = List.filled(servings.length, percent);
-  //     }
-  //   }
-
-  //   double totalMealDistribution = mealDistribution.reduce((a, b) => a + b);
-  //   double difference = 100 - totalMealDistribution;
-  //   if (difference.abs() > 0.1) {
-  //     mealDistribution[mealDistribution.length - 1] += difference;
-  //   }
-
-  //   List<double> mealCalories = mealDistribution
-  //       .map((percent) => totalCalories * percent / 100)
-  //       .toList();
-  //   List<double> proteinDistribution = mealDistribution
-  //       .map((percent) => totalProtein * percent / 100)
-  //       .toList();
-  //   List<double> carbsDistribution =
-  //       mealDistribution.map((percent) => totalCarbs * percent / 100).toList();
-  //   List<double> fatsDistribution =
-  //       mealDistribution.map((percent) => totalFats * percent / 100).toList();
-
-  //   for (int i = 0; i < servings.length; i++) {
-  //     final serving = servings[i];
-  //     final mealData = {
-  //       'type': '${serving.comment ?? ''} ${serving.type.name}',
-  //       'calories': '${mealCalories[i].round()} kcal',
-  //       'protein': '${proteinDistribution[i].round()} g',
-  //       'carbs': '${carbsDistribution[i].round()} g',
-  //       'fats': '${fatsDistribution[i].round()} g',
-  //     };
-
-  //     if (serving.type == ServingType.breakfast) {
-  //       breakfast = {
-  //         ...userPrefs,
-  //         ...mealData,
-  //       };
-  //     } else if (serving.type == ServingType.snack) {
-  //       snack = {
-  //         ...userPrefs,
-  //         ...mealData,
-  //       };
-  //     } else {
-  //       generalMeals.add(mealData);
-  //     }
-  //   }
-
-  //   return [
-  //     if (breakfast != null)
-  //       {
-  //         ServingType.breakfast:
-  //             'generate_meal_plan_for_me. My data is: $breakfast',
-  //       },
-  //     if (generalMeals.isNotEmpty)
-  //       {
-  //         ServingType.dinner:
-  //             'generate_meal_plan_for_me. My data is: $userPrefs, meals: $generalMeals',
-  //       },
-  //     if (snack != null)
-  //       {
-  //         ServingType.snack: 'generate_meal_plan_for_me. My data is: $snack',
-  //       },
-  //   ];
-  // }
-
-  // List<Map<ServingType, String>> generatePrompt() {
-  //   log(toString(), name: 'RequestUseCase params');
-  //   List<Map<String, dynamic>> generalMeals = [];
-  //   Map<String, dynamic>? snack;
-  //   Map<String, dynamic>? breakfast;
-  //   Map<String, String> userPrefs = {
-  //     'dietary_preferences': dietary.join(', '),
-  //     'cuisine_preferences': cuisines.join(', '),
-  //     'restrictions': restrictions.join(', '),
-  //   };
-
-  //   // Инициализируем переменные
-  //   List<double> mealDistribution = [];
-  //   bool snackRequested = snackForToday;
-  //   bool hadTraining = trainingToday;
-  //   MacrosBreakdown macross = macros;
-
-  //   double totalCalories = macross.kcal.toDouble();
-  //   double totalProtein = macross.protein.toDouble();
-  //   double totalCarbs = macross.carbs.toDouble();
-  //   double totalFats = macross.fat.toDouble();
-
-  //   // Распределяем проценты в зависимости от условий
-  //   if (servings.length == 2) {
-  //     mealDistribution = snackRequested ? [50, 40, 10] : [60, 40];
-  //   } else if (servings.length == 3) {
-  //     mealDistribution = hadTraining
-  //         ? (snackRequested ? [40, 30, 20, 10] : [45, 30, 25])
-  //         : (snackRequested ? [35, 30, 25, 10] : [40, 35, 25]);
-  //   } else if (servings.length == 4) {
-  //     mealDistribution = hadTraining
-  //         ? (snackRequested ? [26.5, 22.5, 21.5, 19.5, 10] : [30, 25, 24, 21])
-  //         : (snackRequested ? [24.5, 23.5, 22.5, 19.5, 10] : [27, 26, 25, 22]);
-  //   } else {
-  //     double percent =
-  //         snackRequested ? (100 - 10) / servings.length : 100 / servings.length;
-  //     mealDistribution = List.filled(servings.length, percent);
-  //     if (snackRequested) {
-  //       mealDistribution = List.filled(servings.length, percent).toList()
-  //         ..add(10);
-  //     } else {
-  //       mealDistribution = List.filled(servings.length, percent).toList();
-  //     }
-  //   }
-
-  //   // Корректируем суммарное распределение (точность до 100%)
-  //   double totalMealDistribution = mealDistribution.reduce((a, b) => a + b);
-  //   double difference = 100 - totalMealDistribution;
-  //   if (difference.abs() > 0.1) {
-  //     mealDistribution[mealDistribution.length - 1] += difference;
-  //   }
-
-  //   // Распределяем калории и макросы
-  //   List<double> mealCalories = mealDistribution
-  //       .map((percent) => totalCalories * percent / 100)
-  //       .toList();
-  //   List<double> proteinDistribution = mealDistribution
-  //       .map((percent) => totalProtein * percent / 100)
-  //       .toList();
-  //   List<double> carbsDistribution =
-  //       mealDistribution.map((percent) => totalCarbs * percent / 100).toList();
-  //   List<double> fatsDistribution =
-  //       mealDistribution.map((percent) => totalFats * percent / 100).toList();
-
-  //   // Обрабатываем servings
-  //   for (int i = 0; i < servings.length; i++) {
-  //     final serving = servings[i];
-  //     final mealData = {
-  //       // 'type': serving.type.name,
-  //       'type': '${serving.comment ?? ''} ${serving.type.name}',
-  //       'calories': '${mealCalories[i].round()} kcal',
-  //       'protein': '${proteinDistribution[i].round()} g',
-  //       'carbs': '${carbsDistribution[i].round()} g',
-  //       'fats': '${fatsDistribution[i].round()} g',
-  //     };
-
-  //     if (serving.type == ServingType.breakfast) {
-  //       breakfast = {
-  //         ...userPrefs,
-  //         // 'type': ,
-  //         ...mealData,
-  //       };
-  //     } else if (serving.type == ServingType.snack) {
-  //       snack = {
-  //         ...userPrefs,
-  //         // 'type': '${serving.comment} ${serving.type.name}',
-  //         ...mealData,
-  //       };
-  //     } else {
-  //       generalMeals.add(mealData);
-  //     }
-  //   }
-
-  //   // Возвращаем итог
-  //   return [
-  //     if (breakfast != null)
-  //       {
-  //         ServingType.breakfast:
-  //             'generate_meal_plan_for_me. My data is: $breakfast',
-  //       },
-  //     if (generalMeals.isNotEmpty)
-  //       {
-  //         ServingType.dinner:
-  //             'generate_meal_plan_for_me. My data is: $userPrefs, meals: $generalMeals',
-  //       },
-  //     if (snack != null)
-  //       {
-  //         ServingType.snack: 'generate_meal_plan_for_me. My data is: $snack',
-  //       },
-  //   ];
-  // }
-
-    // }
-
-//     return '''
-// generate_meal_plan_for_me. My data is: 
-// {
-//   "dietary_preferences": $dietary,
-//   "cuisine_preferences": $cuisines,
-//   "meals": $meals,
-//   ${snackForToday ? '$snackType: $snack' : ''}
-// }
-// ''';
-
-
-// class PromptGeneratorTester {
-//   final List<RequestPlanParams> params = [
-//     RequestPlanParams(
-//       dietary: [],
-//       cuisines: [],
-//       calorieTarget: 3053,
-//       macros: MacrosBreakdown(kcal: 3053, protein: 157, carbs: 444, fat: 72),
-//       trainingToday: false,
-//       snackForToday: false,
-//       mealTypes: ['breakfast', 'lunch'],
-//       restrictions: [],
-//     ),
-//     RequestPlanParams(
-//       dietary: [],
-//       cuisines: [],
-//       calorieTarget: 3053,
-//       macros: MacrosBreakdown(kcal: 3053, protein: 157, carbs: 444, fat: 72),
-//       trainingToday: false,
-//       snackForToday: false,
-//       mealTypes: ['breakfast', 'lunch', 'dinner'],
-//       restrictions: [],
-//     ),
-//     RequestPlanParams(
-//       dietary: [],
-//       cuisines: [],
-//       calorieTarget: 3053,
-//       macros: MacrosBreakdown(kcal: 3053, protein: 157, carbs: 444, fat: 72),
-//       trainingToday: false,
-//       snackForToday: false,
-//       mealTypes: ['breakfast', 'lunch', 'dinner', 'supper'],
-//       restrictions: [],
-//     ),
-//   ];
-
-//   void test() {
-//     for (final request in params) {
-//       log(request.generatePrompt());
-//     }
-//   }
-// }
-
+//fb app id: 1:586052816326:ios:4512f65356dee6f637b6c7
+//adapty id: XiRqmipkRzSZL8FCRbPcww

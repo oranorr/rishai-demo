@@ -9,12 +9,13 @@ import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 
+/// Новая версия UseCase для генерации недельного плана с использованием новой структуры API
 @injectable
-class GenerateWeekPlanUsecase
+class GenerateWeekPlanUsecaseV2
     implements UseCase<WeekPlanEntity, WeekPlanParams> {
-  GenerateWeekPlanUsecase(this.chatRepository, this.requestPlanUsecase);
+  GenerateWeekPlanUsecaseV2(this.chatRepository, this.requestPlanUsecaseV2);
   final ChatRepository chatRepository;
-  final RequestPlanUsecase requestPlanUsecase;
+  final RequestPlanUsecaseV2 requestPlanUsecaseV2;
 
   @override
   Future<Either<Failure, WeekPlanEntity>> call(WeekPlanParams params) async {
@@ -40,11 +41,13 @@ class GenerateWeekPlanUsecase
           excludedMeals: generatedMeals,
         );
 
-        final result = await requestPlanUsecase(dayParams);
+        // Используем новый UseCase с новой структурой API
+        final result = await requestPlanUsecaseV2(dayParams);
 
         final plan = result.fold(
-          (failure) =>
-              throw Exception('Failed to generate meal plan for day ${i + 1}'),
+          (failure) => throw Exception(
+            'Failed to generate meal plan for day ${i + 1}: $failure',
+          ),
           (success) => success,
         );
 
@@ -68,7 +71,7 @@ class GenerateWeekPlanUsecase
       }
 
       // Проверяем полноту плана и добиваем недостающие блюда
-      final completedPlans = await _completeIncompletePlans(
+      final completedPlans = await _completeIncompletePlansV2(
         weekPlans,
         params,
         generatedMeals,
@@ -76,16 +79,18 @@ class GenerateWeekPlanUsecase
 
       return Right(
         WeekPlanEntity.create(
-            plans: completedPlans, startDate: params.startDate),
+          plans: completedPlans,
+          startDate: params.startDate,
+        ),
       );
     } catch (e) {
-      return const Left(
-        WeekPlanGenerationFailure('Failed to generate week plan'),
+      return Left(
+        WeekPlanGenerationFailure('Failed to generate week plan: $e'),
       );
     }
   }
 
-  Future<List<MealPlanEntity>> _completeIncompletePlans(
+  Future<List<MealPlanEntity>> _completeIncompletePlansV2(
     List<MealPlanEntity> plans,
     WeekPlanParams params,
     Map<String, List<String>> generatedMeals,
@@ -98,7 +103,8 @@ class GenerateWeekPlanUsecase
 
       if (plan.meals.length < expectedMealsCount) {
         print(
-            'Found incomplete plan for day ${i + 1}. Expected $expectedMealsCount meals, got ${plan.meals.length}');
+          '[GenerateWeekPlanUsecaseV2] Found incomplete plan for day ${i + 1}. Expected $expectedMealsCount meals, got ${plan.meals.length}',
+        );
 
         // Создаем новый план для добивки
         final dayParams = RequestPlanParams(
@@ -114,11 +120,15 @@ class GenerateWeekPlanUsecase
           excludedMeals: generatedMeals,
         );
 
-        final result = await requestPlanUsecase(dayParams);
+        final result = await requestPlanUsecaseV2(dayParams);
 
         final newPlan = result.fold(
-          (failure) =>
-              plan, // Если не удалось сгенерировать новый план, оставляем старый
+          (failure) {
+            print(
+              '[GenerateWeekPlanUsecaseV2] Failed to complete plan for day ${i + 1}: $failure',
+            );
+            return plan; // Если не удалось сгенерировать новый план, оставляем старый
+          },
           (success) {
             // Обновляем список исключений
             for (final meal in success.meals) {
@@ -145,30 +155,6 @@ class GenerateWeekPlanUsecase
 
     return completedPlans;
   }
-
-  // List<Map<ServingType, String>> _generatePrompts({
-  //   required List<String> dietary,
-  //   required List<String> cuisines,
-  //   required List<String> restrictions,
-  //   required int calorieTarget,
-  //   required MacrosBreakdown macros,
-  //   required bool hasTraining,
-  //   required List<ServingEntity> servings,
-  //   required bool hasSnack,
-  // }) {
-  //   final RequestPlanParams params = RequestPlanParams(
-  //     dietary: dietary,
-  //     cuisines: cuisines,
-  //     restrictions: restrictions,
-  //     calorieTarget: calorieTarget,
-  //     macros: macros,
-  //     trainingToday: hasTraining,
-  //     servings: servings,
-  //     snackForToday: hasSnack,
-  //   );
-
-  //   return params.generatePrompt();
-  // }
 }
 
 class WeekPlanParams extends Equatable {

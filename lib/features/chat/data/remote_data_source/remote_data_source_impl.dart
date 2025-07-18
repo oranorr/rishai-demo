@@ -5,16 +5,12 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/features/chat/data/remote_data_source/llm_proxy_client.dart';
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
-import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
-    as whoop_remote;
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
@@ -92,8 +88,8 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
           log('📤 Отправляем запрос с ${contextMessages.length} сообщениями в контексте');
 
-          // Отправляем запрос с контекстом
-          responseText = await _llmProxyClient.sendChatMessage(
+          // Отправляем запрос с контекстом через новый endpoint /llm-proxy-chat
+          responseText = await _llmProxyClient.sendChatMessageV2(
             prompt,
             previousMessages:
                 contextMessages.isNotEmpty ? contextMessages : null,
@@ -232,8 +228,11 @@ $mealsInfo
     final prompt =
         "I dont like this meal: ${params.meal.title}, please replace this ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.foodPreferences.diets}, cuisines, I prefer: ${params.foodPreferences.cuisines}, restrictions: ${params.foodPreferences.restrictions}. Please exclude these meals from today's plan: $currentMeals";
     try {
-      final meal =
-          await regenerate(type: params.meal.servingType, prompt: prompt);
+      final meal = await regenerate(
+        type: params.meal.servingType,
+        prompt: prompt,
+        targetMacros: params.meal.macros, // 🎯 Передаем целевые макросы
+      );
       await updateChatHistory('from ${params.meal.title} to $meal');
       return meal;
     } on Exception catch (e) {
@@ -253,7 +252,11 @@ $mealsInfo
     final prompt =
         "In the meal ${params.meal.title} with such ingredients: ${params.meal.ingredients.map((e) => e.title).join(', ')} please replace this ingrdients: $ingredientsNames. Type of meal is: ${params.meal.type} with following macros target: ${params.meal.macros}. My food preferences are: ${params.preferences.diets}, cuisines, I prefer: ${params.preferences.cuisines}, restrictions: ${params.preferences.restrictions}. Please exclude these meals from today's plan: $currentMeals";
     try {
-      return await regenerate(type: params.meal.servingType, prompt: prompt);
+      return await regenerate(
+        type: params.meal.servingType,
+        prompt: prompt,
+        targetMacros: params.meal.macros, // 🎯 Передаем целевые макросы
+      );
     } on Exception catch (e) {
       log('EXCEPTION: $e');
       return null;
@@ -263,6 +266,7 @@ $mealsInfo
   Future<Meal> regenerate({
     required ServingType type,
     required String prompt,
+    MacrosBreakdown? targetMacros, // 🎯 Добавляем параметр для целевых макросов
   }) async {
     Map<String, dynamic> newMeal;
     LlmRequestType requestType;
@@ -287,7 +291,18 @@ $mealsInfo
 
     newMeal = responseText;
 
-    return Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
+    final regeneratedMeal =
+        Meal.fromMap(newMeal['meals'].first).copyWith(isRegenerated: true);
+
+    // 🎯 ЗАМЕНЯЕМ ФАКТИЧЕСКИЕ МАКРОСЫ НА ЦЕЛЕВЫЕ (если переданы)
+    if (targetMacros != null) {
+      final mealWithTargetMacros =
+          regeneratedMeal.copyWith(macros: targetMacros);
+      log('[regenerate] 🎯 Заменили макросы на целевые: ${targetMacros.kcal} ккал, ${targetMacros.protein}г белка, ${targetMacros.carbs}г углеводов, ${targetMacros.fat}г жиров');
+      return mealWithTargetMacros;
+    }
+
+    return regeneratedMeal;
   }
 
   Future<void> updateChatHistory(String message) async {
@@ -301,78 +316,420 @@ $mealsInfo
   }
 
   @override
-  Future<Map<String, dynamic>> requestMealPlan(
-    List<Map<ServingType, String>> prompts,
+  Future<Map<String, dynamic>> requestMealPlanV2(
+    List<LlmMealRequest> requests,
     bool isWeekPlan,
   ) async {
+    log('[requestMealPlanV2] Начинаем генерацию плана питания с новой структурой API');
+    log('[requestMealPlanV2] Количество запросов: ${requests.length}');
+    log('[requestMealPlanV2] Недельный план: $isWeekPlan');
+
     final results = <String, dynamic>{};
+    final allMeals = <Map<String, dynamic>>[];
+
+    // 🎯 Создаем мапу целевых макросов для каждого типа блюда
+    final Map<LlmMealRequestType, List<LlmMealDto>> targetMacrosByType = {};
+    for (final request in requests) {
+      targetMacrosByType[request.type] = request.meals;
+    }
+
     // Трекинг создания плана питания
     await analytics.logCustomEvent(
-      name: isWeekPlan ? 'create_5day_meal_plan' : 'create_1day_meal_plan',
+      name:
+          isWeekPlan ? 'create_5day_meal_plan_v2' : 'create_1day_meal_plan_v2',
       parameters: {
-        'serving_types': prompts.map((p) => p.keys.first.name).join(', '),
+        'request_types': requests.map((r) => r.type.name).join(', '),
+        'total_meals': requests.fold<int>(0, (sum, r) => sum + r.meals.length),
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
 
-    for (final prompt in prompts) {
-      final entry = prompt.entries.first;
-      final mealType = entry.key;
-      final mealPrompt = entry.value;
+    // 🚀 ПАРАЛЛЕЛЬНАЯ обработка всех запросов вместо последовательной
+    log('[requestMealPlanV2] Запускаем ${requests.length} запросов параллельно');
 
-      LlmRequestType requestType;
-      switch (mealType) {
-        case ServingType.breakfast:
-          requestType = LlmRequestType.breakfast;
-          break;
-        case ServingType.dinner:
-        case ServingType.lunch:
-          requestType = LlmRequestType.meal;
-          break;
-        case ServingType.snack:
-          requestType = LlmRequestType.snack;
-          break;
-        case ServingType.supper:
-          requestType = LlmRequestType.meal;
-          break;
+    final futures = requests.map((request) async {
+      try {
+        log('[requestMealPlanV2] Обрабатываем запрос: ${request.type.name} с ${request.meals.length} блюдами');
+
+        // Используем новый метод generateMeals из LlmProxyClient
+        final response = await _llmProxyClient.generateMeals(request);
+
+        // Проверяем ответ
+        if (response.containsKey('error')) {
+          log('[requestMealPlanV2] Ошибка в ответе для ${request.type.name}: ${response['error']}');
+          return null;
+        }
+
+        if (!response.containsKey('meals') || response['meals'] == null) {
+          log('[requestMealPlanV2] Нет блюд в ответе для ${request.type.name}');
+          return null;
+        }
+
+        final meals = response['meals'] as List;
+        log('[requestMealPlanV2] Получено блюд для ${request.type.name}: ${meals.length}');
+
+        return {
+          'type': request.type,
+          'response': response,
+          'meals': meals.cast<Map<String, dynamic>>(),
+        };
+      } catch (e) {
+        log('[requestMealPlanV2] Ошибка при обработке запроса ${request.type.name}: $e');
+        return null;
+      }
+    }).toList();
+
+    // Ожидаем завершения всех запросов
+    final responses = await Future.wait(futures);
+
+    // Обрабатываем результаты
+    for (final responseData in responses) {
+      if (responseData == null) continue;
+
+      final requestType = responseData['type']! as LlmMealRequestType;
+      final response = responseData['response']! as Map<String, dynamic>;
+      final meals = responseData['meals']! as List<Map<String, dynamic>>;
+
+      // 🎯 ЗАМЕНЯЕМ ФАКТИЧЕСКИЕ МАКРОСЫ НА ЦЕЛЕВЫЕ
+      final targetMeals = targetMacrosByType[requestType] ?? [];
+      final mealsWithTargetMacros = <Map<String, dynamic>>[];
+
+      for (int i = 0; i < meals.length; i++) {
+        final meal = Map<String, dynamic>.from(meals[i]);
+
+        // Если есть соответствующие целевые макросы, заменяем их
+        if (i < targetMeals.length) {
+          final targetMeal = targetMeals[i];
+          meal['macros'] = {
+            'kcal': targetMeal.kcal,
+            'protein': targetMeal.protein,
+            'carbs': targetMeal.carbs,
+            'fat': targetMeal.fat,
+          };
+
+          log('[requestMealPlanV2] 🎯 Заменили макросы для блюда ${meal['title']}: ${targetMeal.kcal} ккал, ${targetMeal.protein}г белка, ${targetMeal.carbs}г углеводов, ${targetMeal.fat}г жиров');
+        }
+
+        mealsWithTargetMacros.add(meal);
       }
 
-      final response = await requestAssistant(
-        prompt: mealPrompt,
-        isChat: false,
-        type: requestType,
-      );
-
-      switch (mealType) {
-        case ServingType.breakfast:
+      // Сохраняем результат по типам для совместимости с существующим кодом
+      switch (requestType) {
+        case LlmMealRequestType.breakfast:
           results['breakfast'] = response;
           break;
-        case ServingType.dinner:
-        case ServingType.lunch:
-        case ServingType.supper:
+        case LlmMealRequestType.meal:
           results['generalMeals'] = response;
           break;
-        case ServingType.snack:
+        case LlmMealRequestType.snack:
           results['snack'] = response;
           break;
       }
+
+      // Добавляем все блюда с целевыми макросами в общий список
+      allMeals.addAll(mealsWithTargetMacros);
     }
 
-    final meals = [
-      ...results['breakfast']?['meals'] ?? [],
-      ...results['generalMeals']?['meals'] ?? [],
-      ...results['snack']?['meals'] ?? [],
-    ];
+    log('[requestMealPlanV2] Всего сгенерировано блюд с целевыми макросами: ${allMeals.length}');
 
-    // Только для обычного плана питания добавляем в историю чата
-    if (!isWeekPlan) {
-      final dot = await requestAssistant(
-        prompt: "{'meals': $meals}",
-        isChat: true,
-        type: LlmRequestType.chat,
+    // Только для обычного плана питания добавляем в историю чата ОДИН раз
+    if (!isWeekPlan && allMeals.isNotEmpty) {
+      try {
+        log('[requestMealPlanV2] Добавляем план питания в историю чата');
+        final chatResponse = await requestAssistant(
+          prompt: "{'meals': $allMeals}",
+          isChat: true,
+          type: LlmRequestType.chat,
+        );
+        log('[requestMealPlanV2] Ответ чат-ассистента: ${chatResponse['answer'] ?? 'нет ответа'}');
+      } catch (e) {
+        log('[requestMealPlanV2] Ошибка при добавлении в чат: $e');
+        // Не критичная ошибка, продолжаем
+      }
+    }
+
+    return {'meals': allMeals};
+  }
+
+  /// Новые методы для регенерации блюд с использованием V2 структуры API
+
+  @override
+  Future<Meal?> replaceMealV2(ReplaceMealParams params) async {
+    // Трекинг замены блюда V2
+    await analytics.logCustomEvent(
+      name: 'replace_meal_v2',
+      parameters: {
+        'meal_type': params.meal.type,
+        'meal_title': params.meal.title,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
+    try {
+      log('[replaceMealV2] Начинаем замену блюда: ${params.meal.title}');
+
+      // Получаем текущие блюда для исключения
+      final currentMeals = whoopBloc.state.day.mealPlanEntity?.meals
+              .map((m) => m.title)
+              .join(', ') ??
+          '';
+
+      // Формируем сообщение для регенерации
+      final message = """
+I don't like this meal: ${params.meal.title}. Please replace this ${params.meal.type} with a different meal.
+
+My food preferences:
+- Dietary preferences: ${params.foodPreferences.diets.join(', ')}
+- Cuisine preferences: ${params.foodPreferences.cuisines.join(', ')}
+- Restrictions: ${params.foodPreferences.restrictions.join(', ')}
+
+Please exclude these meals from today's plan: $currentMeals
+
+The new meal should have similar nutritional values to the original.
+""";
+
+      // Определяем тип запроса
+      LlmMealRequestType requestType;
+      switch (params.meal.servingType) {
+        case ServingType.breakfast:
+          requestType = LlmMealRequestType.breakfast;
+          break;
+        case ServingType.snack:
+          requestType = LlmMealRequestType.snack;
+          break;
+        case ServingType.dinner:
+        case ServingType.lunch:
+        case ServingType.supper:
+          requestType = LlmMealRequestType.meal;
+          break;
+      }
+
+      // Форматируем тип блюда согласно API
+      final mealType = _formatMealTypeForRegeneration(
+        params.meal.servingType,
+        params.meal.type,
       );
-      log('CHAT ASSISTANT: $dot');
+
+      // Создаем целевое блюдо с макросами
+      final targetMeal = LlmMealDto(
+        type: mealType,
+        kcal: params.meal.macros.kcal,
+        protein: params.meal.macros.protein,
+        carbs: params.meal.macros.carbs,
+        fat: params.meal.macros.fat,
+      );
+
+      // Создаем запрос регенерации
+      final request = LlmRegenerateMealRequest(
+        type: requestType,
+        message: message,
+        targetMeal: targetMeal,
+      );
+
+      // Отправляем запрос
+      final response = await _llmProxyClient.regenerateMeal(request);
+
+      // Проверяем ответ
+      if (response.containsKey('error')) {
+        log('[replaceMealV2] Ошибка в ответе: ${response['error']}');
+        return null;
+      }
+
+      if (!response.containsKey('meals') || response['meals'] == null) {
+        log('[replaceMealV2] Нет блюд в ответе');
+        return null;
+      }
+
+      final meals = response['meals'] as List;
+      if (meals.isEmpty) {
+        log('[replaceMealV2] Пустой список блюд');
+        return null;
+      }
+
+      log('[replaceMealV2] Получено регенерированное блюдо');
+      final regeneratedMeal =
+          Meal.fromMap(meals.first).copyWith(isRegenerated: true);
+
+      // 🎯 ЗАМЕНЯЕМ ФАКТИЧЕСКИЕ МАКРОСЫ НА ЦЕЛЕВЫЕ
+      final mealWithTargetMacros = regeneratedMeal.copyWith(
+        macros: MacrosBreakdown(
+          kcal: targetMeal.kcal,
+          protein: targetMeal.protein,
+          carbs: targetMeal.carbs,
+          fat: targetMeal.fat,
+        ),
+      );
+
+      log('[replaceMealV2] 🎯 Заменили макросы на целевые: ${targetMeal.kcal} ккал, ${targetMeal.protein}г белка, ${targetMeal.carbs}г углеводов, ${targetMeal.fat}г жиров');
+
+      // Обновляем историю чата
+      await updateChatHistory(
+        'from ${params.meal.title} to ${mealWithTargetMacros.title}',
+      );
+
+      return mealWithTargetMacros;
+    } catch (e) {
+      log('[replaceMealV2] Ошибка: $e');
+      return null;
     }
-    return {'meals': meals};
+  }
+
+  @override
+  Future<Meal?> replaceIngredientV2(ReplaceIngredientParams params) async {
+    // Трекинг замены ингредиентов V2
+    await analytics.logCustomEvent(
+      name: 'replace_ingredient_v2',
+      parameters: {
+        'meal_type': params.meal.type,
+        'meal_title': params.meal.title,
+        'ingredients_count': params.ingredients.length,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
+
+    try {
+      log('[replaceIngredientV2] Начинаем замену ингредиентов в блюде: ${params.meal.title}');
+
+      // Получаем названия ингредиентов для замены
+      final ingredientsToReplace =
+          params.ingredients.map((e) => e.title).toList();
+
+      // Получаем текущие блюда для исключения
+      final currentMeals = whoopBloc.state.day.mealPlanEntity?.meals
+              .map((m) => m.title)
+              .join(', ') ??
+          '';
+
+      // Формируем сообщение для регенерации
+      final message = """
+In the meal "${params.meal.title}" with ingredients: ${params.meal.ingredients.map((e) => e.title).join(', ')}, please replace these ingredients: ${ingredientsToReplace.join(', ')}.
+
+The meal type is: ${params.meal.type}
+
+My food preferences:
+- Dietary preferences: ${params.preferences.diets.join(', ')}
+- Cuisine preferences: ${params.preferences.cuisines.join(', ')}
+- Restrictions: ${params.preferences.restrictions.join(', ')}
+
+Please exclude these meals from today's plan: $currentMeals
+
+Keep the same nutritional values and meal structure, but replace only the specified ingredients with suitable alternatives.
+""";
+
+      // Определяем тип запроса
+      LlmMealRequestType requestType;
+      switch (params.meal.servingType) {
+        case ServingType.breakfast:
+          requestType = LlmMealRequestType.breakfast;
+          break;
+        case ServingType.snack:
+          requestType = LlmMealRequestType.snack;
+          break;
+        case ServingType.dinner:
+        case ServingType.lunch:
+        case ServingType.supper:
+          requestType = LlmMealRequestType.meal;
+          break;
+      }
+
+      // Форматируем тип блюда согласно API
+      final mealType = _formatMealTypeForRegeneration(
+        params.meal.servingType,
+        params.meal.type,
+      );
+
+      // Создаем целевое блюдо с макросами
+      final targetMeal = LlmMealDto(
+        type: mealType,
+        kcal: params.meal.macros.kcal,
+        protein: params.meal.macros.protein,
+        carbs: params.meal.macros.carbs,
+        fat: params.meal.macros.fat,
+      );
+
+      // Создаем запрос регенерации
+      final request = LlmRegenerateMealRequest(
+        type: requestType,
+        message: message,
+        targetMeal: targetMeal,
+      );
+
+      // Отправляем запрос
+      final response = await _llmProxyClient.regenerateMeal(request);
+
+      // Проверяем ответ
+      if (response.containsKey('error')) {
+        log('[replaceIngredientV2] Ошибка в ответе: ${response['error']}');
+        return null;
+      }
+
+      if (!response.containsKey('meals') || response['meals'] == null) {
+        log('[replaceIngredientV2] Нет блюд в ответе');
+        return null;
+      }
+
+      final meals = response['meals'] as List;
+      if (meals.isEmpty) {
+        log('[replaceIngredientV2] Пустой список блюд');
+        return null;
+      }
+
+      log('[replaceIngredientV2] Получено блюдо с замененными ингредиентами');
+      final regeneratedMeal =
+          Meal.fromMap(meals.first).copyWith(isRegenerated: true);
+
+      // 🎯 ЗАМЕНЯЕМ ФАКТИЧЕСКИЕ МАКРОСЫ НА ЦЕЛЕВЫЕ
+      final mealWithTargetMacros = regeneratedMeal.copyWith(
+        macros: MacrosBreakdown(
+          kcal: targetMeal.kcal,
+          protein: targetMeal.protein,
+          carbs: targetMeal.carbs,
+          fat: targetMeal.fat,
+        ),
+      );
+
+      log('[replaceIngredientV2] 🎯 Заменили макросы на целевые: ${targetMeal.kcal} ккал, ${targetMeal.protein}г белка, ${targetMeal.carbs}г углеводов, ${targetMeal.fat}г жиров');
+
+      // Обновляем историю чата
+      await updateChatHistory(
+        'replaced ingredients in ${params.meal.title}: ${ingredientsToReplace.join(', ')}',
+      );
+
+      return mealWithTargetMacros;
+    } catch (e) {
+      log('[replaceIngredientV2] Ошибка: $e');
+      return null;
+    }
+  }
+
+  /// Форматирует тип блюда для регенерации согласно API
+  String _formatMealTypeForRegeneration(
+    ServingType servingType,
+    String currentType,
+  ) {
+    switch (servingType) {
+      case ServingType.breakfast:
+        // Сохраняем текущий тип завтрака (Savoury/Sweet)
+        if (currentType.toLowerCase().contains('sweet')) {
+          return 'Sweet Breakfast';
+        } else {
+          return 'Savoury Breakfast';
+        }
+      case ServingType.snack:
+        // Сохраняем текущий тип снека (Savoury/Sweet)
+        if (currentType.toLowerCase().contains('sweet')) {
+          return 'Sweet Snack';
+        } else {
+          return 'Savoury Snack';
+        }
+      case ServingType.lunch:
+        return 'Lunch';
+      case ServingType.dinner:
+        return 'Dinner';
+      case ServingType.supper:
+        return 'Supper';
+      default:
+        return currentType; // Возвращаем оригинальный тип как fallback
+    }
   }
 }

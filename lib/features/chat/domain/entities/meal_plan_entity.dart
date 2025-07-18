@@ -452,9 +452,9 @@ class Ingredient {
     }
 
     return Ingredient(
-      id: map['id'] as String?,
+      id: map['id'].toString(),
       title: map['name'] as String,
-      quantity: (map['quantity'] as num).toDouble(),
+      quantity: (map['quantity'] as num).toDouble().roundToDouble(),
       unit: MeasurementUnit.values.firstWhere(
         (e) => e.toString().split('.').last == map['unit'],
         orElse: () => MeasurementUnit.pieces,

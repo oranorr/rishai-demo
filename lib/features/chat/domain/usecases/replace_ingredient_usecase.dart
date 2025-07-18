@@ -33,3 +33,18 @@ class ReplaceIngredientParams {
     required this.preferences,
   });
 }
+
+/// Новый UseCase для замены ингредиентов с использованием новой структуры API V2
+@injectable
+class ReplaceIngredientUsecaseV2
+    implements UseCase<Meal, ReplaceIngredientParams> {
+  ReplaceIngredientUsecaseV2(this.repository);
+  final ChatRepository repository;
+
+  @override
+  Future<Either<Failure, Meal>> call(
+    ReplaceIngredientParams params,
+  ) async {
+    return repository.replaceIngredientV2(params: params);
+  }
+}

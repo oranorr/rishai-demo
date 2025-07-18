@@ -9,8 +9,6 @@ import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';

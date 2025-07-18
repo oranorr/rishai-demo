@@ -42,11 +42,13 @@ const int defaultRequestsLimit = totalRequests;
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ChatBloc(
     this.initGptUsecase,
-    this.requestMealPlan,
+    this.requestMealPlanV2,
     this.sendMessageGptUsecase,
     this.fetchSavedSnapUsecase,
     this.replaceMealUsecase,
     this.replaceIngredientUsecase,
+    this.replaceMealUsecaseV2,
+    this.replaceIngredientUsecaseV2,
   ) : super(
           const ChatMainState(
             status: Status.initial,
@@ -69,11 +71,15 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   final InitGptUsecase initGptUsecase;
-  final RequestPlanUsecase requestMealPlan;
+  final RequestPlanUsecaseV2 requestMealPlanV2;
   final SendMessageGptUsecase sendMessageGptUsecase;
   final FetchSavedSnapUsecase fetchSavedSnapUsecase;
   final ReplaceMealUsecase replaceMealUsecase;
   final ReplaceIngredientUsecase replaceIngredientUsecase;
+
+  // Новые V2 UseCase для регенерации с использованием новой структуры API
+  final ReplaceMealUsecaseV2 replaceMealUsecaseV2;
+  final ReplaceIngredientUsecaseV2 replaceIngredientUsecaseV2;
 
   Timer? _syncDebounceTimer;
 
@@ -207,7 +213,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       emit(state.copyWith(status: Status.loading));
 
-      final result = await requestMealPlan(
+      final result = await requestMealPlanV2(
         RequestPlanParams(
           dietary: userBloc.state.user.foodPreferences?.diets ?? [],
           cuisines: userBloc.state.user.foodPreferences?.cuisines ?? [],
@@ -393,7 +399,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       return;
     }
 
-    final res = await replaceMealUsecase.call(
+    // Используем новую V2 версию с улучшенной структурой API
+    final res = await replaceMealUsecaseV2.call(
       ReplaceMealParams(
         meal: event.meal,
         foodPreferences: user.foodPreferences!,
@@ -442,7 +449,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     emit(state.copyWith(status: Status.loading));
-    final res = await replaceIngredientUsecase.call(
+    // Используем новую V2 версию с улучшенной структурой API
+    final res = await replaceIngredientUsecaseV2.call(
       ReplaceIngredientParams(
         meal: event.meal,
         ingredients: event.ingredients,
