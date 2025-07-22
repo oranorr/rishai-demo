@@ -116,7 +116,7 @@ class QuestionaryRepository {
       modificator: 0.05,
     ),
     FitnessGoal(
-      name: 'Lean Gains',
+      name: 'Body Recomp',
       assetPath: 'assets/fitness/recomp.svg',
       // subtitle: 'Muscle gain and Fat loss',
       goal: GoalType.recomp,

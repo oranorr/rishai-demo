@@ -115,11 +115,11 @@ class UserGoal {
   String getGoalTypeName() {
     switch (goal) {
       case GoalType.aesthetics:
-        return 'Aesthetics';
+        return 'Fat Loss';
       case GoalType.performance:
-        return 'Performance';
+        return 'Muscle Gain';
       case GoalType.recomp:
-        return 'Recomp';
+        return 'Body Recomp';
       case GoalType.optimize:
         return 'Optimize me';
     }

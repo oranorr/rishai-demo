@@ -9,8 +9,9 @@ class _LoadingState extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          "I'm creating your personalized 5-day meal prep. Please wait a few minutes.",
+          "I'm creating your personalized\n5-day meal prep.\n\nPlease wait a few minutes.",
           style: context.styles.h2,
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
         const CircularProgressIndicator(),
