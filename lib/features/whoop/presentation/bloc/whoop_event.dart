@@ -51,6 +51,21 @@ class WhoopChangeModificatorOrSex extends WhoopEvent {
   });
 }
 
+class WhoopCheckDietChange extends WhoopEvent {
+  final List<String> newDiets;
+  final List<String> previousDiets;
+  final BuildContext context;
+
+  const WhoopCheckDietChange({
+    required this.newDiets,
+    required this.previousDiets,
+    required this.context,
+  });
+
+  @override
+  List<Object> get props => [newDiets, previousDiets, context];
+}
+
 class WhoopUpdateDayByMealPlan extends WhoopEvent {
   final MealPlanEntity mealPlanEntity;
   final ChatSnapshotEntity? snapshot;

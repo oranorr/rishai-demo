@@ -292,6 +292,11 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                 updUser.userGoal?.modificator;
             final genderChanged = currentUser.gender != updUser.gender;
 
+            // [DIET_CHECK] Проверяем изменение диет для кето/карнивор
+            final previousDiets = currentUser.foodPreferences?.diets ?? [];
+            final newDiets = updUser.foodPreferences?.diets ?? [];
+            final dietChanged = !listEquals(previousDiets, newDiets);
+
             // Обновляем пользователя
             userBloc.add(UpdateUserEvent(user: updUser));
 
@@ -302,6 +307,21 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
 
             // [FIX] Небольшая задержка перед проверкой изменений
             await Future.delayed(const Duration(milliseconds: 100));
+
+            // [DIET_CHECK] Проверяем изменение диеты на кето/карнивор при сохранении
+            if (dietChanged) {
+              log(
+                '[ProfileSettings] Обнаружено изменение диет при сохранении',
+                name: 'ProfileSettings',
+              );
+              whoopBloc.add(
+                WhoopCheckDietChange(
+                  newDiets: newDiets,
+                  previousDiets: previousDiets,
+                  context: context,
+                ),
+              );
+            }
 
             // Проверяем, нужно ли обновить макросы
             if (modificatorChanged || genderChanged) {

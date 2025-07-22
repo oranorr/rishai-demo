@@ -421,13 +421,26 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
         await hive.saveUserData(dataEntity: userData);
 
-        final int proteins = userData.calcProteins();
-        final int fats = userData.clacFats();
-        final int carbs = userData.calcCarbs(
-          kalorieGoal: calorieGoal,
-          proteinsInKcal: proteins * 4,
-          fatsInKcal: fats * 9,
-        );
+        // [DIET_MACRO_FIX] Проверяем диету пользователя и используем правильный алгоритм
+        final user = userBloc.state.user;
+        final userDiets = user.foodPreferences?.diets ?? [];
+        final needsKetoCarnivoreAlgorithm =
+            UserDataEntity.needsNewMacrosOnDietChange(userDiets);
+
+        log('[_fetchFreshData] 👤 Диеты пользователя: $userDiets');
+        log('[_fetchFreshData] 🥩 Нужен кето/карнивор алгоритм: $needsKetoCarnivoreAlgorithm');
+
+        // Используем правильный метод расчета макросов
+        final MacrosBreakdown macros;
+        if (needsKetoCarnivoreAlgorithm) {
+          log('[_fetchFreshData] 🥩 Применяю КЕТО/КАРНИВОР алгоритм для нового пользователя');
+          macros = userData.calcMacrosForKetoCarnivore();
+        } else {
+          log('[_fetchFreshData] 🍽️ Применяю СТАНДАРТНЫЙ алгоритм для нового пользователя');
+          macros = userData.calcMacros();
+        }
+
+        log('[_fetchFreshData] 📊 Рассчитанные макросы: P=${macros.protein}г, C=${macros.carbs}г, F=${macros.fat}г, K=${macros.kcal}ккал');
 
         DayEntity newDay = DayEntity(
           cycleId: indexOfCurrentCycle,
@@ -442,12 +455,8 @@ class WhoopRepositoryImpl implements WhoopRepository {
           ),
           dateTime: askTime,
           weekTdeeAverage: tdeeAverage.toInt(),
-          macros: MacrosBreakdown(
-            kcal: calorieGoal,
-            protein: proteins,
-            carbs: carbs,
-            fat: fats,
-          ),
+          macros:
+              macros, // Используем рассчитанные макросы вместо раздельных значений
         );
 
         print(

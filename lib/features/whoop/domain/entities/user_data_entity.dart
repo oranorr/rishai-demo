@@ -177,6 +177,107 @@ class UserDataEntity {
     );
   }
 
+  /// Утилитарный метод для проверки нужны ли специальные макросы для диеты
+  static bool needsNewMacrosOnDietChange(List<String> userDiets) {
+    return userDiets.any(
+      (diet) =>
+          diet.toLowerCase() == 'keto' || diet.toLowerCase() == 'carnivore',
+    );
+  }
+
+  /// Расчет макросов для кето/карнивор диеты
+  /// Алгоритм: 10% углеводов, остальные калории поровну между белками и жирами
+  MacrosBreakdown calcMacrosForKetoCarnivore() {
+    log('[calcMacrosForKetoCarnivore] Calculating keto/carnivore macros',
+        name: 'UserDataEntity');
+    log('[calcMacrosForKetoCarnivore] userWeightLbs: $userWeightLbs, calorieGoal: $calorieGoal',
+        name: 'UserDataEntity');
+
+    // Проверка на нулевой вес
+    if (userWeightLbs <= 0) {
+      log('WARNING: userWeightLbs is zero or negative: $userWeightLbs',
+          name: 'UserDataEntity');
+
+      // Используем кето/карнивор распределение даже для стандартных значений
+      final ketoCarbs =
+          (0.1 * calorieGoal / 4).round(); // 10% калорий от углеводов
+      final remainingKcal = calorieGoal - (ketoCarbs * 4); // Оставшиеся калории
+      final ketoProtein =
+          (0.5 * remainingKcal / 4).round(); // 50% оставшихся калорий от белка
+      final ketoFat =
+          (0.5 * remainingKcal / 9).round(); // 50% оставшихся калорий от жиров
+
+      log('[calcMacrosForKetoCarnivore] Using standard keto distribution: P=$ketoProtein, C=$ketoCarbs, F=$ketoFat',
+          name: 'UserDataEntity');
+
+      return MacrosBreakdown(
+        kcal: calorieGoal,
+        protein: ketoProtein,
+        carbs: ketoCarbs,
+        fat: ketoFat,
+      );
+    }
+
+    // Сначала рассчитываем стандартные макросы
+    final standardProtein = calcProteins();
+    final standardFats = clacFats();
+    final standardCarbs = calcCarbs(
+      kalorieGoal: calorieGoal,
+      proteinsInKcal: standardProtein * 4,
+      fatsInKcal: standardFats * 9,
+    );
+
+    log('[calcMacrosForKetoCarnivore] Standard macros - P: $standardProtein, C: $standardCarbs, F: $standardFats',
+        name: 'UserDataEntity');
+
+    // Применяем кето/карнивор алгоритм
+    // 1. Ограничиваем углеводы до 10% от общих калорий
+    final newCarbsKcal = calorieGoal * 0.10; // 10% от общих калорий
+    final newCarbs =
+        (newCarbsKcal / 4).round(); // Конвертируем в граммы (4 ккал/г)
+
+    // 2. Вычисляем освободившиеся калории
+    final standardCarbsKcal = standardCarbs * 4;
+    final freedKcal = standardCarbsKcal - newCarbsKcal;
+
+    log('[calcMacrosForKetoCarnivore] Carbs reduction: ${standardCarbsKcal}kcal -> ${newCarbsKcal}kcal (freed: ${freedKcal}kcal)',
+        name: 'UserDataEntity');
+
+    // 3. Распределяем освободившиеся калории поровну между белками и жирами
+    final additionalProteinKcal = freedKcal / 2;
+    final additionalFatKcal = freedKcal / 2;
+
+    final newProtein =
+        standardProtein + (additionalProteinKcal / 4).round(); // 4 ккал/г
+    final newFats = standardFats + (additionalFatKcal / 9).round(); // 9 ккал/г
+
+    // Проверка на нулевые значения и исправление
+    final validProtein = newProtein > 0
+        ? newProtein
+        : (0.45 * calorieGoal / 4).round(); // 45% если что-то пошло не так
+    final validCarbs = newCarbs > 0
+        ? newCarbs
+        : (0.1 * calorieGoal / 4).round(); // 10% если что-то пошло не так
+    final validFat = newFats > 0
+        ? newFats
+        : (0.45 * calorieGoal / 9).round(); // 45% если что-то пошло не так
+
+    log('[calcMacrosForKetoCarnivore] Final keto/carnivore macros - P: $validProtein, C: $validCarbs, F: $validFat',
+        name: 'UserDataEntity');
+
+    // Проверяем общие калории для отладки
+    final totalKcal = (validProtein * 4) + (validCarbs * 4) + (validFat * 9);
+    log('[calcMacrosForKetoCarnivore] Total calculated kcal: $totalKcal (target: $calorieGoal)',
+        name: 'UserDataEntity');
+
+    return MacrosBreakdown(
+      kcal: calorieGoal, // Сохраняем целевые калории
+      protein: validProtein,
+      carbs: validCarbs,
+      fat: validFat,
+    );
+  }
+
   @override
   String toString() {
     return 'UserDataEntity(workouts: $workouts, userWeightLbs: $userWeightLbs, gender: $gender, strainValue: $strainValue, recoveryScore: $recoveryScore, sleepPerformance: $sleepPerformance, calorieGoal: $calorieGoal, askTime: $askTime)';

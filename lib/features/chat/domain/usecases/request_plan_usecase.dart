@@ -59,9 +59,10 @@ class RequestPlanParams {
     final alreadyGeneratedMeals =
         isWeekPlan ? excludedMeals : DayEntity.getMealHistory(days);
 
-    if (dietary.contains('Carnivore')) {
-      dietary.remove('Carnivore');
-    }
+    // Раскомментировано: поддержка диеты Carnivore
+    // if (dietary.contains('Carnivore')) {
+    //   dietary.remove('Carnivore');
+    // }
 
     final userPrefs = {
       'dietary_preferences': dietary.join(', '),

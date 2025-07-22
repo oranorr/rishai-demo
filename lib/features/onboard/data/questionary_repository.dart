@@ -33,12 +33,12 @@ class QuestionaryRepository {
   ];
 
   final List<Dietary> diets = [
-    // Dietary(
-    //   name: 'Carnivore',
-    //   assetPath: 'assets/diet/carnivore.svg',
-    //   diet: Diet.carnivore,
-    // ),
-    // Dietary(name: 'Keto', assetPath: 'assets/diet/keto.svg', diet: Diet.keto),
+    Dietary(
+      name: 'Carnivore',
+      assetPath: 'assets/diet/carnivore.svg',
+      diet: Diet.carnivore,
+    ),
+    Dietary(name: 'Keto', assetPath: 'assets/diet/keto.svg', diet: Diet.keto),
     Dietary(
       name: 'Omnivore',
       assetPath: 'assets/diet/omnivore.svg',
