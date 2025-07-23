@@ -1,8 +1,10 @@
 import 'dart:developer';
-import 'dart:math' as math;
 import 'dart:io' show Platform;
+import 'dart:math' as math;
+
 import 'package:adapty_flutter/adapty_flutter.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository.dart';
@@ -31,24 +33,13 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
   Future<void> initAdapty() async {
     try {
       // Проверяем, запущено ли приложение в симуляторе/эмуляторе
-      if (Platform.isIOS || Platform.isAndroid) {
-        bool isReal = await _isRealDevice();
-        if (!isReal) {
-          _logger('Обнаружен симулятор/эмулятор. Включение режима симуляции.');
-          _isSimulatorMode = true;
 
-          // В режиме симулятора используем заглушки
-          isActive = true;
-          isTrialActive = true;
-          products = [];
-          return;
-        }
-      } else {
-        // Если не на мобильной платформе, также включаем режим симуляции
-        _logger(
-          'Запуск не на мобильной платформе. Включение режима симуляции.',
-        );
+      bool isReal = await _isRealDevice();
+      if (!isReal) {
+        _logger('Обнаружен симулятор/эмулятор. Включение режима симуляции.');
         _isSimulatorMode = true;
+
+        // В режиме симулятора используем заглушки
         isActive = true;
         isTrialActive = true;
         products = [];
@@ -70,30 +61,8 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       await Adapty().setLogLevel(AdaptyLogLevel.error);
       _logger('Adapty initialized successfully');
 
-      // === НОВАЯ ИНТЕГРАЦИЯ: Firebase Analytics + Adapty ===
-      try {
-        // Получаем Firebase App Instance ID для интеграции с Adapty Analytics
-        final String? firebaseAppInstanceId =
-            await FirebaseAnalytics.instance.appInstanceId;
-
-        if (firebaseAppInstanceId != null) {
-          // Устанавливаем Firebase App Instance ID в Adapty для связи аналитики
-          await Adapty().setIntegrationIdentifier(
-            key: 'firebase_app_instance_id',
-            value: firebaseAppInstanceId,
-          );
-
-          _logger(
-              '[Firebase-Adapty Integration] ✅ Firebase App Instance ID успешно установлен в Adapty: $firebaseAppInstanceId');
-        } else {
-          _logger(
-              '[Firebase-Adapty Integration] ⚠️ Не удалось получить Firebase App Instance ID');
-        }
-      } catch (e) {
-        _logger(
-            '[Firebase-Adapty Integration] ❌ Ошибка при интеграции Firebase с Adapty: $e');
-        // Не прерываем инициализацию Adapty из-за ошибки интеграции
-      }
+      // === УЛУЧШЕННАЯ ИНТЕГРАЦИЯ: Firebase Analytics + Adapty ===
+      await _setupFirebaseAdaptyIntegration();
       // === КОНЕЦ ИНТЕГРАЦИИ ===
 
       paywall = await Adapty().getPaywall(
@@ -157,10 +126,17 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     }
 
     try {
+      // Проверяем и переустанавливаем Firebase App Instance ID перед покупкой
+      await _ensureFirebaseIntegration();
+
       final prof = await Adapty().getProfile();
       if (prof.accessLevels['premium']?.isActive ?? false) {
         return 'ALREADY_EXISTS';
       }
+
+      _logger(
+        '[AdaptyPurchase] 🛒 Начинаем покупку продукта: ${product.vendorProductId}',
+      );
       AdaptyPurchaseResult res = await Adapty().makePurchase(product: product);
       final profile = await Adapty().getProfile();
 
@@ -176,14 +152,14 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       }
 
       if (isActive) {
-        log('Subscription purchase successful!');
+        _logger('[AdaptyPurchase] ✅ Покупка подписки успешна!');
         return 'SUCCESS';
       } else {
-        log('Subscription is not active.');
+        _logger('[AdaptyPurchase] ❌ Подписка не активна.');
         return 'CANCEL';
       }
     } catch (e, stackTrace) {
-      log('Error during purchase: $e');
+      _logger('[AdaptyPurchase] ❌ Ошибка при покупке: $e');
       await AdaptyErrorHandler.handleError(
         e,
         stackTrace,
@@ -195,6 +171,41 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         },
       );
       return 'Error happened, while processing purchase. Please, try again';
+    }
+  }
+
+  /// Убеждаемся, что интеграция Firebase с Adapty настроена
+  /// Используется перед критическими операциями как покупки
+  Future<void> _ensureFirebaseIntegration() async {
+    try {
+      _logger(
+        '[Firebase-Adapty Integration] 🔄 Проверяем интеграцию перед покупкой...',
+      );
+
+      final String? currentAppInstanceId =
+          await FirebaseAnalytics.instance.appInstanceId;
+
+      if (currentAppInstanceId != null && currentAppInstanceId.isNotEmpty) {
+        // Переустанавливаем ID для уверенности
+        await Adapty().setIntegrationIdentifier(
+          key: 'firebase_app_instance_id',
+          value: currentAppInstanceId,
+        );
+
+        _logger(
+          '[Firebase-Adapty Integration] ✅ Firebase App Instance ID подтвержден: $currentAppInstanceId',
+        );
+      } else {
+        _logger(
+          '[Firebase-Adapty Integration] ⚠️ Firebase App Instance ID все еще отсутствует - попытка повторной настройки',
+        );
+        await _setupFirebaseAdaptyIntegration();
+      }
+    } catch (e) {
+      _logger(
+        '[Firebase-Adapty Integration] ❌ Ошибка при проверке интеграции: $e',
+      );
+      // Не прерываем покупку из-за проблем с интеграцией
     }
   }
 
@@ -238,6 +249,38 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         context: 'adapty_identify',
         extras: {'adapty_id': adaptyId},
       );
+
+      // [FIX] Добавляем восстановление покупок при ошибке identify
+      // Это решает проблему когда подписка уже привязана к другому аккаунту
+      _logger('Попытка восстановления покупок после ошибки identify...');
+      try {
+        final profile = await Adapty().restorePurchases();
+        AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
+
+        isActive = lvl?.isActive ?? false;
+        if (lvl != null) {
+          isTrialActive = await _isTrialPeriodAvailable(lvl);
+        } else {
+          isTrialActive = true;
+        }
+
+        _logger(
+          'После восстановления - подписка активна: $isActive, пробный период доступен: $isTrialActive',
+        );
+
+        // Если удалось восстановить активную подписку, не перебрасываем ошибку
+        if (isActive) {
+          _logger('Подписка успешно восстановлена после ошибки identify');
+          return;
+        }
+      } catch (restoreError) {
+        _logger('Ошибка при восстановлении покупок: $restoreError');
+        // Устанавливаем статус по умолчанию
+        isActive = false;
+        isTrialActive = true;
+      }
+
+      // Перебрасываем оригинальную ошибку только если не удалось восстановить подписку
       rethrow;
     }
   }
@@ -393,6 +436,135 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       );
       rethrow;
     }
+  }
+
+  /// Настройка интеграции Firebase с Adapty
+  /// Включает retry-механизм для получения Firebase App Instance ID
+  Future<void> _setupFirebaseAdaptyIntegration() async {
+    try {
+      _logger(
+        '[Firebase-Adapty Integration] 🚀 Начинаем настройку интеграции...',
+      );
+
+      // Убеждаемся, что Firebase Analytics включен
+      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+      _logger(
+        '[Firebase-Adapty Integration] ✅ Firebase Analytics Collection включен',
+      );
+
+      // Пытаемся получить Firebase App Instance ID с повторными попытками
+      String? firebaseAppInstanceId =
+          await _getFirebaseAppInstanceIdWithRetry();
+
+      if (firebaseAppInstanceId != null && firebaseAppInstanceId.isNotEmpty) {
+        // Устанавливаем Firebase App Instance ID в Adapty для связи аналитики
+        await Adapty().setIntegrationIdentifier(
+          key: 'firebase_app_instance_id',
+          value: firebaseAppInstanceId,
+        );
+
+        _logger(
+          '[Firebase-Adapty Integration] ✅ Firebase App Instance ID успешно установлен в Adapty: $firebaseAppInstanceId',
+        );
+
+        // Дополнительно устанавливаем идентификатор для Firebase as Integration
+        try {
+          await Adapty().setIntegrationIdentifier(
+            key: 'firebase',
+            value: firebaseAppInstanceId,
+          );
+          _logger(
+            '[Firebase-Adapty Integration] ✅ Дополнительный Firebase ID установлен',
+          );
+        } catch (e) {
+          _logger(
+            '[Firebase-Adapty Integration] ⚠️ Ошибка установки дополнительного Firebase ID: $e',
+          );
+        }
+      } else {
+        _logger(
+          '[Firebase-Adapty Integration] ❌ Не удалось получить Firebase App Instance ID после всех попыток',
+        );
+
+        // Отправляем уведомление в Sentry для мониторинга
+        await AdaptyErrorHandler.handleError(
+          Exception('Firebase App Instance ID is null or empty'),
+          StackTrace.current,
+          context: 'firebase_adapty_integration_failure',
+          extras: {
+            'firebase_app_instance_id':
+                firebaseAppInstanceId?.toString() ?? 'null',
+            'platform': Platform.operatingSystem,
+            'is_release_mode': kReleaseMode.toString(),
+          },
+        );
+      }
+    } catch (e, stackTrace) {
+      _logger(
+        '[Firebase-Adapty Integration] ❌ Критическая ошибка при интеграции Firebase с Adapty: $e',
+      );
+
+      // Не прерываем инициализацию Adapty из-за ошибки интеграции
+      await AdaptyErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'firebase_adapty_integration_error',
+        extras: {
+          'platform': Platform.operatingSystem,
+          'is_release_mode': kReleaseMode.toString(),
+        },
+      );
+    }
+  }
+
+  /// Получение Firebase App Instance ID с повторными попытками
+  /// Возвращает null если не удалось получить ID после всех попыток
+  Future<String?> _getFirebaseAppInstanceIdWithRetry({
+    int maxRetries = 5,
+    Duration initialDelay = const Duration(milliseconds: 500),
+  }) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        _logger(
+          '[Firebase-Adapty Integration] 🔄 Попытка $attempt/$maxRetries получить Firebase App Instance ID...',
+        );
+
+        final String? appInstanceId =
+            await FirebaseAnalytics.instance.appInstanceId;
+
+        if (appInstanceId != null && appInstanceId.isNotEmpty) {
+          _logger(
+            '[Firebase-Adapty Integration] ✅ Firebase App Instance ID получен на попытке $attempt: $appInstanceId',
+          );
+          return appInstanceId;
+        } else {
+          _logger(
+            '[Firebase-Adapty Integration] ⚠️ Попытка $attempt: Firebase App Instance ID пустой или null',
+          );
+        }
+      } catch (e) {
+        _logger(
+          '[Firebase-Adapty Integration] ❌ Ошибка на попытке $attempt: $e',
+        );
+      }
+
+      // Если это не последняя попытка, ждем перед следующей
+      if (attempt < maxRetries) {
+        final Duration delay = Duration(
+          milliseconds: initialDelay.inMilliseconds *
+              attempt, // Экспоненциальная задержка
+        );
+        _logger(
+          '[Firebase-Adapty Integration] ⏳ Ожидание ${delay.inMilliseconds}ms перед следующей попыткой...',
+        );
+        await Future.delayed(delay);
+      }
+    }
+
+    _logger(
+      '[Firebase-Adapty Integration] ❌ Не удалось получить Firebase App Instance ID после $maxRetries попыток',
+    );
+    return null;
   }
 }
 

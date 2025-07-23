@@ -60,12 +60,49 @@ void main() async {
         print('Ошибка при инициализации Firebase: $e');
       }
 
-      // Явно включаем отладку Firebase Analytics для тестирования
-      if (kDebugMode) {
-        FirebaseAnalytics analytics = FirebaseAnalytics.instance;
-        await analytics.setAnalyticsCollectionEnabled(true);
-        print('🔥 Firebase Analytics collection enabled explicitly');
+      // Инициализируем Firebase Analytics для всех сборок
+      FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+      await analytics.setAnalyticsCollectionEnabled(true);
+      print('🔥 Firebase Analytics collection enabled explicitly');
 
+      // Проверяем получение App Instance ID сразу после инициализации
+      try {
+        final String? appInstanceId = await analytics.appInstanceId;
+        print(
+          '🔥 Firebase App Instance ID: ${appInstanceId ?? "NOT_AVAILABLE"}',
+        );
+
+        if (appInstanceId == null) {
+          print(
+            '⚠️ Firebase App Instance ID недоступен сразу после инициализации',
+          );
+          // Принудительно логируем событие для инициализации
+          await analytics.logEvent(
+            name: 'force_initialization',
+            parameters: {
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+              'platform': 'Flutter',
+              'mode': kDebugMode ? 'debug' : 'release',
+            },
+          );
+          print(
+            '🔥 Отправлено принудительное событие для инициализации Analytics',
+          );
+
+          // Даем время Firebase для инициализации App Instance ID
+          await Future.delayed(const Duration(milliseconds: 1000));
+
+          final String? retryAppInstanceId = await analytics.appInstanceId;
+          print(
+            '🔥 Firebase App Instance ID после задержки: ${retryAppInstanceId ?? "STILL_NOT_AVAILABLE"}',
+          );
+        }
+      } catch (e) {
+        print('❌ Ошибка получения Firebase App Instance ID: $e');
+      }
+
+      // Дополнительные тестовые события только в debug режиме
+      if (kDebugMode) {
         // Создаем несколько тестовых событий для проверки работы аналитики
         print('🔥 Отправляем тестовые события Firebase analytics...');
 
@@ -103,8 +140,6 @@ void main() async {
       await configureDependencies();
 
       await dotenv.load();
-
-      await analytics.init();
 
       AnalyticsEventTracker().init();
 
