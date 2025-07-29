@@ -137,13 +137,41 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
         // Обновляем пользователя (дни будут загружены при необходимости)
         emit(state.copyWith(user: user));
-        await adapty.identify(adaptyId: user.adaptyId!);
-        // }
+
+        // [FIX] Дожидаемся полного завершения identify и восстановления подписки
+        try {
+          await adapty.identify(adaptyId: user.adaptyId!);
+          log(
+            'Adapty identify завершен. Статус подписки: ${adapty.isActive}',
+            name: 'UserBloc',
+          );
+        } catch (e) {
+          log('Ошибка при identify, но продолжаем: $e', name: 'UserBloc');
+          // Даже если identify упал, пытаемся восстановить покупки
+          try {
+            final restoreResult = await adapty.restorePurchases();
+            log(
+              'Результат восстановления покупок: $restoreResult',
+              name: 'UserBloc',
+            );
+          } catch (restoreError) {
+            log(
+              'Ошибка при восстановлении покупок: $restoreError',
+              name: 'UserBloc',
+            );
+          }
+        }
+
+        // Обновляем состояние после завершения всех операций с Adapty
         emit(state.copyWith(user: user));
 
+        // Теперь запускаем другие блоки, когда статус подписки уже определен
         weekPlanBloc.add(const WeekPlanLoad());
         whoopBloc.add(const InitWhoopOnLogin());
-        log('Пользователь загружен из кэша', name: 'UserBloc');
+        log(
+          'Пользователь загружен из кэша. Финальный статус подписки: ${adapty.isActive}',
+          name: 'UserBloc',
+        );
       } else {
         log('Сохраненный пользователь не найден', name: 'UserBloc');
         appNavigationService.go(

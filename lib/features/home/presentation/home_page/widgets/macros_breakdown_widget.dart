@@ -9,9 +9,59 @@ class _MacrosBreakdownWidget extends StatelessWidget {
   final bool isToday;
   final DayEntity day;
 
+  // Локальный метод для расчета процентов макросов для конкретного дня
+  (double proteinPer, double carbsPer, double fatsPer)
+      _calculatePercentageForDay(DayEntity dayData) {
+    int proteinKcal = dayData.macros.protein * 4;
+    int carbsKcal = dayData.macros.carbs * 4;
+    int fatsKcal = dayData.macros.fat * 9;
+
+    final totalKcal = dayData.macros.kcal;
+
+    double proteinPerc = (proteinKcal / totalKcal) * 100;
+    double carbsPerc = (carbsKcal / totalKcal) * 100;
+    double fatsPerc = (fatsKcal / totalKcal) * 100;
+
+    int proteinRounded = proteinPerc.round();
+    int carbsRounded = carbsPerc.round();
+    int fatsRounded = fatsPerc.round();
+
+    int totalRounded = proteinRounded + carbsRounded + fatsRounded;
+    if (totalRounded != 100) {
+      int difference = 100 - totalRounded;
+
+      if (proteinRounded >= carbsRounded && proteinRounded >= fatsRounded) {
+        proteinRounded += difference;
+      } else if (carbsRounded >= proteinRounded &&
+          carbsRounded >= fatsRounded) {
+        carbsRounded += difference;
+      } else {
+        fatsRounded += difference;
+      }
+    }
+
+    return (
+      proteinRounded.toDouble(),
+      carbsRounded.toDouble(),
+      fatsRounded.toDouble(),
+    );
+  }
+
+  // Локальный метод для расчета калорий макросов для конкретного дня
+  (int carbsKcal, int proteinKcal, int fatKcal) _calculateMacrosInKcalForDay(
+    DayEntity dayData,
+  ) {
+    int proteinKcal = dayData.macros.protein * 4;
+    int carbsKcal = dayData.macros.carbs * 4;
+    int fatsKcal = dayData.macros.fat * 9;
+    return (carbsKcal, proteinKcal, fatsKcal);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final res = whoopBloc.calculatePercentage();
+    // Используем макросы для правильного дня
+    final currentDay = isToday ? whoopBloc.state.day : day;
+    final res = _calculatePercentageForDay(currentDay);
 
     return _Card(
       child: Row(
@@ -61,7 +111,8 @@ class _MacrosBreakdownWidget extends StatelessWidget {
             child: BlocBuilder<WhoopBloc, WhoopState>(
               bloc: whoopBloc,
               builder: (context, state) {
-                final kcals = whoopBloc.calculateMacrosInKcal();
+                // Используем калории для правильного дня
+                final kcals = _calculateMacrosInKcalForDay(currentDay);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -105,9 +156,7 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                     // ),
                     Text.rich(
                       TextSpan(
-                        text: isToday
-                            ? '${state.day.macros.protein.comaThisNumber()}g '
-                            : '${day.macros.protein.comaThisNumber()}g ',
+                        text: '${currentDay.macros.protein.comaThisNumber()}g ',
                         style: context.styles.numsM
                             .copyWith(color: RishColors.protein),
                         children: [
@@ -123,9 +172,7 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                     SizedBox(height: 12.h),
                     Text.rich(
                       TextSpan(
-                        text: isToday
-                            ? '${state.day.macros.carbs.comaThisNumber()}g '
-                            : '${day.macros.carbs.comaThisNumber()}g ',
+                        text: '${currentDay.macros.carbs.comaThisNumber()}g ',
                         style: context.styles.numsM
                             .copyWith(color: RishColors.carbs),
                         children: [
@@ -140,9 +187,7 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                     SizedBox(height: 12.h),
                     Text.rich(
                       TextSpan(
-                        text: isToday
-                            ? '${state.day.macros.fat.comaThisNumber()}g '
-                            : '${day.macros.fat.comaThisNumber()}g ',
+                        text: '${currentDay.macros.fat.comaThisNumber()}g ',
                         style: context.styles.numsM
                             .copyWith(color: RishColors.fat),
                         children: [

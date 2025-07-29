@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Пример полного workflow разработки с автоматизацией
+
+echo "🎯 Пример workflow разработки с автоматизацией"
+echo "=============================================="
+
+echo ""
+echo "1️⃣ Разработка новой функции:"
+echo "git checkout -b feature/new-feature"
+echo "# ... разработка кода ..."
+echo "git add ."
+echo "git commit -m 'Add new feature'"
+echo "git push origin feature/new-feature"
+echo "# Создать Pull Request → CI автоматически запустится"
+
+echo ""
+echo "2️⃣ Локальное тестирование перед коммитом:"
+echo "./scripts/test_ci.sh"
+
+echo ""
+echo "3️⃣ Слияние в main и подготовка к релизу:"
+echo "git checkout main"
+echo "git merge feature/new-feature"
+echo "git push origin main"
+echo "# CI соберет и протестирует код"
+
+echo ""
+echo "4️⃣ Создание релиза:"
+echo "./scripts/version_bump.sh patch  # или minor/major"
+echo "git push && git push --tags"
+echo "# Автоматически запустится деплоймент"
+
+echo ""
+echo "5️⃣ Тестирование через Firebase:"
+echo "./scripts/deploy_firebase.sh android"
+echo "./scripts/deploy_firebase.sh ios"
+
+echo ""
+echo "6️⃣ Мониторинг:"
+echo "# Проверить GitHub Actions"
+echo "# Проверить Google Play Console"
+echo "# Проверить App Store Connect"
+echo "# Проверить Sentry для ошибок"
+
+echo ""
+echo "📋 Полезные команды для ежедневной разработки:"
+echo ""
+echo "# Быстрая сборка и тест"
+echo "./scripts/build_local.sh android"
+echo ""
+echo "# Проверка перед коммитом"
+echo "./scripts/test_ci.sh"
+echo ""
+echo "# Локальная отладка"
+echo "flutter run --debug"
+echo ""
+echo "# Форматирование кода"
+echo "dart format ."
+echo ""
+echo "# Генерация кода"
+echo "dart run build_runner build --delete-conflicting-outputs"
+
+echo ""
+echo "🎉 Автоматизация настроена и готова к использованию!" 

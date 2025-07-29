@@ -14,11 +14,12 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
     show adapty;
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
+import 'package:rishai/core/services/directus/directus_collections.dart';
+import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
-
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/core/status.dart';
-
 import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
@@ -29,7 +30,6 @@ import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
-import 'package:rishai/features/onboard/domain/entities.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
@@ -43,9 +43,6 @@ import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.d
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
-import 'package:rishai/core/services/hive/hive_impl.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
 
 part 'whoop_event.dart';
 
@@ -472,6 +469,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         weekTdeeAverage: state.day.weekTdeeAverage,
         userId: user.directusId,
         lastTdee: state.day.healthMetrics.lastTdee,
+        currentDiets: event.currentDiets, // Передаем актуальные диеты из event
       ),
     );
 
@@ -545,92 +543,65 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       );
       log('[WhoopBloc] Новые диеты: ${event.newDiets}', name: 'WhoopBloc');
 
-      // Проверяем была ли кето или карнивор диета в предыдущих настройках
-      final hadKetoOrCarnivore =
-          UserDataEntity.needsNewMacrosOnDietChange(event.previousDiets);
-
-      // Проверяем есть ли кето или карнивор диета в новых настройках
-      final hasKetoOrCarnivore =
-          UserDataEntity.needsNewMacrosOnDietChange(event.newDiets);
+      // Определяем тип предыдущей и текущей диеты
+      final previousDietType =
+          UserDataEntity.getSpecialDietType(event.previousDiets);
+      final currentDietType = UserDataEntity.getSpecialDietType(event.newDiets);
 
       log(
-        '[WhoopBloc] Была кето/карнивор: $hadKetoOrCarnivore',
+        '[WhoopBloc] Предыдущий тип диеты: $previousDietType',
         name: 'WhoopBloc',
       );
-      log(
-        '[WhoopBloc] Есть кето/карнивор: $hasKetoOrCarnivore',
-        name: 'WhoopBloc',
-      );
+      log('[WhoopBloc] Текущий тип диеты: $currentDietType', name: 'WhoopBloc');
 
-      // Проверяем изменилась ли диета
-      if (hadKetoOrCarnivore != hasKetoOrCarnivore) {
-        // Логируем конкретный тип изменения
-        if (hasKetoOrCarnivore) {
-          final ketoCarnivores = event.newDiets
-              .where(
-                (diet) =>
-                    diet.toLowerCase() == 'keto' ||
-                    diet.toLowerCase() == 'carnivore',
-              )
-              .join(', ');
-          log(
-            '[WhoopBloc] ✅ ПЕРЕХОД НА КЕТО/КАРНИВОР ДИЕТУ: $ketoCarnivores',
-            name: 'WhoopBloc',
-          );
-          print('🥩 ПЕРЕХОД НА КЕТО/КАРНИВОР ДИЕТУ: $ketoCarnivores');
-        } else {
-          final newDiets = event.newDiets
-              .where(
-                (diet) =>
-                    diet.toLowerCase() != 'keto' &&
-                    diet.toLowerCase() != 'carnivore',
-              )
-              .join(', ');
-          log(
-            '[WhoopBloc] 🔄 ПЕРЕХОД НА СТАНДАРТНУЮ ДИЕТУ: ${newDiets.isEmpty ? "omnivore" : newDiets}',
-            name: 'WhoopBloc',
-          );
-          print(
-            '🔄 ПЕРЕХОД НА СТАНДАРТНУЮ ДИЕТУ: ${newDiets.isEmpty ? "omnivore" : newDiets}',
-          );
-        }
-
-        // Пересчитываем макросы для ЛЮБОГО изменения диеты
-        await _recalculateMacrosForDietChange(hasKetoOrCarnivore, emit);
-      } else {
-        // Проверяем изменения внутри той же категории диет
-        final previousSet =
-            Set<String>.from(event.previousDiets.map((d) => d.toLowerCase()));
-        final newSet =
-            Set<String>.from(event.newDiets.map((d) => d.toLowerCase()));
-
-        if (previousSet.difference(newSet).isNotEmpty ||
-            newSet.difference(previousSet).isNotEmpty) {
-          if (hasKetoOrCarnivore) {
-            log(
-              '[WhoopBloc] 🔄 ИЗМЕНЕНИЕ ВНУТРИ КЕТО/КАРНИВОР КАТЕГОРИИ',
-              name: 'WhoopBloc',
-            );
-            print(
-              '🔄 ИЗМЕНЕНИЕ ВНУТРИ КЕТО/КАРНИВОР КАТЕГОРИИ (макросы остаются кето/карнивор)',
-            );
-          } else {
-            log(
-              '[WhoopBloc] 🔄 ИЗМЕНЕНИЕ ВНУТРИ СТАНДАРТНЫХ ДИЕТ',
-              name: 'WhoopBloc',
-            );
-            print(
-              '🔄 ИЗМЕНЕНИЕ ВНУТРИ СТАНДАРТНЫХ ДИЕТ (макросы остаются стандартными)',
-            );
-          }
-
-          // Можно добавить пересчет и здесь, если нужно
-          // await _recalculateMacrosForDietChange(hasKetoOrCarnivore, emit);
-        } else {
-          log('[WhoopBloc] ℹ️ Диеты не изменились', name: 'WhoopBloc');
-          print('ℹ️ Диеты не изменились');
-        }
+      // Логика пересчета макросов - НУЖЕН ПЕРЕСЧЕТ если тип диеты изменился
+      if (previousDietType == currentDietType) {
+        // Тип диеты не изменился - пересчет НЕ нужен
+        log(
+          '[WhoopBloc] ✅ ТИП ДИЕТЫ НЕ ИЗМЕНИЛСЯ ($currentDietType)',
+          name: 'WhoopBloc',
+        );
+        print(
+          '✅ ТИП ДИЕТЫ НЕ ИЗМЕНИЛСЯ ($currentDietType) - пересчет макросов не требуется',
+        );
+        return;
       }
+
+      // ТИП ДИЕТЫ ИЗМЕНИЛСЯ - делаем пересчет макросов
+      log(
+        '[WhoopBloc] 🔄 ИЗМЕНЕНИЕ ТИПА ДИЕТЫ: $previousDietType → $currentDietType',
+        name: 'WhoopBloc',
+      );
+
+      // Логируем конкретный тип изменения
+      if (currentDietType != null) {
+        if (currentDietType == 'carnivore') {
+          log('[WhoopBloc] ✅ ПЕРЕХОД НА CARNIVORE ДИЕТУ', name: 'WhoopBloc');
+          print('🥩 ПЕРЕХОД НА CARNIVORE ДИЕТУ');
+        } else if (currentDietType == 'keto') {
+          log('[WhoopBloc] ✅ ПЕРЕХОД НА KETO ДИЕТУ', name: 'WhoopBloc');
+          print('🥑 ПЕРЕХОД НА KETO ДИЕТУ');
+        }
+      } else {
+        final standardDiets = event.newDiets
+            .where(
+              (diet) =>
+                  diet.toLowerCase() != 'keto' &&
+                  diet.toLowerCase() != 'carnivore',
+            )
+            .join(', ');
+        log(
+          '[WhoopBloc] 🔄 ПЕРЕХОД НА СТАНДАРТНУЮ ДИЕТУ: ${standardDiets.isEmpty ? "omnivore" : standardDiets}',
+          name: 'WhoopBloc',
+        );
+        print(
+          '🔄 ПЕРЕХОД НА СТАНДАРТНУЮ ДИЕТУ: ${standardDiets.isEmpty ? "omnivore" : standardDiets}',
+        );
+      }
+
+      // Пересчитываем макросы для изменения типа диеты
+      final needsSpecialAlgorithm = currentDietType != null;
+      await _recalculateMacrosForDietChange(needsSpecialAlgorithm, emit);
     } catch (e, stackTrace) {
       log(
         '[WhoopBloc] Ошибка при проверке изменения диеты: $e',
@@ -677,14 +648,37 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         name: 'WhoopBloc',
       );
 
-      // Рассчитываем новые макросы в зависимости от диеты
+      // Рассчитываем новые макросы в зависимости от типа диеты
       final MacrosBreakdown newMacros;
       if (useKetoCarnivoreAlgorithm) {
-        log(
-          '[WhoopBloc] 🥩 Применяю КЕТО/КАРНИВОР алгоритм (10% углеводов)',
-          name: 'WhoopBloc',
-        );
-        newMacros = userData.calcMacrosForKetoCarnivore();
+        // Определяем конкретный тип специальной диеты
+        final currentUser = userBloc.state.user;
+        final currentDiets = currentUser.foodPreferences?.diets ?? [];
+        final specialDietType = UserDataEntity.getSpecialDietType(currentDiets);
+
+        switch (specialDietType) {
+          case 'carnivore':
+            log(
+              '[WhoopBloc] 🥩 Применяю CARNIVORE алгоритм (1% углеводов, 30-35% белки, 65-70% жиры)',
+              name: 'WhoopBloc',
+            );
+            newMacros = userData.calcMacrosForCarnivore();
+            break;
+          case 'keto':
+            log(
+              '[WhoopBloc] 🥑 Применяю KETO алгоритм (5-10% углеводов, 20-25% белки, 65-75% жиры)',
+              name: 'WhoopBloc',
+            );
+            newMacros = userData.calcMacrosForKeto();
+            break;
+          default:
+            // Fallback на keto алгоритм для совместимости
+            log(
+              '[WhoopBloc] ⚠️ Неопознанная специальная диета, используем KETO fallback алгоритм',
+              name: 'WhoopBloc',
+            );
+            newMacros = userData.calcMacrosForKeto();
+        }
       } else {
         log(
           '[WhoopBloc] 🍽️ Применяю СТАНДАРТНЫЙ алгоритм (обычное распределение)',
@@ -751,16 +745,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         name: 'WhoopBloc',
       );
 
-      // Показываем уведомление пользователю с конкретной информацией
-      final String message;
-      if (useKetoCarnivoreAlgorithm) {
-        message =
-            'Макросы обновлены для кето/карнивор диеты: ${newMacros.carbs}г углеводов (10%)';
-      } else {
-        message = 'Макросы возвращены к стандартному распределению';
-      }
-
-      RishSnackbar().showSnackBar(message, isError: false);
+      // Не показываем снек бар успеха при смене диеты
     } catch (e, stackTrace) {
       log(
         '[WhoopBloc] ❌ Ошибка при пересчете макросов: $e',
@@ -770,7 +755,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       );
 
       RishSnackbar().showSnackBar(
-        'Ошибка при пересчете макросов. Попробуйте еще раз.',
+        'Error recalculating macros. Please try again.',
       );
     }
   }

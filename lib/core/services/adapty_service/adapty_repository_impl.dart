@@ -130,8 +130,26 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       await _ensureFirebaseIntegration();
 
       final prof = await Adapty().getProfile();
-      if (prof.accessLevels['premium']?.isActive ?? false) {
-        return 'ALREADY_EXISTS';
+      final isCurrentlyActive = prof.accessLevels['premium']?.isActive ?? false;
+
+      // [FIX] Улучшенная логика проверки активной подписки
+      if (isCurrentlyActive) {
+        // Обновляем локальный статус в соответствии с реальным профилем
+        isActive = true;
+        final lvl = prof.accessLevels['premium'];
+        if (lvl != null) {
+          isTrialActive = await _isTrialPeriodAvailable(lvl);
+        } else {
+          isTrialActive = true;
+        }
+
+        _logger(
+          '[AdaptyPurchase] ✅ Подписка уже активна, обновляем локальный статус',
+        );
+
+        // Если локальный статус не соответствовал реальному, это значит была проблема синхронизации
+        // Возвращаем SUCCESS вместо ALREADY_EXISTS, так как пользователь должен пройти дальше
+        return 'SUCCESS';
       }
 
       _logger(
@@ -250,38 +268,61 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         extras: {'adapty_id': adaptyId},
       );
 
-      // [FIX] Добавляем восстановление покупок при ошибке identify
+      // [FIX] Улучшенное восстановление покупок при ошибке identify
       // Это решает проблему когда подписка уже привязана к другому аккаунту
       _logger('Попытка восстановления покупок после ошибки identify...');
-      try {
-        final profile = await Adapty().restorePurchases();
-        AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
 
-        isActive = lvl?.isActive ?? false;
-        if (lvl != null) {
-          isTrialActive = await _isTrialPeriodAvailable(lvl);
-        } else {
-          isTrialActive = true;
+      bool restoreSuccessful = false;
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+          _logger('Попытка восстановления $attempt/3...');
+
+          final profile = await Adapty().restorePurchases();
+          AdaptyAccessLevel? lvl = profile.accessLevels['premium'];
+
+          isActive = lvl?.isActive ?? false;
+          if (lvl != null) {
+            isTrialActive = await _isTrialPeriodAvailable(lvl);
+          } else {
+            isTrialActive = true;
+          }
+
+          _logger(
+            'После восстановления (попытка $attempt) - подписка активна: $isActive, пробный период доступен: $isTrialActive',
+          );
+
+          // Если удалось восстановить активную подписку, выходим из цикла
+          if (isActive) {
+            _logger(
+              'Подписка успешно восстановлена после ошибки identify на попытке $attempt',
+            );
+            restoreSuccessful = true;
+            break;
+          }
+
+          // Небольшая задержка перед следующей попыткой
+          if (attempt < 3) {
+            await Future.delayed(Duration(seconds: attempt));
+          }
+        } catch (restoreError) {
+          _logger(
+            'Ошибка при восстановлении покупок (попытка $attempt): $restoreError',
+          );
+          // Продолжаем попытки или устанавливаем статус по умолчанию на последней попытке
+          if (attempt == 3) {
+            isActive = false;
+            isTrialActive = true;
+          }
         }
-
-        _logger(
-          'После восстановления - подписка активна: $isActive, пробный период доступен: $isTrialActive',
-        );
-
-        // Если удалось восстановить активную подписку, не перебрасываем ошибку
-        if (isActive) {
-          _logger('Подписка успешно восстановлена после ошибки identify');
-          return;
-        }
-      } catch (restoreError) {
-        _logger('Ошибка при восстановлении покупок: $restoreError');
-        // Устанавливаем статус по умолчанию
-        isActive = false;
-        isTrialActive = true;
       }
 
       // Перебрасываем оригинальную ошибку только если не удалось восстановить подписку
-      rethrow;
+      if (!restoreSuccessful) {
+        _logger(
+          'Все попытки восстановления не удались, перебрасываем ошибку identify',
+        );
+        rethrow;
+      }
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/error/local_storage_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
+import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
@@ -101,34 +102,14 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
           latestDay = await dm.dayManager.getLastUserDay(userId: params.userId);
 
           if (latestDay == null) {
-            log('No saved days found for user, cannot create UserDataEntity');
-            await LocalStorageErrorHandler.handleError(
-              'User data is null and no days found',
-              StackTrace.current,
-              context: 'whoop_local_storage',
-              operation: 'change_modificator',
-              storageType: 'hive',
-              extras: {
-                'user_id': params.userId,
-                'modificator': params.modificator,
-                'week_tdee_average': params.weekTdeeAverage,
-                'box_is_empty': isEmpty,
-                'data_count': count,
-              },
-            );
+            log('No saved days found for user');
             return const Left(WhoopDataDueToRefresh());
           }
-          log('Created day from server data: directusId=${latestDay.directusId}, cycleId=${latestDay.cycleId}');
         }
 
-        // Создаем UserDataEntity на основе данных дня
-        final newCalorieGoal =
-            (1 + params.modificator) * params.weekTdeeAverage;
-
-        // Получаем дополнительную информацию из UserBloc, если возможно
         final user = userBloc.state.user;
 
-        // Создаем базовый UserDataEntity с минимальными данными для расчета макросов
+        // Создаем UserDataEntity на основе сохраненного дня
         userData = UserDataEntity(
           userId: params.userId,
           workouts: [], // Пустой список, так как данные отсутствуют
@@ -181,8 +162,39 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
 
         await hive.saveUserData(dataEntity: userData);
         log('UserData saved successfully');
-        final newMacros = userData.calcMacros();
-        log('New macros calculated: $newMacros');
+
+        // [FIX] Используем diet-aware макрос расчет
+        // Получаем диеты из параметров, если переданы, иначе из userBloc.state.user
+        final currentDiets = params.currentDiets ??
+            userBloc.state.user.foodPreferences?.diets ??
+            [];
+        log('[changeModificatorOrSexLocal] 🔍 Получены диеты: $currentDiets (из параметров: ${params.currentDiets != null})');
+        final specialDietType = UserDataEntity.getSpecialDietType(currentDiets);
+        log('[changeModificatorOrSexLocal] 🔍 Определенный тип специальной диеты: $specialDietType');
+
+        final MacrosBreakdown newMacros;
+        if (specialDietType != null) {
+          // Применяем специальный алгоритм для кето/карнивор диет
+          switch (specialDietType) {
+            case 'carnivore':
+              log('[changeModificatorOrSexLocal] 🥩 Применяю CARNIVORE алгоритм (1% углеводов, 30-35% белки, 65-70% жиры)');
+              newMacros = userData.calcMacrosForCarnivore();
+              break;
+            case 'keto':
+              log('[changeModificatorOrSexLocal] 🥑 Применяю KETO алгоритм (5-10% углеводов, 20-25% белки, 65-75% жиры)');
+              newMacros = userData.calcMacrosForKeto();
+              break;
+            default:
+              // Fallback на keto алгоритм для совместимости
+              log('[changeModificatorOrSexLocal] ⚠️ Неопознанная специальная диета, используем KETO fallback алгоритм');
+              newMacros = userData.calcMacrosForKeto();
+          }
+        } else {
+          // Используем стандартный алгоритм для обычных диет
+          log('[changeModificatorOrSexLocal] 🍽️ Применяю СТАНДАРТНЫЙ алгоритм (обычное распределение)');
+          newMacros = userData.calcMacros();
+        }
+        log('New macros calculated with diet awareness: $newMacros');
 
         final cachedDays = await hive.retrieveSavedDays();
         DayEntity? latestDay;

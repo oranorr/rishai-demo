@@ -1,0 +1,72 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Deploy to TestFlight"
+  lane :deploy_testflight do
+    # Get the latest provisioning profile
+    get_provisioning_profile(
+      app_identifier: "com.mvplab.rishai",
+      api_key_path: "AuthKey.p8"
+    )
+
+    # Build the app
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "rishai.ipa"
+    )
+
+    # Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      api_key_path: "AuthKey.p8"
+    )
+  end
+
+  desc "Deploy to App Store"
+  lane :deploy_appstore do
+    # Get the latest provisioning profile
+    get_provisioning_profile(
+      app_identifier: "com.mvplab.rishai",
+      api_key_path: "AuthKey.p8"
+    )
+
+    # Build the app
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "rishai.ipa"
+    )
+
+    # Upload to App Store
+    upload_to_app_store(
+      skip_waiting_for_build_processing: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      api_key_path: "AuthKey.p8"
+    )
+  end
+
+  desc "Build and deploy to Firebase App Distribution"
+  lane :deploy_firebase do
+    # Build the app
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      export_method: "development",
+      output_directory: "./build",
+      output_name: "rishai-dev.ipa"
+    )
+
+    firebase_app_distribution(
+      app: "1:922501061929:ios:b87d47c5a4548aedcb2b38",
+      ipa_path: "./build/rishai-dev.ipa",
+      groups: "internal-testers",
+      release_notes: "Latest build from CI"
+    )
+  end
+end 

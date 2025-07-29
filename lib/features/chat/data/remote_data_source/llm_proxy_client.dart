@@ -137,14 +137,17 @@ class LlmMealRequest {
     required this.type,
     required this.message,
     required this.meals,
+    required this.diet,
   });
 
   final LlmMealRequestType type;
   final String message;
   final List<LlmMealDto> meals;
+  final String diet;
 
   Map<String, dynamic> toJson() => {
         'type': type.name,
+        'diet': diet,
         'message': message,
         'meals': meals.map((meal) => meal.toJson()).toList(),
       };
@@ -255,7 +258,7 @@ class LlmProxyClient {
       return modelResponses.last.text;
     }
 
-    throw Exception('Не получен ответ от модели');
+    throw Exception('No model response received');
   }
 
   /// Отправляет чат сообщение через новый endpoint /llm-proxy-chat
@@ -312,7 +315,7 @@ class LlmProxyClient {
           return message;
         } else {
           log('⚠️ [ChatV2] Не найдено ответов от модели');
-          throw Exception('Не получен ответ от модели в новом чат API');
+          throw Exception('No model response received from new chat API');
         }
       } else {
         log('❌ [ChatV2] Ошибка от чат API: ${response.statusCode} - ${response.body}');
@@ -350,7 +353,7 @@ class LlmProxyClient {
       return response;
     }
 
-    throw Exception('Не получен ответ от модели');
+    throw Exception('No model response received');
   }
 
   /// Отправляет запрос для генерации блюд с новой структурой API
@@ -409,7 +412,8 @@ class LlmProxyClient {
 
   /// Отправляет запрос для регенерации блюда с новой структурой API
   Future<Map<String, dynamic>> regenerateMeal(
-      LlmRegenerateMealRequest request) async {
+    LlmRegenerateMealRequest request,
+  ) async {
     try {
       log('🔄 [regenerateMeal] Отправляем запрос регенерации блюда: ${request.type.name}');
       log('📝 [regenerateMeal] Сообщение: ${request.message}');

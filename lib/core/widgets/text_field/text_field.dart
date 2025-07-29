@@ -75,7 +75,9 @@ class RishTextField extends StatelessWidget {
     }
 
     return Theme(
-      data: theme.copyWith(inputDecorationTheme: state.resolve(inputTheme)),
+      data: theme.copyWith(
+        inputDecorationTheme: state.resolve(inputTheme),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

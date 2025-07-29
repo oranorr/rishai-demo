@@ -126,9 +126,6 @@ class _$WeekPlanEventCopyWithImpl<$Res, $Val extends WeekPlanEvent>
   final $Val _value;
   // ignore: unused_field
   final $Res Function($Val) _then;
-
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -157,8 +154,6 @@ class __$$WeekPlanGenerateImplCopyWithImpl<$Res>
       $Res Function(_$WeekPlanGenerateImpl) _then)
       : super(_value, _then);
 
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -313,9 +308,7 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
       const DeepCollectionEquality().hash(_servings),
       startDate);
 
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$WeekPlanGenerateImplCopyWith<_$WeekPlanGenerateImpl> get copyWith =>
@@ -463,10 +456,7 @@ abstract class WeekPlanGenerate implements WeekPlanEvent {
   bool get hasSnack;
   List<ServingEntity> get servings;
   DateTime get startDate;
-
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   _$$WeekPlanGenerateImplCopyWith<_$WeekPlanGenerateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -485,9 +475,6 @@ class __$$WeekPlanResetImplCopyWithImpl<$Res>
   __$$WeekPlanResetImplCopyWithImpl(
       _$WeekPlanResetImpl _value, $Res Function(_$WeekPlanResetImpl) _then)
       : super(_value, _then);
-
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -644,9 +631,6 @@ class __$$WeekPlanLoadImplCopyWithImpl<$Res>
   __$$WeekPlanLoadImplCopyWithImpl(
       _$WeekPlanLoadImpl _value, $Res Function(_$WeekPlanLoadImpl) _then)
       : super(_value, _then);
-
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -803,9 +787,6 @@ class __$$WeekPlanClearImplCopyWithImpl<$Res>
   __$$WeekPlanClearImplCopyWithImpl(
       _$WeekPlanClearImpl _value, $Res Function(_$WeekPlanClearImpl) _then)
       : super(_value, _then);
-
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -965,8 +946,6 @@ class __$$WeekPlanFilterImplCopyWithImpl<$Res>
       _$WeekPlanFilterImpl _value, $Res Function(_$WeekPlanFilterImpl) _then)
       : super(_value, _then);
 
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1005,9 +984,7 @@ class _$WeekPlanFilterImpl implements WeekPlanFilter {
   @override
   int get hashCode => Object.hash(runtimeType, filter);
 
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$WeekPlanFilterImplCopyWith<_$WeekPlanFilterImpl> get copyWith =>
@@ -1136,10 +1113,7 @@ abstract class WeekPlanFilter implements WeekPlanEvent {
       _$WeekPlanFilterImpl;
 
   WeekFilterEntity get filter;
-
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   _$$WeekPlanFilterImplCopyWith<_$WeekPlanFilterImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -1158,9 +1132,6 @@ class __$$WeekPlanClearFilterImplCopyWithImpl<$Res>
   __$$WeekPlanClearFilterImplCopyWithImpl(_$WeekPlanClearFilterImpl _value,
       $Res Function(_$WeekPlanClearFilterImpl) _then)
       : super(_value, _then);
-
-  /// Create a copy of WeekPlanEvent
-  /// with the given fields replaced by the non-null parameter values.
 }
 
 /// @nodoc
@@ -1313,9 +1284,7 @@ mixin _$WeekPlanState {
   bool get isLoading => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
 
-  /// Create a copy of WeekPlanState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   $WeekPlanStateCopyWith<WeekPlanState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -1344,8 +1313,6 @@ class _$WeekPlanStateCopyWithImpl<$Res, $Val extends WeekPlanState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
-  /// Create a copy of WeekPlanState
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1404,8 +1371,6 @@ class __$$WeekPlanStateImplCopyWithImpl<$Res>
       _$WeekPlanStateImpl _value, $Res Function(_$WeekPlanStateImpl) _then)
       : super(_value, _then);
 
-  /// Create a copy of WeekPlanState
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -1506,9 +1471,7 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
       isLoading,
       error);
 
-  /// Create a copy of WeekPlanState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$WeekPlanStateImplCopyWith<_$WeekPlanStateImpl> get copyWith =>
@@ -1533,11 +1496,8 @@ abstract class _WeekPlanState implements WeekPlanState {
   bool get isLoading;
   @override
   String? get error;
-
-  /// Create a copy of WeekPlanState
-  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   _$$WeekPlanStateImplCopyWith<_$WeekPlanStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

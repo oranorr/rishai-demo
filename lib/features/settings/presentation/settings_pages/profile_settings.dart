@@ -22,6 +22,8 @@ import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/core/services/hive/hive_impl.dart';
+import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 
 part '../profile_mixin.dart';
 
@@ -83,6 +85,156 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
     );
   }
 
+  Widget _buildWhoopDataWidget(BuildContext context) {
+    return FutureBuilder<UserDataEntity?>(
+      future: hive.fetchUserDataEntity(userId: userBloc.state.user.directusId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: 16.h),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+              decoration: BoxDecoration(
+                color: RishColors.formBackgroun,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.fitness_center,
+                    color: RishColors.primary,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      'Loading WHOOP data...',
+                      style: context.styles.regularLarge,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: 16.h),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+              decoration: BoxDecoration(
+                color: RishColors.formBackgroun,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_outlined,
+                    color: RishColors.textSecondary,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      'No WHOOP data available',
+                      style: context.styles.regularLarge.copyWith(
+                        color: RishColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final whoopData = snapshot.data!;
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
+            decoration: BoxDecoration(
+              color: RishColors.formBackgroun,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.fitness_center,
+                      color: RishColors.primary,
+                      size: 20,
+                    ),
+                    SizedBox(width: 12.w),
+                    Text(
+                      'WHOOP Data',
+                      style: context.styles.boldMedium,
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12.h),
+                _buildWhoopDataRow(
+                  context,
+                  'Calorie Goal:',
+                  '${whoopData.calorieGoal} kcal',
+                ),
+                _buildWhoopDataRow(
+                  context,
+                  'Weight:',
+                  '${(whoopData.userWeightLbs / 2.205).toStringAsFixed(1)} kg',
+                ),
+                _buildWhoopDataRow(
+                  context,
+                  'Recovery Score:',
+                  '${whoopData.recoveryScore}%',
+                ),
+                _buildWhoopDataRow(
+                  context,
+                  'Sleep Performance:',
+                  '${whoopData.sleepPerformance}%',
+                ),
+                _buildWhoopDataRow(
+                  context,
+                  'Strain Value:',
+                  whoopData.strainValue.toStringAsFixed(1),
+                ),
+                _buildWhoopDataRow(
+                  context,
+                  'Last Updated:',
+                  '${whoopData.askTime.day}/${whoopData.askTime.month}/${whoopData.askTime.year}',
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWhoopDataRow(BuildContext context, String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 4.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: context.styles.regularMedium.copyWith(
+              color: RishColors.textSecondary,
+            ),
+          ),
+          Text(
+            value,
+            style: context.styles.regularMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildContent(BuildContext context, UserEntity user) {
     return ListView(
       children: [
@@ -114,6 +266,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             ),
           ),
         ),
+        if (kDebugMode) _buildWhoopDataWidget(context),
         RishDropdownMenu(
           title: 'Dietary preference',
           preSelectedData: user.foodPreferences!.diets.join(', '),
@@ -128,7 +281,12 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             );
           },
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 8.h),
+        _dietaryDescription(
+          user.foodPreferences?.diets.first ?? '',
+          context,
+        ),
+        SizedBox(height: 8.h),
         RishDropdownMenu(
           title: 'Cuisine preferences',
           preSelectedData: user.foodPreferences!.cuisines.join(', '),
@@ -330,6 +488,8 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
                   modificator: updUser.userGoal!.modificator,
                   gender: updUser.gender!,
                   context: context,
+                  currentDiets: updUser
+                      .foodPreferences?.diets, // Передаем актуальные диеты
                 ),
               );
             }
@@ -353,6 +513,29 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
       action: () {
         context.pop();
       },
+    );
+  }
+
+  Widget _dietaryDescription(String dietName, BuildContext context) {
+    String text = '';
+    final normalizedDietName = dietName.toLowerCase();
+
+    if (normalizedDietName == 'carnivore') {
+      text = '''
+Picking Carnivore changes your daily macros for a carnivore diet based on your WHOOP data. Carbs will not exceed 1% of your total calorie consumption goal.''';
+    } else if (normalizedDietName == 'keto') {
+      text = '''
+Picking Keto changes your daily macros for a ketogenic diet based on your WHOOP data. Carbs will range between 5-10% of your total calorie consumption goal.''';
+    } else {
+      text = '''
+Macro goals are based on dietary preference and WHOOP data. They are the same for omnivore, pescatarian, vegan, vegetarian.''';
+    }
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 11,
+        color: Colors.grey,
+      ),
     );
   }
 }

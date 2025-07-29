@@ -1,0 +1,49 @@
+default_platform(:android)
+
+platform :android do
+  desc "Deploy to Google Play Internal Testing"
+  lane :deploy_internal do
+    upload_to_play_store(
+      track: 'internal',
+      aab: '../build/app/outputs/bundle/release/app-release.aab',
+      json_key: ENV['GOOGLE_PLAY_SERVICE_ACCOUNT_JSON'],
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Deploy to Google Play Beta"
+  lane :deploy_beta do
+    upload_to_play_store(
+      track: 'beta',
+      aab: '../build/app/outputs/bundle/release/app-release.aab',
+      json_key: ENV['GOOGLE_PLAY_SERVICE_ACCOUNT_JSON'],
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Deploy to Google Play Production"
+  lane :deploy_production do
+    upload_to_play_store(
+      track: 'production',
+      aab: '../build/app/outputs/bundle/release/app-release.aab',
+      json_key: ENV['GOOGLE_PLAY_SERVICE_ACCOUNT_JSON'],
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Build and deploy to Firebase App Distribution"
+  lane :deploy_firebase do
+    firebase_app_distribution(
+      app: "1:922501061929:android:c4b5e8e0cd2503e5cb2b38",
+      apk_path: "../build/app/outputs/flutter-apk/app-release.apk",
+      groups: "internal-testers",
+      release_notes: "Latest build from CI"
+    )
+  end
+end 

@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:adapty_flutter/adapty_flutter.dart';
@@ -258,14 +259,52 @@ class _PaywallState extends State<Paywall> {
     } else if (res == 'CANCEL') {
       RishSnackbar().showSnackBar('Purchase was cancelled.');
     } else if (res == 'ALREADY_EXISTS') {
-      RishSnackbar()
-          .showSnackBar('Subscription is already linked to another account.');
+      // [FIX] Автоматически пытаемся восстановить покупки при ошибке ALREADY_EXISTS
+      _handleAlreadyExistsError();
     } else if (res.contains('Error')) {
       RishSnackbar().showSnackBar(res);
     }
     setState(() {
       processing = false;
     });
+  }
+
+  Future<void> _handleAlreadyExistsError() async {
+    log(
+      'Обнаружена ошибка ALREADY_EXISTS, пытаемся восстановить покупки',
+      name: 'Paywall',
+    );
+
+    try {
+      setState(() {
+        processing = true;
+      });
+
+      final restoreResult = await adapty.restorePurchases();
+
+      if (restoreResult == 'ACTIVE') {
+        log(
+          'Подписка успешно восстановлена после ALREADY_EXISTS',
+          name: 'Paywall',
+        );
+        appNavigationService.go(path: AppRoutes.homeScreen.path);
+        return;
+      }
+
+      // Если restore не помог, показываем пользователю опцию восстановления вручную
+      RishSnackbar().showSnackBar(
+        'Subscription detected. Try restoring purchases manually.',
+      );
+    } catch (e) {
+      log('Ошибка при автоматическом восстановлении: $e', name: 'Paywall');
+      RishSnackbar().showSnackBar(
+        'Subscription is already linked to another account. Try restoring purchases.',
+      );
+    } finally {
+      setState(() {
+        processing = false;
+      });
+    }
   }
 }
 

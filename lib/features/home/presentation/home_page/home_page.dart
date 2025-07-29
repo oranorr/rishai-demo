@@ -317,7 +317,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
               Row(
                 children: [
                   Text(
-                    "Today's macros goal",
+                    widget.day.isToday ? "Today's macros goal" : 'Macros goal',
                     style: context.styles.h3,
                   ),
                   const Spacer(),

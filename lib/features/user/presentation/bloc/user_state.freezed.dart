@@ -56,9 +56,7 @@ mixin _$UserState {
   }) =>
       throw _privateConstructorUsedError;
 
-  /// Create a copy of UserState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   $UserStateCopyWith<UserState> get copyWith =>
       throw _privateConstructorUsedError;
 }
@@ -81,8 +79,6 @@ class _$UserStateCopyWithImpl<$Res, $Val extends UserState>
   // ignore: unused_field
   final $Res Function($Val) _then;
 
-  /// Create a copy of UserState
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -126,8 +122,6 @@ class __$$UserMainStateImplCopyWithImpl<$Res>
       _$UserMainStateImpl _value, $Res Function(_$UserMainStateImpl) _then)
       : super(_value, _then);
 
-  /// Create a copy of UserState
-  /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
@@ -192,9 +186,7 @@ class _$UserMainStateImpl implements UserMainState {
   int get hashCode => Object.hash(
       runtimeType, status, user, const DeepCollectionEquality().hash(_days));
 
-  /// Create a copy of UserState
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   @override
   @pragma('vm:prefer-inline')
   _$$UserMainStateImplCopyWith<_$UserMainStateImpl> get copyWith =>
@@ -273,11 +265,8 @@ abstract class UserMainState implements UserState {
   UserEntity get user;
   @override
   List<DayEntity> get days;
-
-  /// Create a copy of UserState
-  /// with the given fields replaced by the non-null parameter values.
   @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
+  @JsonKey(ignore: true)
   _$$UserMainStateImplCopyWith<_$UserMainStateImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

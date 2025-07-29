@@ -50,6 +50,17 @@ class RequestPlanParams {
   final bool isWeekPlan;
   final Map<String, List<String>>? excludedMeals;
 
+  /// Определяет тип диеты на основе dietary preferences
+  String _getDietType() {
+    if (dietary.contains('Keto')) {
+      return 'keto';
+    } else if (dietary.contains('Carnivore')) {
+      return 'carnivore';
+    } else {
+      return 'all';
+    }
+  }
+
   /// Генерирует запросы блюд для новой структуры API
   List<LlmMealRequest> generateMealRequests() {
     log('[generateMealRequests] Начинаем генерацию запросов блюд');
@@ -182,6 +193,7 @@ class RequestPlanParams {
           type: LlmMealRequestType.breakfast,
           message: message,
           meals: breakfastMeals,
+          diet: _getDietType(),
         ),
       );
 
@@ -213,6 +225,7 @@ class RequestPlanParams {
           type: LlmMealRequestType.meal,
           message: message,
           meals: mainMeals,
+          diet: _getDietType(),
         ),
       );
 
@@ -244,6 +257,7 @@ class RequestPlanParams {
           type: LlmMealRequestType.snack,
           message: message,
           meals: snackMeals,
+          diet: _getDietType(),
         ),
       );
 

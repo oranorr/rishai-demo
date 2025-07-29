@@ -72,7 +72,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
             contextMessages.add(
               PreviousMessage(
                 text:
-                    'Понял, у вас есть план питания на сегодня. Чем могу помочь?',
+                    'I understand you have a meal plan for today. How can I help you?',
                 role: 'model',
               ),
             );
@@ -105,7 +105,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
 
         if (responseText.isEmpty) {
           log('⚠️ Пустой ответ от ассистента');
-          return {'error': 'Пустой ответ от ассистента'};
+          return {'error': 'Empty response from assistant'};
         }
 
         log('GEMINI RESPONSE: $responseText');
@@ -119,7 +119,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
             return parsedResponse;
           } catch (e) {
             log('❌ Ошибка парсинга JSON: $e');
-            return {'error': 'Ошибка парсинга ответа от ассистента'};
+            return {'error': 'Error parsing assistant response'};
           }
         }
       } catch (e) {
@@ -129,7 +129,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       }
     }
 
-    return {'error': 'Произошла ошибка при запросе к ассистенту.'};
+    return {'error': 'An error occurred while requesting the assistant.'};
   }
 
   /// Строит контекст с информацией о текущем плане питания
@@ -141,17 +141,17 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
           .join(', ');
       return '''
 ${meal.title} (${meal.type})
-Описание: ${meal.description}
-Макросы: ${meal.macros.kcal} ккал, ${meal.macros.protein}г белка, ${meal.macros.carbs}г углеводов, ${meal.macros.fat}г жиров
-Ингредиенты: $ingredients
-Инструкции по приготовлению: ${meal.cookingInstructions.join('; ')}''';
+Description: ${meal.description}
+Macros: ${meal.macros.kcal} kcal, ${meal.macros.protein}g protein, ${meal.macros.carbs}g carbs, ${meal.macros.fat}g fat
+Ingredients: $ingredients
+Cooking instructions: ${meal.cookingInstructions.join('; ')}''';
     }).join('\n\n');
 
-    return '''У меня есть план питания на сегодня:
+    return '''I have a meal plan for today:
 
 $mealsInfo
 
-Пожалуйста, используй эту информацию, когда отвечаешь на мои вопросы о питании.''';
+Please use this information when answering my nutrition questions.''';
   }
 
   @override
@@ -307,7 +307,7 @@ $mealsInfo
 
   Future<void> updateChatHistory(String message) async {
     final prompt =
-        'Meal plan has been changed: $message. Please, answer to this message with "You have changed $message"';
+        'Meal plan has been changed: $message. Please acknowledge this change with "You have changed $message"';
     await requestAssistant(
       prompt: prompt,
       isChat: true,

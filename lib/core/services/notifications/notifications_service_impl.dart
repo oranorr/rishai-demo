@@ -11,17 +11,28 @@ import 'package:rishai/core/services/notifications/notifications_service.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+// ВАЖНО: Настройки уведомлений изменены для соответствия политике Google Store
+// USE_FULL_SCREEN_INTENT разрешен только для приложений звонков и будильников
+// Для обеспечения своевременности уведомлений используем:
+// 1. Importance.high (вместо max) - обеспечивает видимость без full-screen intent
+// 2. Priority.high - высокий приоритет для Android версий < 8.0
+// 3. AndroidScheduleMode.exactAllowWhileIdle - точное время даже в Doze режиме
+// 4. Разрешение USE_EXACT_ALARM - для точных уведомлений
+
 final notes = getIt.get<NotificationsService>();
 
 @Singleton(as: NotificationsService)
 class NotificationsServiceImpl implements NotificationsService {
   late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
 
+  // Канал с важностью High вместо Max для соответствия политике Google Store
+  // High importance всё ещё обеспечивает хорошую видимость уведомлений без USE_FULL_SCREEN_INTENT
   AndroidNotificationChannel channel = const AndroidNotificationChannel(
     '9', // Измени ID канала, чтобы пересоздать его
     'Scheduled Notifications',
     description: 'Channel for scheduled notifications',
-    importance: Importance.max,
+    importance: Importance
+        .high, // Изменено с max на high для соответствия политике Google Store
     enableLights: true,
   );
   @override
@@ -103,8 +114,10 @@ class NotificationsServiceImpl implements NotificationsService {
         channel.id,
         channel.name,
         channelDescription: channel.description,
-        importance: Importance.max,
-        priority: Priority.max,
+        importance: Importance
+            .high, // Изменено с max на high для соответствия политике Google Store
+        priority: Priority
+            .high, // Изменено с max на high для соответствия политике Google Store
       );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -165,8 +178,10 @@ class NotificationsServiceImpl implements NotificationsService {
         channel.id,
         channel.name,
         channelDescription: channel.description,
-        importance: Importance.max,
-        priority: Priority.high,
+        importance: Importance
+            .high, // Изменено с max на high для соответствия политике Google Store
+        priority: Priority
+            .high, // Остается high, что является оптимальным для своевременности
       );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =

@@ -28,9 +28,6 @@ mixin ProfileMixin on State<ProfileSettings> {
     // Обновляем диеты пользователя
     final newDiets = diets.map((diet) => diet.name).toList();
 
-    log('[ProfileMixin] Обновление диет в UI', name: 'ProfileMixin');
-    log('[ProfileMixin] Новые диеты: $newDiets', name: 'ProfileMixin');
-
     final upd = updUser.copyWith(
       foodPreferences: updUser.foodPreferences!.copyWith(
         diets: newDiets,

@@ -27,6 +27,8 @@ import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
+import 'package:rishai/features/onboard/domain/entities.dart' show Diet;
+import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -203,7 +205,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           );
         } // else: What to do if there's no meal plan? Maybe still save snap?
       });
-    } // else: If not a request, just update messages (already done above)
+    }
   }
 
   Future<void> _createMealPlan(
@@ -212,12 +214,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ) async {
     try {
       emit(state.copyWith(status: Status.loading));
+      final FoodPreferences prefs = userBloc.state.user.foodPreferences!;
 
       final result = await requestMealPlanV2(
         RequestPlanParams(
-          dietary: userBloc.state.user.foodPreferences?.diets ?? [],
-          cuisines: userBloc.state.user.foodPreferences?.cuisines ?? [],
-          restrictions: userBloc.state.user.foodPreferences?.restrictions ?? [],
+          dietary: prefs.diets,
+          cuisines: prefs.cuisines,
+          restrictions: prefs.restrictions,
           calorieTarget: whoopBloc.state.day.macros.kcal,
           macros: whoopBloc.state.day.macros,
           trainingToday: event.trainingToday,

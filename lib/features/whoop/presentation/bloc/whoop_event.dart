@@ -44,10 +44,12 @@ class WhoopChangeModificatorOrSex extends WhoopEvent {
   final double modificator;
   final Gender gender;
   final BuildContext context;
+  final List<String>? currentDiets; // Добавляем параметр для текущих диет
   const WhoopChangeModificatorOrSex({
     required this.modificator,
     required this.gender,
     required this.context,
+    this.currentDiets, // Опциональный параметр для диет
   });
 }
 

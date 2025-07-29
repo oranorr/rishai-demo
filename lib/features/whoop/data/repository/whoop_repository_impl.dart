@@ -433,8 +433,23 @@ class WhoopRepositoryImpl implements WhoopRepository {
         // Используем правильный метод расчета макросов
         final MacrosBreakdown macros;
         if (needsKetoCarnivoreAlgorithm) {
-          log('[_fetchFreshData] 🥩 Применяю КЕТО/КАРНИВОР алгоритм для нового пользователя');
-          macros = userData.calcMacrosForKetoCarnivore();
+          // Определяем конкретный тип специальной диеты для нового пользователя
+          final specialDietType = UserDataEntity.getSpecialDietType(userDiets);
+
+          switch (specialDietType) {
+            case 'carnivore':
+              log('[_fetchFreshData] 🥩 Применяю CARNIVORE алгоритм для нового пользователя (1% углеводов, 30-35% белки, 65-70% жиры)');
+              macros = userData.calcMacrosForCarnivore();
+              break;
+            case 'keto':
+              log('[_fetchFreshData] 🥑 Применяю KETO алгоритм для нового пользователя (5-10% углеводов, 20-25% белки, 65-75% жиры)');
+              macros = userData.calcMacrosForKeto();
+              break;
+            default:
+              // Fallback на keto алгоритм для совместимости
+              log('[_fetchFreshData] ⚠️ Неопознанная специальная диета для нового пользователя, используем KETO fallback алгоритм');
+              macros = userData.calcMacrosForKeto();
+          }
         } else {
           log('[_fetchFreshData] 🍽️ Применяю СТАНДАРТНЫЙ алгоритм для нового пользователя');
           macros = userData.calcMacros();

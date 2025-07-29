@@ -29,11 +29,13 @@ class ChangeModificatorOrSexParams {
   final int weekTdeeAverage;
   final String userId;
   final int lastTdee;
+  final List<String>? currentDiets; // Добавляем параметр для диет
   ChangeModificatorOrSexParams({
     required this.modificator,
     required this.gender,
     required this.weekTdeeAverage,
     required this.userId,
     required this.lastTdee,
+    this.currentDiets, // Опциональный параметр для диет
   });
 }

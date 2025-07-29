@@ -159,13 +159,42 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     // Сначала сохраняем в Hive
     await hive.saveUser(user: curUser);
     await adapty.initAdapty();
-    // Затем обновляем в Directus и состоянии
+
+    // [FIX] Дожидаемся завершения identify перед запуском других блоков
+    try {
+      await adapty.identify(adaptyId: curUser.adaptyId!);
+      log(
+        'Adapty identify завершен при логине. Статус подписки: ${adapty.isActive}',
+        name: 'LoginBloc',
+      );
+    } catch (e) {
+      log('Ошибка при identify в логине, но продолжаем: $e', name: 'LoginBloc');
+      // Даже если identify упал, пытаемся восстановить покупки
+      try {
+        final restoreResult = await adapty.restorePurchases();
+        log(
+          'Результат восстановления покупок при логине: $restoreResult',
+          name: 'LoginBloc',
+        );
+      } catch (restoreError) {
+        log(
+          'Ошибка при восстановлении покупок в логине: $restoreError',
+          name: 'LoginBloc',
+        );
+      }
+    }
+
+    // Затем обновляем в Directus и состоянии (без вызова identify)
     userBloc.add(UpdateUserEvent(user: curUser));
 
-    // Инициализируем другие блоки
+    // Теперь инициализируем другие блоки, когда статус подписки определен
     whoopBloc.add(const InitWhoopOnLogin());
     chatBloc.add(InitChatBloc(directusId: curUser.directusId));
     weekPlanBloc.add(const WeekPlanLoad());
+    log(
+      'Логин завершен. Финальный статус подписки: ${adapty.isActive}',
+      name: 'LoginBloc',
+    );
     emit(state.copyWith(status: Status.success));
   }
 

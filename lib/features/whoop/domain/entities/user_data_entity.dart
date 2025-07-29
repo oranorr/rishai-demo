@@ -185,30 +185,205 @@ class UserDataEntity {
     );
   }
 
-  /// Расчет макросов для кето/карнивор диеты
-  /// Алгоритм: 10% углеводов, остальные калории поровну между белками и жирами
-  MacrosBreakdown calcMacrosForKetoCarnivore() {
-    log('[calcMacrosForKetoCarnivore] Calculating keto/carnivore macros',
-        name: 'UserDataEntity');
-    log('[calcMacrosForKetoCarnivore] userWeightLbs: $userWeightLbs, calorieGoal: $calorieGoal',
-        name: 'UserDataEntity');
+  /// Проверяет, содержит ли список диет CARNIVORE
+  static bool hasCarnivore(List<String> userDiets) {
+    return userDiets.any(
+      (diet) => diet.toLowerCase() == 'carnivore',
+    );
+  }
+
+  /// Проверяет, содержит ли список диет KETO
+  static bool hasKeto(List<String> userDiets) {
+    return userDiets.any(
+      (diet) => diet.toLowerCase() == 'keto',
+    );
+  }
+
+  /// Определяет тип специальной диеты на основе приоритета
+  /// Возвращает: 'carnivore', 'keto' или null для стандартных диет
+  static String? getSpecialDietType(List<String> userDiets) {
+    // Приоритет: Carnivore > Keto > Standard
+    if (hasCarnivore(userDiets)) {
+      return 'carnivore';
+    } else if (hasKeto(userDiets)) {
+      return 'keto';
+    } else {
+      return null; // Стандартные диеты
+    }
+  }
+
+  /// Расчет макросов для CARNIVORE диеты
+  /// Алгоритм: 1% углеводов, 30-35% белки, 65-70% жиры на основе WHOOP данных
+  MacrosBreakdown calcMacrosForCarnivore() {
+    log(
+      '[calcMacrosForCarnivore] Calculating carnivore macros',
+      name: 'UserDataEntity',
+    );
+    log(
+      '[calcMacrosForCarnivore] userWeightLbs: $userWeightLbs, calorieGoal: $calorieGoal, strain: $strainValue, recovery: $recoveryScore',
+      name: 'UserDataEntity',
+    );
 
     // Проверка на нулевой вес
     if (userWeightLbs <= 0) {
-      log('WARNING: userWeightLbs is zero or negative: $userWeightLbs',
-          name: 'UserDataEntity');
+      log(
+        'WARNING: userWeightLbs is zero or negative: $userWeightLbs',
+        name: 'UserDataEntity',
+      );
 
-      // Используем кето/карнивор распределение даже для стандартных значений
-      final ketoCarbs =
-          (0.1 * calorieGoal / 4).round(); // 10% калорий от углеводов
-      final remainingKcal = calorieGoal - (ketoCarbs * 4); // Оставшиеся калории
+      // Используем среднее карнивор распределение для fallback
+      final carnivoreCarbs = (0.01 * calorieGoal / 4).round(); // 1% углеводов
+      final carnivoreProtein =
+          (0.325 * calorieGoal / 4).round(); // 32.5% белков (среднее)
+      final carnivoreFat =
+          (0.665 * calorieGoal / 9).round(); // 66.5% жиров (среднее)
+
+      log(
+        '[calcMacrosForCarnivore] Using fallback carnivore distribution: P=$carnivoreProtein, C=$carnivoreCarbs, F=$carnivoreFat',
+        name: 'UserDataEntity',
+      );
+
+      return MacrosBreakdown(
+        kcal: calorieGoal,
+        protein: carnivoreProtein,
+        carbs: carnivoreCarbs,
+        fat: carnivoreFat,
+      );
+    }
+
+    // Углеводы всегда 1% для карнивор диеты
+    const carbsPercent = 1.0;
+    final carbsKcal = calorieGoal * (carbsPercent / 100);
+    final carbs = (carbsKcal / 4).round(); // 4 ккал на грамм углеводов
+
+    // Получаем проценты белков на основе WHOOP Strain
+    final proteinPercentFromStrain = _getProteinPercentFromStrain(strainValue);
+
+    // Получаем проценты белков на основе WHOOP Recovery
+    final proteinPercentFromRecovery =
+        _getProteinPercentFromRecovery(recoveryScore);
+
+    // Комбинируем: 50% от strain + 50% от recovery (согласно ТЗ)
+    final proteinPercent =
+        (0.5 * proteinPercentFromStrain) + (0.5 * proteinPercentFromRecovery);
+
+    // Жиры - оставшиеся проценты
+    final fatPercent = 100.0 - carbsPercent - proteinPercent;
+
+    log(
+      '[calcMacrosForCarnivore] Strain-based protein: $proteinPercentFromStrain%, Recovery-based protein: $proteinPercentFromRecovery%',
+      name: 'UserDataEntity',
+    );
+    log(
+      '[calcMacrosForCarnivore] Final percentages - P: $proteinPercent%, C: $carbsPercent%, F: $fatPercent%',
+      name: 'UserDataEntity',
+    );
+
+    // Рассчитываем граммы макросов
+    final proteinKcal = calorieGoal * (proteinPercent / 100);
+    final fatKcal = calorieGoal * (fatPercent / 100);
+
+    final protein = (proteinKcal / 4).round(); // 4 ккал на грамм белка
+    final fat = (fatKcal / 9).round(); // 9 ккал на грамм жира
+
+    // Проверка на валидность
+    final validProtein =
+        protein > 0 ? protein : (0.325 * calorieGoal / 4).round();
+    final validCarbs = carbs > 0 ? carbs : (0.01 * calorieGoal / 4).round();
+    final validFat = fat > 0 ? fat : (0.665 * calorieGoal / 9).round();
+
+    log(
+      '[calcMacrosForCarnivore] Final carnivore macros - P: $validProtein г, C: $validCarbs г, F: $validFat г',
+      name: 'UserDataEntity',
+    );
+
+    // Проверяем общие калории для отладки
+    final totalKcal = (validProtein * 4) + (validCarbs * 4) + (validFat * 9);
+    log(
+      '[calcMacrosForCarnivore] Total calculated kcal: $totalKcal (target: $calorieGoal)',
+      name: 'UserDataEntity',
+    );
+
+    return MacrosBreakdown(
+      kcal: calorieGoal,
+      protein: validProtein,
+      carbs: validCarbs,
+      fat: validFat,
+    );
+  }
+
+  /// Получает проценты белков на основе WHOOP Strain для CARNIVORE диеты
+  double _getProteinPercentFromStrain(double strain) {
+    // Таблица соответствия Strain → Protein% для Carnivore (из ТЗ)
+    if (strain >= 0 && strain <= 5) {
+      return 30;
+    } else if (strain >= 6 && strain <= 9) {
+      return 31;
+    } else if (strain >= 10 && strain <= 13) {
+      return 32;
+    } else if (strain >= 14 && strain <= 16) {
+      return 33;
+    } else if (strain >= 17 && strain <= 18) {
+      return 34;
+    } else if (strain >= 19) {
+      return 35;
+    } else {
+      // Fallback для некорректных значений
+      return 32.5; // Среднее значение
+    }
+  }
+
+  /// Получает проценты белков на основе WHOOP Recovery для CARNIVORE диеты
+  double _getProteinPercentFromRecovery(int recovery) {
+    // Таблица соответствия Recovery → Protein% для Carnivore (из ТЗ)
+    if (recovery >= 0 && recovery <= 19) {
+      return 35;
+    } else if (recovery >= 20 && recovery <= 39) {
+      return 34;
+    } else if (recovery >= 40 && recovery <= 59) {
+      return 33;
+    } else if (recovery >= 60 && recovery <= 79) {
+      return 32;
+    } else if (recovery >= 80 && recovery <= 89) {
+      return 31;
+    } else if (recovery >= 90 && recovery <= 100) {
+      return 30;
+    } else {
+      // Fallback для некорректных значений
+      return 32.5; // Среднее значение
+    }
+  }
+
+  /// Расчет макросов для KETO диеты
+  /// Алгоритм: 5-10% углеводов, 20-25% белки, 65-75% жиры на основе WHOOP данных
+  MacrosBreakdown calcMacrosForKeto() {
+    log(
+      '[calcMacrosForKeto] Calculating keto macros',
+      name: 'UserDataEntity',
+    );
+    log(
+      '[calcMacrosForKeto] userWeightLbs: $userWeightLbs, calorieGoal: $calorieGoal, strain: $strainValue, recovery: $recoveryScore',
+      name: 'UserDataEntity',
+    );
+
+    // Проверка на нулевой вес
+    if (userWeightLbs <= 0) {
+      log(
+        'WARNING: userWeightLbs is zero or negative: $userWeightLbs',
+        name: 'UserDataEntity',
+      );
+
+      // Используем среднее кето распределение для fallback
       final ketoProtein =
-          (0.5 * remainingKcal / 4).round(); // 50% оставшихся калорий от белка
-      final ketoFat =
-          (0.5 * remainingKcal / 9).round(); // 50% оставшихся калорий от жиров
+          (0.225 * calorieGoal / 4).round(); // 22.5% белков (среднее)
+      final ketoCarbs =
+          (0.075 * calorieGoal / 4).round(); // 7.5% углеводов (среднее)
+      final ketoFat = (0.7 * calorieGoal / 9).round(); // 70% жиров (среднее)
 
-      log('[calcMacrosForKetoCarnivore] Using standard keto distribution: P=$ketoProtein, C=$ketoCarbs, F=$ketoFat',
-          name: 'UserDataEntity');
+      log(
+        '[calcMacrosForKeto] Using fallback keto distribution: P=$ketoProtein, C=$ketoCarbs, F=$ketoFat',
+        name: 'UserDataEntity',
+      );
 
       return MacrosBreakdown(
         kcal: calorieGoal,
@@ -218,64 +393,109 @@ class UserDataEntity {
       );
     }
 
-    // Сначала рассчитываем стандартные макросы
-    final standardProtein = calcProteins();
-    final standardFats = clacFats();
-    final standardCarbs = calcCarbs(
-      kalorieGoal: calorieGoal,
-      proteinsInKcal: standardProtein * 4,
-      fatsInKcal: standardFats * 9,
+    // Получаем проценты белков и углеводов на основе WHOOP Strain
+    final strainMacros = _getKetoMacrosFromStrain(strainValue);
+
+    // Получаем проценты белков и углеводов на основе WHOOP Recovery
+    final recoveryMacros = _getKetoMacrosFromRecovery(recoveryScore);
+
+    // Комбинируем: 50% от strain + 50% от recovery (согласно ТЗ)
+    final proteinPercent =
+        (0.5 * strainMacros.protein) + (0.5 * recoveryMacros.protein);
+    final carbsPercent =
+        (0.5 * strainMacros.carbs) + (0.5 * recoveryMacros.carbs);
+
+    // Жиры - оставшиеся проценты
+    final fatPercent = 100.0 - proteinPercent - carbsPercent;
+
+    log(
+      '[calcMacrosForKeto] Strain-based: P=${strainMacros.protein}%, C=${strainMacros.carbs}%',
+      name: 'UserDataEntity',
+    );
+    log(
+      '[calcMacrosForKeto] Recovery-based: P=${recoveryMacros.protein}%, C=${recoveryMacros.carbs}%',
+      name: 'UserDataEntity',
+    );
+    log(
+      '[calcMacrosForKeto] Final percentages - P: $proteinPercent%, C: $carbsPercent%, F: $fatPercent%',
+      name: 'UserDataEntity',
     );
 
-    log('[calcMacrosForKetoCarnivore] Standard macros - P: $standardProtein, C: $standardCarbs, F: $standardFats',
-        name: 'UserDataEntity');
+    // Рассчитываем граммы макросов
+    final proteinKcal = calorieGoal * (proteinPercent / 100);
+    final carbsKcal = calorieGoal * (carbsPercent / 100);
+    final fatKcal = calorieGoal * (fatPercent / 100);
 
-    // Применяем кето/карнивор алгоритм
-    // 1. Ограничиваем углеводы до 10% от общих калорий
-    final newCarbsKcal = calorieGoal * 0.10; // 10% от общих калорий
-    final newCarbs =
-        (newCarbsKcal / 4).round(); // Конвертируем в граммы (4 ккал/г)
+    final protein = (proteinKcal / 4).round(); // 4 ккал на грамм белка
+    final carbs = (carbsKcal / 4).round(); // 4 ккал на грамм углеводов
+    final fat = (fatKcal / 9).round(); // 9 ккал на грамм жира
 
-    // 2. Вычисляем освободившиеся калории
-    final standardCarbsKcal = standardCarbs * 4;
-    final freedKcal = standardCarbsKcal - newCarbsKcal;
+    // Проверка на валидность
+    final validProtein =
+        protein > 0 ? protein : (0.225 * calorieGoal / 4).round();
+    final validCarbs = carbs > 0 ? carbs : (0.075 * calorieGoal / 4).round();
+    final validFat = fat > 0 ? fat : (0.7 * calorieGoal / 9).round();
 
-    log('[calcMacrosForKetoCarnivore] Carbs reduction: ${standardCarbsKcal}kcal -> ${newCarbsKcal}kcal (freed: ${freedKcal}kcal)',
-        name: 'UserDataEntity');
-
-    // 3. Распределяем освободившиеся калории поровну между белками и жирами
-    final additionalProteinKcal = freedKcal / 2;
-    final additionalFatKcal = freedKcal / 2;
-
-    final newProtein =
-        standardProtein + (additionalProteinKcal / 4).round(); // 4 ккал/г
-    final newFats = standardFats + (additionalFatKcal / 9).round(); // 9 ккал/г
-
-    // Проверка на нулевые значения и исправление
-    final validProtein = newProtein > 0
-        ? newProtein
-        : (0.45 * calorieGoal / 4).round(); // 45% если что-то пошло не так
-    final validCarbs = newCarbs > 0
-        ? newCarbs
-        : (0.1 * calorieGoal / 4).round(); // 10% если что-то пошло не так
-    final validFat = newFats > 0
-        ? newFats
-        : (0.45 * calorieGoal / 9).round(); // 45% если что-то пошло не так
-
-    log('[calcMacrosForKetoCarnivore] Final keto/carnivore macros - P: $validProtein, C: $validCarbs, F: $validFat',
-        name: 'UserDataEntity');
+    log(
+      '[calcMacrosForKeto] Final keto macros - P: $validProtein г, C: $validCarbs г, F: $validFat г',
+      name: 'UserDataEntity',
+    );
 
     // Проверяем общие калории для отладки
     final totalKcal = (validProtein * 4) + (validCarbs * 4) + (validFat * 9);
-    log('[calcMacrosForKetoCarnivore] Total calculated kcal: $totalKcal (target: $calorieGoal)',
-        name: 'UserDataEntity');
+    log(
+      '[calcMacrosForKeto] Total calculated kcal: $totalKcal (target: $calorieGoal)',
+      name: 'UserDataEntity',
+    );
 
     return MacrosBreakdown(
-      kcal: calorieGoal, // Сохраняем целевые калории
+      kcal: calorieGoal,
       protein: validProtein,
       carbs: validCarbs,
       fat: validFat,
     );
+  }
+
+  /// Получает проценты макросов на основе WHOOP Strain для KETO диеты
+  ({double protein, double carbs}) _getKetoMacrosFromStrain(double strain) {
+    // Таблица соответствия Strain → Macros% для Keto (из ТЗ)
+    if (strain >= 0 && strain <= 5) {
+      return (protein: 20.0, carbs: 5.0);
+    } else if (strain >= 6 && strain <= 9) {
+      return (protein: 21.0, carbs: 6.0);
+    } else if (strain >= 10 && strain <= 13) {
+      return (protein: 22.0, carbs: 7.0);
+    } else if (strain >= 14 && strain <= 16) {
+      return (protein: 23.0, carbs: 8.0);
+    } else if (strain >= 17 && strain <= 18) {
+      return (protein: 24.0, carbs: 9.0);
+    } else if (strain >= 19) {
+      return (protein: 25.0, carbs: 10.0);
+    } else {
+      // Fallback для некорректных значений
+      return (protein: 22.5, carbs: 7.5); // Среднее значение
+    }
+  }
+
+  /// Получает проценты макросов на основе WHOOP Recovery для KETO диеты
+  ({double protein, double carbs}) _getKetoMacrosFromRecovery(int recovery) {
+    // Таблица соответствия Recovery → Macros% для Keto (из ТЗ)
+    if (recovery >= 0 && recovery <= 19) {
+      return (protein: 25.0, carbs: 10.0);
+    } else if (recovery >= 20 && recovery <= 39) {
+      return (protein: 24.0, carbs: 9.0);
+    } else if (recovery >= 40 && recovery <= 59) {
+      return (protein: 23.0, carbs: 8.0);
+    } else if (recovery >= 60 && recovery <= 79) {
+      return (protein: 22.0, carbs: 7.0);
+    } else if (recovery >= 80 && recovery <= 89) {
+      return (protein: 21.0, carbs: 6.0);
+    } else if (recovery >= 90 && recovery <= 100) {
+      return (protein: 20.0, carbs: 5.0);
+    } else {
+      // Fallback для некорректных значений
+      return (protein: 22.5, carbs: 7.5); // Среднее значение
+    }
   }
 
   @override
