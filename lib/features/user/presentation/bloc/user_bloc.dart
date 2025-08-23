@@ -9,6 +9,7 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/accounts_whitelist/accounts_whitelist_service.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
@@ -40,6 +41,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   UserBloc(
     this.updateUserUsecase,
     this.getUserDaysUsecase,
+    this.accountsWhiteListService,
   ) : super(
           UserMainState(
             status: Status.initial,
@@ -65,6 +67,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   final UpdateUserUsecase updateUserUsecase;
   // Удаляем старый use case, оставляем только новый
   final GetUserDaysUsecase getUserDaysUsecase;
+  final AccountsWhiteListService accountsWhiteListService;
 
   void _initRecompCheckTimer() {
     // Отменяем существующий таймер если он есть
@@ -161,6 +164,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
             );
           }
         }
+
+        // Проверяем белый список аккаунтов для автоматической активации подписки
+        await _checkWhiteListAndActivateSubscription(user.email);
 
         // Обновляем состояние после завершения всех операций с Adapty
         emit(state.copyWith(user: user));
@@ -665,6 +671,50 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       log('Ошибка при синхронном создании истории дней: $e', name: 'UserBloc');
       log('Stack trace: $stackTrace', name: 'UserBloc');
       rethrow; // Пробрасываем ошибку выше
+    }
+  }
+
+  /// Проверяет белый список аккаунтов и активирует подписку для пользователей из списка
+  /// Это основная фича для автоматической активации подписки при старте приложения
+  Future<void> _checkWhiteListAndActivateSubscription(String email) async {
+    try {
+      log(
+        '[UserBloc] Проверяем email $email в белом списке при старте приложения',
+        name: 'UserBloc',
+      );
+
+      final bool isInWhiteList =
+          await accountsWhiteListService.isEmailInWhiteList(email);
+
+      if (isInWhiteList) {
+        log(
+          '[UserBloc] ✅ Email $email найден в белом списке! Активируем подписку автоматически',
+          name: 'UserBloc',
+        );
+
+        // Активируем подписку для пользователя из белого списка
+        adapty.activateWhiteListSubscription();
+
+        log(
+          '[UserBloc] ✅ Подписка активирована для пользователя из белого списка при старте. '
+          'Статус: isActive=${adapty.isActive}, isTrialActive=${adapty.isTrialActive}',
+          name: 'UserBloc',
+        );
+      } else {
+        log(
+          '[UserBloc] Email $email не найден в белом списке при старте. '
+          'Используем стандартную логику подписки',
+          name: 'UserBloc',
+        );
+      }
+    } catch (e, stackTrace) {
+      log(
+        '[UserBloc] Ошибка при проверке белого списка при старте: $e',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'UserBloc',
+      );
+      // Не прерываем процесс запуска приложения при ошибке проверки белого списка
     }
   }
 

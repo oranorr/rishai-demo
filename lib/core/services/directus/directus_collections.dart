@@ -7,3 +7,5 @@ const String weekPlanCollection = 'weekPlans';
 const String appConfig = kDebugMode ? 'debugAppConfig' : 'appConfig';
 const String feedbackCollection = 'feedback';
 const String feedbackFilesCollection = 'feedbackFiles';
+// Белый список аккаунтов с автоматической подпиской
+const String accountsWhiteListCollection = 'accountsWhiteList';

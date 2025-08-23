@@ -11,5 +11,8 @@ abstract class AdaptyRepository {
   Future<void> logout();
   Future<String> restorePurchases();
   Future<void> test();
+
+  /// Активирует подписку для пользователей из белого списка
+  void activateWhiteListSubscription();
   // Future<void>
 }

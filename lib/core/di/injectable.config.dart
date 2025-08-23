@@ -12,6 +12,10 @@ import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 import 'package:rishai/core/router/app_navigation_service.dart' as _i453;
 import 'package:rishai/core/router/navigator_key_provider.dart' as _i572;
+import 'package:rishai/core/services/accounts_whitelist/accounts_whitelist_service.dart'
+    as _i751;
+import 'package:rishai/core/services/accounts_whitelist/accounts_whitelist_service_impl.dart'
+    as _i748;
 import 'package:rishai/core/services/adapty_service/adapty_repository.dart'
     as _i1067;
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
@@ -160,6 +164,8 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i820.WhoopTokenService>(() => _i597.WhoopTokenServiceImpl());
     gh.singleton<_i510.LoginRemoteDataSource>(
         () => _i675.RemoteDataSourceImpl());
+    gh.singleton<_i751.AccountsWhiteListService>(
+        () => _i748.AccountsWhiteListServiceImpl(gh<_i89.DirectusService>()));
     gh.singleton<_i1067.AdaptyRepository>(() => _i910.AdaptyRepositoryImpl());
     gh.singleton<_i675.WhoopRemoteDataSource>(
         () => _i675.WhoopRemoteDataSourceImpl());
@@ -190,10 +196,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i634.VersionCheckServiceImpl(gh<_i89.DirectusService>()));
     gh.singleton<_i544.LoginRepository>(
         () => _i1025.LoginRepositoryImpl(gh<_i510.LoginRemoteDataSource>()));
-    gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
-          gh<_i663.UpdateUserUsecase>(),
-          gh<_i547.GetUserDaysUsecase>(),
-        ));
     gh.factory<_i1003.LoginViaGoogleUsecase>(
         () => _i1003.LoginViaGoogleUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i734.CreateNewUserUsecase>(
@@ -224,11 +226,17 @@ extension GetItInjectableX on _i174.GetIt {
           remote: gh<_i867.ChatRemoteDataSource>(),
           userRepo: gh<_i926.UserRepository>(),
         ));
+    gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
+          gh<_i663.UpdateUserUsecase>(),
+          gh<_i547.GetUserDaysUsecase>(),
+          gh<_i751.AccountsWhiteListService>(),
+        ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
           gh<_i1003.LoginViaGoogleUsecase>(),
           gh<_i734.CreateNewUserUsecase>(),
           gh<_i248.LoginViaEmailUsecase>(),
           gh<_i914.LoginViaAppleUsecase>(),
+          gh<_i751.AccountsWhiteListService>(),
         ));
     gh.factory<_i241.InitGptUsecase>(
         () => _i241.InitGptUsecase(gh<_i831.ChatRepository>()));

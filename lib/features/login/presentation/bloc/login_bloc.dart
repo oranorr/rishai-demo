@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/accounts_whitelist/accounts_whitelist_service.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -39,6 +40,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     this.createNewUserUsecase,
     this.loginViaEmailUseCase,
     this.loginViaAppleUsecase,
+    this.accountsWhiteListService,
   ) : super(
           const LoginMainState(
             status: Status.initial,
@@ -56,6 +58,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   final CreateNewUserUsecase createNewUserUsecase;
   final LoginViaEmailUsecase loginViaEmailUseCase;
   final LoginViaAppleUsecase loginViaAppleUsecase;
+  final AccountsWhiteListService accountsWhiteListService;
 
   FutureOr<void> _createAccount(
     CreateAccountEvent event,
@@ -184,6 +187,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       }
     }
 
+    // Проверяем белый список аккаунтов для автоматической активации подписки
+    await _checkWhiteListAndActivateSubscription(curUser.email);
+
     // Затем обновляем в Directus и состоянии (без вызова identify)
     userBloc.add(UpdateUserEvent(user: curUser));
 
@@ -251,6 +257,50 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
     log('OTP CODE: $verificationCode');
     return verificationCode;
+  }
+
+  /// Проверяет белый список аккаунтов и активирует подписку для пользователей из списка
+  /// Это основная фича для автоматической активации подписки
+  Future<void> _checkWhiteListAndActivateSubscription(String email) async {
+    try {
+      log(
+        '[LoginBloc] Проверяем email $email в белом списке',
+        name: 'LoginBloc',
+      );
+
+      final bool isInWhiteList =
+          await accountsWhiteListService.isEmailInWhiteList(email);
+
+      if (isInWhiteList) {
+        log(
+          '[LoginBloc] ✅ Email $email найден в белом списке! Активируем подписку автоматически',
+          name: 'LoginBloc',
+        );
+
+        // Активируем подписку для пользователя из белого списка
+        adapty.activateWhiteListSubscription();
+
+        log(
+          '[LoginBloc] ✅ Подписка активирована для пользователя из белого списка. '
+          'Статус: isActive=${adapty.isActive}, isTrialActive=${adapty.isTrialActive}',
+          name: 'LoginBloc',
+        );
+      } else {
+        log(
+          '[LoginBloc] Email $email не найден в белом списке. '
+          'Используем стандартную логику подписки',
+          name: 'LoginBloc',
+        );
+      }
+    } catch (e, stackTrace) {
+      log(
+        '[LoginBloc] Ошибка при проверке белого списка: $e',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'LoginBloc',
+      );
+      // Не прерываем процесс логина при ошибке проверки белого списка
+    }
   }
 
   List<String> okEmails = [

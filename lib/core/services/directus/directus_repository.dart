@@ -42,6 +42,8 @@ abstract interface class DirectusService {
 
   Future<Map<String, dynamic>> readAppConfig();
 
+  Future<Map<String, dynamic>> readAccountsWhiteList();
+
   Future<String> uploadFile({
     required File image,
   });

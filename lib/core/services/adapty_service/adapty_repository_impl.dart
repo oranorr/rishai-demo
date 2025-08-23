@@ -607,6 +607,15 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     );
     return null;
   }
+
+  @override
+  void activateWhiteListSubscription() {
+    _logger('Активация подписки для пользователя из белого списка');
+    isActive = true;
+    isTrialActive = true;
+    _logger('✅ Подписка активирована для пользователя из белого списка. '
+        'isActive=$isActive, isTrialActive=$isTrialActive');
+  }
 }
 
 void _logger(String message) {

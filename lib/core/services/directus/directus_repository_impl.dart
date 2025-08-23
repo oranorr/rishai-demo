@@ -232,6 +232,13 @@ class DirectusRepositoryImpl implements DirectusService {
   }
 
   @override
+  Future<Map<String, dynamic>> readAccountsWhiteList() async {
+    final coll = await sdk.items(accountsWhiteListCollection).readOne('1');
+    print('COLL: ${coll.data}');
+    return coll.data;
+  }
+
+  @override
   Future<String> uploadFile({
     required File image,
   }) async {
