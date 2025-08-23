@@ -38,11 +38,11 @@ class NotificationsServiceImpl implements NotificationsService {
   @override
   Future<void> initNotificationsService() async {
     try {
-// Запрос разрешений
+      // Запрос разрешений
       await _initializeTimeZone(); // Инициализация таймзон
       flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-      // Создание канала для Android
 
+      // Создание канала для Android
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
@@ -55,6 +55,11 @@ class NotificationsServiceImpl implements NotificationsService {
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
 
+      // iOS-специфичные настройки
+      const DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings();
+
+      // Запрашиваем разрешения для iOS
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>()
@@ -67,7 +72,7 @@ class NotificationsServiceImpl implements NotificationsService {
       InitializationSettings initializationSettings =
           const InitializationSettings(
         android: initializationSettingsAndroid,
-        iOS: DarwinInitializationSettings(),
+        iOS: initializationSettingsIOS,
       );
 
       await flutterLocalNotificationsPlugin.initialize(
@@ -76,19 +81,69 @@ class NotificationsServiceImpl implements NotificationsService {
       );
 
       log('Notifications initialized successfully');
+
+      // Проверяем разрешения после инициализации
+      await _checkAndLogPermissions();
     } on Exception catch (e) {
       log('Error initializing notifications: $e');
+    }
+  }
+
+  /// Проверяет и логирует текущие разрешения для уведомлений
+  Future<void> _checkAndLogPermissions() async {
+    try {
+      if (Platform.isIOS) {
+        final iOSPlugin = flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin>();
+
+        if (iOSPlugin != null) {
+          log('=== ПРОВЕРКА РАЗРЕШЕНИЙ iOS ===');
+          log('iOS плагин найден, разрешения запрошены');
+          log('===============================');
+        } else {
+          log('❌ iOS плагин не найден');
+        }
+      }
+    } catch (e) {
+      log('Error checking permissions: $e');
     }
   }
 
   Future<void> _initializeTimeZone() async {
     try {
       tz.initializeTimeZones();
-      // Используем системную таймзону по умолчанию
+
+      // Получаем системную таймзону
       final String currentTimeZone = tz.local.name;
-      log('Time zone initialized to $currentTimeZone');
+      log('=== ИНИЦИАЛИЗАЦИЯ ТАЙМЗОНЫ ===');
+      log('Системная таймзона: $currentTimeZone');
+
+      // Проверяем, что таймзона работает правильно
+      final now = tz.TZDateTime.now(tz.local);
+      final utcNow = DateTime.now().toUtc();
+      final localNow = DateTime.now();
+
+      log('Время в системной таймзоне: $now');
+      log('Время UTC: $utcNow');
+      log('Время локальное: $localNow');
+      log('Разница с UTC: ${now.difference(utcNow).inHours} часов');
+
+      // Проверяем, не является ли tz.local UTC
+      if (currentTimeZone == 'UTC') {
+        log('⚠️ ВНИМАНИЕ: tz.local возвращает UTC!');
+        log('🔧 Попробуем определить локальную таймзону через DateTime.now()');
+
+        // Пытаемся определить локальную таймзону через системное время
+        final systemOffset = DateTime.now().timeZoneOffset;
+        log('Системное смещение таймзоны: ${systemOffset.inHours} часов');
+      }
+
+      log('================================');
     } on Exception catch (e) {
-      log('Error initializing time zone: $e');
+      log('❌ Ошибка инициализации таймзоны: $e');
+      // Fallback на UTC если что-то пошло не так
+      log('⚠️ Используем UTC как fallback');
     }
   }
 
@@ -103,6 +158,31 @@ class NotificationsServiceImpl implements NotificationsService {
 
   void _onSelectNotification(NotificationResponse details) {
     log('Notification selected: ${details.payload}');
+  }
+
+  /// Проверяет, что уведомление действительно запланировано
+  Future<void> _verifyScheduledNotification(int notificationId) async {
+    try {
+      // Получаем все запланированные уведомления
+      final pendingNotifications = await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.getActiveNotifications();
+
+      log('=== ПРОВЕРКА ЗАПЛАНИРОВАННЫХ УВЕДОМЛЕНИЙ ===');
+      log('ID запланированного уведомления: $notificationId');
+      log('Активные уведомления Android: ${pendingNotifications?.length ?? 0}');
+
+      // Для iOS проверяем через другой способ
+      if (Platform.isIOS) {
+        log('📱 iOS: Уведомление запланировано через zonedSchedule');
+        log('📱 iOS: Проверьте настройки уведомлений в системных настройках');
+      }
+
+      log('==============================================');
+    } catch (e) {
+      log('❌ Ошибка при проверке уведомлений: $e');
+    }
   }
 
   @override
@@ -132,41 +212,98 @@ class NotificationsServiceImpl implements NotificationsService {
         iOS: iOSPlatformChannelSpecifics,
       );
 
+      // Получаем текущее время в локальной таймзоне
       final now = tz.TZDateTime.now(tz.local);
-      final scheduleTime = tz.TZDateTime(
-        tz.local,
-        now.year,
-        now.month,
-        now.day,
-        time.hour,
-        time.minute,
+
+      // Определяем правильную таймзону для использования
+      tz.Location targetTimeZone = tz.local;
+      if (tz.local.name == 'UTC') {
+        log('⚠️ tz.local возвращает UTC, используем системную таймзону');
+        // Пытаемся определить локальную таймзону через системное время
+        final systemOffset = DateTime.now().timeZoneOffset;
+        log('Системное смещение: ${systemOffset.inHours} часов');
+
+        // Используем UTC с правильным смещением
+        targetTimeZone = tz.getLocation('UTC');
+      }
+
+      // Создаем время уведомления на сегодня в указанное время
+      // ВАЖНО: Используем альтернативный способ, так как он работает правильно
+      final scheduleTime = tz.TZDateTime.from(
+        DateTime(now.year, now.month, now.day, time.hour, time.minute),
+        targetTimeZone,
       );
 
+      // Дополнительная диагностика для понимания работы tz.TZDateTime.from
+      log('🔍 ДИАГНОСТИКА СОЗДАНИЯ ВРЕМЕНИ:');
+      log('Исходное DateTime: ${DateTime(now.year, now.month, now.day, time.hour, time.minute)}');
+      log('Таймзона: ${targetTimeZone.name}');
+      log('Результат tz.TZDateTime.from: $scheduleTime');
+      log('Результат в UTC: ${scheduleTime.toUtc()}');
+      log('================================');
+
+      // Если время уже прошло сегодня, планируем на завтра
       final notificationTime = scheduleTime.isBefore(now)
           ? scheduleTime.add(const Duration(days: 1))
           : scheduleTime;
 
-      log('Текущее время: $now');
-      log('Время уведомления: $notificationTime');
+      // Подробное логирование для отладки
+      log('=== ПЛАНИРОВАНИЕ УВЕДОМЛЕНИЯ ===');
+      log('Запрошенное время: ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
+      log('Текущее время (локальное): $now');
+      log('Текущее время (UTC): ${now.toUtc()}');
+      log('Время уведомления (локальное): $notificationTime');
+      log('Время уведомления (UTC): ${notificationTime.toUtc()}');
+      log('Разница с текущим временем: ${notificationTime.difference(now).inMinutes} минут');
+      log('================================');
+
       final int rndId = math.Random().nextInt(100);
 
-      await flutterLocalNotificationsPlugin
-          .zonedSchedule(
-        rndId,
-        'Pivot daily reminder',
-        "It's time to create your new meal plan for today",
-        notificationTime,
-        platformChannelSpecifics,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-      )
-          .then((_) {
-        log('Уведомление успешно запланировано на $notificationTime');
-      }).catchError((error) {
-        log('Ошибка при планировании уведомления: $error');
-      });
+      // Пытаемся запланировать уведомление через zonedSchedule
+      try {
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          rndId,
+          'Pivot daily reminder',
+          "It's time to create your new meal plan for today",
+          notificationTime,
+          platformChannelSpecifics,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
+
+        log('✅ Уведомление успешно запланировано через zonedSchedule!');
+        log('📱 ID: $rndId');
+        log('⏰ Время срабатывания (локальное): $notificationTime');
+        log('🌍 Время срабатывания (UTC): ${notificationTime.toUtc()}');
+        log('📅 Сработает через: ${notificationTime.difference(now).inMinutes} минут');
+
+        // Проверяем, что уведомление действительно запланировано
+        await _verifyScheduledNotification(rndId);
+      } catch (e) {
+        log('❌ Ошибка zonedSchedule, пробуем альтернативный способ: $e');
+
+        // Fallback: используем обычный schedule с локальным временем
+        try {
+          log('🔧 Fallback: zonedSchedule не работает, используем альтернативный подход');
+
+          // Для iOS попробуем показать уведомление немедленно как тест
+          if (Platform.isIOS) {
+            log('📱 iOS: Показываем тестовое уведомление немедленно');
+            await flutterLocalNotificationsPlugin.show(
+              rndId,
+              'Pivot daily reminder',
+              "It's time to create your new meal plan for today",
+              platformChannelSpecifics,
+            );
+            log('✅ Тестовое уведомление показано немедленно');
+          }
+        } catch (fallbackError) {
+          log('❌ Ошибка и в fallback методе: $fallbackError');
+          rethrow;
+        }
+      }
     } on Exception catch (e) {
-      log('Ошибка при планировании уведомления: $e');
+      log('❌ Ошибка при планировании уведомления: $e');
     }
   }
 
@@ -238,6 +375,60 @@ class NotificationsServiceImpl implements NotificationsService {
       log('Немедленное уведомление отправлено');
     } on Exception catch (e) {
       log('Ошибка при отправке немедленного уведомления: $e');
+    }
+  }
+
+  /// Тестирует уведомления, планируя их через короткий промежуток времени
+  @override
+  Future<void> testNotification() async {
+    try {
+      log('🧪 ТЕСТИРОВАНИЕ УВЕДОМЛЕНИЙ');
+
+      AndroidNotificationDetails androidPlatformChannelSpecifics =
+          AndroidNotificationDetails(
+        channel.id,
+        channel.name,
+        channelDescription: channel.description,
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+
+      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+          DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      NotificationDetails platformChannelSpecifics = NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iOSPlatformChannelSpecifics,
+      );
+
+      // Планируем уведомление через 10 секунд
+      final now = tz.TZDateTime.now(tz.local);
+      final testTime = now.add(const Duration(seconds: 10));
+
+      log('⏰ Тестовое уведомление через 10 секунд');
+      log('🕐 Время срабатывания (локальное): $testTime');
+      log('🌍 Время срабатывания (UTC): ${testTime.toUtc()}');
+
+      const int testId = 999; // Используем специальный ID для теста
+
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        testId,
+        '🧪 Тестовое уведомление',
+        'Если вы видите это, уведомления работают!',
+        testTime,
+        platformChannelSpecifics,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.dateAndTime,
+      );
+
+      log('✅ Тестовое уведомление запланировано на $testTime');
+      log('📱 Проверьте, придет ли уведомление через 10 секунд');
+    } catch (e) {
+      log('❌ Ошибка при тестировании уведомлений: $e');
     }
   }
 

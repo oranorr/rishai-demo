@@ -6,4 +6,5 @@ abstract class NotificationsService {
   Future<void> cancelNotifications();
   Future<void> requestPermissions();
   Future<void> showImmediateNotification();
+  Future<void> testNotification();
 }

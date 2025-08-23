@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
@@ -148,6 +149,15 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
                 savedTime = formattedTime;
                 buttonEnabled = false;
               });
+            },
+          ),
+          SizedBox(height: 16.h),
+          // Кнопка для тестирования уведомлений
+          RishButton.secondary(
+            title: '🧪 Test Notification',
+            action: () async {
+              log('🧪 Тестирование уведомлений...');
+              await notes.testNotification();
             },
           ),
         ],
