@@ -199,19 +199,16 @@ class _ModificatorSelectorState extends State<ModificatorSelector> {
           ],
         ),
         const Spacer(),
-        Padding(
-          padding: const EdgeInsets.only(top: 32, bottom: 32),
-          child: SizedBox(
-            height: 56.h,
-            child: RishButton.primary(
-              title: 'Save changes',
-              action: () {
-                widget.setModificator(selected / 100);
-                context.pop();
-              },
-              isLoading: false,
-              enabled: true,
-            ),
+        SizedBox(
+          height: 56.h,
+          child: RishButton.primary(
+            title: 'Save changes',
+            action: () {
+              widget.setModificator(selected / 100);
+              context.pop();
+            },
+            isLoading: false,
+            enabled: true,
           ),
         ),
       ],

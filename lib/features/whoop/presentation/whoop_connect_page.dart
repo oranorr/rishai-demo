@@ -97,9 +97,6 @@ class WhoopConnectPage extends StatelessWidget {
               );
             },
           ),
-          SizedBox(
-            height: 16.h,
-          ),
           // RishButton.primary(
           //   title: 'Get user data',
           //   enabled: true,

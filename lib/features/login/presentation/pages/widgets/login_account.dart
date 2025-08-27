@@ -86,11 +86,6 @@ class LoginPage extends StatelessWidget {
             ),
           ),
         ),
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 16.h,
-          ),
-        ),
       ],
     );
   }

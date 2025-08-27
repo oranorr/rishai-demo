@@ -285,6 +285,7 @@ class _WeekPlanContentState extends State<WeekPlanContent> with WeekPlanMixin {
                       },
                     ),
                   ),
+                  if (Platform.isAndroid) SizedBox(height: 30.h),
                 ],
               );
             },

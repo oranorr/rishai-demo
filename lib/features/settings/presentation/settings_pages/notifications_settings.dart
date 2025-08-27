@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
@@ -151,15 +152,17 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
               });
             },
           ),
-          SizedBox(height: 16.h),
-          // Кнопка для тестирования уведомлений
-          RishButton.secondary(
-            title: '🧪 Test Notification',
-            action: () async {
-              log('🧪 Тестирование уведомлений...');
-              await notes.testNotification();
-            },
-          ),
+          if (kDebugMode) ...[
+            SizedBox(height: 16.h),
+            // Кнопка для тестирования уведомлений
+            RishButton.secondary(
+              title: '🧪 Test Notification',
+              action: () async {
+                log('🧪 Тестирование уведомлений...');
+                await notes.testNotification();
+              },
+            ),
+          ],
         ],
       ),
     );
