@@ -66,6 +66,7 @@ class _EnterOtpState extends State<EnterOtp> {
   Widget build(BuildContext context) {
     return RishScaffold(
       implyLeading: true,
+      needsBottomPadding: false,
       child: BlocBuilder<LoginBloc, LoginState>(
         bloc: loginBloc,
         builder: (context, state) {
@@ -169,11 +170,24 @@ class _EnterOtpState extends State<EnterOtp> {
                 //   ),
                 // ),
               ),
+              // Debug информация (если нужно)
               if (kDebugMode) ...[
-                const Spacer(),
-                Text(loginBloc.state.otp!),
+                SizedBox(height: 32.h),
+                Center(
+                  child: Text(
+                    loginBloc.state.otp!,
+                    style: context.styles.regularMedium.copyWith(
+                      color: RishColors.textSecondary,
+                    ),
+                  ),
+                ),
               ],
-              const Spacer(),
+              // Используем Expanded вместо Spacer для стабильности верстки
+              // const Spacer(),
+              Expanded(
+                child: Container(),
+              ),
+              // Нижняя секция с кнопкой - фиксированная позиция без "дергания"
               BlocBuilder<WhoopBloc, WhoopState>(
                 bloc: whoopBloc,
                 builder: (context, whoopState) {
@@ -184,14 +198,6 @@ class _EnterOtpState extends State<EnterOtp> {
                         whoopState.status == Status.loading,
                     action: () {
                       loginBloc.add(const LoginOtpCorrect());
-                      // final res = formKey.currentState!.validate();
-                      // if (res) {
-                      // }
-                      // if (!res) {
-                      //   Future.delayed(const Duration(seconds: 1), () {
-                      //     formKey.currentState!.reset();
-                      //   });
-                      // }
                     },
                   );
                 },

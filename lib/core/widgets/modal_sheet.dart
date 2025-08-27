@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -90,21 +92,22 @@ class ModalSheet {
                 ),
                 Expanded(child: child),
                 if (needsButton ?? true)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 16),
-                    child: SizedBox(
-                      height: 56.h,
-                      child: RishButton.primary(
-                        title: 'Save changes',
-                        action: () {
-                          // onSave(selected);
-                          context.pop();
-                        },
-                        isLoading: false,
-                        enabled: true,
-                      ),
+                  SizedBox(
+                    height: 56.h,
+                    child: RishButton.primary(
+                      title: 'Save changes',
+                      action: () {
+                        // onSave(selected);
+                        context.pop();
+                      },
+                      isLoading: false,
+                      enabled: true,
                     ),
                   ),
+                if (Platform.isAndroid)
+                  SizedBox(height: 50.h)
+                else
+                  const SizedBox(),
               ],
             ),
           ),
@@ -302,6 +305,10 @@ class ModalSheet {
                     ),
                   ),
                 ),
+                if (Platform.isAndroid)
+                  SizedBox(height: 34.h)
+                else
+                  const SizedBox(),
               ],
             ),
           ),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -288,6 +290,7 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
                   Navigator.of(context).pop();
                 },
               ),
+              if (Platform.isAndroid) SizedBox(height: 30.h),
             ],
           ),
         );

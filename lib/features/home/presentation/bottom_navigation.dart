@@ -43,36 +43,34 @@ List<Map<String, String>> dests = [
 class _RishiBottonNavigationBarState extends State<RishiBottonNavigationBar> {
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: Platform.isAndroid ? 68.h : null,
-      child: BottomNavigationBar(
-        onTap: widget.jump,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        currentIndex: widget.currentPage,
-        selectedLabelStyle:
-            context.styles.regularMedium.copyWith(color: RishColors.primary),
-        unselectedLabelStyle: context.styles.regularMedium,
-        unselectedItemColor: RishColors.textSecondary,
-        selectedItemColor: context.theme.colorScheme.primary,
-        items: [
-          for (int i = 0; i < dests.length; i++)
-            BottomNavigationBarItem(
-              icon: SvgPicture.asset(
-                dests[i]['asset']!,
-                colorFilter: widget.currentPage == i
-                    ? ColorFilter.mode(
-                        context.theme.colorScheme.primary,
-                        BlendMode.srcIn,
-                      )
-                    : null,
-                // height: i == 1 ? 27.h : null,
-              ),
-              label: dests[i]['name'],
-              backgroundColor: Colors.transparent,
+    return BottomNavigationBar(
+      onTap: widget.jump,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      currentIndex: widget.currentPage,
+      selectedLabelStyle:
+          context.styles.regularMedium.copyWith(color: RishColors.primary),
+      unselectedLabelStyle: context.styles.regularMedium,
+      unselectedItemColor: RishColors.textSecondary,
+      selectedItemColor: context.theme.colorScheme.primary,
+      items: [
+        for (int i = 0; i < dests.length; i++)
+          BottomNavigationBarItem(
+            // backgroundColor: Colors.red,
+            icon: SvgPicture.asset(
+              dests[i]['asset']!,
+              colorFilter: widget.currentPage == i
+                  ? ColorFilter.mode(
+                      context.theme.colorScheme.primary,
+                      BlendMode.srcIn,
+                    )
+                  : null,
+              // height: i == 1 ? 27.h : null,
             ),
-        ],
-      ),
+            label: dests[i]['name'],
+            backgroundColor: Colors.transparent,
+          ),
+      ],
     );
   }
 }

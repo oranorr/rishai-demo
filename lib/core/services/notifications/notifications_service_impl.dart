@@ -8,6 +8,8 @@ import 'package:injectable/injectable.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/notifications/notifications_service.dart';
+import 'package:rishai/core/services/notifications/platform_notifications_service.dart';
+import 'package:rishai/core/services/notifications/work_manager_import.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -24,6 +26,7 @@ final notes = getIt.get<NotificationsService>();
 @Singleton(as: NotificationsService)
 class NotificationsServiceImpl implements NotificationsService {
   late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+  late PlatformNotificationsService _platformService;
 
   // Канал с важностью High вместо Max для соответствия политике Google Store
   // High importance всё ещё обеспечивает хорошую видимость уведомлений без USE_FULL_SCREEN_INTENT
@@ -80,12 +83,40 @@ class NotificationsServiceImpl implements NotificationsService {
         onDidReceiveNotificationResponse: _onSelectNotification,
       );
 
+      // Инициализируем платформенный сервис для разделения логики по платформам
+      _platformService =
+          PlatformNotificationsService(flutterLocalNotificationsPlugin);
+
+      // Инициализируем WorkManager для Android (если это Android)
+      if (Platform.isAndroid) {
+        try {
+          // Импортируем и инициализируем WorkManager для Android
+          await _initializeWorkManagerForAndroid();
+          log('[NotificationsServiceImpl] WorkManager инициализирован для Android');
+        } catch (e) {
+          log('[NotificationsServiceImpl] Ошибка инициализации WorkManager: $e');
+          // Продолжаем работу без WorkManager
+        }
+      }
+
       log('Notifications initialized successfully');
 
       // Проверяем разрешения после инициализации
       await _checkAndLogPermissions();
     } on Exception catch (e) {
       log('Error initializing notifications: $e');
+    }
+  }
+
+  /// Инициализирует WorkManager для Android
+  Future<void> _initializeWorkManagerForAndroid() async {
+    try {
+      // Используем условный импорт для WorkManager
+      await AndroidWorkManagerService.initialize();
+      log('[NotificationsServiceImpl] WorkManager успешно инициализирован для Android');
+    } catch (e) {
+      log('[NotificationsServiceImpl] Ошибка инициализации WorkManager: $e');
+      rethrow;
     }
   }
 
@@ -189,121 +220,16 @@ class NotificationsServiceImpl implements NotificationsService {
   Future<void> scheduleNotification(TimeOfDay time) async {
     try {
       await cancelNotifications();
-      AndroidNotificationDetails androidPlatformChannelSpecifics =
-          AndroidNotificationDetails(
-        channel.id,
-        channel.name,
-        channelDescription: channel.description,
-        importance: Importance
-            .high, // Изменено с max на high для соответствия политике Google Store
-        priority: Priority
-            .high, // Изменено с max на high для соответствия политике Google Store
-      );
 
-      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-          DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
+      log('[NotificationsServiceImpl] Планируем уведомление на ${time.hour}:${time.minute.toString().padLeft(2, '0')}');
 
-      NotificationDetails platformChannelSpecifics = NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-        iOS: iOSPlatformChannelSpecifics,
-      );
+      // Используем платформенный сервис для разделения логики по платформам
+      await _platformService.scheduleDailyNotification(time);
 
-      // Получаем текущее время в локальной таймзоне
-      final now = tz.TZDateTime.now(tz.local);
-
-      // Определяем правильную таймзону для использования
-      tz.Location targetTimeZone = tz.local;
-      if (tz.local.name == 'UTC') {
-        log('⚠️ tz.local возвращает UTC, используем системную таймзону');
-        // Пытаемся определить локальную таймзону через системное время
-        final systemOffset = DateTime.now().timeZoneOffset;
-        log('Системное смещение: ${systemOffset.inHours} часов');
-
-        // Используем UTC с правильным смещением
-        targetTimeZone = tz.getLocation('UTC');
-      }
-
-      // Создаем время уведомления на сегодня в указанное время
-      // ВАЖНО: Используем альтернативный способ, так как он работает правильно
-      final scheduleTime = tz.TZDateTime.from(
-        DateTime(now.year, now.month, now.day, time.hour, time.minute),
-        targetTimeZone,
-      );
-
-      // Дополнительная диагностика для понимания работы tz.TZDateTime.from
-      log('🔍 ДИАГНОСТИКА СОЗДАНИЯ ВРЕМЕНИ:');
-      log('Исходное DateTime: ${DateTime(now.year, now.month, now.day, time.hour, time.minute)}');
-      log('Таймзона: ${targetTimeZone.name}');
-      log('Результат tz.TZDateTime.from: $scheduleTime');
-      log('Результат в UTC: ${scheduleTime.toUtc()}');
-      log('================================');
-
-      // Если время уже прошло сегодня, планируем на завтра
-      final notificationTime = scheduleTime.isBefore(now)
-          ? scheduleTime.add(const Duration(days: 1))
-          : scheduleTime;
-
-      // Подробное логирование для отладки
-      log('=== ПЛАНИРОВАНИЕ УВЕДОМЛЕНИЯ ===');
-      log('Запрошенное время: ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
-      log('Текущее время (локальное): $now');
-      log('Текущее время (UTC): ${now.toUtc()}');
-      log('Время уведомления (локальное): $notificationTime');
-      log('Время уведомления (UTC): ${notificationTime.toUtc()}');
-      log('Разница с текущим временем: ${notificationTime.difference(now).inMinutes} минут');
-      log('================================');
-
-      final int rndId = math.Random().nextInt(100);
-
-      // Пытаемся запланировать уведомление через zonedSchedule
-      try {
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          rndId,
-          'Pivot daily reminder',
-          "It's time to create your new meal plan for today",
-          notificationTime,
-          platformChannelSpecifics,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          matchDateTimeComponents: DateTimeComponents.time,
-        );
-
-        log('✅ Уведомление успешно запланировано через zonedSchedule!');
-        log('📱 ID: $rndId');
-        log('⏰ Время срабатывания (локальное): $notificationTime');
-        log('🌍 Время срабатывания (UTC): ${notificationTime.toUtc()}');
-        log('📅 Сработает через: ${notificationTime.difference(now).inMinutes} минут');
-
-        // Проверяем, что уведомление действительно запланировано
-        await _verifyScheduledNotification(rndId);
-      } catch (e) {
-        log('❌ Ошибка zonedSchedule, пробуем альтернативный способ: $e');
-
-        // Fallback: используем обычный schedule с локальным временем
-        try {
-          log('🔧 Fallback: zonedSchedule не работает, используем альтернативный подход');
-
-          // Для iOS попробуем показать уведомление немедленно как тест
-          if (Platform.isIOS) {
-            log('📱 iOS: Показываем тестовое уведомление немедленно');
-            await flutterLocalNotificationsPlugin.show(
-              rndId,
-              'Pivot daily reminder',
-              "It's time to create your new meal plan for today",
-              platformChannelSpecifics,
-            );
-            log('✅ Тестовое уведомление показано немедленно');
-          }
-        } catch (fallbackError) {
-          log('❌ Ошибка и в fallback методе: $fallbackError');
-          rethrow;
-        }
-      }
-    } on Exception catch (e) {
-      log('❌ Ошибка при планировании уведомления: $e');
+      log('[NotificationsServiceImpl] Уведомление успешно запланировано через платформенный сервис');
+    } catch (e) {
+      log('[NotificationsServiceImpl] Ошибка при планировании уведомления: $e');
+      rethrow;
     }
   }
 
@@ -384,6 +310,13 @@ class NotificationsServiceImpl implements NotificationsService {
     try {
       log('🧪 ТЕСТИРОВАНИЕ УВЕДОМЛЕНИЙ');
 
+      if (Platform.isIOS) {
+        // iOS: используем специальный метод тестирования
+        await _platformService.testNotificationIOS();
+        return;
+      }
+
+      // Android: используем существующую логику
       AndroidNotificationDetails androidPlatformChannelSpecifics =
           AndroidNotificationDetails(
         channel.id,
@@ -435,10 +368,14 @@ class NotificationsServiceImpl implements NotificationsService {
   @override
   Future<void> cancelNotifications() async {
     try {
-      await flutterLocalNotificationsPlugin.cancelAll();
-      log('Notification cancelled');
+      log('[NotificationsServiceImpl] Отменяем все уведомления');
+
+      // Используем платформенный сервис для отмены уведомлений
+      await _platformService.cancelAllNotifications();
+
+      log('[NotificationsServiceImpl] Все уведомления отменены');
     } on Exception catch (e) {
-      log('Error cancelling notification: $e');
+      log('[NotificationsServiceImpl] Ошибка при отмене уведомлений: $e');
     }
   }
 
