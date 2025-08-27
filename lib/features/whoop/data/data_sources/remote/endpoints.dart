@@ -1,19 +1,34 @@
+import 'package:rishai/features/whoop/core/config/whoop_api_config.dart';
+
 const useMock = false;
 
 class WhoopEndpoints {
   String get whoopCycles => useMock
-      ? 'http://localhost:3000/v1/cycle'
-      : 'https://api.prod.whoop.com/developer/v1/cycle';
+      ? WhoopApiConfig.getMockEndpoint('cycle')
+      : WhoopApiConfig.getEndpoint('cycle');
+
   String get bodyMeasurements =>
       'https://api.prod.whoop.com/developer/v1/user/measurement/body';
-  String get workouts =>
-      'https://api.prod.whoop.com/developer/v1/activity/workout';
-  String get sleeps => 'https://api.prod.whoop.com/developer/v1/activity/sleep';
-  String get recoveries => 'https://api.prod.whoop.com/developer/v1/recovery';
-  String recoveryById({required int cycleId}) =>
-      'https://api.prod.whoop.com/developer/v1/cycle/$cycleId/recovery';
-  String cycleById({required int cycleId}) =>
-      'https://api.prod.whoop.com/developer/v1/cycle/$cycleId';
+
+  String get workouts => useMock
+      ? WhoopApiConfig.getMockEndpoint('activity/workout')
+      : WhoopApiConfig.getEndpoint('activity/workout');
+
+  String get sleeps => useMock
+      ? WhoopApiConfig.getMockEndpoint('activity/sleep')
+      : WhoopApiConfig.getEndpoint('activity/sleep');
+
+  String get recoveries => useMock
+      ? WhoopApiConfig.getMockEndpoint('recovery')
+      : WhoopApiConfig.getEndpoint('recovery');
+
+  String recoveryById({required Object cycleId}) => useMock
+      ? WhoopApiConfig.getMockEndpoint('cycle/$cycleId/recovery')
+      : WhoopApiConfig.getEndpoint('cycle/$cycleId/recovery');
+
+  String cycleById({required Object cycleId}) => useMock
+      ? WhoopApiConfig.getMockEndpoint('cycle/$cycleId')
+      : WhoopApiConfig.getEndpoint('cycle/$cycleId');
 }
 
 

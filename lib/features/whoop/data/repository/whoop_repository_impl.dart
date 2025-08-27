@@ -26,6 +26,11 @@ import 'package:rishai/features/whoop/data/models/recovery_model.dart';
 import 'package:rishai/features/whoop/data/models/refresh_token_model.dart';
 import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
+
+// ===== WHOOP API v2 MIGRATION IMPORTS =====
+import 'package:rishai/features/whoop/core/config/whoop_api_config.dart';
+import 'package:rishai/features/whoop/core/migration/whoop_api_migration_manager.dart';
+// ===== END WHOOP API v2 MIGRATION IMPORTS =====
 import 'package:rishai/features/whoop/domain/entities/auth_response_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
@@ -42,7 +47,22 @@ class WhoopRepositoryImpl implements WhoopRepository {
   WhoopRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
-  });
+  }) {
+    // ===== WHOOP API v2 MIGRATION LOGGING =====
+    log('WHOOP API v2 Migration: Repository initialized with API version: ${WhoopApiConfig.apiVersion}',
+        name: 'WhoopRepository');
+    log('WHOOP API v2 Migration: Migration status: ${WhoopApiConfig.migrationStatus}',
+        name: 'WhoopRepository');
+    log('WHOOP API v2 Migration: Config: ${WhoopApiConfig.configInfo}',
+        name: 'WhoopRepository');
+
+    // Проверяем готовность к миграции
+    final migrationReady = whoopMigrationManager.checkMigrationReadiness();
+    log('WHOOP API v2 Migration: Migration readiness check: $migrationReady',
+        name: 'WhoopRepository');
+    // ===== END WHOOP API v2 MIGRATION LOGGING =====
+  }
+
   final WhoopRemoteDataSource remoteDataSource;
   final WhoopLocalDataSource localDataSource;
 
@@ -64,6 +84,11 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
   @override
   Future<Either<Failure, void>> authenticateUser() async {
+    // ===== WHOOP API v2 MIGRATION LOGGING =====
+    log('WHOOP API v2 Migration: Authenticating user with API version: ${WhoopApiConfig.apiVersion}',
+        name: 'WhoopRepository');
+    // ===== END WHOOP API v2 MIGRATION LOGGING =====
+
     String aT = '';
 
     final authUrl =
@@ -243,6 +268,13 @@ class WhoopRepositoryImpl implements WhoopRepository {
   Future<Either<Failure, DayEntity>> getData({
     required GetDataParams params,
   }) async {
+    // ===== WHOOP API v2 MIGRATION LOGGING =====
+    log('WHOOP API v2 Migration: Getting data with API version: ${WhoopApiConfig.apiVersion}',
+        name: 'WhoopRepository');
+    log('WHOOP API v2 Migration: User ID: ${params.userId}, Gender: ${params.gender}, Goal: ${params.goal}',
+        name: 'WhoopRepository');
+    // ===== END WHOOP API v2 MIGRATION LOGGING =====
+
     bool? isCurrentCycleEnded;
     try {
       log('>>> [getData] Starting data fetch for user: ${params.userId}');
@@ -358,6 +390,13 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required String userId,
     required bool needsCreateNewDay,
   }) async {
+    // ===== WHOOP API v2 MIGRATION LOGGING =====
+    log('WHOOP API v2 Migration: Fetching fresh data with API version: ${WhoopApiConfig.apiVersion}',
+        name: 'WhoopRepository');
+    log('WHOOP API v2 Migration: Modificator: $modificator, Gender: $gender, User ID: $userId',
+        name: 'WhoopRepository');
+    // ===== END WHOOP API v2 MIGRATION LOGGING =====
+
     try {
       final BodyMeasurementsEntity? body =
           await tryFetch(() => remoteDataSource.getBodyData());
