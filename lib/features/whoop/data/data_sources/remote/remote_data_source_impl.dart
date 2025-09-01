@@ -19,13 +19,6 @@ import 'package:rishai/features/whoop/data/models/cycle_model.dart';
 import 'package:rishai/features/whoop/data/models/recovery_model.dart';
 import 'package:rishai/features/whoop/data/models/sleep_model.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
-import 'package:rishai/features/whoop/data/models/v2/cycle_model_v2.dart';
-import 'package:rishai/features/whoop/data/models/v2/recovery_model_v2.dart';
-import 'package:rishai/features/whoop/data/models/v2/sleep_model_v2.dart';
-import 'package:rishai/features/whoop/data/models/v2/workout_model_v2.dart';
-import 'package:rishai/features/whoop/data/factories/whoop_v2_factory.dart';
-import 'package:rishai/features/whoop/core/config/whoop_api_config.dart';
-import 'package:rishai/features/whoop/data/adapters/whoop_model_adapter.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -126,46 +119,12 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       Map<String, dynamic> currentCycle =
           rawCycles.firstWhere((map) => map['end'] == null);
 
-      // Создаем v2 модели через фабрику
-      final cyclesV2 = rawCycles
+      final List<CycleModel> cycles = rawCycles
           .take(8)
           .where((raw) => raw['score_state'] == 'SCORED' && raw['end'] != null)
-          .map((map) => WhoopV2Factory.createCycleFromJson(map))
+          .map((map) => CycleModel.fromMap(map))
           .toList();
-
-      // Логируем информацию о созданных моделях
-      for (final cycle in cyclesV2) {
-        WhoopV2Factory.logModelCreation('Cycle', cycle);
-      }
-
-      // Конвертируем v2 модели в v1 для обратной совместимости
-      final List<CycleModel> cycles = cyclesV2.map((cycleV2) {
-        if (WhoopApiConfig.isV2) {
-          // Для v2 API используем адаптер
-          return WhoopModelAdapter.toV1CycleModel(cycleV2);
-        } else {
-          // Для v1 API создаем v1 модель напрямую
-          return CycleModel.fromMap({
-            'id': cycleV2.idAsInt ?? 0,
-            'user_id': cycleV2.userId,
-            'created_at': cycleV2.createdAt.toIso8601String(),
-            'updated_at': cycleV2.updatedAt?.toIso8601String(),
-            'start': cycleV2.start.toIso8601String(),
-            'end': cycleV2.end?.toIso8601String(),
-            'score_state': cycleV2.scoreState,
-            'score': cycleV2.score != null
-                ? {
-                    'strain': cycleV2.score!.strain,
-                    'kilojoule': cycleV2.score!.kilojoule,
-                    'average_heart_rate': cycleV2.score!.averageHeartRate,
-                    'max_heart_rate': cycleV2.score!.maxHeartRate,
-                  }
-                : null,
-          });
-        }
-      }).toList();
-
-      log('CYCLES LENGTH: ${cycles.length} (${WhoopApiConfig.isV2 ? 'v2' : 'v1'} API)');
+      log('CYCLES LENGTH: ${cycles.length}');
       return (cycles, currentCycle['id'] as int);
     } on Exception catch (__) {
       rethrow;
@@ -184,47 +143,9 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     List<Map<String, dynamic>> rawScoredWorkouts =
         rawWorkouts.where((raw) => raw['score_state'] == 'SCORED').toList();
 
-    // Создаем v2 модели через фабрику
-    List<WorkoutModelV2> workoutsV2 = rawScoredWorkouts.map((raw) {
-      return WhoopV2Factory.createWorkoutFromJson(raw);
+    List<WorkoutModel> workouts = rawScoredWorkouts.map((raw) {
+      return WorkoutModel.fromMap(raw);
     }).toList();
-
-    // Логируем информацию о созданных моделях
-    for (final workout in workoutsV2) {
-      WhoopV2Factory.logModelCreation('Workout', workout);
-    }
-
-    // Конвертируем v2 модели в v1 для обратной совместимости
-    List<WorkoutModel> workouts = workoutsV2.map((workoutV2) {
-      if (WhoopApiConfig.isV2) {
-        // Для v2 API используем адаптер
-        return WhoopModelAdapter.toV1WorkoutModel(workoutV2);
-      } else {
-        // Для v1 API создаем v1 модель напрямую
-        return WorkoutModel.fromMap({
-          'id': workoutV2.idAsInt ?? 0,
-          'user_id': workoutV2.userId,
-          'created_at': workoutV2.createdAt.toIso8601String(),
-          'updated_at': workoutV2.updatedAt.toIso8601String(),
-          'start': workoutV2.start.toIso8601String(),
-          'end': workoutV2.end?.toIso8601String(),
-          'timezone_offset': workoutV2.timezoneOffset,
-          'sport_id': workoutV2.sportId,
-          'score_state': workoutV2.scoreState,
-          'score': workoutV2.score != null
-              ? {
-                  'strain': workoutV2.score!.strain,
-                  'average_heart_rate': workoutV2.score!.averageHeartRate,
-                  'max_heart_rate': workoutV2.score!.maxHeartRate,
-                  'kilojoule': workoutV2.score!.kilojoule,
-                  'percent_recorded': workoutV2.score!.percentRecorded,
-                  'distance_meter': workoutV2.score!.distanceMeter,
-                }
-              : null,
-        });
-      }
-    }).toList();
-
     if (workouts.isNotEmpty) {
       return emptify
           ? []
@@ -252,21 +173,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
             recovery['cycle_id'] == cycleId,
         orElse: () => list.first,
       );
-
-      // Создаем v2 модель через фабрику
-      final recoveryV2 = WhoopV2Factory.createRecoveryFromJson(first);
-
-      // Логируем информацию о созданной модели
-      WhoopV2Factory.logModelCreation('Recovery', recoveryV2);
-
-      // Конвертируем v2 модель в v1 для обратной совместимости
-      if (WhoopApiConfig.isV2) {
-        // Для v2 API используем адаптер
-        return WhoopModelAdapter.toV1RecoveryModel(recoveryV2);
-      } else {
-        // Для v1 API создаем v1 модель напрямую
-        return RecoveryModel.fromJson(first);
-      }
+      return RecoveryModel.fromJson(first);
     } else {
       return null;
     }
@@ -281,21 +188,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         (sleep) => sleep['score_state'] == 'SCORED',
         orElse: () => list.first,
       );
-
-      // Создаем v2 модель через фабрику
-      final sleepV2 = WhoopV2Factory.createSleepFromJson(first);
-
-      // Логируем информацию о созданной модели
-      WhoopV2Factory.logModelCreation('Sleep', sleepV2);
-
-      // Конвертируем v2 модель в v1 для обратной совместимости
-      if (WhoopApiConfig.isV2) {
-        // Для v2 API используем адаптер
-        return WhoopModelAdapter.toV1SleepModel(sleepV2);
-      } else {
-        // Для v1 API создаем v1 модель напрямую
-        return SleepModel.fromMap(first);
-      }
+      return SleepModel.fromMap(first);
     } else {
       return null;
     }

@@ -43,12 +43,6 @@ import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.d
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
-
-// ===== WHOOP API v2 MIGRATION IMPORTS =====
-import 'package:rishai/features/whoop/core/config/whoop_api_config.dart';
-import 'package:rishai/features/whoop/core/migration/whoop_api_migration_manager.dart';
-// ===== END WHOOP API v2 MIGRATION IMPORTS =====
-
 part 'whoop_event.dart';
 
 final whoopBloc = GetIt.I<WhoopBloc>();
@@ -92,20 +86,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     WhoopConnectEvent event,
     Emitter<WhoopState> emit,
   ) async {
-    // ===== WHOOP API v2 MIGRATION LOGGING =====
-    log('WHOOP API v2 Migration: Connecting to WHOOP using API version: ${WhoopApiConfig.apiVersion}',
-        name: 'WhoopBloc');
-    log('WHOOP API v2 Migration: Migration status: ${WhoopApiConfig.migrationStatus}',
-        name: 'WhoopBloc');
-    log('WHOOP API v2 Migration: Config: ${WhoopApiConfig.configInfo}',
-        name: 'WhoopBloc');
-
-    // Проверяем готовность к миграции
-    final migrationReady = whoopMigrationManager.checkMigrationReadiness();
-    log('WHOOP API v2 Migration: Migration readiness check: $migrationReady',
-        name: 'WhoopBloc');
-    // ===== END WHOOP API v2 MIGRATION LOGGING =====
-
     emit(state.copyWith(status: Status.loading));
     if (!await prefsRepo.checkForWhoopDisclaimerAccpeted()) {
       await RishiDialog.whoopDisclaimer(event.context);
@@ -148,13 +128,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     WhoopGetUserData event,
     Emitter<WhoopState> emit,
   ) async {
-    // ===== WHOOP API v2 MIGRATION LOGGING =====
-    log('WHOOP API v2 Migration: Getting user data using API version: ${WhoopApiConfig.apiVersion}',
-        name: 'WhoopBloc');
-    log('WHOOP API v2 Migration: Event gender: ${event.gender}, goal: ${event.goal}',
-        name: 'WhoopBloc');
-    // ===== END WHOOP API v2 MIGRATION LOGGING =====
-
     if (!event.isInitializing) {
       emit(state.copyWith(status: Status.loading));
     }
@@ -218,11 +191,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     InitWhoopOnLogin event,
     Emitter<WhoopState> emit,
   ) async {
-    // ===== WHOOP API v2 MIGRATION LOGGING =====
-    log('WHOOP API v2 Migration: Initializing WHOOP on login using API version: ${WhoopApiConfig.apiVersion}',
-        name: 'WhoopBloc');
-    // ===== END WHOOP API v2 MIGRATION LOGGING =====
-
     try {
       emit(state.copyWith(status: Status.loading));
       UserEntity user = userBloc.state.user;
@@ -1048,13 +1016,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     WhoopUpdateCurrentDay event,
     Emitter<WhoopState> emit,
   ) async {
-    // ===== WHOOP API v2 MIGRATION LOGGING =====
-    log('WHOOP API v2 Migration: Updating current day using API version: ${WhoopApiConfig.apiVersion}',
-        name: 'WhoopBloc');
-    log('WHOOP API v2 Migration: Day directusId: ${event.day.directusId}',
-        name: 'WhoopBloc');
-    // ===== END WHOOP API v2 MIGRATION LOGGING =====
-
     try {
       // Обновляем текущий день
       emit(state.copyWith(day: event.day));
