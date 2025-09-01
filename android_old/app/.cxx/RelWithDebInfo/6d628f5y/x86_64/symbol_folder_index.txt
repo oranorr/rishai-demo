@@ -1,1 +1,0 @@
-/Users/iaroslav/dev/rishai/build/app/intermediates/cxx/RelWithDebInfo/6d628f5y/obj/x86_64
