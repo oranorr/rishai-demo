@@ -17,33 +17,36 @@ class WeekPlanEntityAdapter extends TypeAdapter<WeekPlanEntity> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return WeekPlanEntity(
-      plans: (fields[0] as List).cast<MealPlanEntity>(),
-      startDate: fields[1] as DateTime,
-      endDate: fields[2] as DateTime,
-      fitnessGoal: fields[3] as String,
-      dietaryPreferences: fields[4] as String,
-      cuisines: (fields[5] as List).cast<String>(),
-      mealsTypes: (fields[6] as List).cast<String>(),
+      userId: fields[0] as String,
+      plans: (fields[1] as List).cast<MealPlanEntity>(),
+      startDate: fields[2] as DateTime,
+      endDate: fields[3] as DateTime,
+      fitnessGoal: fields[4] as String,
+      dietaryPreferences: fields[5] as String,
+      cuisines: (fields[6] as List).cast<String>(),
+      mealsTypes: (fields[7] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, WeekPlanEntity obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
-      ..write(obj.plans)
+      ..write(obj.userId)
       ..writeByte(1)
-      ..write(obj.startDate)
+      ..write(obj.plans)
       ..writeByte(2)
-      ..write(obj.endDate)
+      ..write(obj.startDate)
       ..writeByte(3)
-      ..write(obj.fitnessGoal)
+      ..write(obj.endDate)
       ..writeByte(4)
-      ..write(obj.dietaryPreferences)
+      ..write(obj.fitnessGoal)
       ..writeByte(5)
-      ..write(obj.cuisines)
+      ..write(obj.dietaryPreferences)
       ..writeByte(6)
+      ..write(obj.cuisines)
+      ..writeByte(7)
       ..write(obj.mealsTypes);
   }
 

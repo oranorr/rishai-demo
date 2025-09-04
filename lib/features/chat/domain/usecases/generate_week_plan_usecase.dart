@@ -7,6 +7,7 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
+import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 
 /// Новая версия UseCase для генерации недельного плана с использованием новой структуры API
@@ -79,6 +80,7 @@ class GenerateWeekPlanUsecaseV2
 
       return Right(
         WeekPlanEntity.create(
+          userId: userBloc.state.user.directusId,
           plans: completedPlans,
           startDate: params.startDate,
         ),

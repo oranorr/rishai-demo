@@ -122,10 +122,16 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
   }
 
   Future<void> saveWeek(WeekPlanEntity week) async {
+    // ✅ Проверка принадлежности к текущему пользователю
+    if (week.userId != userBloc.state.user.directusId) {
+      _logger(
+          'WARNING: WeekPlan userId mismatch! Expected: ${userBloc.state.user.directusId}, Got: ${week.userId}');
+    }
+
     await hive.saveWeekPlan(weekPlan: week);
     await directus.createOne(
       collection: weekPlanCollection,
-      data: week.toMap(userId: userBloc.state.user.directusId),
+      data: week.toMap(),
     );
   }
 
@@ -133,7 +139,14 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
     final weeks = await hive.retrieveWeekPlan();
     if (weeks != null && weeks.isNotEmpty) {
       _logger('Retrieved ${weeks.length} weeks from hive');
-      return weeks;
+      // ✅ Фильтруем по текущему пользователю (на всякий случай)
+      final userWeeks = weeks
+          .where(
+            (week) => week.userId == userBloc.state.user.directusId,
+          )
+          .toList();
+      _logger('Filtered to ${userWeeks.length} weeks for current user');
+      return userWeeks;
     } else {
       final weeks = await directus.readMany(
         collection: weekPlanCollection,

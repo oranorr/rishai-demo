@@ -259,6 +259,15 @@ class DayManagerImpl implements DayManager {
         );
         resultDay = DayEntity.fromMap(createdDay);
         _logger('Новый день создан с id: ${resultDay.directusId}');
+
+        // 🔄 Проверяем recomp только при создании НОВОГО дня
+        try {
+          await userBloc.checkRecompForNewDay();
+          _logger('Recomp check completed for new day in createOrUpdateDay');
+        } catch (e) {
+          _logger('Recomp check failed for new day in createOrUpdateDay: $e');
+          // Не прерываем создание дня из-за ошибки проверки recomp
+        }
       }
 
       // Сохраняем в кэш
