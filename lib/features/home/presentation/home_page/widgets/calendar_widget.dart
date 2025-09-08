@@ -13,69 +13,104 @@ class _CalendarWidget extends StatelessWidget {
       height: 50.h,
       child: Row(
         children: [
-          SizedBox(width: 2.w),
-          _buildNavigationButton(
-            icon: Icons.chevron_left,
-            onTap: () async {
-              await widget.homePageController
-                  .nextPage(duration: Durations.medium1, curve: Curves.ease);
-            },
-            isLoading: widget.isLoading,
-            isDisabled: widget.isLastPage,
+          Image.asset(
+            'assets/icons/logo.png',
+            width: 32.w,
+            height: 32.h,
           ),
+          //
+          // _buildNavigationButton(
+          //   icon: Icons.chevron_left,
+          //   onTap: () async {
+          //     await widget.homePageController
+          //         .nextPage(duration: Durations.medium1, curve: Curves.ease);
+          //   },
+          //   isLoading: widget.isLoading,
+          //   isDisabled: widget.isLastPage,
+          // ),
           Expanded(
-            child: GestureDetector(
-              onTap: () async {
-                // [FIX] Блокируем выбор даты во время загрузки
-                if (widget.isLoading) return;
-
-                await userBloc.showDataPicker(
-                  context: context,
-                  initalDate: widget.day.dateTime,
-                  controller: widget.homePageController,
-                );
-              },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    widget.day.dateTime.formatAsDayString(),
-                    style: context.styles.h2.copyWith(
-                      // [FIX] Уменьшаем непрозрачность текста во время загрузки
-                      color: widget.isLoading
-                          ? context.styles.h2.color?.withOpacity(0.6)
-                          : context.styles.h2.color,
-                    ),
-                    textAlign: TextAlign.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildNavigationButton(
+                  icon: Icons.chevron_left,
+                  onTap: () async {
+                    await widget.homePageController.nextPage(
+                      duration: Durations.medium1,
+                      curve: Curves.ease,
+                    );
+                  },
+                  isLoading: widget.isLoading,
+                  isDisabled: widget.isLastPage,
+                ),
+                SizedBox(width: 2.w),
+                Text(
+                  widget.day.dateTime.formatAsDayString(),
+                  style: context.styles.h2.copyWith(
+                    color: widget.isLoading
+                        ? context.styles.h2.color?.withOpacity(0.6)
+                        : context.styles.h2.color,
                   ),
-                  // [FIX] Показываем индикатор загрузки под датой
-                  if (widget.isLoading) ...[
-                    SizedBox(height: 4.h),
-                    Text(
-                      'Loading...',
-                      style: context.styles.regularMedium.copyWith(
-                        color: RishColors.textSecondary,
-                        fontSize: 12.sp,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ],
-              ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(width: 2.w),
+                _buildNavigationButton(
+                  icon: Icons.chevron_right,
+                  onTap: () async {
+                    await widget.homePageController.previousPage(
+                      duration: Durations.medium1,
+                      curve: Curves.ease,
+                    );
+                  },
+                  isLoading: widget.isLoading,
+                  // isDisabled: widget.isFirstPage,
+                  isDisabled: widget.isFirstPage,
+                ),
+              ],
             ),
           ),
-          _buildNavigationButton(
-            icon: Icons.chevron_right,
+          // GestureDetector(
+          //   onTap: () async {
+          //     // [FIX] Блокируем выбор даты во время загрузки
+          //     if (widget.isLoading) return;
+
+          // await userBloc.showDataPicker(
+          //   context: context,
+          //   initalDate: widget.day.dateTime,
+          //   controller: widget.homePageController,
+          // );
+          //   },
+          //   child: Column(
+          //     mainAxisAlignment: MainAxisAlignment.center,
+          //     children: [
+
+          //       // [FIX] Показываем индикатор загрузки под датой
+          //       if (widget.isLoading) ...[
+          //         SizedBox(height: 4.h),
+          //         Text(
+          //           'Loading...',
+          //           style: context.styles.regularMedium.copyWith(
+          //             color: RishColors.textSecondary,
+          //             fontSize: 12.sp,
+          //           ),
+          //           textAlign: TextAlign.center,
+          //         ),
+          //       ],
+          //     ],
+          //   ),
+          // ),
+
+          GestureDetector(
             onTap: () async {
-              await widget.homePageController.previousPage(
-                duration: Durations.medium1,
-                curve: Curves.ease,
+              await userBloc.showDataPicker(
+                context: context,
+                initalDate: widget.day.dateTime,
+                controller: widget.homePageController,
               );
             },
-            isLoading: widget.isLoading,
-            isDisabled: widget.isFirstPage,
+            child: SvgPicture.asset('assets/icons/calendar.svg'),
           ),
-          SizedBox(width: 2.w),
+          // SizedBox(width: 2.w),
         ],
       ),
     );
@@ -91,27 +126,25 @@ class _CalendarWidget extends StatelessWidget {
       onTap: isDisabled ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: 40.h,
-        width: 40.w,
-        decoration: BoxDecoration(
-          color: (isDisabled || isLoading)
-              ? Colors.transparent
-              : RishColors.primary,
-          shape: BoxShape.circle,
-          boxShadow: isDisabled || isLoading
-              ? null
-              : [
-                  BoxShadow(
-                    color: RishColors.primary.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-        ),
+        // height: 40.h,
+        // width: 40.w,
+        // decoration: BoxDecoration(
+        //   color: (isDisabled || isLoading) ? Colors.red : RishColors.primary,
+        //   shape: BoxShape.circle,
+        //   boxShadow: isDisabled || isLoading
+        //       ? null
+        //       : [
+        //           BoxShadow(
+        //             color: RishColors.primary.withOpacity(0.3),
+        //             blurRadius: 8,
+        //             offset: const Offset(0, 2),
+        //           ),
+        //         ],
+        // ),
         child: Icon(
           icon,
-          color: isDisabled ? Colors.transparent : RishColors.stroke,
-          size: 32.w,
+          color: isDisabled ? Colors.transparent : RishColors.primary,
+          size: 24.w,
         ),
       ),
     );

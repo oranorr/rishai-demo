@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
@@ -142,13 +143,13 @@ class _HomePageState extends State<HomePage> {
                       ),
                       SizedBox(height: 16.h),
                       Text(
-                        'Данные не загружены',
+                        'Data failed to load',
                         style: context.styles.h3,
                         textAlign: TextAlign.center,
                       ),
                       SizedBox(height: 8.h),
                       Text(
-                        'Попробуйте обновить приложение',
+                        'Please, try to restart the app',
                         style: context.styles.regularMedium.copyWith(
                           color: RishColors.textSecondary,
                         ),
