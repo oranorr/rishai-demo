@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
@@ -25,17 +26,39 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
   @override
   void initState() {
     super.initState();
+    _initializeNotificationsState();
+  }
+
+  /// Инициализация состояния уведомлений с проверкой разрешений
+  Future<void> _initializeNotificationsState() async {
     savedTime = prefsRepo.getNoteTime(); // Получаем сохранённое время
-    notesAreOn = savedTime != null; // Инициализируем состояние переключателя
-    if (savedTime != null) {
-      // Парсим сохранённое время и устанавливаем selectedTime
+
+    // Проверяем разрешения на уведомления
+    bool notificationsEnabled = await notes.areNotificationsEnabled();
+
+    if (savedTime != null && notificationsEnabled) {
+      // Если есть сохранённое время И разрешения предоставлены
       List<String> timeParts = savedTime!.split(':');
       int hour = int.parse(timeParts[0]);
       int minute = int.parse(timeParts[1]);
       selectedTime = TimeOfDay(hour: hour, minute: minute);
-      buttonEnabled = false;
+
+      setState(() {
+        notesAreOn = true;
+        buttonEnabled = false; // Время уже установлено
+      });
     } else {
-      buttonEnabled = true;
+      // Если нет сохранённого времени ИЛИ нет разрешений
+      setState(() {
+        notesAreOn = false;
+        buttonEnabled = false; // Кнопка неактивна без разрешений
+      });
+
+      // Если есть сохранённое время, но нет разрешений - очищаем его
+      if (savedTime != null && !notificationsEnabled) {
+        await prefsRepo.setNotifcationTime(null);
+        savedTime = null;
+      }
     }
   }
 
@@ -68,18 +91,44 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
               Switch(
                 value: notesAreOn,
                 onChanged: (v) async {
-                  setState(() {
-                    if (v) {
-                      notes.requestPermissions();
-                    } else {
-                      prefsRepo.setNotifcationTime(null);
+                  if (v) {
+                    // 🔐 ПРОВЕРКА РАЗРЕШЕНИЙ: Проверяем, разрешены ли уведомления
+                    bool notificationsEnabled =
+                        await notes.areNotificationsEnabled();
+
+                    if (!notificationsEnabled) {
+                      // 📱 ЗАПРОС РАЗРЕШЕНИЙ: Если разрешения не предоставлены, запрашиваем их
+                      await notes.requestPermissions();
+
+                      // 🔍 ПОВТОРНАЯ ПРОВЕРКА: Проверяем снова после запроса разрешений
+                      notificationsEnabled =
+                          await notes.areNotificationsEnabled();
+
+                      if (!notificationsEnabled) {
+                        // ⚠️ ДИАЛОГ РАЗРЕШЕНИЙ: Если пользователь всё ещё не разрешил уведомления,
+                        // показываем диалог с объяснением и кнопкой перехода в настройки
+                        if (mounted) {
+                          _showPermissionDialog(context);
+                        }
+                        return; // 🚫 Не включаем свитчер, так как разрешения не предоставлены
+                      }
                     }
-                    notesAreOn = v;
-                    buttonEnabled = v && _isTimeChanged();
-                  });
-                  if (!v) {
+
+                    // ✅ РАЗРЕШЕНИЯ ПРЕДОСТАВЛЕНЫ: Если разрешения предоставлены, включаем уведомления
+                    setState(() {
+                      notesAreOn = v;
+                      buttonEnabled = v && _isTimeChanged();
+                    });
+                  } else {
+                    // 🔇 ОТКЛЮЧЕНИЕ УВЕДОМЛЕНИЙ: Отключаем уведомления
+                    setState(() {
+                      notesAreOn = v;
+                      buttonEnabled = false; // Кнопка неактивна при отключении
+                    });
+
                     await notes.cancelNotifications();
-                    // prefsRepo.setNoteTime(null); // Удаляем сохранённое время
+                    prefsRepo.setNotifcationTime(null);
+
                     setState(() {
                       savedTime = null;
                     });
@@ -139,9 +188,21 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
           // Кнопка "Set"
           RishButton.primary(
             title: 'Set',
-            enabled: buttonEnabled,
+            enabled: buttonEnabled &&
+                notesAreOn, // Кнопка активна только если есть разрешения И время изменено
             isLoading: false,
             action: () async {
+              // 🔐 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Проверяем разрешения перед установкой уведомлений
+              bool notificationsEnabled = await notes.areNotificationsEnabled();
+              if (!notificationsEnabled) {
+                // Если разрешения не предоставлены, показываем диалог
+                if (mounted) {
+                  _showPermissionDialog(context);
+                }
+                return;
+              }
+
+              // ✅ УСТАНОВКА УВЕДОМЛЕНИЙ: Если разрешения есть, устанавливаем уведомления
               await notes.scheduleNotification(selectedTime);
               String formattedTime =
                   "${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}";
@@ -171,7 +232,7 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
   // Проверка, изменилось ли время
   bool _isTimeChanged() {
     if (savedTime == null) {
-      return true;
+      return true; // Если нет сохранённого времени, считаем что время изменилось
     }
     List<String> timeParts = savedTime!.split(':');
     int savedHour = int.parse(timeParts[0]);
@@ -181,6 +242,17 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
 
   // Выбор времени
   Future<void> _selectTime(BuildContext context) async {
+    // 🔐 ПРОВЕРКА РАЗРЕШЕНИЙ: Проверяем разрешения перед выбором времени
+    bool notificationsEnabled = await notes.areNotificationsEnabled();
+    if (!notificationsEnabled) {
+      // Если разрешения не предоставлены, показываем диалог
+      if (mounted) {
+        _showPermissionDialog(context);
+      }
+      return;
+    }
+
+    // ✅ ВЫБОР ВРЕМЕНИ: Если разрешения есть, позволяем выбрать время
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
       initialTime: selectedTime,
@@ -210,5 +282,76 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
       timeOfDay,
       alwaysUse24HourFormat: true,
     );
+  }
+
+  /// 🚨 ПОКАЗ ДИАЛОГА РАЗРЕШЕНИЙ: Показывает диалог с объяснением необходимости разрешений на уведомления
+  ///
+  /// Диалог содержит:
+  /// - Объяснение зачем нужны уведомления
+  /// - Инструкцию по включению в настройках
+  /// - Кнопку "Settings" для перехода в настройки приложения
+  void _showPermissionDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Notification Permissions',
+            style: context.styles.h3,
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'To receive daily reminders for creating your meal plan, you need to allow notifications.',
+                style: context.styles.regularMedium.copyWith(
+                  color: RishColors.textSecondary,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'Please enable notifications in your device settings.',
+                style: context.styles.regularMedium.copyWith(
+                  color: RishColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            RishButton.primary(
+              title: 'Settings',
+              enabled: true,
+              isLoading: false,
+              action: () async {
+                Navigator.of(context).pop();
+                // Открываем настройки приложения
+                await _openAppSettings();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// ⚙️ ОТКРЫТИЕ НАСТРОЕК: Открывает настройки приложения для изменения разрешений
+  ///
+  /// Использует permission_handler.openAppSettings() для:
+  /// - Android: открытия настроек приложения
+  /// - iOS: открытия настроек приложения
+  ///
+  /// Это позволяет пользователю легко изменить разрешения на уведомления
+  /// без необходимости искать настройки вручную
+  Future<void> _openAppSettings() async {
+    try {
+      // Используем permission_handler для открытия настроек
+      await openAppSettings();
+    } catch (e) {
+      log('Error opening app settings: $e');
+    }
   }
 }

@@ -248,7 +248,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
       log('>>> [getData] Starting data fetch for user: ${params.userId}');
       log('>>> [getData] User goal modificator: ${params.goal.modificator}');
 
-      final int? lastCycleId = await getLastCycleId(userId: params.userId);
+      final int? lastCycleId = await getLastCycleId(
+        userId: params.userId,
+      ); // Обновлено для UUID строки
       log('>>> [getData] Last cycle ID: $lastCycleId');
 
       isCurrentCycleEnded = await tryFetch(
@@ -293,6 +295,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   Future<int?> getLastCycleId({required String userId}) async {
+    // Обновлено для UUID строки
     try {
       final result = await dayManager.getLastDayWithCycleStatus(
         userId: userId,
@@ -359,6 +362,16 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required bool needsCreateNewDay,
   }) async {
     try {
+      // 🔄 ПРОВЕРЯЕМ RECOMP ПЕРЕД СОЗДАНИЕМ ДНЯ
+      if (needsCreateNewDay) {
+        log('🔄 [checkRecompForNewDay] Проверяем recomp перед созданием дня...');
+        final updatedModifier = await userBloc.checkRecompForNewDay();
+        log('🔄 [checkRecompForNewDay] Обновленный модификатор: $updatedModifier (был: $modificator)');
+
+        // Используем обновленный модификатор
+        modificator = updatedModifier;
+      }
+
       final BodyMeasurementsEntity? body =
           await tryFetch(() => remoteDataSource.getBodyData());
       final res = await tryFetch(() => remoteDataSource.getCycles());
@@ -536,7 +549,8 @@ class WhoopRepositoryImpl implements WhoopRepository {
       print(
         '>>> [createFreshDay] Before saving - New day macros: ${newDay.macros}',
       );
-      final DayEntity createdDay = await dayManager.createDay(day: newDay);
+      final DayEntity createdDay =
+          await dayManager.createOrUpdateDay(day: newDay);
       print(
         '>>> [createFreshDay] After saving - Created day macros: ${createdDay.macros}',
       );
@@ -665,7 +679,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
         );
         try {
           // [FIX] Убираем двойное обновление дня - выполняем обновление сразу
-          final dayUpdateResult = await dayManager.createDay(day: r);
+          final dayUpdateResult = await dayManager.createOrUpdateDay(day: r);
           print(
             '>>> [changeModificatorOfSex] Day updated successfully. New Macros: ${r.macros}',
           );

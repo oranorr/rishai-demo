@@ -3,17 +3,17 @@ const useMock = false;
 class WhoopEndpoints {
   String get whoopCycles => useMock
       ? 'http://localhost:3000/v1/cycle'
-      : 'https://api.prod.whoop.com/developer/v1/cycle';
+      : 'https://api.prod.whoop.com/developer/v2/cycle';
   String get bodyMeasurements =>
-      'https://api.prod.whoop.com/developer/v1/user/measurement/body';
+      'https://api.prod.whoop.com/developer/v2/user/measurement/body';
   String get workouts =>
-      'https://api.prod.whoop.com/developer/v1/activity/workout';
-  String get sleeps => 'https://api.prod.whoop.com/developer/v1/activity/sleep';
-  String get recoveries => 'https://api.prod.whoop.com/developer/v1/recovery';
+      'https://api.prod.whoop.com/developer/v2/activity/workout';
+  String get sleeps => 'https://api.prod.whoop.com/developer/v2/activity/sleep';
+  String get recoveries => 'https://api.prod.whoop.com/developer/v2/recovery';
   String recoveryById({required int cycleId}) =>
-      'https://api.prod.whoop.com/developer/v1/cycle/$cycleId/recovery';
+      'https://api.prod.whoop.com/developer/v2/cycle/$cycleId/recovery';
   String cycleById({required int cycleId}) =>
-      'https://api.prod.whoop.com/developer/v1/cycle/$cycleId';
+      'https://api.prod.whoop.com/developer/v2/cycle/$cycleId';
 }
 
 

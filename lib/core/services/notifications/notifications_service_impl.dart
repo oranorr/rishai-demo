@@ -411,4 +411,45 @@ class NotificationsServiceImpl implements NotificationsService {
           );
     }
   }
+
+  @override
+
+  /// 🔍 ПРОВЕРКА РАЗРЕШЕНИЙ: Проверяет, разрешены ли уведомления пользователем
+  ///
+  /// Для Android: использует permission_handler для проверки статуса разрешений
+  /// Для iOS: использует flutter_local_notifications для проверки настроек
+  ///
+  /// Возвращает:
+  /// - true: если уведомления разрешены
+  /// - false: если уведомления запрещены или произошла ошибка
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      if (Platform.isAndroid) {
+        // Для Android проверяем разрешение через permission_handler
+        PermissionStatus status = await Permission.notification.status;
+        return status.isGranted;
+      } else if (Platform.isIOS) {
+        // Для iOS проверяем через flutter_local_notifications
+        final IOSFlutterLocalNotificationsPlugin? iosImplementation =
+            flutterLocalNotificationsPlugin
+                .resolvePlatformSpecificImplementation<
+                    IOSFlutterLocalNotificationsPlugin>();
+
+        if (iosImplementation != null) {
+          // Получаем настройки разрешений
+          final bool? alert = await iosImplementation.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+          return alert ?? false;
+        }
+        return false;
+      }
+      return false;
+    } catch (e) {
+      log('Error checking notification permissions: $e');
+      return false;
+    }
+  }
 }

@@ -7,4 +7,7 @@ abstract class NotificationsService {
   Future<void> requestPermissions();
   Future<void> showImmediateNotification();
   Future<void> testNotification();
+
+  /// Проверяет, разрешены ли уведомления пользователем
+  Future<bool> areNotificationsEnabled();
 }

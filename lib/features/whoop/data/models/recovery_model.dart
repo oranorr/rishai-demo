@@ -23,7 +23,7 @@ class RecoveryModel {
     );
   }
   final int cycleId;
-  final int sleepId;
+  final String sleepId;
   final int userId;
   final DateTime createdAt;
   final DateTime updatedAt;

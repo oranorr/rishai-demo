@@ -17,7 +17,7 @@ class WorkoutModelAdapter extends TypeAdapter<WorkoutModel> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return WorkoutModel(
-      id: fields[0] as int,
+      id: fields[0] as String,
       userId: fields[1] as int,
       createdAt: fields[2] as DateTime,
       updatedAt: fields[3] as DateTime,

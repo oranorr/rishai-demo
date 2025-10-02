@@ -58,34 +58,22 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserGetDays>(_getDays); // Используем новую архитектуру
     on<UserUpdateDay>(_updateDay);
     on<UserAddHistoryDays>(_addHistoryDays);
-
-    // Инициализируем таймер для регулярной проверки рекомпа
-    _initRecompCheckTimer();
   }
 
-  Timer? _recompCheckTimer;
+  // Удаляем таймер - больше не нужен
+  // Timer? _recompCheckTimer;
   final UpdateUserUsecase updateUserUsecase;
   // Удаляем старый use case, оставляем только новый
   final GetUserDaysUsecase getUserDaysUsecase;
   final AccountsWhiteListService accountsWhiteListService;
 
-  void _initRecompCheckTimer() {
-    // Отменяем существующий таймер если он есть
-    _recompCheckTimer?.cancel();
-
-    // Проверяем каждые 12 часов
-    _recompCheckTimer = Timer.periodic(
-      const Duration(hours: 12),
-      (_) {
-        log('Running scheduled recomp check', name: 'UserBloc');
-        add(const UserCheckForRecomp());
-      },
-    );
-  }
+  // Удаляем метод инициализации таймера
+  // void _initRecompCheckTimer() { ... }
 
   @override
   Future<void> close() {
-    _recompCheckTimer?.cancel();
+    // Убираем отмену таймера
+    // _recompCheckTimer?.cancel();
     return super.close();
   }
 
@@ -338,7 +326,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   ) async {
     final day = event.day;
 
-    await dayManager.createDay(day: day);
+    await dayManager.createOrUpdateDay(day: day);
 
     // // Проверяем, действительно ли изменился день
     // final existingDay = state.days.firstWhere(
@@ -671,6 +659,102 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       log('Ошибка при синхронном создании истории дней: $e', name: 'UserBloc');
       log('Stack trace: $stackTrace', name: 'UserBloc');
       rethrow; // Пробрасываем ошибку выше
+    }
+  }
+
+  /// Упрощенная проверка recomp при создании нового дня
+  /// Вызывается только когда создается НОВЫЙ день (не обновляется существующий)
+  /// Возвращает обновленный модификатор (или текущий, если изменения не нужны)
+  Future<double> checkRecompForNewDay() async {
+    try {
+      // Проверяем, что у пользователя установлена цель recomp
+      if (state.user.userGoal?.goal != null &&
+          state.user.userGoal?.goal == GoalType.recomp) {
+        final goal = state.user.userGoal!;
+        final daysSinceUpdate =
+            DateTime.now().difference(goal.updatedAt).inDays;
+
+        log(
+          'Checking recomp for new day:\n'
+          'Last updated: ${goal.updatedAt}\n'
+          'Current time: ${DateTime.now()}\n'
+          'Days since update: $daysSinceUpdate\n'
+          'Current modifier: ${goal.modificator}',
+          name: 'UserBloc',
+        );
+
+        // Если прошло 14 или больше дней, меняем модификатор
+        if (daysSinceUpdate >= 14) {
+          log('Changing recomp modifier for new day', name: 'UserBloc');
+
+          final oldModifier = goal.modificator;
+          final newModifier = goal.modificator > 0 ? -0.05 : 0.05;
+
+          final updatedGoal = goal.copyWith(
+            modificator: newModifier,
+            updatedAt: DateTime.now(),
+          );
+
+          final updatedUser = state.user.copyWith(userGoal: updatedGoal);
+
+          // Обновляем локальное состояние через событие
+          add(UpdateUserEvent(user: updatedUser));
+
+          // Сохраняем локально
+          await hive.saveUser(user: updatedUser);
+
+          // Пытаемся синхронизировать с бэкендом (без отката при ошибке)
+          try {
+            await updateUserUsecase.call(updatedUser);
+            log(
+              'Successfully updated recomp modifier:\n'
+              'Old modifier: $oldModifier\n'
+              'New modifier: $newModifier',
+              name: 'UserBloc',
+            );
+          } catch (e) {
+            log(
+              'Failed to sync recomp modifier with backend, but local state is updated:\n'
+              'Error: $e\n'
+              'Old modifier: $oldModifier\n'
+              'New modifier: $newModifier',
+              name: 'UserBloc',
+            );
+            // Не откатываем локальные изменения - они сохранятся при следующей синхронизации
+          }
+
+          // Возвращаем новый модификатор
+          return newModifier;
+        } else {
+          log(
+            'Recomp modifier change not needed yet:\n'
+            'Days until next change: ${14 - daysSinceUpdate}',
+            name: 'UserBloc',
+          );
+
+          // Возвращаем текущий модификатор
+          return goal.modificator;
+        }
+      } else {
+        log(
+          'User goal is not recomp or userGoal is null',
+          name: 'UserBloc',
+        );
+
+        // Возвращаем текущий модификатор или 0.0 по умолчанию
+        return state.user.userGoal?.modificator ?? 0.0;
+      }
+    } catch (e, stackTrace) {
+      log(
+        'Unexpected error in recomp check for new day:\n'
+        'Error: $e\n'
+        'Stack trace: $stackTrace',
+        name: 'UserBloc',
+        error: e,
+      );
+
+      // В случае ошибки возвращаем текущий модификатор
+      return state.user.userGoal?.modificator ?? 0.0;
     }
   }
 

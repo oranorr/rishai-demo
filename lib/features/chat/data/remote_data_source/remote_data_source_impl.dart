@@ -351,22 +351,22 @@ Please use this information when answering my nutrition questions.''';
       try {
         log('[requestMealPlanV2] Обрабатываем запрос: ${request.type.name} с ${request.meals.length} блюдами');
 
-        // Используем новый метод generateMeals из LlmProxyClient
+        // Используем новый метод generateMeals из LlmProxyClient (теперь с retry логикой)
         final response = await _llmProxyClient.generateMeals(request);
 
         // Проверяем ответ
         if (response.containsKey('error')) {
-          log('[requestMealPlanV2] Ошибка в ответе для ${request.type.name}: ${response['error']}');
+          log('[requestMealPlanV2] ❌ Ошибка в ответе для ${request.type.name}: ${response['error']}');
           return null;
         }
 
         if (!response.containsKey('meals') || response['meals'] == null) {
-          log('[requestMealPlanV2] Нет блюд в ответе для ${request.type.name}');
+          log('[requestMealPlanV2] ❌ Нет блюд в ответе для ${request.type.name}');
           return null;
         }
 
         final meals = response['meals'] as List;
-        log('[requestMealPlanV2] Получено блюд для ${request.type.name}: ${meals.length}');
+        log('[requestMealPlanV2] ✅ Получено блюд для ${request.type.name}: ${meals.length}');
 
         return {
           'type': request.type,
@@ -374,7 +374,13 @@ Please use this information when answering my nutrition questions.''';
           'meals': meals.cast<Map<String, dynamic>>(),
         };
       } catch (e) {
-        log('[requestMealPlanV2] Ошибка при обработке запроса ${request.type.name}: $e');
+        log('[requestMealPlanV2] ❌ Ошибка при обработке запроса ${request.type.name}: $e');
+
+        // Логируем детали ошибки для отладки
+        if (e.toString().contains('502')) {
+          log('[requestMealPlanV2] 🔍 HTTP 502 ошибка для ${request.type.name} - retry логика уже отработала');
+        }
+
         return null;
       }
     }).toList();
@@ -430,7 +436,19 @@ Please use this information when answering my nutrition questions.''';
       allMeals.addAll(mealsWithTargetMacros);
     }
 
-    log('[requestMealPlanV2] Всего сгенерировано блюд с целевыми макросами: ${allMeals.length}');
+    // Подсчитываем статистику успешных и неудачных запросов
+    final successfulRequests = responses.where((r) => r != null).length;
+    final totalRequests = requests.length;
+    final failedRequests = totalRequests - successfulRequests;
+
+    log('[requestMealPlanV2] 📊 Статистика запросов: $successfulRequests успешных из $totalRequests');
+    log('[requestMealPlanV2] 🍽️ Всего сгенерировано блюд с целевыми макросами: ${allMeals.length}');
+
+    // Предупреждение о частичных сбоях
+    if (failedRequests > 0) {
+      log('[requestMealPlanV2] ⚠️ ВНИМАНИЕ: $failedRequests запросов завершились неудачно');
+      log('[requestMealPlanV2] 💡 Рекомендуется повторить генерацию плана для получения всех блюд');
+    }
 
     // Только для обычного плана питания добавляем в историю чата ОДИН раз
     if (!isWeekPlan && allMeals.isNotEmpty) {

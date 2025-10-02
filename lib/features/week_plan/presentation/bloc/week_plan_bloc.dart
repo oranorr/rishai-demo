@@ -74,7 +74,7 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
         'Generated ${week.plans.length} meal plans with dates ${week.startDate} - ${week.endDate}',
       );
       week = week.copyWith(
-        fitnessGoal: userBloc.state.user.userGoal!.goal.name.capitalize(),
+        fitnessGoal: userBloc.state.user.userGoal!.getGoalTypeName(),
         dietaryPreferences: userBloc.state.user.foodPreferences!.diets.first,
         cuisines: prefs.cuisines,
         mealsTypes: event.servings.map((e) {
@@ -122,25 +122,57 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
   }
 
   Future<void> saveWeek(WeekPlanEntity week) async {
+    // ✅ Отладочные логи для проверки userId
+    final currentUserId = userBloc.state.user.directusId;
+    _logger('=== СОХРАНЕНИЕ НЕДЕЛЬНОГО ПЛАНА ===');
+    _logger('Текущий userId из userBloc: $currentUserId');
+    _logger('userId из WeekPlanEntity: ${week.userId}');
+    _logger('Пользователь авторизован: ${currentUserId != '-1'}');
+
+    // ✅ Проверка принадлежности к текущему пользователю
+    if (week.userId != currentUserId) {
+      _logger(
+        'WARNING: WeekPlan userId mismatch! Expected: $currentUserId, Got: ${week.userId}',
+      );
+    } else {
+      _logger('✅ userId совпадает, сохраняем план');
+    }
+
     await hive.saveWeekPlan(weekPlan: week);
     await directus.createOne(
       collection: weekPlanCollection,
-      data: week.toMap(userId: userBloc.state.user.directusId),
+      data: week.toMap(),
     );
+
+    _logger('Недельный план успешно сохранен в Hive и Directus');
   }
 
   Future<List<WeekPlanEntity>> getWeeks() async {
+    final currentUserId = userBloc.state.user.directusId;
+    _logger('=== ЗАГРУЗКА НЕДЕЛЬНЫХ ПЛАНОВ ===');
+    _logger('Текущий userId: $currentUserId');
+    _logger('Пользователь авторизован: ${currentUserId != '-1'}');
+
     final weeks = await hive.retrieveWeekPlan();
     if (weeks != null && weeks.isNotEmpty) {
       _logger('Retrieved ${weeks.length} weeks from hive');
-      return weeks;
+      // ✅ Фильтруем по текущему пользователю (на всякий случай)
+      final userWeeks = weeks
+          .where(
+            (week) => week.userId == currentUserId,
+          )
+          .toList();
+      _logger('Filtered to ${userWeeks.length} weeks for current user');
+      _logger('Все userId в планах: ${weeks.map((w) => w.userId).toList()}');
+      return userWeeks;
     } else {
+      _logger('Нет планов в Hive, загружаем из Directus');
       final weeks = await directus.readMany(
         collection: weekPlanCollection,
         filters: Filters(
           {
             'userId': F.eq(
-              userBloc.state.user.directusId,
+              currentUserId,
             ),
           },
         ),
@@ -231,8 +263,14 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
       }
 
       if (filter.fitnessGoal.isNotEmpty) {
-        goalMatch =
-            filter.fitnessGoal.any((goal) => plan.fitnessGoal.contains(goal));
+        goalMatch = filter.fitnessGoal.any((goal) {
+          // Используем маппинг для правильного сравнения старых и новых названий
+          final normalizedPlanGoal =
+              WeekFilterEntity.mapOldFitnessGoalToNew(plan.fitnessGoal);
+          final normalizedFilterGoal =
+              WeekFilterEntity.mapOldFitnessGoalToNew(goal);
+          return normalizedPlanGoal == normalizedFilterGoal;
+        });
       }
 
       return dateMatch && goalMatch && dietMatch;

@@ -10,6 +10,7 @@ part 'week_plan_entity.g.dart';
 @HiveType(typeId: 17)
 class WeekPlanEntity extends Equatable {
   const WeekPlanEntity({
+    required this.userId,
     required this.plans,
     required this.startDate,
     required this.endDate,
@@ -20,15 +21,22 @@ class WeekPlanEntity extends Equatable {
   });
 
   factory WeekPlanEntity.create({
+    required String userId,
     required List<MealPlanEntity> plans,
     required DateTime startDate,
   }) {
+    // ✅ Отладочные логи для проверки userId
+    print('[WeekPlanEntity.create] Создание плана с userId: $userId');
+    print(
+        '[WeekPlanEntity.create] Пользователь авторизован: ${userId != '-1'}');
+
     // final tomorrow = DateTime.now().add(const Duration(days: 1));
 
     final endDate =
         startDate.add(const Duration(days: 4)); // +4 так как включая завтра
 
-    return WeekPlanEntity(
+    final weekPlan = WeekPlanEntity(
+      userId: userId,
       plans: plans,
       startDate: startDate,
       endDate: endDate,
@@ -37,10 +45,20 @@ class WeekPlanEntity extends Equatable {
       cuisines: const [],
       mealsTypes: const [],
     );
+
+    print('[WeekPlanEntity.create] Создан план с userId: ${weekPlan.userId}');
+    return weekPlan;
   }
 
   factory WeekPlanEntity.fromMap(Map<String, dynamic> map) {
+    // ✅ Отладочные логи для проверки десериализации
+    final userId = map['userId'].toString();
+    print('[WeekPlanEntity.fromMap] Десериализация плана с userId: $userId');
+    print(
+        '[WeekPlanEntity.fromMap] Данные из Directus: ${map.keys.join(', ')}');
+
     return WeekPlanEntity(
+      userId: userId,
       plans: List<MealPlanEntity>.from(
         (map['mealPlans'] as List).map(
           (plan) => MealPlanEntity.fromMap(plan as Map<String, dynamic>),
@@ -59,17 +77,23 @@ class WeekPlanEntity extends Equatable {
     );
   }
 
-  Map<String, dynamic> toMap({required String userId}) {
-    return {
+  Map<String, dynamic> toMap() {
+    final map = {
+      'userId': userId,
       'mealPlans': plans.map((plan) => plan.toMap()).toList(),
       'startDate': startDate.millisecondsSinceEpoch.toString(),
       'endDate': endDate.millisecondsSinceEpoch.toString(),
-      'userId': userId,
       'fitnessGoal': fitnessGoal,
       'dietaryPreferences': dietaryPreferences,
       'cuisines': cuisines,
       'mealsTypes': mealsTypes,
     };
+
+    // ✅ Отладочные логи для проверки сериализации
+    print('[WeekPlanEntity.toMap] Сериализация плана с userId: $userId');
+    print('[WeekPlanEntity.toMap] Данные для Directus: ${map.keys.join(', ')}');
+
+    return map;
   }
 
   String formatPeriod() {
@@ -86,24 +110,20 @@ class WeekPlanEntity extends Equatable {
   }
 
   @HiveField(0)
-  final List<MealPlanEntity> plans;
-
+  final String userId;
   @HiveField(1)
-  final DateTime startDate;
-
+  final List<MealPlanEntity> plans;
   @HiveField(2)
-  final DateTime endDate;
-
+  final DateTime startDate;
   @HiveField(3)
-  final String fitnessGoal;
-
+  final DateTime endDate;
   @HiveField(4)
-  final String dietaryPreferences;
-
+  final String fitnessGoal;
   @HiveField(5)
-  final List<String> cuisines;
-
+  final String dietaryPreferences;
   @HiveField(6)
+  final List<String> cuisines;
+  @HiveField(7)
   final List<String> mealsTypes;
 
   bool get isActive {
@@ -112,9 +132,10 @@ class WeekPlanEntity extends Equatable {
   }
 
   @override
-  List<Object?> get props => [plans, startDate, endDate];
+  List<Object?> get props => [userId, plans, startDate, endDate];
 
   WeekPlanEntity copyWith({
+    String? userId,
     List<MealPlanEntity>? plans,
     DateTime? startDate,
     DateTime? endDate,
@@ -124,6 +145,7 @@ class WeekPlanEntity extends Equatable {
     List<String>? mealsTypes,
   }) {
     return WeekPlanEntity(
+      userId: userId ?? this.userId,
       plans: plans ?? this.plans,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,

@@ -21,7 +21,7 @@ class WorkoutModel {
 
   factory WorkoutModel.fromMap(Map<String, dynamic> map) {
     return WorkoutModel(
-      id: map['id'] as int,
+      id: map['id'] as String,
       userId: map['user_id'] as int,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
@@ -40,7 +40,7 @@ class WorkoutModel {
       WorkoutModel.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @HiveField(0)
-  final int id;
+  final String id;
   @HiveField(1)
   final int userId;
   @HiveField(2)
@@ -101,7 +101,8 @@ class WorkoutScore {
       maxHeartRate: map['max_heart_rate'] as int,
       kilojoule: map['kilojoule'] as double,
       percentRecorded: map['percent_recorded'] as double,
-      distanceMeter: map['distance_meter'] as double,
+      distanceMeter:
+          map['distance_meter'] != null ? map['distance_meter'] as double : 0.0,
     );
   }
 

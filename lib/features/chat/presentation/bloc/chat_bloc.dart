@@ -246,7 +246,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           );
 
           // Сохраняем обновленный день
-          await dayManager.createDay(day: updatedDay);
+          await dayManager.createOrUpdateDay(day: updatedDay);
 
           // Немедленно обновляем в Directus
           await _saveToDirectus(mealPlan);
@@ -379,7 +379,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final updatedDay = whoopBloc.state.day.copyWith(
       mealPlanEntity: updatedMealPlan,
     );
-    await dayManager.createDay(day: updatedDay);
+    await dayManager.createOrUpdateDay(day: updatedDay);
   }
 
   Future<void> _saveChanges(MealPlanEntity updatedMealPlan) async {
@@ -387,7 +387,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final updatedDay = whoopBloc.state.day.copyWith(
       mealPlanEntity: updatedMealPlan,
     );
-    await dayManager.createDay(day: updatedDay);
+    await dayManager.createOrUpdateDay(day: updatedDay);
   }
 
   FutureOr<void> _replaceMeal(

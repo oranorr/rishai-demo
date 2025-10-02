@@ -29,7 +29,7 @@ class SleepModel {
           : null,
     );
   }
-  final int id;
+  final String id;
   final int userId;
   final DateTime createdAt;
   final DateTime updatedAt;

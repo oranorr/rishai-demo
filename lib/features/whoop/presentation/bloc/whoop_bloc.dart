@@ -43,7 +43,6 @@ import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.d
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
-
 part 'whoop_event.dart';
 
 final whoopBloc = GetIt.I<WhoopBloc>();
@@ -737,7 +736,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           '[WhoopBloc] ➕ Создаем новый день через dayManager',
           name: 'WhoopBloc',
         );
-        await dayManager.createDay(day: updatedDay);
+        await dayManager.createOrUpdateDay(day: updatedDay);
       }
 
       log(
@@ -842,7 +841,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     if (needsDirectusUpdate) {
       // final data =
       //     updatedDay.toDirectus(userId: userBloc.state.user.directusId);
-      await dayManager.createDay(day: updatedDay);
+      await dayManager.createOrUpdateDay(day: updatedDay);
 
       // await manageDayUsecase.call(
       //   ManageDayParams(
@@ -1026,7 +1025,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           event.day.mealPlanEntity == null) {
         // final data =
         //     event.day.toDirectus(userId: userBloc.state.user.directusId);
-        await dayManager.createDay(day: event.day);
+        await dayManager.createOrUpdateDay(day: event.day);
         // await manageDayUsecase.call(
         //   ManageDayParams(
         //     userId: userBloc.state.user.directusId,

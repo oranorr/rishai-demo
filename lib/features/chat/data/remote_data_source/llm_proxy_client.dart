@@ -357,107 +357,203 @@ class LlmProxyClient {
   }
 
   /// Отправляет запрос для генерации блюд с новой структурой API
+  /// Включает retry логику для обработки HTTP 502 ошибок
   Future<Map<String, dynamic>> generateMeals(LlmMealRequest request) async {
-    try {
-      log('🔄 [generateMeals] Отправляем запрос генерации блюд: ${request.type.name}');
-      log('📝 [generateMeals] Сообщение: ${request.message}');
-      log('🍽️ [generateMeals] Блюд в запросе: ${request.meals.length}');
+    const maxRetries = 3;
+    int retryCount = 0;
 
-      for (int i = 0; i < request.meals.length; i++) {
-        final meal = request.meals[i];
-        log('📋 [generateMeals] Блюдо $i: ${meal.type} (${meal.kcal} ккал, ${meal.protein}г белка, ${meal.carbs}г углеводов, ${meal.fat}г жиров)');
-      }
+    while (retryCount <= maxRetries) {
+      try {
+        log('🔄 [generateMeals] Попытка ${retryCount + 1}/${maxRetries + 1} для ${request.type.name}');
+        log('📝 [generateMeals] Сообщение: ${request.message}');
+        log('🍽️ [generateMeals] Блюд в запросе: ${request.meals.length}');
 
-      final url = '$_baseUrl/llm-proxy-meal';
-      final requestBody = jsonEncode(request.toJson());
-
-      // 🎯 ПОЛНЫЙ ЗАПРОС - вот что вы хотели увидеть!
-      log('📦 [generateMeals] ПОЛНЫЙ JSON ЗАПРОС:');
-      log('📦 URL: $url');
-      log('📦 BODY: $requestBody');
-
-      final response = await http.post(
-        Uri.parse(url), // Используем новый эндпоинт для блюд
-        headers: {
-          'Content-Type': 'application/json',
-          _authHeaderKey: _authHeaderValue,
-        },
-        body: requestBody,
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-
-        log('✅ [generateMeals] Получен ответ от LLM прокси: ${responseData.keys.join(', ')}');
-
-        // 🎯 ПОЛНЫЙ ОТВЕТ - тоже может быть полезно
-        log('📦 [generateMeals] ПОЛНЫЙ JSON ОТВЕТ: ${jsonEncode(responseData)}');
-
-        // Проверяем наличие meals в ответе
-        if (responseData.containsKey('meals')) {
-          final meals = responseData['meals'] as List?;
-          log('🍽️ [generateMeals] Получено блюд: ${meals?.length ?? 0}');
+        for (int i = 0; i < request.meals.length; i++) {
+          final meal = request.meals[i];
+          log('📋 [generateMeals] Блюдо $i: ${meal.type} (${meal.kcal} ккал, ${meal.protein}г белка, ${meal.carbs}г углеводов, ${meal.fat}г жиров)');
         }
 
-        return responseData;
-      } else {
-        log('❌ [generateMeals] Ошибка от LLM прокси URL: $url - Статус: ${response.statusCode} - Ответ: ${response.body}');
-        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+        final url = '$_baseUrl/llm-proxy-meal';
+        final requestBody = jsonEncode(request.toJson());
+
+        // 🎯 ПОЛНЫЙ ЗАПРОС - вот что вы хотели увидеть!
+        log('📦 [generateMeals] ПОЛНЫЙ JSON ЗАПРОС:');
+        log('📦 URL: $url');
+        log('📦 BODY: $requestBody');
+
+        final response = await http.post(
+          Uri.parse(url), // Используем новый эндпоинт для блюд
+          headers: {
+            'Content-Type': 'application/json',
+            _authHeaderKey: _authHeaderValue,
+          },
+          body: requestBody,
+        );
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+          log('✅ [generateMeals] Получен ответ от LLM прокси: ${responseData.keys.join(', ')}');
+
+          // 🎯 ПОЛНЫЙ ОТВЕТ - тоже может быть полезно
+          log('📦 [generateMeals] ПОЛНЫЙ JSON ОТВЕТ: ${jsonEncode(responseData)}');
+
+          // Проверяем наличие meals в ответе
+          if (responseData.containsKey('meals')) {
+            final meals = responseData['meals'] as List?;
+            log('🍽️ [generateMeals] Получено блюд: ${meals?.length ?? 0}');
+          }
+
+          // Если это была повторная попытка, логируем успех
+          if (retryCount > 0) {
+            log('🎉 [generateMeals] Успешно получен ответ после $retryCount повторных попыток для ${request.type.name}');
+          }
+
+          return responseData;
+        } else {
+          // Проверяем, является ли это HTTP 502 ошибкой
+          final is502Error = response.statusCode == 502;
+          final errorMessage = 'HTTP ${response.statusCode}: ${response.body}';
+
+          log('❌ [generateMeals] Ошибка от LLM прокси URL: $url - Статус: ${response.statusCode} - Ответ: ${response.body}');
+
+          // Если это 502 ошибка и у нас есть попытки, пробуем еще раз
+          if (is502Error && retryCount < maxRetries) {
+            retryCount++;
+            final delaySeconds =
+                retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+            log('🔄 [generateMeals] HTTP 502 ошибка для ${request.type.name}, повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
+            await Future.delayed(Duration(seconds: delaySeconds));
+            continue;
+          }
+
+          // Если это не 502 ошибка или попытки исчерпаны, выбрасываем исключение
+          throw Exception(errorMessage);
+        }
+      } catch (e) {
+        final errorString = e.toString();
+        final is502Error = errorString.contains('502');
+
+        // Если это 502 ошибка и у нас есть попытки, пробуем еще раз
+        if (is502Error && retryCount < maxRetries) {
+          retryCount++;
+          final delaySeconds =
+              retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+          log('💥 [generateMeals] HTTP 502 исключение для ${request.type.name}: $e');
+          log('🔄 [generateMeals] Повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
+          await Future.delayed(Duration(seconds: delaySeconds));
+          continue;
+        }
+
+        // Если это не 502 ошибка или попытки исчерпаны, выбрасываем исключение
+        log('💥 [generateMeals] Исключение при запросе к LLM прокси: $e');
+        if (retryCount >= maxRetries) {
+          log('❌ [generateMeals] Все ${maxRetries + 1} попытки исчерпаны для ${request.type.name}');
+        }
+        rethrow;
       }
-    } catch (e) {
-      log('💥 [generateMeals] Исключение при запросе к LLM прокси: $e');
-      rethrow;
     }
+
+    // Этот код никогда не должен выполниться, но на всякий случай
+    throw Exception('Неожиданная ошибка в retry логике generateMeals');
   }
 
   /// Отправляет запрос для регенерации блюда с новой структурой API
+  /// Включает retry логику для обработки HTTP 502 ошибок
   Future<Map<String, dynamic>> regenerateMeal(
     LlmRegenerateMealRequest request,
   ) async {
-    try {
-      log('🔄 [regenerateMeal] Отправляем запрос регенерации блюда: ${request.type.name}');
-      log('📝 [regenerateMeal] Сообщение: ${request.message}');
-      log('🍽️ [regenerateMeal] Целевое блюдо: ${request.targetMeal.type} (${request.targetMeal.kcal} ккал, ${request.targetMeal.protein}г белка, ${request.targetMeal.carbs}г углеводов, ${request.targetMeal.fat}г жиров)');
+    const maxRetries = 3;
+    int retryCount = 0;
 
-      final url = '$_baseUrl/llm-proxy-meal';
-      final requestBody = jsonEncode(request.toJson());
+    while (retryCount <= maxRetries) {
+      try {
+        log('🔄 [regenerateMeal] Попытка ${retryCount + 1}/${maxRetries + 1} для ${request.type.name}');
+        log('📝 [regenerateMeal] Сообщение: ${request.message}');
+        log('🍽️ [regenerateMeal] Целевое блюдо: ${request.targetMeal.type} (${request.targetMeal.kcal} ккал, ${request.targetMeal.protein}г белка, ${request.targetMeal.carbs}г углеводов, ${request.targetMeal.fat}г жиров)');
 
-      // 🎯 ПОЛНЫЙ ЗАПРОС для регенерации
-      log('📦 [regenerateMeal] ПОЛНЫЙ JSON ЗАПРОС:');
-      log('📦 URL: $url');
-      log('📦 BODY: $requestBody');
+        final url = '$_baseUrl/llm-proxy-meal';
+        final requestBody = jsonEncode(request.toJson());
 
-      final response = await http.post(
-        Uri.parse(url), // Используем тот же эндпоинт что и для генерации блюд
-        headers: {
-          'Content-Type': 'application/json',
-          _authHeaderKey: _authHeaderValue,
-        },
-        body: requestBody,
-      );
+        // 🎯 ПОЛНЫЙ ЗАПРОС для регенерации
+        log('📦 [regenerateMeal] ПОЛНЫЙ JSON ЗАПРОС:');
+        log('📦 URL: $url');
+        log('📦 BODY: $requestBody');
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final response = await http.post(
+          Uri.parse(url), // Используем тот же эндпоинт что и для генерации блюд
+          headers: {
+            'Content-Type': 'application/json',
+            _authHeaderKey: _authHeaderValue,
+          },
+          body: requestBody,
+        );
 
-        log('✅ [regenerateMeal] Получен ответ от LLM прокси: ${responseData.keys.join(', ')}');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final Map<String, dynamic> responseData = jsonDecode(response.body);
 
-        // 🎯 ПОЛНЫЙ ОТВЕТ регенерации
-        log('📦 [regenerateMeal] ПОЛНЫЙ JSON ОТВЕТ: ${jsonEncode(responseData)}');
+          log('✅ [regenerateMeal] Получен ответ от LLM прокси: ${responseData.keys.join(', ')}');
 
-        // Проверяем наличие meals в ответе
-        if (responseData.containsKey('meals')) {
-          final meals = responseData['meals'] as List?;
-          log('🍽️ [regenerateMeal] Получено регенерированных блюд: ${meals?.length ?? 0}');
+          // 🎯 ПОЛНЫЙ ОТВЕТ регенерации
+          log('📦 [regenerateMeal] ПОЛНЫЙ JSON ОТВЕТ: ${jsonEncode(responseData)}');
+
+          // Проверяем наличие meals в ответе
+          if (responseData.containsKey('meals')) {
+            final meals = responseData['meals'] as List?;
+            log('🍽️ [regenerateMeal] Получено регенерированных блюд: ${meals?.length ?? 0}');
+          }
+
+          // Если это была повторная попытка, логируем успех
+          if (retryCount > 0) {
+            log('🎉 [regenerateMeal] Успешно получен ответ после $retryCount повторных попыток для ${request.type.name}');
+          }
+
+          return responseData;
+        } else {
+          // Проверяем, является ли это HTTP 502 ошибкой
+          final is502Error = response.statusCode == 502;
+          final errorMessage = 'HTTP ${response.statusCode}: ${response.body}';
+
+          log('❌ [regenerateMeal] Ошибка от LLM прокси URL: $url - Статус: ${response.statusCode} - Ответ: ${response.body}');
+
+          // Если это 502 ошибка и у нас есть попытки, пробуем еще раз
+          if (is502Error && retryCount < maxRetries) {
+            retryCount++;
+            final delaySeconds =
+                retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+            log('🔄 [regenerateMeal] HTTP 502 ошибка для ${request.type.name}, повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
+            await Future.delayed(Duration(seconds: delaySeconds));
+            continue;
+          }
+
+          // Если это не 502 ошибка или попытки исчерпаны, выбрасываем исключение
+          throw Exception(errorMessage);
+        }
+      } catch (e) {
+        final errorString = e.toString();
+        final is502Error = errorString.contains('502');
+
+        // Если это 502 ошибка и у нас есть попытки, пробуем еще раз
+        if (is502Error && retryCount < maxRetries) {
+          retryCount++;
+          final delaySeconds =
+              retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+          log('💥 [regenerateMeal] HTTP 502 исключение для ${request.type.name}: $e');
+          log('🔄 [regenerateMeal] Повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
+          await Future.delayed(Duration(seconds: delaySeconds));
+          continue;
         }
 
-        return responseData;
-      } else {
-        log('❌ [regenerateMeal] Ошибка от LLM прокси URL: $url - Статус: ${response.statusCode} - Ответ: ${response.body}');
-        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+        // Если это не 502 ошибка или попытки исчерпаны, выбрасываем исключение
+        log('💥 [regenerateMeal] Исключение при запросе к LLM прокси: $e');
+        if (retryCount >= maxRetries) {
+          log('❌ [regenerateMeal] Все ${maxRetries + 1} попытки исчерпаны для ${request.type.name}');
+        }
+        rethrow;
       }
-    } catch (e) {
-      log('💥 [regenerateMeal] Исключение при запросе к LLM прокси: $e');
-      rethrow;
     }
+
+    // Этот код никогда не должен выполниться, но на всякий случай
+    throw Exception('Неожиданная ошибка в retry логике regenerateMeal');
   }
 }
