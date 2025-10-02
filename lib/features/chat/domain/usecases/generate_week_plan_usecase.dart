@@ -78,9 +78,16 @@ class GenerateWeekPlanUsecaseV2
         generatedMeals,
       );
 
+      // ✅ Отладочные логи для проверки userId
+      final currentUserId = userBloc.state.user.directusId;
+      print(
+          '[GenerateWeekPlanUsecaseV2] Создание WeekPlanEntity с userId: $currentUserId');
+      print(
+          '[GenerateWeekPlanUsecaseV2] Пользователь авторизован: ${currentUserId != '-1'}');
+
       return Right(
         WeekPlanEntity.create(
-          userId: userBloc.state.user.directusId,
+          userId: currentUserId,
           plans: completedPlans,
           startDate: params.startDate,
         ),

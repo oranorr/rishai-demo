@@ -11,7 +11,6 @@ import 'package:rishai/app.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/analytics/analytics_event_tracker.dart';
-import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart';
@@ -26,6 +25,8 @@ import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart'
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/firebase_options.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:directus/directus.dart';
+import 'package:rishai/core/services/directus/directus_collections.dart';
 
 void main() async {
   await SentryFlutter.init(
@@ -172,6 +173,7 @@ void main() async {
       final versionCheckService = getIt<VersionCheckService>();
       final bool updateRequired = await versionCheckService.isUpdateRequired();
       print('updateRequired: $updateRequired');
+      // await analyzeWeekPlans();
       if (updateRequired && !kDebugMode) {
         final storeUrl = await versionCheckService.getStoreUrl();
         if (storeUrl != null) {
@@ -191,10 +193,79 @@ void main() async {
           runApp(const RishAi());
         }
       } else {
+        // Анализ недельных планов с userId == null в диапазоне дат
+
         runApp(const RishAi());
       }
     },
   );
+}
+
+/// Функция для анализа недельных планов из базы данных Directus
+/// Подсчитывает количество планов с userId == null в диапазоне 25.08.2025 - 18.09.2025
+Future<void> analyzeWeekPlans() async {
+  try {
+    print('[analyzeWeekPlans] Начинаем анализ недельных планов...');
+
+    // Получаем все недельные планы с userId == null
+    final nullUserPlans = await directus.readMany(
+      collection: weekPlanCollection,
+      filters: Filters({
+        'userId': F.isNull(),
+      }),
+    );
+
+    print(
+      '[analyzeWeekPlans] Найдено планов с userId == null: ${nullUserPlans.length}',
+    );
+
+    // Определяем диапазон дат для фильтрации
+    final startDateRange = DateTime(2025, 8, 25); // 25.08.2025
+    final endDateRange = DateTime(2025, 9, 18); // 18.09.2025
+
+    print(
+      '[analyzeWeekPlans] Диапазон дат: ${startDateRange.toString().split(' ')[0]} - ${endDateRange.toString().split(' ')[0]}',
+    );
+
+    // Фильтруем планы по диапазону дат
+    int plansInRange = 0;
+
+    for (final planData in nullUserPlans) {
+      try {
+        // Получаем startDate из данных плана
+        final startDateString = planData['startDate'] as String?;
+
+        if (startDateString != null) {
+          // Парсим дату (может быть в разных форматах)
+          DateTime? startDate =
+              DateTime.fromMillisecondsSinceEpoch(int.parse(startDateString));
+
+          // Проверяем, попадает ли дата в диапазон
+          if (startDate.isAfter(
+                startDateRange.subtract(const Duration(days: 1)),
+              ) &&
+              startDate.isBefore(endDateRange.add(const Duration(days: 1)))) {
+            plansInRange++;
+            print(
+              '[analyzeWeekPlans] План в диапазоне: startDate = ${startDate.toString().split(' ')[0]}',
+            );
+          }
+        }
+      } catch (e) {
+        print('[analyzeWeekPlans] Ошибка обработки плана: $e');
+      }
+    }
+
+    print('');
+    print('=== РЕЗУЛЬТАТ АНАЛИЗА НЕДЕЛЬНЫХ ПЛАНОВ ===');
+    print('Всего планов с userId == null: ${nullUserPlans.length}');
+    print('Планов в диапазоне 25.08.2025 - 18.09.2025: $plansInRange');
+    print('==========================================');
+    print('');
+  } catch (e, stackTrace) {
+    print('[analyzeWeekPlans] Ошибка при анализе недельных планов: $e');
+    print('StackTrace: $stackTrace');
+  }
 }
 
 class RishAi extends StatelessWidget {

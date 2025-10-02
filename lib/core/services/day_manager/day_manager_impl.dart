@@ -22,71 +22,6 @@ final dayManager = getIt.get<DayManager>();
 class DayManagerImpl implements DayManager {
   // Старый метод fetchDays удалён - используем только getUserDays
 
-  @override
-  Future<DayEntity> createDay({required DayEntity day}) async {
-    try {
-      _logger(
-        'Начало создания/обновления дня: ${day.dateTime}, cycleId: ${day.cycleId}',
-      );
-
-      // Проверяем существование дня по cycleId
-      final existingDay = await _findExistingDayByCycleId(
-        userId: userBloc.state.user.directusId,
-        cycleId: day.cycleId,
-      );
-
-      DayEntity resultDay;
-
-      if (existingDay != null) {
-        // Обновляем существующий день
-        _logger('Обновление существующего дня: ${existingDay.directusId}');
-        final raw = await directus.updateOne(
-          collection: daysCollection,
-          itemId: existingDay.directusId.toString(),
-          updateData: day.toDirectus(userId: userBloc.state.user.directusId),
-        );
-        resultDay = DayEntity.fromMap(raw);
-        await hive.saveDay(data: resultDay);
-        _logger('День успешно обновлен');
-      } else {
-        // Создаем новый день
-        _logger('Создание нового дня');
-        final dayData = day.toDirectus(userId: userBloc.state.user.directusId);
-        final createdDay = await directus.createOne(
-          collection: daysCollection,
-          data: dayData,
-        );
-        resultDay = DayEntity.fromMap(createdDay);
-        _logger('Новый день создан с id: ${resultDay.directusId}');
-
-        // Сохраняем созданный день в Hive
-        await hive.saveDay(data: resultDay);
-      }
-
-      // Обновляем состояние в UserBloc
-      userBloc.add(UserUpdateDay(day: resultDay));
-
-      _logger(
-        'Успешно создан/обновлен день с датой: ${resultDay.dateTime}, cycleId: ${resultDay.cycleId} и directusId: ${resultDay.directusId}',
-      );
-      return resultDay;
-    } on Exception catch (e, stackTrace) {
-      _logger('Ошибка при создании/обновлении дня: $e');
-      await WhoopErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'day_manager_create_day',
-        extras: {
-          'user_id': userBloc.state.user.directusId,
-          'day_id': day.directusId,
-          'date_time': day.dateTime.toString(),
-          'cycle_id': day.cycleId,
-        },
-      );
-      rethrow;
-    }
-  }
-
   /// Поиск существующего дня по cycleId
   Future<DayEntity?> _findExistingDayByCycleId({
     required String userId,
@@ -259,15 +194,6 @@ class DayManagerImpl implements DayManager {
         );
         resultDay = DayEntity.fromMap(createdDay);
         _logger('Новый день создан с id: ${resultDay.directusId}');
-
-        // 🔄 Проверяем recomp только при создании НОВОГО дня
-        try {
-          await userBloc.checkRecompForNewDay();
-          _logger('Recomp check completed for new day in createOrUpdateDay');
-        } catch (e) {
-          _logger('Recomp check failed for new day in createOrUpdateDay: $e');
-          // Не прерываем создание дня из-за ошибки проверки recomp
-        }
       }
 
       // Сохраняем в кэш

@@ -12,10 +12,11 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
   @override
   Widget build(BuildContext context) {
     final plans = widget.plans;
+    // Убираем дублирующий BlocBuilder, так как он уже есть в WeekPlanScreen
     return BlocBuilder<WeekPlanBloc, WeekPlanState>(
       bloc: weekPlanBloc,
       builder: (context, state) {
-        if (state.isLoading) return const _LoadingState();
+        // Убираем проверку isLoading, так как она уже обрабатывается в WeekPlanScreen
         return Column(
           crossAxisAlignment: plans.isEmpty
               ? CrossAxisAlignment.center
@@ -100,6 +101,7 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
                       );
                     }
                   : () {
+                      // Переходим к экрану выбора порций для создания нового плана
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -207,10 +209,9 @@ class _WeekCard extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        // 'Vegan, Carnivore, Lacto, Something else',
                         week.fitnessGoal.isEmpty
                             ? 'Not Stated'
-                            : week.fitnessGoal.capitalize(),
+                            : week.fitnessGoal.capitalizeWords(),
                         style: context.styles.regularMedium,
                       ),
                     ],

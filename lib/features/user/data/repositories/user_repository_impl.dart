@@ -307,7 +307,7 @@ class UserRepositoryImpl implements UserRepository {
 
   Future<void> saveDay({required DayEntity data}) async {
     try {
-      await dayManager.createDay(day: data);
+      await dayManager.createOrUpdateDay(day: data);
       // Для удобства отладки
       log('День сохранен через dayManager: ID=${data.directusId}, Макросы=${data.macros}');
     } catch (e, stackTrace) {

@@ -326,7 +326,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   ) async {
     final day = event.day;
 
-    await dayManager.createDay(day: day);
+    await dayManager.createOrUpdateDay(day: day);
 
     // // Проверяем, действительно ли изменился день
     // final existingDay = state.days.firstWhere(
@@ -664,7 +664,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
   /// Упрощенная проверка recomp при создании нового дня
   /// Вызывается только когда создается НОВЫЙ день (не обновляется существующий)
-  Future<void> checkRecompForNewDay() async {
+  /// Возвращает обновленный модификатор (или текущий, если изменения не нужны)
+  Future<double> checkRecompForNewDay() async {
     try {
       // Проверяем, что у пользователя установлена цель recomp
       if (state.user.userGoal?.goal != null &&
@@ -696,8 +697,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
           final updatedUser = state.user.copyWith(userGoal: updatedGoal);
 
-          // Обновляем локальное состояние
-          emit(state.copyWith(user: updatedUser));
+          // Обновляем локальное состояние через событие
+          add(UpdateUserEvent(user: updatedUser));
 
           // Сохраняем локально
           await hive.saveUser(user: updatedUser);
@@ -721,13 +722,27 @@ class UserBloc extends Bloc<UserEvent, UserState> {
             );
             // Не откатываем локальные изменения - они сохранятся при следующей синхронизации
           }
+
+          // Возвращаем новый модификатор
+          return newModifier;
         } else {
           log(
             'Recomp modifier change not needed yet:\n'
             'Days until next change: ${14 - daysSinceUpdate}',
             name: 'UserBloc',
           );
+
+          // Возвращаем текущий модификатор
+          return goal.modificator;
         }
+      } else {
+        log(
+          'User goal is not recomp or userGoal is null',
+          name: 'UserBloc',
+        );
+
+        // Возвращаем текущий модификатор или 0.0 по умолчанию
+        return state.user.userGoal?.modificator ?? 0.0;
       }
     } catch (e, stackTrace) {
       log(
@@ -737,7 +752,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         name: 'UserBloc',
         error: e,
       );
-      // Не показываем ошибку пользователю - это внутренняя логика
+
+      // В случае ошибки возвращаем текущий модификатор
+      return state.user.userGoal?.modificator ?? 0.0;
     }
   }
 

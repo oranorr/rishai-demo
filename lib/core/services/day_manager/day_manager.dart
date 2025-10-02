@@ -36,10 +36,6 @@ class LastDayResult {
 abstract class DayManager {
   // Старые методы fetchDays, getDaysIds удалены
 
-  Future<DayEntity> createDay({
-    required DayEntity day,
-  });
-
   /// Получить все дни пользователя (новая упрощенная архитектура)
   Future<Either<Failure, List<DayEntity>>> getUserDays({
     required String userId,

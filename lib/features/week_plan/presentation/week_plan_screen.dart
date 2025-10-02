@@ -59,12 +59,12 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> {
     return BlocBuilder<WeekPlanBloc, WeekPlanState>(
       bloc: weekPlanBloc,
       builder: (context, state) {
-        // print();
-        // if (state.isLoading) {
-        //   return const _LoadingState();
-        // }
-        // return const _ServingsSelector();
-        // return const WeekLandingPage(plans: []);
+        // Обрабатываем состояние загрузки
+        if (state.isLoading) {
+          return const _LoadingState();
+        }
+
+        // Возвращаем WeekLandingPage с правильными планами
         return WeekLandingPage(
           plans: state.filter != null
               ? state.displayWeekPlans.reversed.toList()

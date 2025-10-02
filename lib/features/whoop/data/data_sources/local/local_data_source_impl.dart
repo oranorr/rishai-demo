@@ -40,7 +40,7 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
   @override
   Future<void> saveData({required DayEntity data}) async {
     try {
-      await dm.dayManager.createDay(day: data);
+      await dm.dayManager.createOrUpdateDay(day: data);
     } catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
@@ -222,7 +222,7 @@ class WhoopLocalDataSourceImpl implements WhoopLocalDataSource {
           ),
         );
 
-        await dm.dayManager.createDay(day: dayData);
+        await dm.dayManager.createOrUpdateDay(day: dayData);
         return Right(dayData);
       } catch (e, stackTrace) {
         await LocalStorageErrorHandler.handleError(

@@ -25,12 +25,17 @@ class WeekPlanEntity extends Equatable {
     required List<MealPlanEntity> plans,
     required DateTime startDate,
   }) {
+    // ✅ Отладочные логи для проверки userId
+    print('[WeekPlanEntity.create] Создание плана с userId: $userId');
+    print(
+        '[WeekPlanEntity.create] Пользователь авторизован: ${userId != '-1'}');
+
     // final tomorrow = DateTime.now().add(const Duration(days: 1));
 
     final endDate =
         startDate.add(const Duration(days: 4)); // +4 так как включая завтра
 
-    return WeekPlanEntity(
+    final weekPlan = WeekPlanEntity(
       userId: userId,
       plans: plans,
       startDate: startDate,
@@ -40,11 +45,20 @@ class WeekPlanEntity extends Equatable {
       cuisines: const [],
       mealsTypes: const [],
     );
+
+    print('[WeekPlanEntity.create] Создан план с userId: ${weekPlan.userId}');
+    return weekPlan;
   }
 
   factory WeekPlanEntity.fromMap(Map<String, dynamic> map) {
+    // ✅ Отладочные логи для проверки десериализации
+    final userId = map['userId'].toString();
+    print('[WeekPlanEntity.fromMap] Десериализация плана с userId: $userId');
+    print(
+        '[WeekPlanEntity.fromMap] Данные из Directus: ${map.keys.join(', ')}');
+
     return WeekPlanEntity(
-      userId: map['userId'].toString(),
+      userId: userId,
       plans: List<MealPlanEntity>.from(
         (map['mealPlans'] as List).map(
           (plan) => MealPlanEntity.fromMap(plan as Map<String, dynamic>),
@@ -64,7 +78,7 @@ class WeekPlanEntity extends Equatable {
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = {
       'userId': userId,
       'mealPlans': plans.map((plan) => plan.toMap()).toList(),
       'startDate': startDate.millisecondsSinceEpoch.toString(),
@@ -74,6 +88,12 @@ class WeekPlanEntity extends Equatable {
       'cuisines': cuisines,
       'mealsTypes': mealsTypes,
     };
+
+    // ✅ Отладочные логи для проверки сериализации
+    print('[WeekPlanEntity.toMap] Сериализация плана с userId: $userId');
+    print('[WeekPlanEntity.toMap] Данные для Directus: ${map.keys.join(', ')}');
+
+    return map;
   }
 
   String formatPeriod() {

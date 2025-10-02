@@ -121,7 +121,7 @@ class UserGoal {
       case GoalType.recomp:
         return 'Body Recomp';
       case GoalType.optimize:
-        return 'Optimize me';
+        return 'Optimize Me';
     }
   }
 
