@@ -64,146 +64,172 @@ class _MacrosBreakdownWidget extends StatelessWidget {
     final res = _calculatePercentageForDay(currentDay);
 
     return _Card(
-      child: Row(
+      child: Column(
         children: [
-          SizedBox.square(
-            dimension: 140.w,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 6,
-                sections: [
-                  PieChartSectionData(
-                    value: res.$1,
-                    color: RishColors.protein,
-                    showTitle: true,
-                    radius: 12,
-                    title: '${res.$1.toInt()}%',
-                    titlePositionPercentageOffset: -2.3,
-                    titleStyle: context.styles.numsS
-                        .copyWith(color: RishColors.protein),
-                  ),
-                  PieChartSectionData(
-                    value: res.$2,
-                    color: RishColors.carbs,
-                    radius: 12,
-                    showTitle: true,
-                    title: '${res.$2.toInt()}%',
-                    titlePositionPercentageOffset: -2.3,
-                    titleStyle:
-                        context.styles.numsS.copyWith(color: RishColors.carbs),
-                  ),
-                  PieChartSectionData(
-                    value: res.$3,
-                    color: RishColors.fat,
-                    showTitle: true,
-                    radius: 12,
-                    title: '${res.$3.toInt()}%',
-                    titlePositionPercentageOffset: -2.3,
-                    titleStyle:
-                        context.styles.numsS.copyWith(color: RishColors.fat),
-                  ),
-                ],
+          Row(
+            children: [
+              Text(
+                "Today's targets",
+                style: context.styles.boldLarge,
+              ),
+              SizedBox(width: 8.w),
+              GestureDetector(
+                onTap: () async => RishiDialog.infoPopup(
+                  context,
+                  'Your daily consumption goal of calories is broken up into its macronutrient constituents of proteins, carbs, and fats. This gives you individualised targets for each macronutrient, and they sum up to your daily calorie consumption goal.',
+                ),
+                child: SvgPicture.asset('assets/icons/info_round.svg'),
+              ),
+              const Spacer(),
+              Text(
+                '${day.macros.kcal.comaThisNumber()} kcals',
+                style: context.styles.boldLarge,
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          // Круговая диаграмма по центру
+          Center(
+            child: SizedBox.square(
+              dimension: 140.w,
+              child: PieChart(
+                PieChartData(
+                  sectionsSpace: 6,
+                  sections: [
+                    PieChartSectionData(
+                      value: res.$1,
+                      color: RishColors.protein,
+                      showTitle: true,
+                      radius: 12,
+                      title: '${res.$1.toInt()}%',
+                      titlePositionPercentageOffset: -2.3,
+                      titleStyle: context.styles.numsS
+                          .copyWith(color: RishColors.protein),
+                    ),
+                    PieChartSectionData(
+                      value: res.$2,
+                      color: RishColors.carbs,
+                      radius: 12,
+                      showTitle: true,
+                      title: '${res.$2.toInt()}%',
+                      titlePositionPercentageOffset: -2.3,
+                      titleStyle: context.styles.numsS
+                          .copyWith(color: RishColors.carbs),
+                    ),
+                    PieChartSectionData(
+                      value: res.$3,
+                      color: RishColors.fat,
+                      showTitle: true,
+                      radius: 12,
+                      title: '${res.$3.toInt()}%',
+                      titlePositionPercentageOffset: -2.3,
+                      titleStyle:
+                          context.styles.numsS.copyWith(color: RishColors.fat),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          SizedBox(width: 26.w),
-          Expanded(
-            child: BlocBuilder<WhoopBloc, WhoopState>(
-              bloc: whoopBloc,
-              builder: (context, state) {
-                // Используем калории для правильного дня
-                final kcals = _calculateMacrosInKcalForDay(currentDay);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Row(
-                    //   children: [
-                    //     Text(
-                    //       isToday
-                    //           ? "${state.day.macros.protein}g "
-                    //           : '${day.macros.protein}g ',
-                    //       style: context.styles.numsM
-                    //           .copyWith(color: RishColors.protein),
-                    //     ), Column(
-                    //       children: [
-                    //         Text('123'),
-                    //         Text
-                    //       ],
-                    //     )
-                    //   ],
-                    // ),
-                    // Row(
-                    //   children: [
-                    //     Text(
-                    //       isToday
-                    //           ? "${state.day.macros.carbs}g "
-                    //           : '${day.macros.carbs}g ',
-                    //       style: context.styles.numsM
-                    //           .copyWith(color: RishColors.carbs),
-                    //     )
-                    //   ],
-                    // ),
-                    // Row(
-                    //   children: [
-                    //     Text(
-                    //       isToday
-                    //           ? "${state.day.macros.fat}g "
-                    //           : '${day.macros.fat}g ',
-                    //       style:
-                    //           context.styles.numsM.copyWith(color: RishColors.fat),
-                    //     )
-                    //   ],
-                    // ),
-                    Text.rich(
-                      TextSpan(
-                        text: '${currentDay.macros.protein.comaThisNumber()}g ',
-                        style: context.styles.numsM
-                            .copyWith(color: RishColors.protein),
-                        children: [
+          SizedBox(height: 20.h),
+          // Показатели макросов в горизонтальной строке как на изображении
+          BlocBuilder<WhoopBloc, WhoopState>(
+            bloc: whoopBloc,
+            builder: (context, state) {
+              // Используем калории для правильного дня
+              final kcals = _calculateMacrosInKcalForDay(currentDay);
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // Protein
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text.rich(
                           TextSpan(
                             text:
-                                'Protein\n(${kcals.$2.comaThisNumber()} kcal)',
-                            style: context.styles.regularMedium
+                                '${currentDay.macros.protein.comaThisNumber()}g ',
+                            style: context.styles.boldLarge
                                 .copyWith(color: RishColors.protein),
+                            children: [
+                              TextSpan(
+                                text: 'Protein',
+                                style: context.styles.boldLarge
+                                    .copyWith(color: RishColors.protein),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          '${kcals.$2.comaThisNumber()} kcals',
+                          style: context.styles.regularMedium
+                              .copyWith(color: Colors.white70),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 12.h),
-                    Text.rich(
-                      TextSpan(
-                        text: '${currentDay.macros.carbs.comaThisNumber()}g ',
-                        style: context.styles.numsM
-                            .copyWith(color: RishColors.carbs),
-                        children: [
+                  ),
+                  // Carbs
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text.rich(
                           TextSpan(
-                            text: 'Carbs\n(${kcals.$1.comaThisNumber()} kcal)',
-                            style: context.styles.regularMedium
+                            text:
+                                '${currentDay.macros.carbs.comaThisNumber()}g ',
+                            style: context.styles.boldLarge
                                 .copyWith(color: RishColors.carbs),
+                            children: [
+                              TextSpan(
+                                text: 'Carbs',
+                                style: context.styles.boldLarge
+                                    .copyWith(color: RishColors.carbs),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          '${kcals.$1.comaThisNumber()} kcals',
+                          style: context.styles.regularMedium
+                              .copyWith(color: Colors.white70),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 12.h),
-                    Text.rich(
-                      TextSpan(
-                        text: '${currentDay.macros.fat.comaThisNumber()}g ',
-                        style: context.styles.numsM
-                            .copyWith(color: RishColors.fat),
-                        children: [
+                  ),
+                  // Fat
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text.rich(
                           TextSpan(
-                            text: 'Fat\n(${kcals.$3.comaThisNumber()} kcal)',
-                            style: context.styles.regularMedium.copyWith(
-                              color: RishColors.fat,
-                            ),
+                            text: '${currentDay.macros.fat.comaThisNumber()}g ',
+                            style: context.styles.boldLarge
+                                .copyWith(color: RishColors.fat),
+                            children: [
+                              TextSpan(
+                                text: 'Fats',
+                                style: context.styles.boldLarge
+                                    .copyWith(color: RishColors.fat),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          '${kcals.$3.comaThisNumber()} kcals',
+                          style: context.styles.regularMedium
+                              .copyWith(color: Colors.white70),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                  ],
-                );
-              },
-            ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

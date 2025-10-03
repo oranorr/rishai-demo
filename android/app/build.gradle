@@ -65,10 +65,10 @@ android {
                 abiFilters 'arm64-v8a', 'armeabi-v7a'
             }
             
-            // Временно отключаем R8 для отладки
-            minifyEnabled false
-            shrinkResources false
-            // proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Включаем оптимизацию для поддержки 16 KB страниц памяти
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
