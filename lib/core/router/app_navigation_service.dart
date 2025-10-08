@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/features/food_diary/presentation/diary_entry_page.dart';
+import 'package:rishai/features/food_diary/presentation/wellness_page/wellness_page.dart';
 import 'package:rishai/features/settings/presentation/settings_pages/contact_page.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -162,6 +163,14 @@ class AppNavigationService {
             pageBuilder: (context, state) => _buildPageWithDefaultTransition(
               state: state,
               child: const DiaryEntryPage(),
+            ),
+          ),
+          GoRoute(
+            name: AppRoutes.wellnessPage.name,
+            path: AppRoutes.wellnessPage.path,
+            pageBuilder: (context, state) => _buildPageWithDefaultTransition(
+              state: state,
+              child: const WellnessPage(),
             ),
           ),
         ],

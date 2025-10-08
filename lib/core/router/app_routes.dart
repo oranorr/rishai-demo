@@ -15,6 +15,7 @@ enum AppRoutes {
   paywall('paywall', '/paywall'),
   contactPage('contact', '/contact'),
   diaryEntryPage('diaryEntryPage', '/diaryEntryPage'),
+  wellnessPage('wellnessPage', '/wellnessPage'),
   chat('chat', '/chat');
 
   const AppRoutes(this.name, this.path);

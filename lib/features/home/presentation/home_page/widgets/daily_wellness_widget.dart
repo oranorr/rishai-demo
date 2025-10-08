@@ -294,51 +294,57 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                               },
                             ),
                           // Центральный градиентный круг с процентом
-                          Container(
-                            width: 80.w, // Размер центрального круга
-                            height: 80.h,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              // [border] Белая граница как на изображении
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2.w,
+                          GestureDetector(
+                            onTap: () => appNavigationService.push(
+                                path: AppRoutes.wellnessPage.path),
+                            child: Container(
+                              width: 80.w, // Размер центрального круга
+                              height: 80.h,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                // [border] Белая граница как на изображении
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2.w,
+                                ),
+                                // [gradient] Радиальный градиент от краев к центру как на изображении
+                                gradient: const RadialGradient(
+                                  radius: 0.8,
+                                  colors: [
+                                    Color(
+                                      0xFF242239,
+                                    ), // Очень темный фиолетовый по краям
+                                    Color(0xFF511A5A), // Темно-фиолетовый
+                                    Color(0xFFB54ADA), // Средний фиолетовый
+                                    Color(
+                                        0xFFEFC9ED), // Светло-розовый в центре
+                                  ],
+                                  stops: [0.0, 0.3, 0.6, 1.0],
+                                ),
                               ),
-                              // [gradient] Радиальный градиент от краев к центру как на изображении
-                              gradient: const RadialGradient(
-                                radius: 0.8,
-                                colors: [
-                                  Color(
-                                    0xFF242239,
-                                  ), // Очень темный фиолетовый по краям
-                                  Color(0xFF511A5A), // Темно-фиолетовый
-                                  Color(0xFFB54ADA), // Средний фиолетовый
-                                  Color(0xFFEFC9ED), // Светло-розовый в центре
-                                ],
-                                stops: [0.0, 0.3, 0.6, 1.0],
-                              ),
-                            ),
-                            child: Center(
-                              // [AnimatedBuilder] Анимированный центральный текст
-                              child: AnimatedBuilder(
-                                animation: _centerScaleAnimation,
-                                builder: (context, child) {
-                                  return Transform.scale(
-                                    // [scale] Используем 1.0 как базовое значение, если анимация не началась
-                                    scale: _centerAnimationController.status ==
-                                            AnimationStatus.dismissed
-                                        ? 1.0
-                                        : _centerScaleAnimation.value,
-                                    child: Text(
-                                      '${_calculateOverallProgress()}%',
-                                      style: context.styles.numsL.copyWith(
-                                        fontSize: 20.sp,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                              child: Center(
+                                // [AnimatedBuilder] Анимированный центральный текст
+                                child: AnimatedBuilder(
+                                  animation: _centerScaleAnimation,
+                                  builder: (context, child) {
+                                    return Transform.scale(
+                                      // [scale] Используем 1.0 как базовое значение, если анимация не началась
+                                      scale:
+                                          _centerAnimationController.status ==
+                                                  AnimationStatus.dismissed
+                                              ? 1.0
+                                              : _centerScaleAnimation.value,
+                                      child: Text(
+                                        '${_calculateOverallProgress()}%',
+                                        style: context.styles.numsL.copyWith(
+                                          fontSize: 20.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                },
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                           ),
