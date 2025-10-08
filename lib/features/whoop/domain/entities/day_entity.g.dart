@@ -25,13 +25,14 @@ class DayEntityAdapter extends TypeAdapter<DayEntity> {
       dateTime: fields[5] as DateTime,
       cycleId: fields[7] as int?,
       mealPlanEntity: fields[4] as MealPlanEntity?,
+      welnessEntity: fields[8] as WelnessEntity?,
     );
   }
 
   @override
   void write(BinaryWriter writer, DayEntity obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.directusId)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class DayEntityAdapter extends TypeAdapter<DayEntity> {
       ..writeByte(6)
       ..write(obj.snap)
       ..writeByte(7)
-      ..write(obj.cycleId);
+      ..write(obj.cycleId)
+      ..writeByte(8)
+      ..write(obj.welnessEntity);
   }
 
   @override

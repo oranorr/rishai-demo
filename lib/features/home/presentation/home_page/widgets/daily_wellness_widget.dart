@@ -1,7 +1,8 @@
 part of '../home_page.dart';
 
 class DailyWellnessWidget extends StatefulWidget {
-  const DailyWellnessWidget({super.key});
+  const DailyWellnessWidget({required this.day, super.key});
+  final DayEntity day;
 
   @override
   State<DailyWellnessWidget> createState() => _DailyWellnessWidgetState();
@@ -16,44 +17,64 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   late AnimationController _centerAnimationController;
   late Animation<double> _centerScaleAnimation;
 
-  // Данные для колец (в реальном приложении будут приходить из состояния)
-  final List<RingData> _ringData = [
-    RingData(
-      label: 'Kcals',
-      current: 1596,
-      target: 1956, // 81.6% от цели
-      color: RishColors.calories,
-      unit: '',
-    ),
-    RingData(
-      label: 'Protein',
-      current: 98,
-      target: 167, // 58.7% от цели
-      color: RishColors.protein,
-      unit: 'g',
-    ),
-    RingData(
-      label: 'Carbs',
-      current: 124,
-      target: 162, // 76.5% от цели
-      color: RishColors.carbs,
-      unit: 'g',
-    ),
-    RingData(
-      label: 'Fats',
-      current: 38,
-      target: 71, // 53.5% от цели
-      color: RishColors.fat,
-      unit: 'g',
-    ),
-  ];
+  // [_getRingData] Получаем данные для колец из переданного day
+  List<RingData> _getRingData() {
+    final targetMacros = widget.day.macros;
+
+    // [consumedMacros] Получаем потребленные макросы или используем нули
+    final consumedMacros = widget.day.welnessEntity?.consumedMacros;
+
+    dev.log(
+      '[DailyWellnessWidget] Получаем данные колец: wellness=${widget.day.welnessEntity?.welnessPercentage}%, блюд=${widget.day.welnessEntity?.consumedMeals.length ?? 0}, потребленные ккал=${consumedMacros?.kcal ?? 0}',
+      name: 'DailyWellnessWidget',
+    );
+
+    return [
+      // [Calories] Калории - внешнее кольцо
+      RingData(
+        label: 'Kcals',
+        current: consumedMacros?.kcal.toDouble() ?? 0.0,
+        target: targetMacros.kcal.toDouble(),
+        color: RishColors.calories,
+        unit: '',
+      ),
+      // [Protein] Белки - второе кольцо
+      RingData(
+        label: 'Protein',
+        current: consumedMacros?.protein.toDouble() ?? 0.0,
+        target: targetMacros.protein.toDouble(),
+        color: RishColors.protein,
+        unit: 'g',
+      ),
+      // [Carbs] Углеводы - третье кольцо
+      RingData(
+        label: 'Carbs',
+        current: consumedMacros?.carbs.toDouble() ?? 0.0,
+        target: targetMacros.carbs.toDouble(),
+        color: RishColors.carbs,
+        unit: 'g',
+      ),
+      // [Fats] Жиры - внутреннее кольцо
+      RingData(
+        label: 'Fats',
+        current: consumedMacros?.fat.toDouble() ?? 0.0,
+        target: targetMacros.fat.toDouble(),
+        color: RishColors.fat,
+        unit: 'g',
+      ),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
+
+    // [_getRingData] Получаем данные для колец
+    final ringData = _getRingData();
+
     // Создаем контроллеры анимации для каждого кольца
     _animationControllers = List.generate(
-      _ringData.length,
+      ringData.length,
       (index) => AnimationController(
         duration: Duration(milliseconds: 1500 + (index * 200)),
         vsync: this,
@@ -119,6 +140,28 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   }
 
   @override
+  void didUpdateWidget(DailyWellnessWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // [didUpdateWidget] Проверяем, изменились ли данные wellness entity
+    if (oldWidget.day.welnessEntity != widget.day.welnessEntity) {
+      dev.log(
+        '[DailyWellnessWidget] Данные wellness entity изменились, перезапускаем анимации',
+        name: 'DailyWellnessWidget',
+      );
+
+      // Сбрасываем анимации и запускаем заново
+      for (final controller in _animationControllers) {
+        controller.reset();
+      }
+      _centerAnimationController.reset();
+
+      // Запускаем анимации заново
+      _startAnimations();
+    }
+  }
+
+  @override
   void dispose() {
     for (final controller in _animationControllers) {
       controller.dispose();
@@ -128,8 +171,51 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
     super.dispose();
   }
 
+  // [updateAnimations] Метод для обновления анимаций при изменении данных
+  void _updateAnimations() {
+    final ringData = _getRingData();
+
+    // Если количество колец изменилось, пересоздаем контроллеры
+    if (_animationControllers.length != ringData.length) {
+      // Освобождаем старые контроллеры
+      for (final controller in _animationControllers) {
+        controller.dispose();
+      }
+
+      // Создаем новые контроллеры
+      _animationControllers = List.generate(
+        ringData.length,
+        (index) => AnimationController(
+          duration: Duration(milliseconds: 1500 + (index * 200)),
+          vsync: this,
+        ),
+      );
+
+      // Создаем новые анимации
+      _animations = _animationControllers
+          .map(
+            (controller) => Tween<double>(
+              begin: 0,
+              end: 1,
+            ).animate(
+              CurvedAnimation(
+                parent: controller,
+                curve: Curves.easeOutCubic,
+              ),
+            ),
+          )
+          .toList();
+
+      // Запускаем анимации
+      _startAnimations();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // [updateAnimations] Обновляем анимации при каждом rebuild
+    _updateAnimations();
+
     return Column(
       children: [
         Text('Daily Nutritional Wellness', style: context.styles.h2),
@@ -150,108 +236,116 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                   style: context.styles.boldLarge,
                 ),
                 SizedBox(height: 24.h),
-                // Фитнесс кольца в центре
+                // [ringDisplay] Фитнесс кольца в центре
                 Center(
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 300
-                        .h, // Обновленная высота для колец с промежутками 2px
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Рисуем кольца от внешнего к внутреннему
-                        for (int i = 0; i < _ringData.length; i++)
-                          AnimatedBuilder(
-                            animation: _animations[i],
-                            builder: (context, child) {
-                              // [ringSize] Рассчитываем размеры для колец с промежутком 2px
-                              // Центральный круг: 80w диаметр (40w радиус)
-                              // Каждое кольцо имеет толщину 22w + промежуток 2px между кольцами
-                              final strokeWidth = 22.w;
-                              final centerRadius =
-                                  52.w; // Радиус центрального круга
-                              final ringSpacing =
-                                  2.w; // Промежуток между кольцами
+                  child: () {
+                    final ringData = _getRingData();
 
-                              // Рассчитываем радиус для каждого кольца от центра наружу
-                              // Жиры (i=3): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 0
-                              // Углеводы (i=2): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 1
-                              // Протеин (i=1): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 2
-                              // Калории (i=0): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 3
-                              final ringIndex = _ringData.length -
-                                  1 -
-                                  i; // Инвертируем индекс
-                              final ringRadius = centerRadius +
-                                  strokeWidth / 2 +
-                                  (strokeWidth + ringSpacing) * ringIndex;
-                              final ringSize =
-                                  ringRadius * 2; // Диаметр = радиус * 2
-
-                              return CustomPaint(
-                                size: Size(ringSize, ringSize),
-                                painter: FitnessRingPainter(
-                                  progress: _animations[i].value *
-                                      (_ringData[i].current /
-                                          _ringData[i].target),
-                                  color: _ringData[i].color,
-                                  strokeWidth:
-                                      strokeWidth, // Используем вычисленную толщину
-                                ),
-                              );
-                            },
-                          ),
-                        // Центральный градиентный круг с процентом
-                        Container(
-                          width: 80.w, // Размер центрального круга
-                          height: 80.h,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            // [border] Белая граница как на изображении
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 2.w,
-                            ),
-                            // [gradient] Радиальный градиент от краев к центру как на изображении
-                            gradient: const RadialGradient(
-                              radius: 0.8,
-                              colors: [
-                                Color(
-                                  0xFF242239,
-                                ), // Очень темный фиолетовый по краям
-                                Color(0xFF511A5A), // Темно-фиолетовый
-                                Color(0xFFB54ADA), // Средний фиолетовый
-                                Color(0xFFEFC9ED), // Светло-розовый в центре
-                              ],
-                              stops: [0.0, 0.3, 0.6, 1.0],
-                            ),
-                          ),
-                          child: Center(
-                            // [AnimatedBuilder] Анимированный центральный текст
-                            child: AnimatedBuilder(
-                              animation: _centerScaleAnimation,
+                    // [ringsDisplay] Показываем кольца с данными
+                    return SizedBox(
+                      width: double.infinity,
+                      height: 300
+                          .h, // Обновленная высота для колец с промежутками 2px
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Рисуем кольца от внешнего к внутреннему
+                          for (int i = 0; i < ringData.length; i++)
+                            AnimatedBuilder(
+                              animation: _animations[i],
                               builder: (context, child) {
-                                return Transform.scale(
-                                  // [scale] Используем 1.0 как базовое значение, если анимация не началась
-                                  scale: _centerAnimationController.status ==
-                                          AnimationStatus.dismissed
-                                      ? 1.0
-                                      : _centerScaleAnimation.value,
-                                  child: Text(
-                                    '${_calculateOverallProgress()}%',
-                                    style: context.styles.numsL.copyWith(
-                                      fontSize: 20.sp,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
+                                // [ringSize] Рассчитываем размеры для колец с промежутком 2px
+                                // Центральный круг: 80w диаметр (40w радиус)
+                                // Каждое кольцо имеет толщину 22w + промежуток 2px между кольцами
+                                final strokeWidth = 22.w;
+                                final centerRadius =
+                                    52.w; // Радиус центрального круга
+                                final ringSpacing =
+                                    2.w; // Промежуток между кольцами
+
+                                // Рассчитываем радиус для каждого кольца от центра наружу
+                                // Жиры (i=3): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 0
+                                // Углеводы (i=2): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 1
+                                // Протеин (i=1): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 2
+                                // Калории (i=0): радиус = centerRadius + strokeWidth/2 + (strokeWidth + spacing) * 3
+                                final ringIndex = ringData.length -
+                                    1 -
+                                    i; // Инвертируем индекс
+                                final ringRadius = centerRadius +
+                                    strokeWidth / 2 +
+                                    (strokeWidth + ringSpacing) * ringIndex;
+                                final ringSize =
+                                    ringRadius * 2; // Диаметр = радиус * 2
+
+                                return CustomPaint(
+                                  size: Size(ringSize, ringSize),
+                                  painter: FitnessRingPainter(
+                                    progress: _animations[i].value *
+                                        (ringData[i].target > 0
+                                            ? (ringData[i].current /
+                                                    ringData[i].target)
+                                                .clamp(0.0, 1.0)
+                                            : 0.0),
+                                    color: ringData[i].color,
+                                    strokeWidth:
+                                        strokeWidth, // Используем вычисленную толщину
                                   ),
                                 );
                               },
                             ),
+                          // Центральный градиентный круг с процентом
+                          Container(
+                            width: 80.w, // Размер центрального круга
+                            height: 80.h,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              // [border] Белая граница как на изображении
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2.w,
+                              ),
+                              // [gradient] Радиальный градиент от краев к центру как на изображении
+                              gradient: const RadialGradient(
+                                radius: 0.8,
+                                colors: [
+                                  Color(
+                                    0xFF242239,
+                                  ), // Очень темный фиолетовый по краям
+                                  Color(0xFF511A5A), // Темно-фиолетовый
+                                  Color(0xFFB54ADA), // Средний фиолетовый
+                                  Color(0xFFEFC9ED), // Светло-розовый в центре
+                                ],
+                                stops: [0.0, 0.3, 0.6, 1.0],
+                              ),
+                            ),
+                            child: Center(
+                              // [AnimatedBuilder] Анимированный центральный текст
+                              child: AnimatedBuilder(
+                                animation: _centerScaleAnimation,
+                                builder: (context, child) {
+                                  return Transform.scale(
+                                    // [scale] Используем 1.0 как базовое значение, если анимация не началась
+                                    scale: _centerAnimationController.status ==
+                                            AnimationStatus.dismissed
+                                        ? 1.0
+                                        : _centerScaleAnimation.value,
+                                    child: Text(
+                                      '${_calculateOverallProgress()}%',
+                                      style: context.styles.numsL.copyWith(
+                                        fontSize: 20.sp,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  }(),
                 ),
                 SizedBox(height: 24.h),
                 // Легенда с данными
@@ -265,10 +359,14 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   }
 
   Widget _buildLegend() {
+    final ringData = _getRingData();
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: _ringData.map((ring) {
-        final progress = (ring.current / ring.target * 100).clamp(0, 100);
+      children: ringData.map((ring) {
+        final progress = ring.target > 0
+            ? (ring.current / ring.target * 100).clamp(0, 100)
+            : 0.0;
         return Expanded(
           child: Column(
             children: [
@@ -297,11 +395,15 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   }
 
   int _calculateOverallProgress() {
+    final ringData = _getRingData();
+
     double totalProgress = 0;
-    for (final ring in _ringData) {
-      totalProgress += (ring.current / ring.target).clamp(0, 1);
+    for (final ring in ringData) {
+      final ringProgress =
+          ring.target > 0 ? (ring.current / ring.target).clamp(0, 1) : 0.0;
+      totalProgress += ringProgress;
     }
-    return ((totalProgress / _ringData.length) * 100).round();
+    return ((totalProgress / ringData.length) * 100).round();
   }
 }
 

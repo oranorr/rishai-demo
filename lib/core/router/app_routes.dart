@@ -14,6 +14,7 @@ enum AppRoutes {
   calibratingScreen('calibratingScreen', '/calibratingScreen'),
   paywall('paywall', '/paywall'),
   contactPage('contact', '/contact'),
+  diaryEntryPage('diaryEntryPage', '/diaryEntryPage'),
   chat('chat', '/chat');
 
   const AppRoutes(this.name, this.path);

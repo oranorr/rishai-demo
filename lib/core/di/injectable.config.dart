@@ -70,6 +70,8 @@ import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart'
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart'
     as _i786;
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart' as _i666;
+import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart'
+    as _i672;
 import 'package:rishai/features/login/data/dara_sources/remote/remote_data_source.dart'
     as _i510;
 import 'package:rishai/features/login/data/dara_sources/remote/remote_data_source_impl.dart'
@@ -148,6 +150,7 @@ extension GetItInjectableX on _i174.GetIt {
       environmentFilter,
     );
     gh.factory<_i572.NavigatorKeyProvider>(() => _i572.NavigatorKeyProvider());
+    gh.factory<_i672.FoodDiaryCubit>(() => _i672.FoodDiaryCubit());
     gh.factory<_i947.LlmProxyClient>(() => _i947.LlmProxyClient());
     gh.singleton<_i97.PrefsRepository>(() => _i97.PrefsRepository());
     gh.singleton<_i149.AnalyticsRepository>(

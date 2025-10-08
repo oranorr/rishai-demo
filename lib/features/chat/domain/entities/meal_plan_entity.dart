@@ -12,6 +12,7 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
+import 'package:rishai/features/food_diary/domain/diary_meal.dart';
 
 part 'meal_plan_entity.g.dart';
 
@@ -278,6 +279,14 @@ class Meal {
           ],
         ),
       ),
+    );
+  }
+
+  DiaryMeal toDiaryMeal() {
+    return DiaryMeal(
+      title: title,
+      type: type,
+      macros: macros,
     );
   }
 }

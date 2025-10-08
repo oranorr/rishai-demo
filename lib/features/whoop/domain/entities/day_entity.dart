@@ -2,6 +2,7 @@ import 'package:hive/hive.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
+import 'package:rishai/features/food_diary/domain/welness_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 
 part 'day_entity.g.dart';
@@ -17,6 +18,7 @@ class DayEntity {
     required this.dateTime,
     this.cycleId,
     this.mealPlanEntity,
+    this.welnessEntity,
   });
 
   factory DayEntity.empty({required int requestsLeft}) {
@@ -59,6 +61,9 @@ class DayEntity {
         map['chatSnap'],
       ),
       cycleId: map['cycleId'] != null ? int.parse(map['cycleId']) : null,
+      welnessEntity: map['welnessEntity'] != null
+          ? WelnessEntity.fromMap(map['welnessEntity'])
+          : null,
     );
   }
   @HiveField(0)
@@ -77,6 +82,8 @@ class DayEntity {
   final ChatSnapshotEntity snap;
   @HiveField(7)
   final int? cycleId;
+  @HiveField(8)
+  final WelnessEntity? welnessEntity;
 
   DayEntity copyWith({
     int? directusId,
@@ -87,16 +94,19 @@ class DayEntity {
     DateTime? dateTime,
     ChatSnapshotEntity? snap,
     int? cycleId,
+    WelnessEntity? welnessEntity,
   }) {
     return DayEntity(
       directusId: directusId ?? this.directusId,
       weekTdeeAverage: weekTdeeAverage ?? this.weekTdeeAverage,
       macros: macros ?? this.macros,
       healthMetrics: healthMetrics ?? this.healthMetrics,
-      mealPlanEntity: mealPlanEntity,
+      mealPlanEntity: mealPlanEntity ??
+          this.mealPlanEntity, // [copyWith] Исправлен баг - теперь сохраняется существующий план питания
       dateTime: dateTime ?? this.dateTime,
       snap: snap ?? this.snap,
       cycleId: cycleId ?? this.cycleId,
+      welnessEntity: welnessEntity ?? this.welnessEntity,
     );
   }
 
@@ -110,6 +120,7 @@ class DayEntity {
       'mealPlan': mealPlanEntity?.toMap(),
       'chatSnap': snap.toDirectus(),
       'cycleId': cycleId?.toString(),
+      'welnessEntity': welnessEntity?.toMap(),
     };
   }
 
@@ -135,6 +146,7 @@ class DayEntity {
         other.healthMetrics == healthMetrics &&
         other.mealPlanEntity == mealPlanEntity &&
         other.dateTime == dateTime &&
+        other.welnessEntity == welnessEntity &&
         other.snap == snap;
   }
 

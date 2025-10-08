@@ -24,4 +24,5 @@ abstract class RishColors {
   static const Color carbs = Color(0xffCFE887);
   static const Color fat = Color(0xff8B67F3);
   static const Color calories = Color(0xffF7B2D9);
+  static const Color error = Color(0xffED544E);
 }

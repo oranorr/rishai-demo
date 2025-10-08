@@ -31,8 +31,12 @@ List<Map<String, String>> dests = [
     'asset': 'assets/icons/5.svg',
   },
   {
-    'name': 'Chat',
+    'name': 'AI-Coach',
     'asset': 'assets/icons/chat.svg',
+  },
+  {
+    'name': 'Food Diary',
+    'asset': 'assets/icons/food_diary.svg',
   },
   {
     'name': 'Settings',

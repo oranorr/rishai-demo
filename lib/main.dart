@@ -19,6 +19,7 @@ import 'package:rishai/core/services/version_check/version_check_service.dart';
 import 'package:rishai/core/theme/themes.dart';
 import 'package:rishai/core/widgets/update_dialog.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
+import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
@@ -289,6 +290,9 @@ class RishAi extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => weekPlanBloc,
+        ),
+        BlocProvider(
+          create: (context) => foodDiaryCubit,
         ),
       ],
       child: const App(),

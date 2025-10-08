@@ -402,11 +402,14 @@ class UserBloc extends Bloc<UserEvent, UserState> {
           name: 'UserBloc',
         );
 
+        // Используем актуальные данные из currentDay, сохраняя только ID
         daysList[existingDayIndex] = currentDay.copyWith(
           directusId: existingDay.directusId, // Сохраняем ID существующего дня
-          mealPlanEntity:
-              currentDay.mealPlanEntity ?? existingDay.mealPlanEntity,
-          snap: currentDay.snap,
+        );
+
+        log(
+          '[_getDays] Обновленный день: wellness=${daysList[existingDayIndex].welnessEntity?.welnessPercentage}%, блюд=${daysList[existingDayIndex].welnessEntity?.consumedMeals.length ?? 0}',
+          name: 'UserBloc',
         );
       } else {
         // Добавляем новый день

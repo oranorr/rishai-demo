@@ -39,55 +39,57 @@ class _MealPlanWidget extends StatelessWidget {
                 );
               },
             ),
-            if (kDebugMode) ...[
-              SizedBox(
-                height: 20.h,
-              ),
-              BlocBuilder<WhoopBloc, WhoopState>(
-                builder: (context, state) {
-                  return RishButton.primary(
-                    title: 'Clear plan',
-                    enabled: state.status != Status.loading,
-                    isLoading: state.status == Status.loading,
-                    action: () {
-                      // print('clear plan');
-                      chatBloc.add(ChatDeleteMealPlan());
-                    },
-                  );
-                },
-              ),
-            ],
+            // if (kDebugMode) ...[
+            //   SizedBox(
+            //     height: 20.h,
+            //   ),
+            //   BlocBuilder<WhoopBloc, WhoopState>(
+            //     builder: (context, state) {
+            //       return RishButton.primary(
+            //         title: 'Clear plan',
+            //         enabled: state.status != Status.loading,
+            //         isLoading: state.status == Status.loading,
+            //         action: () {
+            //           // print('clear plan');
+            //           chatBloc.add(ChatDeleteMealPlan());
+            //         },
+            //       );
+            //     },
+            //   ),
+            // ],
           ],
         ),
       );
+    } else {
+      return const SizedBox.shrink();
     }
 
     // План отсутствует
-    print(ifNotTodayNeedsCreatePlan);
-    if (isToday) {
-      if (enoughRequests) {
-        return RishButton.primary(
-          title: 'Create Meal Plan',
-          enabled: true,
-          isLoading: false,
-          action: () async {
-            await controller.rAnimate(2);
-          },
-        );
-      } else {
-        return Text(
-          'You already run out of requests for today. Come again tomorrow.',
-          style: context.styles.regularLarge,
-          textAlign: TextAlign.center,
-        );
-      }
-    } else {
-      return Text(
-        'No meal plan was created that day.',
-        style: context.styles.regularLarge,
-        textAlign: TextAlign.center,
-      );
-    }
+    // print(ifNotTodayNeedsCreatePlan);
+    //   if (isToday) {
+    //     if (enoughRequests) {
+    //       return RishButton.primary(
+    //         title: 'Create Meal Plan',
+    //         enabled: true,
+    //         isLoading: false,
+    //         action: () async {
+    //           await controller.rAnimate(2);
+    //         },
+    //       );
+    //     } else {
+    //       return Text(
+    //         'You already run out of requests for today. Come again tomorrow.',
+    //         style: context.styles.regularLarge,
+    //         textAlign: TextAlign.center,
+    //       );
+    //     }
+    //   } else {
+    //     return Text(
+    //       'No meal plan was created that day.',
+    //       style: context.styles.regularLarge,
+    //       textAlign: TextAlign.center,
+    //     );
+    //   }
   }
 
   (bool areEqual, int? indexOfBiggest) areMealsEqual(List<Meal> mealEntities) {

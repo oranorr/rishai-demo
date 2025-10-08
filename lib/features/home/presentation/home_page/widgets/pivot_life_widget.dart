@@ -139,13 +139,13 @@ class _PivotLifeWidgetState extends State<PivotLifeWidget>
 
   Color getColor(double progress) {
     if (progress <= 0.29) {
-      return Colors.red;
+      return RishColors.error;
     } else if (progress >= 0.3 && progress <= 0.54) {
-      return Colors.orange;
+      return const Color(0xffFA8F3E);
     } else if (progress >= 0.55 && progress <= 0.79) {
-      return Colors.yellow;
+      return RishColors.warning;
     } else {
-      return Colors.green;
+      return RishColors.success;
     }
   }
 }

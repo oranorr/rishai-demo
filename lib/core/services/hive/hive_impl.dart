@@ -10,6 +10,8 @@ import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
+import 'package:rishai/features/food_diary/domain/diary_meal.dart';
+import 'package:rishai/features/food_diary/domain/welness_entity.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
@@ -198,6 +200,8 @@ class HiveImpl implements HiveRepo {
       ..registerAdapter(BodyMeasurementsEntityAdapter())
       ..registerAdapter(WeekPlanEntityAdapter())
       ..registerAdapter(HealthMetricsEntityAdapter())
+      ..registerAdapter(WelnessEntityAdapter())
+      ..registerAdapter(DiaryMealAdapter())
       ..registerAdapter(MeasurementUnitAdapter());
   }
 

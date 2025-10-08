@@ -1,37 +1,32 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:hive_flutter/adapters.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/double_extension.dart';
-import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
-import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/home/presentation/meal_screen.dart';
-import 'package:rishai/features/settings/domain/other_legal_texts_repo.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
-import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 
 part 'widgets/calendar_widget.dart';
-part 'widgets/calories_widget.dart';
+
 part 'widgets/health_metrics_widget.dart';
 part 'widgets/macros_breakdown_widget.dart';
 part 'widgets/meal_plan_widget.dart';
@@ -268,8 +263,9 @@ class _HomePageBodyState extends State<_HomePageBody> {
 
   @override
   Widget build(BuildContext context) {
-    // test(); // Тестируем новую архитектуру (временно отключено)
     return BlocConsumer<WhoopBloc, WhoopState>(
+      bloc:
+          whoopBloc, // [FIX] Используем тот же экземпляр, что и в других местах
       listener: (context, state) {
         if ((state.status != Status.loading) &&
             _refreshCompleter != null &&
@@ -277,7 +273,33 @@ class _HomePageBodyState extends State<_HomePageBody> {
           _refreshCompleter!.complete();
         }
       },
+      // buildWhen: (previous, current) {
+      // [buildWhen] Принудительно перестраиваем при изменении wellness entity
+      // final wellnessChanged =
+      //     previous.day.welnessEntity != current.day.welnessEntity;
+      // final mealPlanChanged =
+      //     previous.day.mealPlanEntity != current.day.mealPlanEntity;
+      // final statusChanged = previous.status != current.status;
+
+      // final shouldRebuild =
+      //     wellnessChanged || mealPlanChanged || statusChanged;
+
+      // dev.log(
+      //   '[HomePage] buildWhen: wellness=$wellnessChanged, mealPlan=$mealPlanChanged, status=$statusChanged -> rebuild=$shouldRebuild',
+      //   name: 'HomePage',
+      // );
+
+      // if (wellnessChanged) {
+      //   dev.log(
+      //     '[HomePage] Wellness изменилась: ${previous.day.welnessEntity?.welnessPercentage}% -> ${current.day.welnessEntity?.welnessPercentage}%',
+      //     name: 'HomePage',
+      //   );
+      // }
+
+      // return shouldRebuild;
+      // },
       builder: (BuildContext context, state) {
+        print(state.day.welnessEntity);
         return RefreshIndicator(
           color: RishColors.primary,
           backgroundColor: RishColors.stroke,
@@ -294,7 +316,14 @@ class _HomePageBodyState extends State<_HomePageBody> {
               SizedBox(height: 20.h),
               const PivotLifeWidget(progress: 0.87),
               SizedBox(height: 20.h),
-              const DailyWellnessWidget(),
+              DailyWellnessWidget(
+                day: widget.day.isToday ? state.day : widget.day,
+              ),
+              // BlocBuilder<WhoopBloc, WhoopState>(
+              //   builder: (context, whoopState) {
+              //     return
+              //   },
+              // ),
               // Row(
               //   children: [
               //     Text(
@@ -315,19 +344,15 @@ class _HomePageBodyState extends State<_HomePageBody> {
               //     ),
               //   ],
               // ),
-              // SizedBox(height: 12.h),
-              // _CaloriesWidget(
-              //   day: widget.day,
-              // ),
-              // SizedBox(height: 20.h),
+              // SizedBox(height: 12.h),SizedBox(height: 20.h),
               SizedBox(height: 12.h),
               _HealthMetricsWidget(
-                health: widget.day.healthMetrics,
+                day: widget.day.isToday ? state.day : widget.day,
               ),
               SizedBox(height: 12.h),
               _MacrosBreakdownWidget(
                 isToday: widget.day.isToday,
-                day: widget.day,
+                day: widget.day.isToday ? state.day : widget.day,
               ),
               // SizedBox(height: 20.h),
               // Text(
@@ -356,23 +381,22 @@ class _HomePageBodyState extends State<_HomePageBody> {
               //     ),
               //   ],
               // ),
-              // SizedBox(height: 12.h),
-              // BlocBuilder<WhoopBloc, WhoopState>(
-              //   bloc: whoopBloc,
-              //   builder: (context, state) {
-              //     // print(state.day.mealPlanEntity);
-              //     return _MealPlanWidget(
-              //       enoughRequests: chatBloc.state.requestsLeft != 0,
-              //       controller: widget.controller,
-              //       isToday: widget.day.isToday,
-              //       plan: widget.day.isToday
-              //           ? state.day.mealPlanEntity
-              //           : widget.day.mealPlanEntity,
-              //       ifNotTodayNeedsCreatePlan:
-              //           widget.day.cycleId == state.day.cycleId,
-              //     );
-              //   },
-              // ),
+              SizedBox(height: 12.h),
+              BlocBuilder<WhoopBloc, WhoopState>(
+                bloc: whoopBloc,
+                builder: (context, state) {
+                  return _MealPlanWidget(
+                    enoughRequests: chatBloc.state.requestsLeft != 0,
+                    controller: widget.controller,
+                    isToday: widget.day.isToday,
+                    plan: widget.day.isToday
+                        ? state.day.mealPlanEntity
+                        : widget.day.mealPlanEntity,
+                    ifNotTodayNeedsCreatePlan:
+                        widget.day.cycleId == state.day.cycleId,
+                  );
+                },
+              ),
               // SizedBox(height: 20.h),
               // Row(
               //   children: [

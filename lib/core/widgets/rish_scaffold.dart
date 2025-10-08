@@ -19,6 +19,8 @@ class RishScaffold extends StatelessWidget {
     this.centerTitle,
     this.appBar,
     this.needsBottomPadding,
+    this.floatingActionButton,
+    this.floatingActionButtonLocation,
   });
   final Widget? appBarLabel;
   final List<Widget>? appBarActions;
@@ -31,6 +33,8 @@ class RishScaffold extends StatelessWidget {
   final bool? centerTitle;
   final AppBar? appBar;
   final bool? needsBottomPadding;
+  final Widget? floatingActionButton;
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +44,8 @@ class RishScaffold extends StatelessWidget {
         resizeToAvoidBottomInset: true,
         backgroundColor: context.theme.colorScheme.surface,
         bottomNavigationBar: bottomNavigationBar,
+        floatingActionButton: floatingActionButton,
+        floatingActionButtonLocation: floatingActionButtonLocation,
         appBar: needsAppBar ?? true
             ? PreferredSize(
                 preferredSize: Size.fromHeight(50.h),

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
+import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
@@ -45,7 +46,7 @@ import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 part 'whoop_event.dart';
 
-final whoopBloc = GetIt.I<WhoopBloc>();
+final whoopBloc = getIt.get<WhoopBloc>();
 final chatRemoteSrc = chat_remote.chatRemoteSrc;
 final chatRepo = chat_repo.chatRepo;
 
@@ -331,7 +332,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           // Переходим на домашний экран после завершения инициализации
           log('Навигация на главный экран', name: 'WhoopBloc');
           appNavigationService.go(
-            path: adapty.isActive ?? false
+            path: adapty.isActive
                 ? AppRoutes.homeScreen.path
                 : AppRoutes.paywall.path,
           );
@@ -1017,23 +1018,61 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     Emitter<WhoopState> emit,
   ) async {
     try {
-      // Обновляем текущий день
-      emit(state.copyWith(day: event.day));
+      log(
+        '[WhoopBloc] 📥 incoming welness: ${event.day.welnessEntity}',
+        name: 'WhoopBloc',
+      );
 
-      // Если план питания был очищен, обновляем в Directus
-      if (state.day.mealPlanEntity != null &&
-          event.day.mealPlanEntity == null) {
-        // final data =
-        //     event.day.toDirectus(userId: userBloc.state.user.directusId);
-        await dayManager.createOrUpdateDay(day: event.day);
-        // await manageDayUsecase.call(
-        //   ManageDayParams(
-        //     userId: userBloc.state.user.directusId,
-        //     dayMap: data,
-        //     incomingDay: event.day,
-        //   ),
-        // );
+      // Сохраняем старое состояние для сравнения
+      final oldDay = state.day;
+      print(oldDay == event.day);
+      // Обновляем текущий день
+      emit(
+        state.copyWith(
+          day: oldDay.copyWith(welnessEntity: event.day.welnessEntity),
+        ),
+      );
+
+      log(
+        '[WhoopBloc] ✅ Состояние WhoopBloc обновлено, welness: ${state.day.welnessEntity}',
+        name: 'WhoopBloc',
+      );
+
+      // Проверяем нужно ли обновить в Directus
+      bool needsDirectusUpdate = false;
+
+      // Если план питания был очищен
+      if (oldDay.mealPlanEntity != null && event.day.mealPlanEntity == null) {
+        needsDirectusUpdate = true;
+        log(
+          '[WhoopBloc] План питания очищен - обновляем в Directus',
+          name: 'WhoopBloc',
+        );
       }
+
+      // Если обновилась wellness entity (дневниковые записи)
+      if (oldDay.welnessEntity != event.day.welnessEntity) {
+        needsDirectusUpdate = true;
+        log(
+          '[WhoopBloc] Wellness entity обновлена - обновляем в Directus',
+          name: 'WhoopBloc',
+        );
+      }
+
+      if (needsDirectusUpdate) {
+        await dayManager.createOrUpdateDay(day: event.day);
+        log(
+          '[WhoopBloc] ✅ День успешно обновлен в Directus',
+          name: 'WhoopBloc',
+        );
+      }
+
+      // Обновляем список дней в UserBloc
+      log(
+        '[WhoopBloc] 🔄 Обновляем список дней в UserBloc. Wellness: ${event.day.welnessEntity?.welnessPercentage}%, блюд: ${event.day.welnessEntity?.consumedMeals.length ?? 0}',
+        name: 'WhoopBloc',
+      );
+      userBloc.add(UserGetDays(newDay: event.day));
 
       // Синхронизируем чат с новым днем
       chatBloc.add(ChatSyncWithSelectedDate());
