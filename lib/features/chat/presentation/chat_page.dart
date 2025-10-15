@@ -7,6 +7,9 @@ import 'package:flutter_svg/svg.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 

@@ -282,11 +282,12 @@ class Meal {
     );
   }
 
-  DiaryMeal toDiaryMeal() {
+  DiaryMeal toDiaryMeal({required bool isGeneratedMeal}) {
     return DiaryMeal(
       title: title,
       type: type,
       macros: macros,
+      isGeneratedMeal: isGeneratedMeal,
     );
   }
 }

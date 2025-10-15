@@ -204,20 +204,19 @@ class _PaywallState extends State<Paywall> {
               processPurchaseResult(res);
             },
           ),
-          if (kDebugMode) ...[
-            SizedBox(height: 20.h),
-            Center(
-              child: GestureDetector(
-                onTap: () => context.go(AppRoutes.homeScreen.path),
-                child: Text(
-                  'Skip',
-                  style: context.styles.boldLarge.copyWith(
-                    color: RishColors.primary,
-                  ),
+          // Кнопка Skip теперь доступна всегда для фремиум режима
+          SizedBox(height: 20.h),
+          Center(
+            child: GestureDetector(
+              onTap: () => context.go(AppRoutes.homeScreen.path),
+              child: Text(
+                'Skip',
+                style: context.styles.boldLarge.copyWith(
+                  color: RishColors.primary,
                 ),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );

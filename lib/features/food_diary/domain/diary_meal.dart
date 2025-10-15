@@ -12,11 +12,14 @@ class DiaryMeal {
   final String type;
   @HiveField(2)
   final MacrosBreakdown macros;
+  @HiveField(3)
+  final bool isGeneratedMeal;
 
   DiaryMeal({
     required this.title,
     required this.type,
     required this.macros,
+    required this.isGeneratedMeal,
   });
 
   Map<String, dynamic> toMap() {
@@ -24,6 +27,7 @@ class DiaryMeal {
       'title': title,
       'type': type,
       'macros': macros.toMap(),
+      'isGeneratedMeal': isGeneratedMeal,
     };
   }
 
@@ -32,6 +36,7 @@ class DiaryMeal {
       title: map['title'],
       type: map['type'],
       macros: MacrosBreakdown.fromMap(map['macros']),
+      isGeneratedMeal: map['isGeneratedMeal'] ?? false,
     );
   }
 
@@ -42,14 +47,19 @@ class DiaryMeal {
     return other is DiaryMeal &&
         other.title == title &&
         other.type == type &&
-        other.macros == macros;
+        other.macros == macros &&
+        other.isGeneratedMeal == isGeneratedMeal;
   }
 
   @override
   int get hashCode {
-    return title.hashCode ^ type.hashCode ^ macros.hashCode;
+    return title.hashCode ^
+        type.hashCode ^
+        macros.hashCode ^
+        isGeneratedMeal.hashCode;
   }
 
   @override
-  String toString() => 'DiaryMeal(title: $title, type: $type, macros: $macros)';
+  String toString() =>
+      'DiaryMeal(title: $title, type: $type, macros: $macros, isGeneratedMeal: $isGeneratedMeal)';
 }

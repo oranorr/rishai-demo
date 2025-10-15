@@ -110,7 +110,7 @@ class _PivotLifeWidgetState extends State<PivotLifeWidget>
                 ),
                 const Spacer(),
                 Text(
-                  '${(widget.progress * 100).toStringAsFixed(0)}%',
+                  '${widget.progress.toStringAsFixed(0)}%',
                   style: context.styles.regularMedium,
                 ),
               ],
@@ -121,7 +121,7 @@ class _PivotLifeWidgetState extends State<PivotLifeWidget>
               animation: _colorAnimation,
               builder: (context, child) {
                 return LinearProgressIndicator(
-                  value: widget.progress,
+                  value: widget.progress / 100,
                   backgroundColor: RishColors.stroke,
                   borderRadius: BorderRadius.circular(16),
                   // [valueColor] Анимированный цвет с плавным переходом

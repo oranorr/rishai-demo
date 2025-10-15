@@ -1029,7 +1029,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       // Обновляем текущий день
       emit(
         state.copyWith(
-          day: oldDay.copyWith(welnessEntity: event.day.welnessEntity),
+          day: event.day,
         ),
       );
 

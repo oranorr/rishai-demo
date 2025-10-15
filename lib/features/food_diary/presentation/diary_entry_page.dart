@@ -9,6 +9,8 @@ import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/food_diary/domain/diary_meal.dart';
 import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart';
+import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
+import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
 
@@ -42,6 +44,69 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
     return selectedMeals.contains(meal);
   }
 
+  /// [_getWeekPlanMealsForToday] Получает блюда из активного недельного плана на сегодня
+  List<Meal> _getWeekPlanMealsForToday() {
+    final weekPlans = weekPlanBloc.state.allWeekPlans;
+    if (weekPlans.isEmpty) {
+      print('[DiaryEntryPage] Нет недельных планов');
+      return [];
+    }
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    // Ищем активный план, который покрывает сегодняшнюю дату
+    WeekPlanEntity? activePlan;
+    for (final plan in weekPlans) {
+      final startDate = DateTime(
+        plan.startDate.year,
+        plan.startDate.month,
+        plan.startDate.day,
+      );
+      final endDate = DateTime(
+        plan.endDate.year,
+        plan.endDate.month,
+        plan.endDate.day,
+      );
+
+      // Проверяем, попадает ли сегодняшняя дата в диапазон плана
+      if ((todayDate.isAfter(startDate) ||
+              todayDate.isAtSameMomentAs(startDate)) &&
+          (todayDate.isBefore(endDate) ||
+              todayDate.isAtSameMomentAs(endDate))) {
+        activePlan = plan;
+        print('[DiaryEntryPage] Найден активный план: ${plan.formatPeriod()}');
+        break;
+      }
+    }
+
+    if (activePlan == null) {
+      print('[DiaryEntryPage] Нет активного плана на сегодня');
+      return [];
+    }
+
+    // Определяем индекс дня в плане
+    final startDate = DateTime(
+      activePlan.startDate.year,
+      activePlan.startDate.month,
+      activePlan.startDate.day,
+    );
+    final dayIndex = todayDate.difference(startDate).inDays;
+
+    // Проверяем, что индекс в пределах плана
+    if (dayIndex < 0 || dayIndex >= activePlan.plans.length) {
+      print('[DiaryEntryPage] Индекс дня $dayIndex вне диапазона плана');
+      return [];
+    }
+
+    final todayPlan = activePlan.plans[dayIndex];
+    print(
+      '[DiaryEntryPage] Найден план на день $dayIndex с ${todayPlan.meals.length} блюдами',
+    );
+
+    return todayPlan.meals;
+  }
+
   @override
   Widget build(BuildContext context) {
     return RishScaffold(
@@ -57,14 +122,39 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
       child: BlocBuilder<WhoopBloc, WhoopState>(
         bloc: whoopBloc,
         builder: (context, whoopState) {
-          // [build] Получаем актуальный список блюд из состояния WhoopBloc и фильтруем уже потребленные
-          final allMeals = whoopState.day.mealPlanEntity?.meals ?? <Meal>[];
+          // [build] Получаем актуальный список блюд из состояния WhoopBloc
+          final dailyPlanMeals =
+              whoopState.day.mealPlanEntity?.meals ?? <Meal>[];
+
+          // [build] Получаем блюда из недельного плана на сегодня
+          final weekPlanMeals = _getWeekPlanMealsForToday();
+
+          // [build] Объединяем блюда из дневного и недельного планов, исключая дубликаты
+          final allMealsSet = <String, Meal>{};
+
+          // Добавляем блюда из дневного плана
+          for (final meal in dailyPlanMeals) {
+            final key = '${meal.title}_${meal.type}';
+            allMealsSet[key] = meal;
+          }
+
+          // Добавляем блюда из недельного плана, если их еще нет
+          for (final meal in weekPlanMeals) {
+            final key = '${meal.title}_${meal.type}';
+            if (!allMealsSet.containsKey(key)) {
+              allMealsSet[key] = meal;
+            }
+          }
+
+          final allMeals = allMealsSet.values.toList();
+
           final consumedMeals =
               whoopState.day.welnessEntity?.consumedMeals ?? <DiaryMeal>[];
           print(whoopState.day.welnessEntity);
+
           // [build] Фильтруем блюда, исключая уже потребленные
           final meals = allMeals.where((meal) {
-            final diaryMeal = meal.toDiaryMeal();
+            final diaryMeal = meal.toDiaryMeal(isGeneratedMeal: true);
             final isConsumed = consumedMeals.any(
               (consumed) =>
                   consumed.title == diaryMeal.title &&
@@ -75,6 +165,10 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
             );
             return !isConsumed;
           }).toList();
+
+          print(
+            '[DiaryEntryPage] Всего блюд: ${allMeals.length} (дневной план: ${dailyPlanMeals.length}, недельный план: ${weekPlanMeals.length})',
+          );
           return Column(
             children: [
               // [build] Основной скроллируемый контент

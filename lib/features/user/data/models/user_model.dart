@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:equatable/equatable.dart';
+import 'package:rishai/features/food_diary/domain/pivot_life_scrore_entity.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
@@ -19,7 +20,7 @@ class UserModel extends Equatable {
   final UserGoal? userGoal;
   final String? adaptyId;
   final List<int> weekPlanIds;
-
+  final Map<String, dynamic>? pivotLifeScore;
   const UserModel({
     required this.directusId,
     required this.whoopId,
@@ -27,6 +28,7 @@ class UserModel extends Equatable {
     required this.name,
     required this.adaptyId,
     required this.weekPlanIds,
+    required this.pivotLifeScore,
     this.age,
     this.gender,
     this.userGoal,
@@ -47,6 +49,7 @@ class UserModel extends Equatable {
     int? userWhoopId,
     String? adaptyId,
     List<int>? weekPlanIds,
+    Map<String, dynamic>? pivotLifeScore,
   }) {
     return UserModel(
       directusId: directusId ?? this.directusId,
@@ -61,6 +64,7 @@ class UserModel extends Equatable {
           bodyMeasurementsEntity ?? this.bodyMeasurementsEntity,
       adaptyId: adaptyId ?? this.adaptyId,
       weekPlanIds: weekPlanIds ?? this.weekPlanIds,
+      pivotLifeScore: pivotLifeScore ?? this.pivotLifeScore,
     );
   }
 
@@ -93,6 +97,7 @@ class UserModel extends Equatable {
           : null,
       adaptyId: map['adaptyId'],
       weekPlanIds: List.from(map['weekPlanIds'] ?? []).cast<int>(),
+      pivotLifeScore: map['pivotLifeScore'],
       // userWhoopId: map['userWhoopId'] as int,
     );
   }
@@ -130,6 +135,9 @@ class UserModel extends Equatable {
       adaptyId: adaptyId,
       weekPlanIds: weekPlanIds,
       // userWhoopId: userWhoopId,
+      pivotLifeScore: pivotLifeScore != null
+          ? PivotLifeScoreEntity.fromMap(pivotLifeScore!)
+          : null,
     );
   }
 }

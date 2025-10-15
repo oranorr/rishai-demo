@@ -20,7 +20,15 @@ class _MealPlanWidget extends StatelessWidget {
     if (plan != null) {
       return _Card(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Meal Plan',
+              style: context.styles.boldLarge,
+            ),
+            SizedBox(
+              height: 10.h,
+            ),
             ListView.separated(
               itemCount: plan!.meals.length,
               physics: const NeverScrollableScrollPhysics(),

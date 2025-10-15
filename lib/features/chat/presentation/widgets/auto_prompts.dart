@@ -110,6 +110,14 @@ class __AutoPromptsState extends State<_AutoPrompts>
       enabled: true,
       isLoading: false,
       action: () {
+        // [CreateMealPlan] Проверяем подписку перед созданием плана питания
+        if (!adapty.isActive) {
+          // Если подписка не активна, перенаправляем на paywall
+          appNavigationService.go(path: AppRoutes.paywall.path);
+          return;
+        }
+
+        // Если подписка активна, продолжаем создание плана питания
         chatBloc
           ..add(const ChatSendMessage(text: 'Create meal plan', isMe: true))
           ..add(

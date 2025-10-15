@@ -6,18 +6,22 @@ import 'package:directus/directus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/day_manager/day_manager.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/food_diary/domain/diary_meal.dart';
+import 'package:rishai/features/food_diary/domain/pivot_life_scrore_entity.dart';
 import 'package:rishai/features/food_diary/domain/welness_entity.dart';
+import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part 'food_diary_event.dart';
 part 'food_diary_state.dart';
 
-// [FoodDiaryCubit] Глобальный экземпляр кубита для доступа из других частей приложения
+// [FoodDiaryCubit] Глобальные экземпляры для доступа из других частей приложения
 final foodDiaryCubit = getIt.get<FoodDiaryCubit>();
 
 /// [FoodDiaryCubit] Кубит для управления состоянием дневника питания
@@ -258,6 +262,114 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
     }
   }
 
+  /// [calculatePivotLifeScore] Рассчитывает среднее арифметическое Daily Wellness Score
+  ///
+  /// Получает все дни пользователя с wellness score, вычисляет среднее арифметическое
+  /// и обновляет PivotLifeScoreEntity в профиле пользователя локально и удаленно.
+  Future<void> calculatePivotLifeScore() async {
+    try {
+      log(
+        '[FoodDiaryCubit] 📊 Начинаем расчет среднего арифметического Daily Wellness Score (Pivot Life Score)',
+        name: 'FoodDiaryCubit',
+      );
+
+      // Получаем ID текущего пользователя
+      final currentUser = userBloc.state.user;
+      if (currentUser.directusId == '-1') {
+        log(
+          '[FoodDiaryCubit] ❌ Пользователь не авторизован, пропускаем расчет Pivot Life Score',
+          name: 'FoodDiaryCubit',
+        );
+        return;
+      }
+
+      // Получаем все дни пользователя через DayManager
+      final userDaysResult =
+          await dayManager.getUserDays(userId: currentUser.directusId);
+
+      final List<DayEntity> userDays = userDaysResult.fold(
+        (failure) {
+          log(
+            '[FoodDiaryCubit] ❌ Ошибка при получении дней пользователя: ${failure.message}',
+            name: 'FoodDiaryCubit',
+          );
+          return <DayEntity>[];
+        },
+        (days) => days,
+      );
+
+      if (userDays.isEmpty) {
+        log(
+          '[FoodDiaryCubit] ⚠️ У пользователя нет дней для расчета Pivot Life Score',
+          name: 'FoodDiaryCubit',
+        );
+        return;
+      }
+
+      // Фильтруем дни, у которых есть wellness score
+      final daysWithWellnessScore = userDays
+          .where((day) => day.welnessEntity?.welnessPercentage != null)
+          .toList();
+
+      if (daysWithWellnessScore.isEmpty) {
+        log(
+          '[FoodDiaryCubit] ⚠️ У пользователя нет дней с Daily Wellness Score для расчета среднего',
+          name: 'FoodDiaryCubit',
+        );
+        return;
+      }
+
+      log(
+        '[FoodDiaryCubit] 📈 Найдено ${daysWithWellnessScore.length} дней с Daily Wellness Score из ${userDays.length} общих дней',
+        name: 'FoodDiaryCubit',
+      );
+
+      // Вычисляем среднее арифметическое
+      double totalWellnessScore = 0;
+      for (final day in daysWithWellnessScore) {
+        final wellnessScore = day.welnessEntity!.welnessPercentage;
+        totalWellnessScore += wellnessScore;
+        log(
+          '[FoodDiaryCubit] 📅 День ${day.dateTime.toIso8601String().split('T')[0]}: Wellness Score = ${wellnessScore.toStringAsFixed(1)}%',
+          name: 'FoodDiaryCubit',
+        );
+      }
+
+      final averageWellnessScore =
+          totalWellnessScore / daysWithWellnessScore.length;
+
+      log(
+        '[FoodDiaryCubit] 🎯 Рассчитанный средний Daily Wellness Score (Pivot Life Score): ${averageWellnessScore.toStringAsFixed(2)}%',
+        name: 'FoodDiaryCubit',
+      );
+
+      // Создаем или обновляем PivotLifeScoreEntity
+      final pivotLifeScore = PivotLifeScoreEntity(
+        score: averageWellnessScore,
+        updatedAt: DateTime.now(),
+      );
+
+      // Обновляем пользователя с новым Pivot Life Score
+      final updatedUser = currentUser.copyWith(pivotLifeScore: pivotLifeScore);
+
+      // Обновляем пользователя через UserBloc (это обновит и локально, и удаленно)
+      userBloc.add(UpdateUserEvent(user: updatedUser));
+
+      log(
+        '[FoodDiaryCubit] ✅ Pivot Life Score успешно рассчитан и обновлен: ${averageWellnessScore.toStringAsFixed(2)}%',
+        name: 'FoodDiaryCubit',
+      );
+    } catch (e, stackTrace) {
+      log(
+        '[FoodDiaryCubit] ❌ Ошибка при расчете Pivot Life Score: $e',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'FoodDiaryCubit',
+      );
+      // Не пробрасываем ошибку, чтобы не нарушить основной процесс добавления блюда
+    }
+  }
+
   /// [calculateWellnessScore] Рассчитывает Daily Wellness Score на основе потребленных блюд
   ///
   /// Принимает массив блюд, получает актуальный день, создает/обновляет wellness entity.
@@ -298,7 +410,9 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
       }
 
       // Добавляем новые потребленные блюда
-      final newDiaryMeals = consumedMeals.map((e) => e.toDiaryMeal()).toList();
+      final newDiaryMeals = consumedMeals
+          .map((e) => e.toDiaryMeal(isGeneratedMeal: true))
+          .toList();
       allConsumedMeals.addAll(newDiaryMeals);
 
       log(
@@ -396,6 +510,15 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         '[FoodDiaryCubit] 🔄 Отправляем обновленный день в WhoopBloc',
         name: 'FoodDiaryCubit',
       );
+
+      // После успешного расчета Daily Wellness Score пересчитываем Pivot Life Score
+      log(
+        '[FoodDiaryCubit] 🔄 Запускаем пересчет Pivot Life Score после обновления Daily Wellness Score',
+        name: 'FoodDiaryCubit',
+      );
+
+      // Запускаем пересчет в фоновом режиме, чтобы не блокировать основной процесс
+      unawaited(calculatePivotLifeScore());
 
       return updatedDay;
     } catch (e, stackTrace) {

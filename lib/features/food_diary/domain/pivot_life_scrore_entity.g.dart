@@ -1,41 +1,35 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'diary_meal.dart';
+part of 'pivot_life_scrore_entity.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class DiaryMealAdapter extends TypeAdapter<DiaryMeal> {
+class PivotLifeScoreEntityAdapter extends TypeAdapter<PivotLifeScoreEntity> {
   @override
-  final int typeId = 20;
+  final int typeId = 21;
 
   @override
-  DiaryMeal read(BinaryReader reader) {
+  PivotLifeScoreEntity read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return DiaryMeal(
-      title: fields[0] as String,
-      type: fields[1] as String,
-      macros: fields[2] as MacrosBreakdown,
-      isGeneratedMeal: fields[3] as bool,
+    return PivotLifeScoreEntity(
+      score: fields[0] as double,
+      updatedAt: fields[1] as DateTime,
     );
   }
 
   @override
-  void write(BinaryWriter writer, DiaryMeal obj) {
+  void write(BinaryWriter writer, PivotLifeScoreEntity obj) {
     writer
-      ..writeByte(4)
-      ..writeByte(0)
-      ..write(obj.title)
-      ..writeByte(1)
-      ..write(obj.type)
       ..writeByte(2)
-      ..write(obj.macros)
-      ..writeByte(3)
-      ..write(obj.isGeneratedMeal);
+      ..writeByte(0)
+      ..write(obj.score)
+      ..writeByte(1)
+      ..write(obj.updatedAt);
   }
 
   @override
@@ -44,7 +38,7 @@ class DiaryMealAdapter extends TypeAdapter<DiaryMeal> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is DiaryMealAdapter &&
+      other is PivotLifeScoreEntityAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

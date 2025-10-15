@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
@@ -14,8 +13,7 @@ import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart'
     show ChatDeleteMealPlan, chatBloc;
 import 'package:rishai/features/chat/presentation/chat_page.dart';
-import 'package:rishai/features/food_diary/presentation/diary_entry_page.dart';
-import 'package:rishai/features/food_diary/presentation/food_diary_page.dart';
+import 'package:rishai/features/food_diary/presentation/food_diary_presentation/food_diary_page.dart';
 import 'package:rishai/features/home/presentation/bottom_navigation.dart';
 import 'package:rishai/features/home/presentation/home_page/home_page.dart';
 import 'package:rishai/features/settings/presentation/settings_page.dart';

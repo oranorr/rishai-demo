@@ -1,9 +1,14 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -38,33 +43,84 @@ class WellnessPage extends StatelessWidget {
               ],
             ),
           ),
-          child: ListView(
-            children: [
-              Container(
-                width: double.infinity,
-                height: 311.h,
-                decoration: BoxDecoration(
-                  color: RishColors.formBackgroun,
-                  borderRadius: BorderRadius.circular(16),
+          child: state.day.welnessEntity != null
+              ? ListView(
+                  children: [
+                    _AnimationWidget(
+                      welnessPercentage:
+                          state.day.welnessEntity?.welnessPercentage ?? 0,
+                    ),
+                    SizedBox(height: 40.h),
+                    const _RecommendationsWidget(),
+                    SizedBox(height: 20.h),
+                    const _ComparisonWidget(),
+                  ],
+                )
+              : Column(
+                  children: [
+                    _AnimationWidget(
+                      welnessPercentage:
+                          state.day.welnessEntity?.welnessPercentage ?? 0,
+                    ),
+                    const Spacer(),
+                    const _CaptureMeal(),
+                  ],
                 ),
-                child: Center(
-                  child: Text(
-                    'animation goes brrrr\n ${state.day.welnessEntity?.welnessPercentage}',
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 40.h,
-              ),
-              const _RecommendationsWidget(),
-              SizedBox(
-                height: 20.h,
-              ),
-              const _ComparisonWidget(),
-            ],
-          ),
         );
       },
+    );
+  }
+}
+
+class _AnimationWidget extends StatelessWidget {
+  final double welnessPercentage;
+  const _AnimationWidget({
+    required this.welnessPercentage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 311.h,
+      decoration: BoxDecoration(
+        color: RishColors.formBackgroun,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Center(
+        child: Text(
+          'animation goes brrrr\n $welnessPercentage',
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptureMeal extends StatelessWidget {
+  const _CaptureMeal({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 110.h,
+      child: Column(
+        children: [
+          Text(
+            'Get your recommendations by capturing a meal.',
+            style: context.styles.regularMedium,
+          ),
+          SizedBox(height: 20.h),
+          RishButton.primary(
+            title: 'Capture a meal',
+            enabled: true,
+            isLoading: false,
+            action: () {
+              appNavigationService.push(path: AppRoutes.diaryEntryPage.path);
+            },
+          ),
+        ],
+      ),
     );
   }
 }

@@ -8,7 +8,9 @@ class _ServingsSelector extends StatefulWidget {
 }
 
 class __ServingsSelectorState extends State<_ServingsSelector> {
-  DateTime startDate = DateTime.now().add(const Duration(days: 1));
+  // В дебаг режиме разрешаем выбор с сегодняшнего дня, в продакшене - с завтрашнего
+  DateTime startDate =
+      kDebugMode ? DateTime.now() : DateTime.now().add(const Duration(days: 1));
   final List<ServingEntity> mealOrder = [
     ServingEntity(
       type: ServingType.breakfast,
@@ -52,7 +54,8 @@ class __ServingsSelectorState extends State<_ServingsSelector> {
           onTap: () async {
             final date = await showDatePicker(
               context: context,
-              firstDate: startDate,
+              // В дебаг режиме разрешаем выбор с сегодняшнего дня, в продакшене - с завтрашнего
+              firstDate: kDebugMode ? DateTime.now() : startDate,
               lastDate: startDate.add(const Duration(days: 2)),
               initialDate: startDate,
               initialEntryMode: DatePickerEntryMode.calendarOnly,

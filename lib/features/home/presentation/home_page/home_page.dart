@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as dev;
 import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
@@ -275,33 +274,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
           _refreshCompleter!.complete();
         }
       },
-      // buildWhen: (previous, current) {
-      // [buildWhen] Принудительно перестраиваем при изменении wellness entity
-      // final wellnessChanged =
-      //     previous.day.welnessEntity != current.day.welnessEntity;
-      // final mealPlanChanged =
-      //     previous.day.mealPlanEntity != current.day.mealPlanEntity;
-      // final statusChanged = previous.status != current.status;
-
-      // final shouldRebuild =
-      //     wellnessChanged || mealPlanChanged || statusChanged;
-
-      // dev.log(
-      //   '[HomePage] buildWhen: wellness=$wellnessChanged, mealPlan=$mealPlanChanged, status=$statusChanged -> rebuild=$shouldRebuild',
-      //   name: 'HomePage',
-      // );
-
-      // if (wellnessChanged) {
-      //   dev.log(
-      //     '[HomePage] Wellness изменилась: ${previous.day.welnessEntity?.welnessPercentage}% -> ${current.day.welnessEntity?.welnessPercentage}%',
-      //     name: 'HomePage',
-      //   );
-      // }
-
-      // return shouldRebuild;
-      // },
       builder: (BuildContext context, state) {
-        print(state.day.welnessEntity);
         return RefreshIndicator(
           color: RishColors.primary,
           backgroundColor: RishColors.stroke,
@@ -316,7 +289,14 @@ class _HomePageBodyState extends State<_HomePageBody> {
             children: [
               _CalendarWidget(widget: widget),
               SizedBox(height: 20.h),
-              const PivotLifeWidget(progress: 0.87),
+              BlocBuilder<UserBloc, UserState>(
+                bloc: userBloc,
+                builder: (context, state) {
+                  return PivotLifeWidget(
+                    progress: state.user.pivotLifeScore?.score ?? 0,
+                  );
+                },
+              ),
               SizedBox(height: 20.h),
               DailyWellnessWidget(
                 day: widget.day.isToday ? state.day : widget.day,

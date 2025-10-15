@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:hive/hive.dart';
+import 'package:rishai/features/food_diary/domain/pivot_life_scrore_entity.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 
@@ -15,6 +16,7 @@ class UserEntity extends HiveObject {
     required this.name,
     required this.adaptyId,
     required this.weekPlanIds,
+    required this.pivotLifeScore,
     this.age,
     this.gender,
     this.foodPreferences,
@@ -41,6 +43,7 @@ class UserEntity extends HiveObject {
         gender: Gender.male,
         weekPlanIds: [],
         adaptyId: null,
+        pivotLifeScore: null,
       );
   @HiveField(0)
   final String directusId;
@@ -64,6 +67,8 @@ class UserEntity extends HiveObject {
   final String? adaptyId;
   @HiveField(10)
   final List<int> weekPlanIds;
+  @HiveField(11)
+  final PivotLifeScoreEntity? pivotLifeScore;
 
   UserEntity copyWith({
     String? directusId,
@@ -77,6 +82,7 @@ class UserEntity extends HiveObject {
     UserGoal? userGoal,
     String? adaptyId,
     List<int>? weekPlanIds,
+    PivotLifeScoreEntity? pivotLifeScore,
   }) {
     return UserEntity(
       directusId: directusId ?? this.directusId,
@@ -90,12 +96,13 @@ class UserEntity extends HiveObject {
       userGoal: userGoal ?? this.userGoal,
       adaptyId: adaptyId ?? this.adaptyId,
       weekPlanIds: weekPlanIds ?? this.weekPlanIds,
+      pivotLifeScore: pivotLifeScore ?? this.pivotLifeScore,
     );
   }
 
   @override
   String toString() {
-    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, adaptyId: $adaptyId, weekPlanIds: $weekPlanIds)';
+    return 'UserEntity(directusId: $directusId, whoopId: $whoopId, email: $email, name: $name, age: $age, gender: $gender, foodPreferences: $foodPreferences, bodyMeasurements: $bodyMeasurements, adaptyId: $adaptyId, weekPlanIds: $weekPlanIds, pivotLifeScore: $pivotLifeScore)';
   }
 
   Map<String, dynamic> toMap() {
@@ -113,6 +120,7 @@ class UserEntity extends HiveObject {
       'userGoal': userGoal?.toMap(),
       'adaptyId': adaptyId,
       'weekPlanIds': weekPlanIds,
+      'pivotLifeScore': pivotLifeScore?.toMap(),
     };
   }
 
@@ -140,7 +148,8 @@ class UserEntity extends HiveObject {
         other.age == age &&
         other.gender == gender &&
         other.foodPreferences == foodPreferences &&
-        other.bodyMeasurements == bodyMeasurements;
+        other.bodyMeasurements == bodyMeasurements &&
+        other.pivotLifeScore == pivotLifeScore;
   }
 
   @override
@@ -152,7 +161,8 @@ class UserEntity extends HiveObject {
         age.hashCode ^
         gender.hashCode ^
         foodPreferences.hashCode ^
-        bodyMeasurements.hashCode;
+        bodyMeasurements.hashCode ^
+        pivotLifeScore.hashCode;
   }
 }
 

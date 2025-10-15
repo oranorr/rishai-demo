@@ -13,9 +13,9 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   late List<AnimationController> _animationControllers;
   late List<Animation<double>> _animations;
 
-  // [centerAnimation] Контроллер анимации для центрального текста
-  late AnimationController _centerAnimationController;
-  late Animation<double> _centerScaleAnimation;
+  // [rippleAnimation] Контроллер анимации для ripple эффекта контейнера
+  late AnimationController _rippleAnimationController;
+  late Animation<double> _rippleAnimation;
 
   // [_getRingData] Получаем данные для колец из переданного day
   List<RingData> _getRingData() {
@@ -23,11 +23,6 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
 
     // [consumedMacros] Получаем потребленные макросы или используем нули
     final consumedMacros = widget.day.welnessEntity?.consumedMacros;
-
-    dev.log(
-      '[DailyWellnessWidget] Получаем данные колец: wellness=${widget.day.welnessEntity?.welnessPercentage}%, блюд=${widget.day.welnessEntity?.consumedMeals.length ?? 0}, потребленные ккал=${consumedMacros?.kcal ?? 0}',
-      name: 'DailyWellnessWidget',
-    );
 
     return [
       // [Calories] Калории - внешнее кольцо
@@ -96,27 +91,23 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
         )
         .toList();
 
-    // [centerAnimation] Создаем анимацию для центрального текста
-    _centerAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1200), // Быстрая анимация
+    // [rippleAnimation] Создаем анимацию для ripple эффекта контейнера
+    _rippleAnimationController = AnimationController(
+      duration:
+          const Duration(milliseconds: 2000), // Длительная плавная анимация
       vsync: this,
     );
 
-    // [centerScaleAnimation] Анимация масштаба: норма -> увеличение -> норма
-    _centerScaleAnimation = TweenSequence<double>([
-      // Первая половина: увеличиваемся от 1.0 до 1.3
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1, end: 1.3)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 50,
+    // [rippleAnimation] Анимация для ripple эффекта - от 0 до 1
+    _rippleAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(
+      CurvedAnimation(
+        parent: _rippleAnimationController,
+        curve: Curves.easeOutCubic, // Плавная кривая в стиле Apple
       ),
-      // Вторая половина: уменьшаемся от 1.3 до 1.0
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.3, end: 1)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 50,
-      ),
-    ]).animate(_centerAnimationController);
+    );
 
     // Запускаем анимации с задержкой
     _startAnimations();
@@ -131,10 +122,10 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
       });
     }
 
-    // [centerAnimation] Запускаем анимацию центрального текста с небольшой задержкой
-    Future.delayed(const Duration(milliseconds: 800), () {
+    // [rippleAnimation] Запускаем ripple анимацию с задержкой после колец
+    Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) {
-        _centerAnimationController.forward();
+        _rippleAnimationController.repeat(); // Повторяем анимацию бесконечно
       }
     });
   }
@@ -145,16 +136,11 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
 
     // [didUpdateWidget] Проверяем, изменились ли данные wellness entity
     if (oldWidget.day.welnessEntity != widget.day.welnessEntity) {
-      dev.log(
-        '[DailyWellnessWidget] Данные wellness entity изменились, перезапускаем анимации',
-        name: 'DailyWellnessWidget',
-      );
-
       // Сбрасываем анимации и запускаем заново
       for (final controller in _animationControllers) {
         controller.reset();
       }
-      _centerAnimationController.reset();
+      _rippleAnimationController.reset();
 
       // Запускаем анимации заново
       _startAnimations();
@@ -166,8 +152,8 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
     for (final controller in _animationControllers) {
       controller.dispose();
     }
-    // [dispose] Освобождаем ресурсы контроллера анимации центрального текста
-    _centerAnimationController.dispose();
+    // [dispose] Освобождаем ресурсы контроллера ripple анимации
+    _rippleAnimationController.dispose();
     super.dispose();
   }
 
@@ -280,11 +266,12 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                                 return CustomPaint(
                                   size: Size(ringSize, ringSize),
                                   painter: FitnessRingPainter(
+                                    // [progress] Убираем ограничение clamp(0.0, 1.0) для показа переедания в кольцах
                                     progress: _animations[i].value *
                                         (ringData[i].target > 0
                                             ? (ringData[i].current /
                                                     ringData[i].target)
-                                                .clamp(0.0, 1.0)
+                                                .clamp(0.0, double.infinity)
                                             : 0.0),
                                     color: ringData[i].color,
                                     strokeWidth:
@@ -293,59 +280,65 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                                 );
                               },
                             ),
-                          // Центральный градиентный круг с процентом
+                          // [rippleContainer] Центральный контейнер с ripple анимацией
                           GestureDetector(
                             onTap: () => appNavigationService.push(
-                                path: AppRoutes.wellnessPage.path),
-                            child: Container(
-                              width: 80.w, // Размер центрального круга
-                              height: 80.h,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                // [border] Белая граница как на изображении
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2.w,
-                                ),
-                                // [gradient] Радиальный градиент от краев к центру как на изображении
-                                gradient: const RadialGradient(
-                                  radius: 0.8,
-                                  colors: [
-                                    Color(
-                                      0xFF242239,
-                                    ), // Очень темный фиолетовый по краям
-                                    Color(0xFF511A5A), // Темно-фиолетовый
-                                    Color(0xFFB54ADA), // Средний фиолетовый
-                                    Color(
-                                        0xFFEFC9ED), // Светло-розовый в центре
-                                  ],
-                                  stops: [0.0, 0.3, 0.6, 1.0],
-                                ),
-                              ),
-                              child: Center(
-                                // [AnimatedBuilder] Анимированный центральный текст
-                                child: AnimatedBuilder(
-                                  animation: _centerScaleAnimation,
-                                  builder: (context, child) {
-                                    return Transform.scale(
-                                      // [scale] Используем 1.0 как базовое значение, если анимация не началась
-                                      scale:
-                                          _centerAnimationController.status ==
-                                                  AnimationStatus.dismissed
-                                              ? 1.0
-                                              : _centerScaleAnimation.value,
-                                      child: Text(
-                                        '${_calculateOverallProgress()}%',
-                                        style: context.styles.numsL.copyWith(
-                                          fontSize: 20.sp,
-                                          fontWeight: FontWeight.bold,
+                              path: AppRoutes.wellnessPage.path,
+                            ),
+                            child: AnimatedBuilder(
+                              animation: _rippleAnimation,
+                              builder: (context, child) {
+                                return Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // [rippleWaves] Создаем несколько волн ripple эффекта
+                                    for (int i = 0; i < 3; i++)
+                                      _buildRippleWave(i),
+                                    // [centerContainer] Основной центральный контейнер
+                                    Container(
+                                      width: 80.w, // Размер центрального круга
+                                      height: 80.h,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        // [border] Белая граница как на изображении
+                                        border: Border.all(
                                           color: Colors.white,
+                                          width: 2.w,
+                                        ),
+                                        // [gradient] Радиальный градиент от краев к центру как на изображении
+                                        gradient: const RadialGradient(
+                                          radius: 0.8,
+                                          colors: [
+                                            Color(
+                                              0xFF242239,
+                                            ), // Очень темный фиолетовый по краям
+                                            Color(
+                                              0xFF511A5A,
+                                            ), // Темно-фиолетовый
+                                            Color(
+                                              0xFFB54ADA,
+                                            ), // Средний фиолетовый
+                                            Color(
+                                              0xFFEFC9ED,
+                                            ), // Светло-розовый в центре
+                                          ],
+                                          stops: [0.0, 0.3, 0.6, 1.0],
                                         ),
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
+                                      child: Center(
+                                        child: Text(
+                                          '${_calculateOverallProgress().toStringAsFixed(1)}%',
+                                          style: context.styles.numsL.copyWith(
+                                            fontSize: 20.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -370,15 +363,16 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: ringData.map((ring) {
+        // [progress] Убираем ограничение clamp(0, 100) чтобы показывать переедание
         final progress = ring.target > 0
-            ? (ring.current / ring.target * 100).clamp(0, 100)
+            ? (ring.current / ring.target * 100).clamp(0, double.infinity)
             : 0.0;
         return Expanded(
           child: Column(
             children: [
-              // Процент крупным шрифтом с цветом кольца
+              // Процент крупным шрифтом с цветом кольца с одной десятичной
               Text(
-                '${progress.toInt()}%',
+                '${progress.toStringAsFixed(1)}%',
                 style: context.styles.boldLarge.copyWith(color: ring.color),
               ),
               SizedBox(height: 4.h),
@@ -400,16 +394,49 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
     );
   }
 
-  int _calculateOverallProgress() {
+  // [_buildRippleWave] Создает одну волну ripple эффекта
+  Widget _buildRippleWave(int waveIndex) {
+    // [waveDelay] Каждая волна начинается с задержкой
+    final waveDelay = waveIndex * 0.3;
+    // [adjustedProgress] Прогресс с учетом задержки волны
+    final adjustedProgress =
+        (_rippleAnimation.value - waveDelay).clamp(0.0, 1.0);
+
+    if (adjustedProgress <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    // [waveSize] Размер волны увеличивается с прогрессом
+    final waveSize = 80.w + (adjustedProgress * 60.w * (waveIndex + 1));
+    // [waveOpacity] Прозрачность уменьшается с увеличением размера
+    final waveOpacity = (1.0 - adjustedProgress) * 0.3;
+
+    return Container(
+      width: waveSize,
+      height: waveSize,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          // [waveColor] Цвет волны - полупрозрачный градиент основных цветов
+          color: const Color(0xFFB54ADA).withOpacity(waveOpacity),
+          width: 2.w,
+        ),
+      ),
+    );
+  }
+
+  double _calculateOverallProgress() {
     final ringData = _getRingData();
 
     double totalProgress = 0;
     for (final ring in ringData) {
-      final ringProgress =
-          ring.target > 0 ? (ring.current / ring.target).clamp(0, 1) : 0.0;
+      // [ringProgress] Убираем ограничение clamp(0, 1) для показа переедания
+      final ringProgress = ring.target > 0
+          ? (ring.current / ring.target).clamp(0, double.infinity)
+          : 0.0;
       totalProgress += ringProgress;
     }
-    return ((totalProgress / ringData.length) * 100).round();
+    return (totalProgress / ringData.length) * 100;
   }
 }
 
@@ -463,10 +490,14 @@ class FitnessRingPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
 
       // [drawArc] Рисуем дугу прогресса начиная справа (0 радиан = 3 часа)
+      // При переедании кольцо может делать больше одного оборота
+      final clampedProgress = progress.clamp(0.0, double.infinity);
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         0, // Начинаем справа (3 часа на циферблате)
-        2 * pi * progress.clamp(0.0, 1.0), // Прогресс от 0 до 1
+        2 *
+            pi *
+            clampedProgress, // Прогресс может быть больше 1 для показа переедания
         false,
         progressPaint,
       );
