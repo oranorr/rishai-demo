@@ -8,52 +8,36 @@ enum RishTextInputState {
   bool get isEnabled => this != RishTextInputState.disabled;
   bool get isError => this == RishTextInputState.error;
 
-  InputDecorationTheme resolve(InputDecorationTheme inputTheme) {
+  // [resolve] Метод для получения InputDecorationThemeData в зависимости от состояния
+  // Возвращает InputDecorationThemeData с измененными border'ами в зависимости от состояния
+  InputDecorationThemeData resolve(InputDecorationThemeData inputTheme) {
     return switch (this) {
-      RishTextInputState.enabled => InputDecorationTheme(
+      // Enabled состояние - используем стандартный border
+      RishTextInputState.enabled => InputDecorationThemeData(
           border: RishInputDecorationTheme.voyBorderDefault,
           enabledBorder: inputTheme.enabledBorder,
           focusedBorder: inputTheme.focusedBorder,
           disabledBorder: inputTheme.disabledBorder,
           errorBorder: inputTheme.errorBorder,
           focusedErrorBorder: inputTheme.focusedErrorBorder,
-          filled: inputTheme.filled,
-          fillColor: inputTheme.fillColor,
-          hintStyle: inputTheme.hintStyle,
-          labelStyle: inputTheme.labelStyle,
-          errorStyle: inputTheme.errorStyle,
-          counterStyle: inputTheme.counterStyle,
-          contentPadding: inputTheme.contentPadding,
         ),
-      RishTextInputState.disabled => InputDecorationTheme(
+      // Disabled состояние - используем стандартный border
+      RishTextInputState.disabled => InputDecorationThemeData(
           border: RishInputDecorationTheme.voyBorderDefault,
           enabledBorder: inputTheme.enabledBorder,
           focusedBorder: inputTheme.focusedBorder,
           disabledBorder: inputTheme.disabledBorder,
           errorBorder: inputTheme.errorBorder,
           focusedErrorBorder: inputTheme.focusedErrorBorder,
-          filled: inputTheme.filled,
-          fillColor: inputTheme.fillColor,
-          hintStyle: inputTheme.hintStyle,
-          labelStyle: inputTheme.labelStyle,
-          errorStyle: inputTheme.errorStyle,
-          counterStyle: inputTheme.counterStyle,
-          contentPadding: inputTheme.contentPadding,
         ),
-      RishTextInputState.error => InputDecorationTheme(
+      // Error состояние - используем error border
+      RishTextInputState.error => InputDecorationThemeData(
           border: RishInputDecorationTheme.voyErrorBorder,
           enabledBorder: inputTheme.enabledBorder,
           focusedBorder: inputTheme.focusedBorder,
           disabledBorder: inputTheme.disabledBorder,
           errorBorder: RishInputDecorationTheme.voyErrorBorder,
           focusedErrorBorder: inputTheme.focusedErrorBorder,
-          filled: inputTheme.filled,
-          fillColor: inputTheme.fillColor,
-          hintStyle: inputTheme.hintStyle,
-          labelStyle: inputTheme.labelStyle,
-          errorStyle: inputTheme.errorStyle,
-          counterStyle: inputTheme.counterStyle,
-          contentPadding: inputTheme.contentPadding,
         ),
     };
   }

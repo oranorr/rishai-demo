@@ -426,11 +426,20 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   }
 
   double _calculateOverallProgress() {
+    // [_calculateOverallProgress] Используем готовый DWS_final из WelnessEntity
+    // вместо пересчета, чтобы учесть штрафы за переедание
+    final welnessPercentage = widget.day.welnessEntity?.welnessPercentage;
+
+    if (welnessPercentage != null) {
+      // Если есть сохраненный DWS_final, используем его
+      return welnessPercentage;
+    }
+
+    // Если WelnessEntity отсутствует, рассчитываем на основе макросов
     final ringData = _getRingData();
 
     double totalProgress = 0;
     for (final ring in ringData) {
-      // [ringProgress] Убираем ограничение clamp(0, 1) для показа переедания
       final ringProgress = ring.target > 0
           ? (ring.current / ring.target).clamp(0, double.infinity)
           : 0.0;

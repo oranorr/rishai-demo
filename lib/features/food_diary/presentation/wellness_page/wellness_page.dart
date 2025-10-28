@@ -8,6 +8,7 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -37,7 +38,16 @@ class WellnessPage extends StatelessWidget {
                 ),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () => () {},
+                  onTap: () async => RishiDialog.infoPopup(context, '''
+Recommendations change dynamically over the day as you capture meals.
+
+Staying within ±10% of your daily goal gives the highest score.
+
+Going beyond 10% reduces your score progressively, as overeating affects energy balance and recovery.
+
+Pivot's nutritional intelligence instantly analyzes your day and recommends foods to fill your remaining targets.
+
+Scores above target are penalized to encourage balanced nutrition, not overeating.'''),
                   child: SvgPicture.asset('assets/icons/info_round.svg'),
                 ),
               ],
@@ -103,12 +113,13 @@ class _CaptureMeal extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 110.h,
+      height: 130.h,
       child: Column(
         children: [
           Text(
-            'Get your recommendations by capturing a meal.',
+            "You haven't recorded anything yet. Please add a meal to your Food Diary.",
             style: context.styles.regularMedium,
+            textAlign: TextAlign.center,
           ),
           SizedBox(height: 20.h),
           RishButton.primary(

@@ -105,7 +105,10 @@ class _PivotLifeWidgetState extends State<PivotLifeWidget>
                   width: 8.w,
                 ),
                 GestureDetector(
-                  onTap: () => print('hi'),
+                  onTap: () async => RishiDialog.infoPopup(
+                    context,
+                    'Your Pivot Life score is a running average of your daily Wellness score since its inception',
+                  ),
                   child: SvgPicture.asset('assets/icons/info_round.svg'),
                 ),
                 const Spacer(),

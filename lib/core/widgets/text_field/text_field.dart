@@ -74,6 +74,8 @@ class RishTextField extends StatelessWidget {
       needsBottomPadding = false;
     }
 
+    // [Theme] Оборачиваем в Theme для применения кастомной темы InputDecoration
+    // в зависимости от состояния (enabled, disabled, error)
     return Theme(
       data: theme.copyWith(
         inputDecorationTheme: state.resolve(inputTheme),

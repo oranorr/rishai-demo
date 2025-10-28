@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:rishai/core/constants/theme_consts.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 
-class RishInputDecorationTheme extends InputDecorationTheme {
+// [RishInputDecorationTheme] Класс для создания кастомной темы InputDecoration
+// Наследуется от InputDecorationThemeData для совместимости с новой версией Flutter
+class RishInputDecorationTheme extends InputDecorationThemeData {
   RishInputDecorationTheme()
       : super(
           border: voyBorderDefault,
@@ -11,6 +13,8 @@ class RishInputDecorationTheme extends InputDecorationTheme {
           disabledBorder: voyBorderDefault,
           errorBorder: voyErrorBorder,
         );
+
+  // [voyBorderDefault] Стандартный border для текстовых полей
   static final OutlineInputBorder voyBorderDefault = OutlineInputBorder(
     borderRadius: ThemeConstants.borderRadius,
     borderSide: const BorderSide(
@@ -18,6 +22,7 @@ class RishInputDecorationTheme extends InputDecorationTheme {
     ),
   );
 
+  // [voyFocusedBorder] Border для текстовых полей в фокусе
   static final OutlineInputBorder voyFocusedBorder = OutlineInputBorder(
     borderRadius: ThemeConstants.borderRadius,
     borderSide: const BorderSide(
@@ -25,6 +30,7 @@ class RishInputDecorationTheme extends InputDecorationTheme {
     ),
   );
 
+  // [voyErrorBorder] Border для текстовых полей с ошибкой
   static final OutlineInputBorder voyErrorBorder = OutlineInputBorder(
     borderRadius: ThemeConstants.borderRadius,
     borderSide: BorderSide(

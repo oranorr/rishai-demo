@@ -6,7 +6,6 @@ import 'package:directus/directus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
-import 'package:rishai/core/services/day_manager/day_manager.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -44,10 +43,8 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
             totalFat: 0,
           ),
         ) {
-    // [FoodDiaryCubit] Регистрируем обработчики событий
     on<FoodDiaryInitialize>(_initialize);
-    on<FoodDiaryAddEntry>(_addEntry);
-    on<FoodDiaryUpdateEntry>(_updateEntry);
+
     on<FoodDiaryDeleteEntry>(_deleteEntry);
     on<FoodDiaryLoadEntries>(_loadEntries);
     on<FoodDiaryClearAll>(_clearAll);
@@ -80,73 +77,6 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
     } on Exception catch (e, stackTrace) {
       log(
         '[FoodDiaryCubit] Ошибка при инициализации: $e',
-        error: e,
-        stackTrace: stackTrace,
-        name: 'FoodDiaryCubit',
-      );
-      emit((state as FoodDiaryMainState).copyWith(status: Status.error));
-    }
-  }
-
-  /// [_addEntry] Добавление новой записи в дневник питания
-  FutureOr<void> _addEntry(
-    FoodDiaryAddEntry event,
-    Emitter<FoodDiaryState> emit,
-  ) async {
-    try {
-      log(
-        '[FoodDiaryCubit] Добавление записи в дневник',
-        name: 'FoodDiaryCubit',
-      );
-
-      emit((state as FoodDiaryMainState).copyWith(status: Status.loading));
-
-      // TODO(FoodDiary): Здесь будет логика добавления записи
-      // - Валидация данных
-      // - Сохранение в локальное хранилище
-      // - Синхронизация с бэкендом
-      // - Пересчет общих показателей
-
-      emit((state as FoodDiaryMainState).copyWith(status: Status.success));
-
-      log('[FoodDiaryCubit] Запись успешно добавлена', name: 'FoodDiaryCubit');
-    } on Exception catch (e, stackTrace) {
-      log(
-        '[FoodDiaryCubit] Ошибка при добавлении записи: $e',
-        error: e,
-        stackTrace: stackTrace,
-        name: 'FoodDiaryCubit',
-      );
-      emit((state as FoodDiaryMainState).copyWith(status: Status.error));
-    }
-  }
-
-  /// [_updateEntry] Обновление существующей записи в дневнике
-  FutureOr<void> _updateEntry(
-    FoodDiaryUpdateEntry event,
-    Emitter<FoodDiaryState> emit,
-  ) async {
-    try {
-      log(
-        '[FoodDiaryCubit] Обновление записи в дневнике',
-        name: 'FoodDiaryCubit',
-      );
-
-      emit((state as FoodDiaryMainState).copyWith(status: Status.loading));
-
-      // TODO(FoodDiary): Здесь будет логика обновления записи
-      // - Поиск записи по ID
-      // - Валидация новых данных
-      // - Обновление в локальном хранилище
-      // - Синхронизация с бэкендом
-      // - Пересчет общих показателей
-
-      emit((state as FoodDiaryMainState).copyWith(status: Status.success));
-
-      log('[FoodDiaryCubit] Запись успешно обновлена', name: 'FoodDiaryCubit');
-    } on Exception catch (e, stackTrace) {
-      log(
-        '[FoodDiaryCubit] Ошибка при обновлении записи: $e',
         error: e,
         stackTrace: stackTrace,
         name: 'FoodDiaryCubit',
@@ -268,11 +198,6 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
   /// и обновляет PivotLifeScoreEntity в профиле пользователя локально и удаленно.
   Future<void> calculatePivotLifeScore() async {
     try {
-      log(
-        '[FoodDiaryCubit] 📊 Начинаем расчет среднего арифметического Daily Wellness Score (Pivot Life Score)',
-        name: 'FoodDiaryCubit',
-      );
-
       // Получаем ID текущего пользователя
       final currentUser = userBloc.state.user;
       if (currentUser.directusId == '-1') {
@@ -353,7 +278,14 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
       final updatedUser = currentUser.copyWith(pivotLifeScore: pivotLifeScore);
 
       // Обновляем пользователя через UserBloc (это обновит и локально, и удаленно)
+      log(
+        '[FoodDiaryCubit] 🔄 Отправляем обновленный Pivot Life Score в UserBloc...',
+        name: 'FoodDiaryCubit',
+      );
       userBloc.add(UpdateUserEvent(user: updatedUser));
+
+      // [FIX] Даем время UserBloc обновить состояние
+      await Future.delayed(const Duration(milliseconds: 100));
 
       log(
         '[FoodDiaryCubit] ✅ Pivot Life Score успешно рассчитан и обновлен: ${averageWellnessScore.toStringAsFixed(2)}%',
@@ -469,18 +401,61 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         name: 'FoodDiaryCubit',
       );
 
-      // Применяем формулу Daily Wellness Score
+      // Применяем формулу Daily Wellness Score (DWS_raw)
       // 40% of kcals% + 30% of Protein% + 20% of carbs% + 10% of fats%
-      double wellnessScore = (kcalPercentage * 0.40) +
+      double dwsRaw = (kcalPercentage * 0.40) +
           (proteinPercentage * 0.30) +
           (carbsPercentage * 0.20) +
           (fatPercentage * 0.10);
 
-      // Ограничиваем максимальное значение до 100%
-      wellnessScore = wellnessScore > 100 ? 100 : wellnessScore;
+      log(
+        '[FoodDiaryCubit] DWS_raw (до применения штрафов): ${dwsRaw.toStringAsFixed(1)}%',
+        name: 'FoodDiaryCubit',
+      );
+
+      // Применяем систему штрафов за переедание, если DWS_raw > 100%
+      double wellnessScore = dwsRaw;
+
+      if (dwsRaw > 100) {
+        // Определяем коэффициент штрафа в зависимости от степени переедания
+        double penaltyMultiplier;
+
+        if (dwsRaw <= 110) {
+          // 101-110%: Мягкий штраф
+          penaltyMultiplier = 2.0;
+        } else if (dwsRaw <= 120) {
+          // 111-120%: Умеренный штраф
+          penaltyMultiplier = 2.2;
+        } else if (dwsRaw <= 130) {
+          // 121-130%: Жесткий штраф
+          penaltyMultiplier = 2.3;
+        } else if (dwsRaw <= 140) {
+          // 131-140%: Сильный штраф
+          penaltyMultiplier = 2.4;
+        } else {
+          // >140%: Экстремальный штраф
+          penaltyMultiplier = 2.5;
+        }
+
+        // Рассчитываем штраф
+        final penalty = penaltyMultiplier * (dwsRaw - 100);
+
+        // Применяем штраф
+        wellnessScore = dwsRaw - penalty;
+
+        // Гарантируем минимальное значение 10%
+        if (wellnessScore < 10) {
+          wellnessScore = 10;
+        }
+
+        log(
+          '[FoodDiaryCubit] ⚠️ Переедание обнаружено! DWS_raw=${dwsRaw.toStringAsFixed(1)}%, penalty=${penalty.toStringAsFixed(1)}, multiplier=${penaltyMultiplier}x',
+          name: 'FoodDiaryCubit',
+        );
+      }
 
       log(
-        '[FoodDiaryCubit] Рассчитанный Daily Wellness Score: ${wellnessScore.toStringAsFixed(1)}%',
+        '[FoodDiaryCubit] ✅ DWS_final (Daily Wellness Score): ${wellnessScore.toStringAsFixed(1)}%',
         name: 'FoodDiaryCubit',
       );
 
@@ -517,8 +492,8 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         name: 'FoodDiaryCubit',
       );
 
-      // Запускаем пересчет в фоновом режиме, чтобы не блокировать основной процесс
-      unawaited(calculatePivotLifeScore());
+      // [FIX] Ждем завершения пересчета Pivot Life Score, чтобы UI отрисовался с актуальными данными
+      await calculatePivotLifeScore();
 
       return updatedDay;
     } catch (e, stackTrace) {

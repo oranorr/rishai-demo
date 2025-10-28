@@ -93,6 +93,14 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     try {
       log('Обновление пользователя: ${user.directusId}', name: 'UserBloc');
 
+      // [DEBUG] Логируем Pivot Life Score при обновлении
+      if (user.pivotLifeScore != null) {
+        log(
+          '📊 Обновление Pivot Life Score: ${user.pivotLifeScore!.score.toStringAsFixed(2)}%',
+          name: 'UserBloc',
+        );
+      }
+
       // [FIX] Всегда обновляем локальное состояние сразу
       emit(state.copyWith(user: UserEntity.unauthorized()));
       emit(state.copyWith(user: user));

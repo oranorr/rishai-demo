@@ -14,6 +14,7 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/status.dart';
+import 'package:rishai/core/theme/input_decoration_theme.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -301,32 +302,6 @@ class _HomePageBodyState extends State<_HomePageBody> {
               DailyWellnessWidget(
                 day: widget.day.isToday ? state.day : widget.day,
               ),
-              // BlocBuilder<WhoopBloc, WhoopState>(
-              //   builder: (context, whoopState) {
-              //     return
-              //   },
-              // ),
-              // Row(
-              //   children: [
-              //     Text(
-              //       'Calories',
-              //       style: context.styles.h3,
-              //     ),
-              //     const Spacer(),
-              //     GestureDetector(
-              //       onTap: () async => RishiDialog.infoPopup(
-              //         context,
-              //         LegalTextsRepo().infoPopup,
-              //       ),
-              //       child: const Icon(
-              //         Icons.info_outline,
-              //         size: 30,
-              //         color: RishColors.primary,
-              //       ),
-              //     ),
-              //   ],
-              // ),
-              // SizedBox(height: 12.h),SizedBox(height: 20.h),
               SizedBox(height: 12.h),
               _HealthMetricsWidget(
                 day: widget.day.isToday ? state.day : widget.day,
