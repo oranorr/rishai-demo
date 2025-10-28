@@ -33,6 +33,10 @@ import 'package:rishai/core/services/directus/directus_repository_impl.dart'
 import 'package:rishai/core/services/firebase/firebase_impl.dart' as _i201;
 import 'package:rishai/core/services/firebase/firebase_repo.dart' as _i993;
 import 'package:rishai/core/services/hive/hive_impl.dart' as _i410;
+import 'package:rishai/core/services/home_page_controller/home_page_controller_service.dart'
+    as _i672;
+import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart'
+    as _i300;
 import 'package:rishai/core/services/notifications/notifications_service.dart'
     as _i492;
 import 'package:rishai/core/services/notifications/notifications_service_impl.dart'
@@ -165,6 +169,8 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i734.WhoopLocalDataSource>(
         () => _i335.WhoopLocalDataSourceImpl());
     gh.singleton<_i820.WhoopTokenService>(() => _i597.WhoopTokenServiceImpl());
+    gh.singleton<_i672.HomePageControllerService>(
+        () => _i300.HomePageControllerServiceImpl());
     gh.singleton<_i510.LoginRemoteDataSource>(
         () => _i675.RemoteDataSourceImpl());
     gh.singleton<_i751.AccountsWhiteListService>(

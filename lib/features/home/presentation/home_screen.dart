@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
@@ -22,6 +23,8 @@ import 'package:rishai/features/week_plan/presentation/week_plan_screen.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_state.dart';
+
+part 'home_page/widgets/fab_screen_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -169,95 +172,18 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   // Overlay с блюром и кнопками
-                  if (_isOverlayVisible) _buildBlurOverlay(context),
+                  if (_isOverlayVisible)
+                    _FabOverlayWidget(
+                      overlayAnimation: _overlayAnimation,
+                      pageController: pageController,
+                      onHideOverlay: _hideOverlay,
+                    ),
                 ],
               ),
             );
           },
         );
         // }
-      },
-    );
-  }
-
-  Widget _buildBlurOverlay(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _overlayAnimation,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _overlayAnimation.value,
-          child: GestureDetector(
-            onTap: _hideOverlay, // Закрытие при тапе на фон
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: 10.0 * _overlayAnimation.value,
-                sigmaY: 10.0 * _overlayAnimation.value,
-              ),
-              child: Container(
-                width: double.infinity,
-                height: double.infinity,
-                color: Colors.black.withOpacity(0.3 * _overlayAnimation.value),
-                child: Center(
-                  child: Transform.scale(
-                    scale: 0.8 + (0.2 * _overlayAnimation.value),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Spacer(),
-                        RishButton.primary(
-                          title: 'Add meal to your diary',
-                          enabled: true,
-                          isLoading: false,
-                          action: () {
-                            appNavigationService.push(
-                              path: AppRoutes.diaryEntryPage.path,
-                            );
-                            _hideOverlay();
-                            // TODO: Добавить логику для добавления еды
-                            log('[_buildBlurOverlay] Добавить еду нажата');
-                          },
-                        ),
-                        SizedBox(height: 8.h),
-                        if (kDebugMode) ...[
-                          RishButton.primary(
-                            title: '[DEBUG]: REMOVE MEAL PLAN FOR TODAY.',
-                            enabled: true,
-                            isLoading: false,
-                            action: () {
-                              chatBloc.add(ChatDeleteMealPlan());
-                              _hideOverlay();
-                            },
-                          ),
-                          SizedBox(height: 8.h),
-                        ],
-                        RishButton.primary(
-                          title: 'Create new meal plan  ',
-                          enabled: true,
-                          isLoading: false,
-                          action: () async {
-                            await pageController.rAnimate(2);
-                            _hideOverlay();
-                          },
-                        ),
-                        SizedBox(height: 8.h),
-                        RishButton.primary(
-                          title: '5-day meal prep',
-                          enabled: true,
-                          isLoading: false,
-                          action: () async {
-                            await pageController.rAnimate(1);
-                            _hideOverlay();
-                          },
-                        ),
-                        SizedBox(height: 150.h),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
       },
     );
   }

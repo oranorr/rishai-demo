@@ -13,8 +13,8 @@ import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
+import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart';
 import 'package:rishai/core/status.dart';
-import 'package:rishai/core/theme/input_decoration_theme.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -207,14 +207,31 @@ class _HomePageBody extends StatefulWidget {
 class _HomePageBodyState extends State<_HomePageBody> {
   Completer<void>? _refreshCompleter;
 
+  /// ScrollController для управления прокруткой списка
+  /// Регистрируется в сервисе для доступа извне
+  late final ScrollController _scrollController;
+
   @override
   void initState() {
     super.initState();
+    // Инициализируем ScrollController
+    _scrollController = ScrollController();
+    // Регистрируем контроллер в сервисе для доступа извне
+    homePageControllerService.registerScrollController(_scrollController);
   }
 
   @override
   void didUpdateWidget(_HomePageBody oldWidget) {
     super.didUpdateWidget(oldWidget);
+  }
+
+  @override
+  void dispose() {
+    // Отменяем регистрацию контроллера в сервисе
+    homePageControllerService.unregisterScrollController();
+    // Освобождаем ресурсы ScrollController
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _onRefresh() {
@@ -285,6 +302,7 @@ class _HomePageBodyState extends State<_HomePageBody> {
             await _onRefresh();
           },
           child: ListView(
+            controller: _scrollController,
             shrinkWrap: true,
             padding: EdgeInsets.zero,
             children: [
