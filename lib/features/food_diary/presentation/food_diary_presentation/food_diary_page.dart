@@ -27,6 +27,44 @@ class FoodDiaryPage extends StatefulWidget {
 }
 
 class _FoodDiaryPageState extends State<FoodDiaryPage> {
+  /// [_selectedDay] Текущий выбранный день для отображения
+  /// По умолчанию null, что означает показ последнего дня (сегодня)
+  DayEntity? _selectedDay;
+
+  /// [_getDisplayDay] Получает день для отображения
+  /// Если выбран конкретный день (_selectedDay != null), возвращает его
+  /// Иначе возвращает последний день из списка (сегодня)
+  DayEntity _getDisplayDay(List<DayEntity> days) {
+    if (_selectedDay != null) {
+      // Проверяем, что выбранный день всё ещё есть в списке дней
+      final dayExists =
+          days.any((day) => day.dateTime.isSameDate(_selectedDay!.dateTime));
+      if (dayExists) {
+        // Обновляем _selectedDay актуальными данными из state
+        _selectedDay = days.firstWhere(
+          (day) => day.dateTime.isSameDate(_selectedDay!.dateTime),
+        );
+        return _selectedDay!;
+      }
+    }
+    // Если выбранный день не найден или не установлен, возвращаем последний день
+    return days.reversed.toList().first;
+  }
+
+  /// [_onDateSelected] Обработчик выбора даты в календаре
+  void _onDateSelected(DateTime selectedDate) {
+    setState(() {
+      // Находим день по выбранной дате
+      final day = userBloc.state.days.firstWhere(
+        (day) => day.dateTime.isSameDate(selectedDate),
+      );
+      _selectedDay = day;
+      print(
+        '[FoodDiaryPage] Выбран день: ${selectedDate.formatAsDayString()}',
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -39,37 +77,81 @@ class _FoodDiaryPageState extends State<FoodDiaryPage> {
         BlocBuilder<UserBloc, UserState>(
           bloc: userBloc,
           builder: (context, state) {
-            final day = state.days.reversed.toList().first;
+            // Получаем день для отображения (выбранный или последний)
+            final day = _getDisplayDay(state.days);
+
             if (day.welnessEntity != null) {
               return Expanded(
-                child: _DiaryPageContent(day: day),
+                child: _DiaryPageContent(
+                  day: day,
+                  onDateSelected: _onDateSelected,
+                ),
               );
             } else {
+              // Определяем, является ли выбранный день сегодняшним
+              final isToday = day.dateTime.isSameDate(DateTime.now());
+
               return Expanded(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'You havent consumed any meals today',
-                      textAlign: TextAlign.center,
-                      style: context.styles.h2,
+                    // [build] Заголовок с датой и иконкой календаря (как в _DiaryPageContent)
+                    SizedBox(height: 20.h),
+                    Row(
+                      children: [
+                        Text(
+                          day.dateTime.formatAsDayString(),
+                          style: context.styles.h2,
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () async {
+                            // [onTap] Показываем красивый календарь в стиле Apple
+                            await _showAppleCalendar(
+                              context,
+                              day,
+                              _onDateSelected,
+                            );
+                          },
+                          child: SvgPicture.asset('assets/icons/calendar.svg'),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      'Please capture a meal to get started',
-                      textAlign: TextAlign.center,
-                      style: context.styles.regularMedium,
-                    ),
-                    SizedBox(height: 42.h),
-                    RishButton.primary(
-                      isLoading: false,
-                      enabled: true,
-                      title: 'Capture Meal',
-                      action: () {
-                        appNavigationService.push(
-                          path: AppRoutes.diaryEntryPage.path,
-                        );
-                      },
+                    SizedBox(height: 20.h),
+
+                    // [build] Центрированное сообщение о пустом состоянии
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            isToday
+                                ? 'You havent consumed any meals today'
+                                : 'No meals recorded for this day',
+                            textAlign: TextAlign.center,
+                            style: context.styles.h2,
+                          ),
+                          SizedBox(height: 12.h),
+                          Text(
+                            isToday
+                                ? 'Please capture a meal to get started'
+                                : 'Select another day or return to today',
+                            textAlign: TextAlign.center,
+                            style: context.styles.regularMedium,
+                          ),
+                          SizedBox(height: 42.h),
+                          if (isToday)
+                            RishButton.primary(
+                              isLoading: false,
+                              enabled: true,
+                              title: 'Capture Meal',
+                              action: () {
+                                appNavigationService.push(
+                                  path: AppRoutes.diaryEntryPage.path,
+                                );
+                              },
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

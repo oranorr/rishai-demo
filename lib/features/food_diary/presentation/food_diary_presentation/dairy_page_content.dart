@@ -1,9 +1,12 @@
 part of 'food_diary_page.dart';
 
 /// [_showAppleCalendar] Показывает календарь в стиле Apple с блюром
+///
+/// [onDateSelected] - callback, вызываемый при выборе даты
 Future<void> _showAppleCalendar(
   BuildContext context,
   DayEntity currentDay,
+  Function(DateTime) onDateSelected,
 ) async {
   await showGeneralDialog(
     context: context,
@@ -34,19 +37,20 @@ Future<void> _showAppleCalendar(
                   availableDays: userBloc.state.days,
                   onDateSelected: (DateTime selectedDate) {
                     Navigator.of(context).pop();
-                    // [_showAppleCalendar] Находим выбранный день и навигируем к нему
+                    // [_showAppleCalendar] Находим выбранный день и вызываем callback
                     final searchDay = userBloc.state.days.firstWhere(
                       (day) => day.dateTime.isSameDate(selectedDate),
                     );
 
-                    // Здесь нужно будет добавить навигацию к выбранному дню
-                    // Пока что просто закрываем календарь
                     print(
                       '[AppleCalendar] Выбрана дата: ${selectedDate.formatAsDayString()}',
                     );
                     print(
                       '[AppleCalendar] Найден день: ${searchDay.dateTime.formatAsDayString()}',
                     );
+
+                    // Вызываем callback для обновления отображаемого дня
+                    onDateSelected(selectedDate);
                   },
                   onCancel: () {
                     Navigator.of(context).pop();
@@ -80,8 +84,12 @@ Future<void> _showAppleCalendar(
 }
 
 class _DiaryPageContent extends StatelessWidget {
-  const _DiaryPageContent({required this.day});
+  const _DiaryPageContent({
+    required this.day,
+    required this.onDateSelected,
+  });
   final DayEntity day;
+  final Function(DateTime) onDateSelected;
 
   /// [_groupConsumedMealsByType] Группирует потребленные блюда по типам
   /// с правильными заголовками во множественном числе
@@ -180,7 +188,7 @@ class _DiaryPageContent extends StatelessWidget {
             GestureDetector(
               onTap: () async {
                 // [onTap] Показываем красивый календарь в стиле Apple
-                await _showAppleCalendar(context, day);
+                await _showAppleCalendar(context, day, onDateSelected);
               },
               child: SvgPicture.asset('assets/icons/calendar.svg'),
             ),
@@ -233,13 +241,19 @@ class _DiaryPageContent extends StatelessWidget {
                 SizedBox(height: 8.h),
 
                 // Блюда в группе
-                ...mealsInGroup.map(
-                  (meal) => Column(
-                    children: [
-                      _ConsumedMealsWidget(meal: meal, showMealType: false),
-                      if (meal != mealsInGroup.last) SizedBox(height: 12.h),
-                    ],
-                  ),
+                ...mealsInGroup.asMap().entries.map(
+                  (entry) {
+                    final index = entry.key;
+                    final meal = entry.value;
+                    final isLast = index == mealsInGroup.length - 1;
+
+                    return Column(
+                      children: [
+                        _ConsumedMealsWidget(meal: meal, showMealType: false),
+                        if (!isLast) SizedBox(height: 12.h),
+                      ],
+                    );
+                  },
                 ),
 
                 SizedBox(height: 20.h),
