@@ -431,26 +431,47 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
             ? (ring.current / ring.target * 100).clamp(0, double.infinity)
             : 0.0;
         return Expanded(
-          child: Column(
-            children: [
-              // Процент крупным шрифтом с цветом кольца с одной десятичной
-              Text(
-                '${progress.toStringAsFixed(1)}%',
-                style: context.styles.boldLarge.copyWith(color: ring.color),
-              ),
-              SizedBox(height: 4.h),
-              // Значения
-              Text(
-                ring.unit.isEmpty
-                    ? '${ring.current.toInt()} ${ring.label}'
-                    : '${ring.current.toInt()}${ring.unit} ${ring.label}',
-                style: context.styles.regularSmall.copyWith(
-                  color: RishColors.textPrimary,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: 2.w,
+            ), // Небольшой отступ между элементами
+            child: Column(
+              children: [
+                // [percentage] Процент крупным шрифтом с цветом кольца с одной десятичной
+                AutoSizeText(
+                  '${progress.toStringAsFixed(1)}%',
+                  style: context.styles.boldLarge.copyWith(color: ring.color),
+                  maxLines: 1,
+                  minFontSize: 10, // Минимальный размер шрифта
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-              ),
-            ],
+                SizedBox(height: 4.h),
+                // [values] Значение с единицей измерения
+                AutoSizeText(
+                  ring.unit.isEmpty
+                      ? '${ring.current.toInt()}'
+                      : '${ring.current.toInt()}${ring.unit}',
+                  style: context.styles.regularSmall.copyWith(
+                    color: RishColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  minFontSize: 8, // Минимальный размер шрифта для значений
+                  overflow: TextOverflow.ellipsis,
+                ),
+                // [label] Название макроса
+                AutoSizeText(
+                  ring.label,
+                  style: context.styles.regularSmall.copyWith(
+                    color: RishColors.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  minFontSize: 8,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
