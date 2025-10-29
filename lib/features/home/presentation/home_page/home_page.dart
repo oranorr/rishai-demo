@@ -14,6 +14,7 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/analytics/analytics_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart';
+import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';

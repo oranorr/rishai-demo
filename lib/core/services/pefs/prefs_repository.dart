@@ -81,6 +81,16 @@ class PrefsRepository {
     return _prefs.getString(notesTime);
   }
 
+  /// [setWellnessTooltipViewed] Устанавливает флаг, что пользователь видел подсказку wellness score
+  Future<void> setWellnessTooltipViewed() async {
+    await _prefs.setBool(wellnessTooltipViewed, true);
+  }
+
+  /// [hasViewedWellnessTooltip] Проверяет, видел ли пользователь подсказку wellness score
+  bool hasViewedWellnessTooltip() {
+    return _prefs.getBool(wellnessTooltipViewed) ?? false;
+  }
+
   Future<void> clearTokens() async {
     await _prefs.setString(whoopAccessToken, '');
     await _prefs.setString(whoopRefreshToken, '');

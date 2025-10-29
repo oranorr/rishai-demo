@@ -17,6 +17,13 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   late AnimationController _rippleAnimationController;
   late Animation<double> _rippleAnimation;
 
+  // [_showTooltip] Флаг для показа подсказки при первом открытии
+  bool _showTooltip = true;
+
+  // [_tooltipAnimationController] Контроллер анимации для появления подсказки
+  late AnimationController _tooltipAnimationController;
+  late Animation<double> _tooltipAnimation;
+
   // [_getRingData] Получаем данные для колец из переданного day
   List<RingData> _getRingData() {
     final targetMacros = widget.day.macros;
@@ -64,6 +71,9 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
   void initState() {
     super.initState();
 
+    // [_showTooltip] Проверяем, видел ли пользователь подсказку ранее
+    _showTooltip = !prefsRepo.hasViewedWellnessTooltip();
+
     // [_getRingData] Получаем данные для колец
     final ringData = _getRingData();
 
@@ -109,6 +119,23 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
       ),
     );
 
+    // [_tooltipAnimationController] Создаем анимацию для подсказки
+    _tooltipAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    // [_tooltipAnimation] Анимация появления подсказки (масштаб и прозрачность)
+    _tooltipAnimation = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(
+      CurvedAnimation(
+        parent: _tooltipAnimationController,
+        curve: Curves.easeOutBack, // Эффектная кривая появления
+      ),
+    );
+
     // Запускаем анимации с задержкой
     _startAnimations();
   }
@@ -122,12 +149,22 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
       });
     }
 
-    // [rippleAnimation] Запускаем ripple анимацию с задержкой после колец
+    // [tooltipAnimation] Запускаем анимацию подсказки с задержкой после колец
     Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) {
-        _rippleAnimationController.repeat(); // Повторяем анимацию бесконечно
+      if (mounted && _showTooltip) {
+        _tooltipAnimationController.forward();
       }
     });
+
+    // [rippleAnimation] Не запускаем ripple анимацию если показываем подсказку
+    // Она запустится только после закрытия подсказки
+    if (!_showTooltip) {
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) {
+          _rippleAnimationController.repeat(); // Повторяем анимацию бесконечно
+        }
+      });
+    }
   }
 
   @override
@@ -154,6 +191,8 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
     }
     // [dispose] Освобождаем ресурсы контроллера ripple анимации
     _rippleAnimationController.dispose();
+    // [dispose] Освобождаем ресурсы контроллера анимации подсказки
+    _tooltipAnimationController.dispose();
     super.dispose();
   }
 
@@ -230,10 +269,12 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                     // [ringsDisplay] Показываем кольца с данными
                     return SizedBox(
                       width: double.infinity,
-                      height: 300
-                          .h, // Обновленная высота для колец с промежутками 2px
+                      height: 350
+                          .h, // Увеличенная высота для подсказки над кольцами
                       child: Stack(
                         alignment: Alignment.center,
+                        clipBehavior: Clip
+                            .none, // Позволяем содержимому выходить за границы
                         children: [
                           // Рисуем кольца от внешнего к внутреннему
                           for (int i = 0; i < ringData.length; i++)
@@ -282,18 +323,38 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                             ),
                           // [rippleContainer] Центральный контейнер с ripple анимацией
                           GestureDetector(
-                            onTap: () => appNavigationService.push(
-                              path: AppRoutes.wellnessPage.path,
-                            ),
+                            onTap: () async {
+                              // [hideTooltip] Скрываем подсказку при нажатии и сохраняем состояние
+                              if (_showTooltip) {
+                                setState(() {
+                                  _showTooltip = false;
+                                });
+                                _tooltipAnimationController.reverse();
+
+                                // [saveTooltipState] Сохраняем, что пользователь видел подсказку
+                                await prefsRepo.setWellnessTooltipViewed();
+
+                                // Запускаем ripple анимацию
+                                Future.delayed(
+                                  const Duration(milliseconds: 300),
+                                  () {
+                                    if (mounted) {
+                                      _rippleAnimationController.repeat();
+                                    }
+                                  },
+                                );
+                              }
+                              // Переходим на страницу wellness
+                              appNavigationService.push(
+                                path: AppRoutes.wellnessPage.path,
+                              );
+                            },
                             child: AnimatedBuilder(
                               animation: _rippleAnimation,
                               builder: (context, child) {
                                 return Stack(
                                   alignment: Alignment.center,
                                   children: [
-                                    // [rippleWaves] Создаем несколько волн ripple эффекта
-                                    for (int i = 0; i < 3; i++)
-                                      _buildRippleWave(i),
                                     // [centerContainer] Основной центральный контейнер
                                     Container(
                                       width: 80.w, // Размер центрального круга
@@ -341,6 +402,8 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                               },
                             ),
                           ),
+                          // [tooltip] Показываем подсказку если она активна - в основном Stack
+                          if (_showTooltip) _buildTooltip(),
                         ],
                       ),
                     );
@@ -394,34 +457,63 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
     );
   }
 
-  // [_buildRippleWave] Создает одну волну ripple эффекта
-  Widget _buildRippleWave(int waveIndex) {
-    // [waveDelay] Каждая волна начинается с задержкой
-    final waveDelay = waveIndex * 0.3;
-    // [adjustedProgress] Прогресс с учетом задержки волны
-    final adjustedProgress =
-        (_rippleAnimation.value - waveDelay).clamp(0.0, 1.0);
-
-    if (adjustedProgress <= 0) {
-      return const SizedBox.shrink();
-    }
-
-    // [waveSize] Размер волны увеличивается с прогрессом
-    final waveSize = 80.w + (adjustedProgress * 60.w * (waveIndex + 1));
-    // [waveOpacity] Прозрачность уменьшается с увеличением размера
-    final waveOpacity = (1.0 - adjustedProgress) * 0.3;
-
-    return Container(
-      width: waveSize,
-      height: waveSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(
-          // [waveColor] Цвет волны - полупрозрачный градиент основных цветов
-          color: const Color(0xFFB54ADA).withOpacity(waveOpacity),
-          width: 2.w,
-        ),
-      ),
+  // [_buildTooltip] Создает подсказку над центральным кругом
+  Widget _buildTooltip() {
+    return AnimatedBuilder(
+      animation: _tooltipAnimation,
+      builder: (context, child) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: 100.h,
+          ), // Отступ снизу чтобы поднять над центром
+          child: Transform.scale(
+            scale: _tooltipAnimation.value,
+            child: Opacity(
+              // [clampOpacity] Ограничиваем opacity от 0.0 до 1.0 так как easeOutBack может давать значения > 1.0
+              opacity: _tooltipAnimation.value.clamp(0.0, 1.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // [tooltipContainer] Контейнер с текстом подсказкиi
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 12.h,
+                    ),
+                    decoration: BoxDecoration(
+                      // [tooltipBackground] Розово-фиолетовый градиент как на дизайне
+                      color: RishColors.primary,
+                      borderRadius: BorderRadius.circular(20.r),
+                      // [tooltipShadow] Легкая тень для глубины
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFE879F9).withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'Tap here for details on your Wellness Score.',
+                      style: context.styles.regularSmall.copyWith(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.sp,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  // [tooltipArrow] Стрелка вниз к центральному кругу
+                  CustomPaint(
+                    size: Size(12.w, 8.h),
+                    painter: _TooltipArrowPainter(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -519,4 +611,31 @@ class FitnessRingPainter extends CustomPainter {
         oldDelegate.color != color ||
         oldDelegate.strokeWidth != strokeWidth;
   }
+}
+
+/// [_TooltipArrowPainter] CustomPainter для рисования стрелки подсказки
+class _TooltipArrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..shader = const LinearGradient(
+        colors: [
+          Color(0xFFE879F9), // Светло-розовый
+          Color(0xFFC084FC), // Фиолетовый
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+
+    // [trianglePath] Рисуем треугольник стрелки
+    final path = Path()
+      ..moveTo(size.width / 2, size.height) // Нижняя точка (острие)
+      ..lineTo(0, 0) // Верхний левый угол
+      ..lineTo(size.width, 0) // Верхний правый угол
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_TooltipArrowPainter oldDelegate) => false;
 }
