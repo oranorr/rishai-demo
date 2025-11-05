@@ -41,9 +41,6 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
         builder: (context, foodDiaryState) {
           // [build] Проверяем, что состояние соответствует странице DiaryEntryPage
           if (foodDiaryState is! DiaryEntryPageState) {
-            print(
-              '[DiaryEntryPage] Некорректное состояние: ${foodDiaryState.runtimeType}',
-            );
             return const Center(
               child: CircularProgressIndicator(),
             );
@@ -52,15 +49,13 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
           // [build] Извлекаем данные из состояния cubit
           final meals = foodDiaryState.availableMeals;
           final selectedMeals = foodDiaryState.selectedMeals;
-          final selectedCustomMealsCount = foodDiaryState.selectedCustomMealsCount;
+          final selectedCustomMealsCount =
+              foodDiaryState.selectedCustomMealsCount;
           final isLoading = foodDiaryState.isLoading;
 
           // Общее количество выбранных блюд (обычные + кастомные)
-          final totalSelectedMealsCount = selectedMeals.length + selectedCustomMealsCount;
-
-          print(
-            '[DiaryEntryPage] Доступных блюд: ${meals.length}, выбранных обычных: ${selectedMeals.length}, выбранных кастомных: $selectedCustomMealsCount, всего: $totalSelectedMealsCount',
-          );
+          final totalSelectedMealsCount =
+              selectedMeals.length + selectedCustomMealsCount;
 
           return Column(
             children: [

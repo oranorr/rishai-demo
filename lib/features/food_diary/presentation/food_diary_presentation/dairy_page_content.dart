@@ -37,19 +37,7 @@ Future<void> _showAppleCalendar(
                   availableDays: userBloc.state.days,
                   onDateSelected: (DateTime selectedDate) {
                     Navigator.of(context).pop();
-                    // [_showAppleCalendar] Находим выбранный день и вызываем callback
-                    final searchDay = userBloc.state.days.firstWhere(
-                      (day) => day.dateTime.isSameDate(selectedDate),
-                    );
-
-                    print(
-                      '[AppleCalendar] Выбрана дата: ${selectedDate.formatAsDayString()}',
-                    );
-                    print(
-                      '[AppleCalendar] Найден день: ${searchDay.dateTime.formatAsDayString()}',
-                    );
-
-                    // Вызываем callback для обновления отображаемого дня
+                    // [_showAppleCalendar] Вызываем callback для обновления отображаемого дня
                     onDateSelected(selectedDate);
                   },
                   onCancel: () {
@@ -127,9 +115,6 @@ class _DiaryPageContent extends StatelessWidget {
       } else {
         // По умолчанию относим к разному
         groupKey = 'Other Meals';
-        print(
-          '[FoodDiaryPage] Неопределенный тип блюда: $mealType, отнесено к Other Meals',
-        );
       }
 
       // Добавляем блюдо в соответствующую группу
@@ -137,10 +122,6 @@ class _DiaryPageContent extends StatelessWidget {
         groupedMeals[groupKey] = [];
       }
       groupedMeals[groupKey]!.add(meal);
-
-      print(
-        '[FoodDiaryPage] Meal ${meal.title} (тип: $mealType) добавлено в группу $groupKey',
-      );
     }
 
     return groupedMeals;

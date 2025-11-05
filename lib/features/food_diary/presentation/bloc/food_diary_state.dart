@@ -262,9 +262,9 @@ class DiaryEntryPageState extends FoodDiaryState {
     required this.availableMeals,
     required this.selectedMeals,
     required this.customMeals,
-    this.selectedMealType,
     required this.selectedPhotos,
     required this.mealDescription,
+    this.selectedMealType,
     this.errorMessage,
   });
 
@@ -275,10 +275,8 @@ class DiaryEntryPageState extends FoodDiaryState {
       availableMeals: const [],
       selectedMeals: const [],
       customMeals: [CustomMealEntry.empty()], // Начинаем с одного пустого блюда
-      selectedMealType: null,
       selectedPhotos: const [],
       mealDescription: '',
-      errorMessage: null,
     );
   }
 
@@ -328,19 +326,14 @@ class DiaryEntryPageState extends FoodDiaryState {
   /// - Проанализированы (isAnalyzed = true)
   /// - Выбраны пользователем (isSelected = true)
   List<CustomMealEntry> get selectedCustomMeals {
-    final result = customMeals.where((meal) => meal.isAnalyzed && meal.isSelected).toList();
-    print('[DiaryEntryPageState.selectedCustomMeals] Найдено выбранных кастомных блюд: ${result.length}');
-    for (final meal in customMeals) {
-      print('[DiaryEntryPageState.selectedCustomMeals] Блюдо ${meal.id}: isAnalyzed=${meal.isAnalyzed}, isSelected=${meal.isSelected}');
-    }
-    return result;
+    return customMeals
+        .where((meal) => meal.isAnalyzed && meal.isSelected)
+        .toList();
   }
 
   /// [selectedCustomMealsCount] Возвращает количество выбранных кастомных блюд
   int get selectedCustomMealsCount {
-    final count = selectedCustomMeals.length;
-    print('[DiaryEntryPageState.selectedCustomMealsCount] = $count');
-    return count;
+    return selectedCustomMeals.length;
   }
 
   @override

@@ -48,9 +48,6 @@ class _DiaryDropDownState extends State<DiaryDropDown>
   @override
   void initState() {
     super.initState();
-    print(
-        '[DiaryDropDown.initState] Инициализация дропдауна "${widget.title}"');
-
     isExpanded = widget.initiallyExpanded;
 
     // ┌─────────────────────────────────────────────────────────────────────┐
@@ -85,11 +82,11 @@ class _DiaryDropDownState extends State<DiaryDropDown>
   @override
   void didUpdateWidget(DiaryDropDown oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Автоматически раскрываем, если initiallyExpanded изменился на true
-    if (widget.initiallyExpanded != oldWidget.initiallyExpanded && 
-        widget.initiallyExpanded && !isExpanded) {
-      print('[DiaryDropDown.didUpdateWidget] Автоматическое раскрытие');
+    if (widget.initiallyExpanded != oldWidget.initiallyExpanded &&
+        widget.initiallyExpanded &&
+        !isExpanded) {
       setState(() {
         isExpanded = true;
       });
@@ -99,8 +96,6 @@ class _DiaryDropDownState extends State<DiaryDropDown>
 
   @override
   void dispose() {
-    print(
-        '[DiaryDropDown.dispose] Освобождение ресурсов дропдауна "${widget.title}"');
     // [dispose] Освобождаем ресурсы контроллера анимации
     _animationController.dispose();
     super.dispose();
@@ -113,9 +108,6 @@ class _DiaryDropDownState extends State<DiaryDropDown>
   /// Переключает состояние расширения дропдауна с плавной анимацией иконки.
   ///
   void _toggleExpansion() {
-    print(
-        '[DiaryDropDown._toggleExpansion] Переключение состояния: $isExpanded -> ${!isExpanded}');
-
     setState(() {
       isExpanded = !isExpanded;
     });

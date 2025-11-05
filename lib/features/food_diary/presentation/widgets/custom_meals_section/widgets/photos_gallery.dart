@@ -53,9 +53,6 @@ class PhotosGallery extends StatelessWidget {
         itemBuilder: (context, index) {
           // Если индекс меньше количества фото — показываем фото
           if (index < photos.length) {
-            print(
-              '[PhotosGallery] Отрисовка фото $index: ${photos[index].path}',
-            );
             return PhotoPreviewItem(
               photo: photos[index],
               onRemove: () => onRemove(index),
@@ -63,11 +60,9 @@ class PhotosGallery extends StatelessWidget {
           }
 
           // Иначе показываем плейсхолдер
-          print('[PhotosGallery] Отрисовка плейсхолдера $index');
           return PhotoPlaceholder(onTap: onAddPhoto);
         },
       ),
     );
   }
 }
-

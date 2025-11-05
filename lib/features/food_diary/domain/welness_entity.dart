@@ -23,9 +23,6 @@ class WelnessEntity {
   });
 
   factory WelnessEntity.fromMap(Map<String, dynamic> map) {
-    print(
-      '[WelnessEntity] Десериализация consumedMeals: ${map['consumedMeals']}',
-    );
     return WelnessEntity(
       consumedMeals: (map['consumedMeals'] as List<dynamic>?)
               ?.map((e) => DiaryMeal.fromMap(e as Map<String, dynamic>))

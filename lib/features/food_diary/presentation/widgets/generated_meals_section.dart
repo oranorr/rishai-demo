@@ -9,27 +9,27 @@ import 'package:rishai/features/food_diary/presentation/widgets/meal_item.dart';
 /// ═══════════════════════════════════════════════════════════════════════════
 /// GeneratedMealsSection Widget
 /// ═══════════════════════════════════════════════════════════════════════════
-/// 
+///
 /// Секция для отображения сгенерированных блюд из дневного и недельного планов.
-/// 
+///
 /// **Функциональность:**
 /// - Отображает список сгенерированных блюд в выпадающем списке
 /// - Показывает количество доступных блюд
 /// - Поддерживает множественный выбор блюд
 /// - Отображает состояние "пусто" если блюд нет
-/// 
+///
 /// **UI/UX:**
 /// - Заголовок секции с счетчиком
 /// - Разделители между элементами
 /// - Плавные анимации взаимодействия
 /// - Следует Apple HIG для списков и выбора элементов
-/// 
+///
 class GeneratedMealsSection extends StatelessWidget {
   const GeneratedMealsSection({
-    super.key,
     required this.meals,
     required this.selectedMeals,
     required this.onMealSelectionChanged,
+    super.key,
   });
 
   /// Список доступных блюд для выбора
@@ -44,9 +44,9 @@ class GeneratedMealsSection extends StatelessWidget {
   /// ═══════════════════════════════════════════════════════════════════════
   /// _isMealSelected
   /// ═══════════════════════════════════════════════════════════════════════
-  /// 
+  ///
   /// Проверяет, выбрано ли блюдо в текущем списке выбранных блюд.
-  /// 
+  ///
   bool _isMealSelected(Meal meal) {
     return selectedMeals.contains(meal);
   }
@@ -82,7 +82,6 @@ class GeneratedMealsSection extends StatelessWidget {
         // └───────────────────────────────────────────────────────────────────┘
         DiaryDropDown(
           title: 'Choose from the list',
-          initiallyExpanded: false,
           child: meals.isEmpty
               // ┌───────────────────────────────────────────────────────────┐
               // │ Состояние "пусто" - нет доступных блюд                   │
@@ -104,14 +103,13 @@ class GeneratedMealsSection extends StatelessWidget {
                   children: meals.asMap().entries.map((entry) {
                     final index = entry.key;
                     final meal = entry.value;
-                    
+
                     return Column(
                       children: [
                         MealItem(
                           meal: meal,
                           isSelected: _isMealSelected(meal),
                           onSelectionChanged: (isSelected) {
-                            print('[GeneratedMealsSection] Изменение выбора: ${meal.title} -> $isSelected');
                             onMealSelectionChanged(meal, isSelected);
                           },
                         ),
@@ -129,4 +127,3 @@ class GeneratedMealsSection extends StatelessWidget {
     );
   }
 }
-

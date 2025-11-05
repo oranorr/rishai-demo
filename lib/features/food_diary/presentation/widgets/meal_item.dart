@@ -7,29 +7,29 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 /// ═══════════════════════════════════════════════════════════════════════════
 /// MealItem Widget
 /// ═══════════════════════════════════════════════════════════════════════════
-/// 
+///
 /// Виджет для отображения элемента блюда с информацией о питательности.
 /// Поддерживает выбор/снятие выбора с анимированными переходами.
-/// 
+///
 /// **Отображаемая информация:**
 /// - Название блюда
 /// - Макронутриенты (белки, жиры, углеводы)
 /// - Калорийность
 /// - Тип приема пищи (завтрак, обед, ужин)
 /// - Индикатор выбора (чекбокс)
-/// 
+///
 /// **UI/UX особенности:**
 /// - Плавная анимация выбора (200ms)
 /// - Анимированный чекбокс с галочкой
 /// - Tactile feedback при нажатии
 /// - Следует Apple HIG для interactive elements
-/// 
+///
 class MealItem extends StatefulWidget {
   const MealItem({
-    super.key,
     required this.meal,
     required this.isSelected,
     required this.onSelectionChanged,
+    super.key,
   });
 
   /// Объект блюда с информацией о макронутриентах
@@ -49,12 +49,11 @@ class _MealItemState extends State<MealItem> {
   /// ═══════════════════════════════════════════════════════════════════════
   /// _toggleSelection
   /// ═══════════════════════════════════════════════════════════════════════
-  /// 
+  ///
   /// Переключает состояние выбора блюда и вызывает callback
   /// для обновления родительского состояния.
-  /// 
+  ///
   void _toggleSelection() {
-    print('[MealItem._toggleSelection] Переключение выбора: ${widget.meal.title} -> ${!widget.isSelected}');
     widget.onSelectionChanged(!widget.isSelected);
   }
 
@@ -113,7 +112,7 @@ class _MealItemState extends State<MealItem> {
                   style: context.styles.regularSmall,
                 ),
                 const Spacer(),
-                
+
                 // ┌───────────────────────────────────────────────────────────┐
                 // │ Калорийность                                              │
                 // └───────────────────────────────────────────────────────────┘
@@ -122,7 +121,7 @@ class _MealItemState extends State<MealItem> {
                   style: context.styles.regularMedium,
                 ),
                 SizedBox(width: 8.w),
-                
+
                 // ┌───────────────────────────────────────────────────────────┐
                 // │ Анимированный чекбокс с галочкой                          │
                 // │ Плавный переход цвета и размера согласно Apple HIG        │
@@ -154,7 +153,7 @@ class _MealItemState extends State<MealItem> {
                 ),
               ],
             ),
-            
+
             // ┌───────────────────────────────────────────────────────────────┐
             // │ Тип приема пищи (Breakfast, Lunch, Dinner)                    │
             // └───────────────────────────────────────────────────────────────┘
@@ -170,4 +169,3 @@ class _MealItemState extends State<MealItem> {
     );
   }
 }
-

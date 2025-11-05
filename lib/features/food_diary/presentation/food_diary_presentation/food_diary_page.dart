@@ -59,9 +59,6 @@ class _FoodDiaryPageState extends State<FoodDiaryPage> {
         (day) => day.dateTime.isSameDate(selectedDate),
       );
       _selectedDay = day;
-      print(
-        '[FoodDiaryPage] Выбран день: ${selectedDate.formatAsDayString()}',
-      );
     });
   }
 

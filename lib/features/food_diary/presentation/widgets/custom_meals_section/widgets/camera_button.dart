@@ -5,23 +5,19 @@ import 'package:rishai/core/theme/theme_colors.dart';
 /// ═══════════════════════════════════════════════════════════════════════════
 /// CameraButton Widget
 /// ═══════════════════════════════════════════════════════════════════════════
-///
-/// Круглая кнопка камеры для добавления фотографий.
-///
-/// **UI/UX:**
-/// - Круглая форма с primary цветом
-/// - Иконка камеры в центре
-/// - Размер 48x48
-///
-class CameraButton extends StatelessWidget {
-  const CameraButton({
-    required this.photoCount,
+class AnalyzeButton extends StatelessWidget {
+  const AnalyzeButton({
+    required this.isEnabled,
     required this.onTap,
+    required this.isLoading,
     super.key,
   });
 
   /// Количество выбранных фотографий
-  final int photoCount;
+  final bool isEnabled;
+
+  /// Флаг загрузки при отправке запроса
+  final bool isLoading;
 
   /// Callback при нажатии
   final VoidCallback onTap;
@@ -29,7 +25,7 @@ class CameraButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: isEnabled ? onTap : null,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -38,12 +34,12 @@ class CameraButton extends StatelessWidget {
             width: 48.w,
             height: 48.w,
             margin: EdgeInsets.only(right: 8.w),
-            decoration: const BoxDecoration(
-              color: RishColors.primary,
+            decoration: BoxDecoration(
+              color: isEnabled ? RishColors.primary : RishColors.stroke,
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.camera_alt_outlined,
+              Icons.generating_tokens,
               color: Colors.black,
               size: 24.w,
               weight: 100,

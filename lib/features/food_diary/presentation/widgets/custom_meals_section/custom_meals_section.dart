@@ -32,7 +32,6 @@ class CustomMealsSection extends StatelessWidget {
 
   /// [_handleAddMore] Обработчик нажатия на "Add more"
   void _handleAddMore(BuildContext context) {
-    print('[CustomMealsSection._handleAddMore] Добавление нового блюда');
     context.read<FoodDiaryCubit>().add(const CustomMealAdd());
   }
 

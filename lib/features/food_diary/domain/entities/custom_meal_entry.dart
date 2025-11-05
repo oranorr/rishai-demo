@@ -25,6 +25,24 @@ import 'package:uuid/uuid.dart';
 /// После получения результата от сервера сохраняет его в analyzedMeal.
 ///
 class CustomMealEntry extends Equatable {
+  const CustomMealEntry({
+    required this.id,
+    required this.photos,
+    required this.description,
+    this.mealType,
+    this.analyzedMeal,
+    this.isSelected = false,
+  });
+
+  /// [CustomMealEntry.empty] Создает пустую запись с новым ID
+  factory CustomMealEntry.empty() {
+    return CustomMealEntry(
+      id: const Uuid().v4(),
+      photos: const [],
+      description: '',
+    );
+  }
+
   /// Уникальный идентификатор записи
   final String id;
 
@@ -42,27 +60,6 @@ class CustomMealEntry extends Equatable {
 
   /// Выбрано ли это блюдо для добавления в дневник (только для проанализированных блюд)
   final bool isSelected;
-
-  const CustomMealEntry({
-    required this.id,
-    required this.photos,
-    required this.description,
-    this.mealType,
-    this.analyzedMeal,
-    this.isSelected = false,
-  });
-
-  /// [CustomMealEntry.empty] Создает пустую запись с новым ID
-  factory CustomMealEntry.empty() {
-    return CustomMealEntry(
-      id: const Uuid().v4(),
-      photos: const [],
-      description: '',
-      mealType: null,
-      analyzedMeal: null,
-      isSelected: false,
-    );
-  }
 
   /// [copyWith] Создает копию с возможностью изменения отдельных полей
   CustomMealEntry copyWith({
@@ -82,7 +79,7 @@ class CustomMealEntry extends Equatable {
       mealType: clearMealType ? null : (mealType ?? this.mealType),
       analyzedMeal:
           clearAnalyzedMeal ? null : (analyzedMeal ?? this.analyzedMeal),
-      isSelected: isSelected != null ? isSelected : this.isSelected,
+      isSelected: isSelected ?? this.isSelected,
     );
   }
 
@@ -143,10 +140,6 @@ DiaryMeal createDiaryMealFromResponse(
   FoodPhotoAnalysisResponse response,
   ServingType? mealType,
 ) {
-  print(
-    '[createDiaryMealFromResponse] Конвертация ответа сервера в DiaryMeal: ${response.nameOfMeal}',
-  );
-
   // Создаем MacrosBreakdown из DTO
   // Внимание: сервер использует 'fats' и 'kcals', а entity - 'fat' и 'kcal'
   final macros = MacrosBreakdown(
@@ -154,10 +147,6 @@ DiaryMeal createDiaryMealFromResponse(
     protein: response.macrosBreakdown.protein,
     carbs: response.macrosBreakdown.carbs,
     fat: response.macrosBreakdown.fats,
-  );
-
-  print(
-    '[createDiaryMealFromResponse] Макросы: K=${macros.kcal}ккал, P=${macros.protein}г, C=${macros.carbs}г, F=${macros.fat}г',
   );
 
   // Создаем DiaryMeal
@@ -168,10 +157,5 @@ DiaryMeal createDiaryMealFromResponse(
     isGeneratedMeal: false, // Это кастомное блюдо пользователя
   );
 
-  print(
-    '[createDiaryMealFromResponse] ✅ DiaryMeal создан: ${diaryMeal.title} (${diaryMeal.type})',
-  );
-
   return diaryMeal;
 }
-
