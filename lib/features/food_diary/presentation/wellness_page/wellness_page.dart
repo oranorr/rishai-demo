@@ -7,6 +7,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
@@ -61,9 +62,13 @@ Scores above target are penalized to encourage balanced nutrition, not overeatin
                           state.day.welnessEntity?.welnessPercentage ?? 0,
                     ),
                     SizedBox(height: 40.h),
-                    const _RecommendationsWidget(),
-                    SizedBox(height: 20.h),
-                    const _ComparisonWidget(),
+                    if (adapty.isActive) ...[
+                      const _RecommendationsWidget(),
+                      SizedBox(height: 20.h),
+                      const _ComparisonWidget(),
+                    ] else ...[
+                      const _NoSubscriptionWidget(),
+                    ],
                   ],
                 )
               : Column(
@@ -132,6 +137,32 @@ class _CaptureMeal extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NoSubscriptionWidget extends StatelessWidget {
+  const _NoSubscriptionWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          'You can get detailed insights and nutritional coaching if you subscribe.',
+          style: context.styles.h2,
+          textAlign: TextAlign.center,
+        ),
+        SizedBox(height: 20.h),
+        RishButton.primary(
+          title: 'Subscribe',
+          enabled: true,
+          isLoading: false,
+          action: () {
+            appNavigationService.go(path: AppRoutes.paywall.path);
+          },
+        ),
+      ],
     );
   }
 }

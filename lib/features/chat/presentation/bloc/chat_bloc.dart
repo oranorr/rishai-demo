@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/status.dart';
@@ -183,11 +184,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Success, update state
         final responseMsg = MessageEntity(text: result, isMe: false);
         list.add(responseMsg); // Add response message
+        
+        // [_sendMessage] Для подписчиков не уменьшаем requestsLeft
+        final newRequestsLeft = adapty.isActive 
+            ? state.requestsLeft 
+            : state.requestsLeft - 1;
+        
         emit(
           state.copyWith(
             status: Status.initial,
             messages: list,
-            requestsLeft: state.requestsLeft - 1,
+            requestsLeft: newRequestsLeft,
             // askedQuestions is already updated above
           ),
         );
@@ -251,11 +258,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           // Немедленно обновляем в Directus
           await _saveToDirectus(mealPlan);
 
+          // [_createMealPlan] Для подписчиков не уменьшаем requestsLeft
+          final newRequestsLeft = adapty.isActive 
+              ? state.requestsLeft 
+              : state.requestsLeft - 1;
+
           // Обновляем состояние
           emit(
             state.copyWith(
               status: Status.success,
-              requestsLeft: state.requestsLeft - 1,
+              requestsLeft: newRequestsLeft,
             ),
           );
 

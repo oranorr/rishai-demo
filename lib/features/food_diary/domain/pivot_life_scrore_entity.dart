@@ -11,7 +11,7 @@ class PivotLifeScoreEntity {
 
   factory PivotLifeScoreEntity.fromMap(Map<String, dynamic> map) {
     return PivotLifeScoreEntity(
-      score: map['score'],
+      score: map['score'].toDouble(),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updatedAt']),
     );
   }

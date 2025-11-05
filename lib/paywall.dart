@@ -2,7 +2,6 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:adapty_flutter/adapty_flutter.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -32,7 +31,14 @@ class _PaywallState extends State<Paywall> {
 
   @override
   void initState() {
-    selectedProduct = adapty.products.first;
+    // [DEBUG MODE] Проверяем наличие продуктов перед доступом
+    // В режиме симулятора products может быть пустым
+    if (adapty.products.isNotEmpty) {
+      selectedProduct = adapty.products.first;
+    } else {
+      // В режиме симулятора products пустой, используем null
+      selectedProduct = null;
+    }
     super.initState();
   }
 
@@ -40,6 +46,40 @@ class _PaywallState extends State<Paywall> {
   Widget build(BuildContext context) {
     isFreeTrialAvailable = adapty.isTrialActive;
     // adapty.test();
+
+    // [DEBUG MODE] Проверяем наличие selectedProduct (может быть null в режиме симулятора)
+    if (selectedProduct == null) {
+      // В режиме симулятора показываем заглушку с возможностью пропустить
+      return RishScaffold(
+        needsAppBar: false,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Simulator Mode',
+                style: context.styles.h1,
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'Subscription purchases are not available in simulator mode.',
+                style: context.styles.h3,
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 32.h),
+              RishButton.primary(
+                title: 'Continue to App',
+                enabled: true,
+                isLoading: false,
+                action: () => context.go(AppRoutes.homeScreen.path),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     price = selectedProduct!.price.localizedString!;
     // '${selectedProduct!.price.currencySymbol}${(selectedProduct!.price.amount).toStringAsFixed(2)}';
     // print(selectedProduct!.price);
@@ -322,6 +362,11 @@ class __SubButtonsState extends State<_SubButtons> {
 
   @override
   Widget build(BuildContext context) {
+    // [DEBUG MODE] Если нет продуктов (режим симулятора), не показываем кнопки
+    if (adapty.products.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

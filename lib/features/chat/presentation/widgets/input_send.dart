@@ -19,11 +19,16 @@ class __InputAndSendState extends State<_InputAndSend> {
     return BlocBuilder<ChatBloc, ChatState>(
       bloc: chatBloc,
       builder: (context, state) {
-        widget.sendActive =
-            widget.textEditingController.text.trim().isNotEmpty &&
-                whoopBloc.state.day.mealPlanEntity != null &&
-                state.status != Status.loading;
-        if (state.requestsLeft <= 0) {
+        // [_InputAndSend] Для подписчиков убираем проверку наличия плана питания
+        // Кнопка активна если: есть текст И (подписка активна ИЛИ есть план) И не идет загрузка
+        widget.sendActive = widget.textEditingController.text
+                .trim()
+                .isNotEmpty &&
+            (adapty.isActive || whoopBloc.state.day.mealPlanEntity != null) &&
+            state.status != Status.loading;
+
+        // [_InputAndSend] Для подписчиков не показываем сообщение об исчерпании запросов
+        if (state.requestsLeft <= 0 && !adapty.isActive) {
           return Text(
             'You run out of free requests. Please, come back tomorrow',
             style: context.styles.regularMedium
@@ -60,10 +65,12 @@ class __InputAndSendState extends State<_InputAndSend> {
             GestureDetector(
               onTap: widget.sendActive
                   ? () {
+                      // [_InputAndSend] Отправляем запрос как isRequest если подписка активна ИЛИ есть план
                       chatBloc.add(
                         ChatSendMessage(
                           text: widget.textEditingController.text.trim(),
-                          isRequest: whoopBloc.state.day.mealPlanEntity != null,
+                          isRequest: adapty.isActive ||
+                              whoopBloc.state.day.mealPlanEntity != null,
                         ),
                       );
                       widget.textEditingController.clear();

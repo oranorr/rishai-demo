@@ -75,13 +75,21 @@
 			<string>applinks:75lyh-alternate.app.link</string>
 		</array>
 
-		<!-- Branch Keys -->
-		<key>branch_key</key>
-		<string>key_live_guvoqm49tveW5nOI8oV8okafrCgPh1W1</string>
-		<key>branch_universal_link_domains</key>
-		<array>
-			<string>75lyh.app.link</string>
-			<string>75lyh-alternate.app.link</string>
-		</array>
-	</dict>
+	<!-- Branch Keys -->
+	<key>branch_key</key>
+	<string>key_live_guvoqm49tveW5nOI8oV8okafrCgPh1W1</string>
+	<key>branch_universal_link_domains</key>
+	<array>
+		<string>75lyh.app.link</string>
+		<string>75lyh-alternate.app.link</string>
+	</array>
+
+	<!-- Camera and Photo Library Permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to take photos of your meals</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to select photos of your meals</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need access to save photos to your photo library</string>
+</dict>
 </plist>

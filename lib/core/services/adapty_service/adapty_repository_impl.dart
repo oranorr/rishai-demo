@@ -40,6 +40,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
         _isSimulatorMode = true;
 
         // В режиме симулятора используем заглушки
+        // [DEBUG MODE] Устанавливаем как неоплаченного пользователя для отладки
         isActive = true;
         isTrialActive = true;
         products = [];
@@ -84,6 +85,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
       // Независимо от причины ошибки, включаем режим симуляции
       _logger('Включение режима симуляции из-за ошибки: $e');
       _isSimulatorMode = true;
+      // [DEBUG MODE] Устанавливаем как неоплаченного пользователя для отладки
       isActive = true;
       isTrialActive = true;
       products = [];
@@ -232,7 +234,8 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
     // В режиме симулятора просто устанавливаем флаги
     if (_isSimulatorMode) {
       _logger('Identify в режиме симулятора для ID: $adaptyId');
-      isActive = true;
+      // [DEBUG MODE] Устанавливаем как неоплаченного пользователя для отладки
+      isActive = false;
       isTrialActive = true;
       return;
     }

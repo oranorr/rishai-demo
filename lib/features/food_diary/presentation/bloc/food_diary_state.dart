@@ -217,3 +217,141 @@ class FoodDiaryMainState extends FoodDiaryState {
         errorMessage,
       ];
 }
+
+/// [DiaryEntryPageState] Состояние страницы добавления блюд в дневник
+///
+/// Содержит данные для UI страницы выбора и добавления блюд:
+/// - Список доступных блюд из планов (дневного и недельного)
+/// - Список выбранных пользователем блюд
+/// - Массив кастомных блюд для создания пользователем
+/// - Статус загрузки/обработки
+///
+/// **LEGACY поля (deprecated, будут удалены):**
+/// - selectedMealType, selectedPhotos, mealDescription - заменены на customMeals
+class DiaryEntryPageState extends FoodDiaryState {
+  /// Текущий статус операций (загрузка, успех, ошибка)
+  final Status status;
+
+  /// Список доступных блюд для выбора (из дневного и недельного планов, исключая уже потребленные)
+  final List<Meal> availableMeals;
+
+  /// Список выбранных пользователем блюд для добавления в дневник
+  final List<Meal> selectedMeals;
+
+  /// Массив кастомных блюд, создаваемых пользователем
+  /// По умолчанию содержит одно пустое блюдо
+  final List<CustomMealEntry> customMeals;
+
+  /// [LEGACY] Выбранный тип приема пищи для кастомных блюд
+  /// @deprecated Используйте customMeals[index].mealType
+  final ServingType? selectedMealType;
+
+  /// [LEGACY] Список выбранных фотографий блюд
+  /// @deprecated Используйте customMeals[index].photos
+  final List<XFile> selectedPhotos;
+
+  /// [LEGACY] Описание кастомного блюда
+  /// @deprecated Используйте customMeals[index].description
+  final String mealDescription;
+
+  /// Сообщение об ошибке (если есть)
+  final String? errorMessage;
+
+  const DiaryEntryPageState({
+    required this.status,
+    required this.availableMeals,
+    required this.selectedMeals,
+    required this.customMeals,
+    this.selectedMealType,
+    required this.selectedPhotos,
+    required this.mealDescription,
+    this.errorMessage,
+  });
+
+  /// [DiaryEntryPageState.initial] Начальное состояние страницы
+  factory DiaryEntryPageState.initial() {
+    return DiaryEntryPageState(
+      status: Status.initial,
+      availableMeals: const [],
+      selectedMeals: const [],
+      customMeals: [CustomMealEntry.empty()], // Начинаем с одного пустого блюда
+      selectedMealType: null,
+      selectedPhotos: const [],
+      mealDescription: '',
+      errorMessage: null,
+    );
+  }
+
+  /// [copyWith] Создает копию состояния с возможностью изменения отдельных полей
+  DiaryEntryPageState copyWith({
+    Status? status,
+    List<Meal>? availableMeals,
+    List<Meal>? selectedMeals,
+    List<CustomMealEntry>? customMeals,
+    ServingType? selectedMealType,
+    List<XFile>? selectedPhotos,
+    String? mealDescription,
+    String? errorMessage,
+    bool clearMealType = false,
+  }) {
+    return DiaryEntryPageState(
+      status: status ?? this.status,
+      availableMeals: availableMeals ?? this.availableMeals,
+      selectedMeals: selectedMeals ?? this.selectedMeals,
+      customMeals: customMeals ?? this.customMeals,
+      selectedMealType:
+          clearMealType ? null : (selectedMealType ?? this.selectedMealType),
+      selectedPhotos: selectedPhotos ?? this.selectedPhotos,
+      mealDescription: mealDescription ?? this.mealDescription,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+
+  /// [isLoading] Проверяет, выполняется ли загрузка
+  bool get isLoading => status == Status.loading;
+
+  /// [hasError] Проверяет, есть ли ошибка
+  bool get hasError => status == Status.error;
+
+  /// [isSuccess] Проверяет, успешно ли выполнена операция
+  bool get isSuccess => status == Status.success;
+
+  /// [hasSelectedMeals] Проверяет, есть ли выбранные блюда
+  bool get hasSelectedMeals => selectedMeals.isNotEmpty;
+
+  /// [selectedMealsCount] Возвращает количество выбранных блюд
+  int get selectedMealsCount => selectedMeals.length;
+
+  /// [selectedCustomMeals] Возвращает список выбранных кастомных проанализированных блюд
+  ///
+  /// Содержит только те блюда, которые:
+  /// - Проанализированы (isAnalyzed = true)
+  /// - Выбраны пользователем (isSelected = true)
+  List<CustomMealEntry> get selectedCustomMeals {
+    final result = customMeals.where((meal) => meal.isAnalyzed && meal.isSelected).toList();
+    print('[DiaryEntryPageState.selectedCustomMeals] Найдено выбранных кастомных блюд: ${result.length}');
+    for (final meal in customMeals) {
+      print('[DiaryEntryPageState.selectedCustomMeals] Блюдо ${meal.id}: isAnalyzed=${meal.isAnalyzed}, isSelected=${meal.isSelected}');
+    }
+    return result;
+  }
+
+  /// [selectedCustomMealsCount] Возвращает количество выбранных кастомных блюд
+  int get selectedCustomMealsCount {
+    final count = selectedCustomMeals.length;
+    print('[DiaryEntryPageState.selectedCustomMealsCount] = $count');
+    return count;
+  }
+
+  @override
+  List<Object?> get props => [
+        status,
+        availableMeals,
+        selectedMeals,
+        customMeals,
+        selectedMealType,
+        selectedPhotos,
+        mealDescription,
+        errorMessage,
+      ];
+}

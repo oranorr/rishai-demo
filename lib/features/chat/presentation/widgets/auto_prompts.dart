@@ -98,6 +98,9 @@ class __AutoPromptsState extends State<_AutoPrompts>
         return _buildViewMealPlanButton();
       case 4:
         return const _PromptQuestions(isVisible: true);
+      case 5:
+        // [_AutoPrompts] Режим для подписчиков: кнопка создания плана + готовые вопросы
+        return _buildPremiumModeWithoutPlan();
       default:
         return const SizedBox.shrink();
     }
@@ -231,6 +234,40 @@ class __AutoPromptsState extends State<_AutoPrompts>
     );
   }
 
+  /// [_buildPremiumModeWithoutPlan] Режим для подписчиков без плана питания:
+  /// кнопка создания плана + готовые вопросы
+  Widget _buildPremiumModeWithoutPlan() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Кнопка создания плана питания
+        RishButton.primary(
+          height: 48.h,
+          title: 'Create meal plan',
+          enabled: true,
+          isLoading: false,
+          action: () {
+            // Переходим к обычному флоу создания плана
+            chatBloc
+              ..add(const ChatSendMessage(text: 'Create meal plan', isMe: true))
+              ..add(
+                const ChatSendMessage(
+                  text: 'What would you like to have today?',
+                  isMe: false,
+                ),
+              );
+            setState(() {
+              currentStep = 1; // Переходим к выбору приемов пищи
+            });
+          },
+        ),
+        SizedBox(height: 12.h),
+        // Готовые вопросы
+        const _PromptQuestions(isVisible: true),
+      ],
+    );
+  }
+
   void _checkForDate() {
     final now = DateTime.now();
     final currentDay = whoopBloc.state.day;
@@ -241,6 +278,28 @@ class __AutoPromptsState extends State<_AutoPrompts>
     final isPast =
         currentDay.dateTime.isBefore(now.subtract(const Duration(days: 1)));
     final hasMealPlan = currentDay.mealPlanEntity != null;
+
+    // [_checkForDate] Для подписчиков с активной подпиской и без плана показываем премиум режим
+    if (isToday && !hasMealPlan && adapty.isActive) {
+      setState(() {
+        currentStep = 5; // Премиум режим: кнопка создания + вопросы
+      });
+      // Добавляем приветственное сообщение если его еще нет
+      if (chatBloc.state.messages.isEmpty ||
+          !chatBloc.state.messages.any(
+            (msg) => !msg.isMe && msg.text.contains('Go ask me'),
+          )) {
+        chatBloc.add(
+          const ChatSendMessage(
+            text:
+                "Hello! I'm your AI nutrition coach. Go ask me anything about nutrition, or create a meal plan to get started!",
+            isMe: false,
+          ),
+        );
+      }
+      print('[_checkForDate] Premium mode activated: step $currentStep');
+      return;
+    }
 
     if (isToday) {
       // Если сегодня и нет плана - можно создать

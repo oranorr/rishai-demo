@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 
@@ -177,6 +179,53 @@ class LlmRegenerateMealRequest {
           targetMeal.toJson(),
         ], // Оборачиваем в массив для совместимости с API
       };
+}
+
+/// Модель ответа для анализа фотографий еды
+class FoodPhotoAnalysisResponse {
+  FoodPhotoAnalysisResponse({
+    required this.nameOfMeal,
+    required this.macrosBreakdown,
+  });
+
+  factory FoodPhotoAnalysisResponse.fromJson(Map<String, dynamic> json) {
+    return FoodPhotoAnalysisResponse(
+      nameOfMeal: json['nameOfMeal'] as String,
+      macrosBreakdown: MacrosBreakdownDto.fromJson(
+        json['macrosBreakdown'] as Map<String, dynamic>,
+      ),
+    );
+  }
+
+  /// Название блюда
+  final String nameOfMeal;
+
+  /// Разбивка макронутриентов
+  final MacrosBreakdownDto macrosBreakdown;
+}
+
+/// Модель для макронутриентов в ответе анализа фотографий
+class MacrosBreakdownDto {
+  MacrosBreakdownDto({
+    required this.protein,
+    required this.fats,
+    required this.carbs,
+    required this.kcals,
+  });
+
+  factory MacrosBreakdownDto.fromJson(Map<String, dynamic> json) {
+    return MacrosBreakdownDto(
+      protein: json['protein'] as int,
+      fats: json['fats'] as int,
+      carbs: json['carbs'] as int,
+      kcals: json['kcals'] as int,
+    );
+  }
+
+  final int protein;
+  final int fats;
+  final int carbs;
+  final int kcals;
 }
 
 /// HTTP клиент для взаимодействия с LLM прокси
@@ -555,5 +604,116 @@ class LlmProxyClient {
 
     // Этот код никогда не должен выполниться, но на всякий случай
     throw Exception('Неожиданная ошибка в retry логике regenerateMeal');
+  }
+
+  /// [analyzeFoodPhoto] Отправляет фотографии еды на анализ
+  ///
+  /// Принимает до 5 фотографий и опциональное описание.
+  /// Возвращает название блюда и разбивку макронутриентов.
+  ///
+  /// Параметры:
+  /// - [images] - список фотографий (XFile) от 1 до 5 штук
+  /// - [description] - описание/вопрос о еде (опционально)
+  ///
+  /// Возвращает [FoodPhotoAnalysisResponse] с названием блюда и макросами
+  Future<FoodPhotoAnalysisResponse> analyzeFoodPhoto({
+    required List<XFile> images,
+    required String description,
+  }) async {
+    try {
+      log('🔄 [analyzeFoodPhoto] Отправка фотографий на анализ');
+      log('📝 [analyzeFoodPhoto] Количество фотографий: ${images.length}');
+      log('📝 [analyzeFoodPhoto] Описание: "$description"');
+
+      // Валидация количества изображений
+      if (images.isEmpty) {
+        throw Exception('Необходимо предоставить хотя бы одну фотографию');
+      }
+      if (images.length > 5) {
+        throw Exception('Максимум 5 фотографий за один запрос');
+      }
+
+      final url = Uri.parse('$_baseUrl/llm-proxy-food-photo/analyze');
+      log('📦 [analyzeFoodPhoto] URL: $url');
+
+      // Создаем multipart request
+      final request = http.MultipartRequest('POST', url);
+
+      // Добавляем заголовок авторизации
+      request.headers[_authHeaderKey] = _authHeaderValue;
+
+      // Добавляем изображения
+      for (final image in images) {
+        // Определяем MIME-тип на основе расширения файла
+        String? mimeType;
+        final extension = image.path.split('.').last.toLowerCase();
+
+        switch (extension) {
+          case 'jpg':
+          case 'jpeg':
+            mimeType = 'image/jpeg';
+            break;
+          case 'png':
+            mimeType = 'image/png';
+            break;
+          case 'webp':
+            mimeType = 'image/webp';
+            break;
+          case 'heic':
+            mimeType = 'image/heic';
+            break;
+          case 'heif':
+            mimeType = 'image/heif';
+            break;
+          default:
+            mimeType = 'image/jpeg'; // По умолчанию
+        }
+
+        final multipartFile = await http.MultipartFile.fromPath(
+          'images', // имя поля
+          image.path,
+          contentType: MediaType.parse(mimeType),
+        );
+        request.files.add(multipartFile);
+        log('📷 [analyzeFoodPhoto] Добавлено изображение: ${image.path.split('/').last} (MIME: $mimeType)');
+      }
+
+      // Добавляем description
+      request.fields['description'] = description;
+
+      log('📤 [analyzeFoodPhoto] Отправка запроса...');
+
+      // Отправляем запрос
+      final streamedResponse = await request.send();
+
+      // Читаем ответ
+      final responseData = await streamedResponse.stream.bytesToString();
+
+      log('📥 [analyzeFoodPhoto] Получен ответ: ${streamedResponse.statusCode}');
+
+      if (streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 201) {
+        log('📦 [analyzeFoodPhoto] ПОЛНЫЙ JSON ОТВЕТ: $responseData');
+
+        // Парсим JSON ответ
+        final jsonResponse = json.decode(responseData) as Map<String, dynamic>;
+        final analysisResponse =
+            FoodPhotoAnalysisResponse.fromJson(jsonResponse);
+
+        log('✅ [analyzeFoodPhoto] Успешно проанализировано');
+        log('🍽️ [analyzeFoodPhoto] Блюдо: ${analysisResponse.nameOfMeal}');
+        log('📊 [analyzeFoodPhoto] Макросы: P=${analysisResponse.macrosBreakdown.protein}г, F=${analysisResponse.macrosBreakdown.fats}г, C=${analysisResponse.macrosBreakdown.carbs}г, K=${analysisResponse.macrosBreakdown.kcals}ккал');
+
+        return analysisResponse;
+      } else {
+        log('❌ [analyzeFoodPhoto] Ошибка от сервера: ${streamedResponse.statusCode} - $responseData');
+        throw Exception(
+          'HTTP ${streamedResponse.statusCode}: $responseData',
+        );
+      }
+    } catch (e) {
+      log('💥 [analyzeFoodPhoto] Исключение при анализе фотографий: $e');
+      rethrow;
+    }
   }
 }
