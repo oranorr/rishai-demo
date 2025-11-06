@@ -3,15 +3,11 @@ part of '../../home_screen.dart';
 class _FabOverlayWidget extends StatelessWidget {
   const _FabOverlayWidget({
     required this.overlayAnimation,
-    required this.pageController,
     required this.onHideOverlay,
   });
 
   /// Анимация для появления/скрытия overlay
   final Animation<double> overlayAnimation;
-
-  /// Контроллер страниц для навигации между экранами
-  final PageController pageController;
 
   /// Callback для скрытия overlay
   final VoidCallback onHideOverlay;
@@ -85,7 +81,10 @@ class _FabOverlayWidget extends StatelessWidget {
                               action: () async {
                                 if (!hasMealPlan) {
                                   onHideOverlay();
-                                  await pageController.rAnimate(2);
+                                  // Переход на страницу чата (страница 2)
+                                  await homePageControllerService.navigateToPage(
+                                    page: 2,
+                                  );
                                 } else {
                                   onHideOverlay();
                                   await homePageControllerService
@@ -103,7 +102,10 @@ class _FabOverlayWidget extends StatelessWidget {
                           enabled: true,
                           isLoading: false,
                           action: () async {
-                            await pageController.rAnimate(1);
+                            // Переход на страницу meal prep (страница 1)
+                            await homePageControllerService.navigateToPage(
+                              page: 1,
+                            );
                             onHideOverlay();
                           },
                         ),

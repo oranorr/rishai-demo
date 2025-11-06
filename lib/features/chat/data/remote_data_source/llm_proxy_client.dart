@@ -470,7 +470,7 @@ class LlmProxyClient {
           if (is502Error && retryCount < maxRetries) {
             retryCount++;
             final delaySeconds =
-                retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+                retryCount * 5; // Экспоненциальная задержка: 5, 10, 15 секунд
             log('🔄 [generateMeals] HTTP 502 ошибка для ${request.type.name}, повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
             await Future.delayed(Duration(seconds: delaySeconds));
             continue;
@@ -487,7 +487,7 @@ class LlmProxyClient {
         if (is502Error && retryCount < maxRetries) {
           retryCount++;
           final delaySeconds =
-              retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+              retryCount * 5; // Экспоненциальная задержка: 5, 10, 15 секунд
           log('💥 [generateMeals] HTTP 502 исключение для ${request.type.name}: $e');
           log('🔄 [generateMeals] Повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
           await Future.delayed(Duration(seconds: delaySeconds));
@@ -569,7 +569,7 @@ class LlmProxyClient {
           if (is502Error && retryCount < maxRetries) {
             retryCount++;
             final delaySeconds =
-                retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+                retryCount * 5; // Экспоненциальная задержка: 5, 10, 15 секунд
             log('🔄 [regenerateMeal] HTTP 502 ошибка для ${request.type.name}, повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
             await Future.delayed(Duration(seconds: delaySeconds));
             continue;
@@ -586,7 +586,7 @@ class LlmProxyClient {
         if (is502Error && retryCount < maxRetries) {
           retryCount++;
           final delaySeconds =
-              retryCount * 2; // Экспоненциальная задержка: 2, 4, 6 секунд
+              retryCount * 5; // Экспоненциальная задержка: 5, 10, 15 секунд
           log('💥 [regenerateMeal] HTTP 502 исключение для ${request.type.name}: $e');
           log('🔄 [regenerateMeal] Повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
           await Future.delayed(Duration(seconds: delaySeconds));
@@ -608,12 +608,13 @@ class LlmProxyClient {
 
   /// [analyzeFoodPhoto] Отправляет фотографии еды на анализ
   ///
-  /// Принимает до 5 фотографий и опциональное описание.
+  /// Принимает до 5 фотографий и описание.
+  /// Фотографии опциональны - можно передавать пустой массив.
   /// Возвращает название блюда и разбивку макронутриентов.
   ///
   /// Параметры:
-  /// - [images] - список фотографий (XFile) от 1 до 5 штук
-  /// - [description] - описание/вопрос о еде (опционально)
+  /// - [images] - список фотографий (XFile) от 0 до 5 штук (опционально)
+  /// - [description] - описание/вопрос о еде
   ///
   /// Возвращает [FoodPhotoAnalysisResponse] с названием блюда и макросами
   Future<FoodPhotoAnalysisResponse> analyzeFoodPhoto({
@@ -626,9 +627,7 @@ class LlmProxyClient {
       log('📝 [analyzeFoodPhoto] Описание: "$description"');
 
       // Валидация количества изображений
-      if (images.isEmpty) {
-        throw Exception('Необходимо предоставить хотя бы одну фотографию');
-      }
+      // Фотографии опциональны - можно передавать пустой массив
       if (images.length > 5) {
         throw Exception('Максимум 5 фотографий за один запрос');
       }
@@ -642,40 +641,44 @@ class LlmProxyClient {
       // Добавляем заголовок авторизации
       request.headers[_authHeaderKey] = _authHeaderValue;
 
-      // Добавляем изображения
-      for (final image in images) {
-        // Определяем MIME-тип на основе расширения файла
-        String? mimeType;
-        final extension = image.path.split('.').last.toLowerCase();
+      // Добавляем изображения только если они есть
+      if (images.isNotEmpty) {
+        for (final image in images) {
+          // Определяем MIME-тип на основе расширения файла
+          String? mimeType;
+          final extension = image.path.split('.').last.toLowerCase();
 
-        switch (extension) {
-          case 'jpg':
-          case 'jpeg':
-            mimeType = 'image/jpeg';
-            break;
-          case 'png':
-            mimeType = 'image/png';
-            break;
-          case 'webp':
-            mimeType = 'image/webp';
-            break;
-          case 'heic':
-            mimeType = 'image/heic';
-            break;
-          case 'heif':
-            mimeType = 'image/heif';
-            break;
-          default:
-            mimeType = 'image/jpeg'; // По умолчанию
+          switch (extension) {
+            case 'jpg':
+            case 'jpeg':
+              mimeType = 'image/jpeg';
+              break;
+            case 'png':
+              mimeType = 'image/png';
+              break;
+            case 'webp':
+              mimeType = 'image/webp';
+              break;
+            case 'heic':
+              mimeType = 'image/heic';
+              break;
+            case 'heif':
+              mimeType = 'image/heif';
+              break;
+            default:
+              mimeType = 'image/jpeg'; // По умолчанию
+          }
+
+          final multipartFile = await http.MultipartFile.fromPath(
+            'images', // имя поля
+            image.path,
+            contentType: MediaType.parse(mimeType),
+          );
+          request.files.add(multipartFile);
+          log('📷 [analyzeFoodPhoto] Добавлено изображение: ${image.path.split('/').last} (MIME: $mimeType)');
         }
-
-        final multipartFile = await http.MultipartFile.fromPath(
-          'images', // имя поля
-          image.path,
-          contentType: MediaType.parse(mimeType),
-        );
-        request.files.add(multipartFile);
-        log('📷 [analyzeFoodPhoto] Добавлено изображение: ${image.path.split('/').last} (MIME: $mimeType)');
+      } else {
+        log('📝 [analyzeFoodPhoto] Фотографии не переданы, анализ будет проводиться только на основе описания');
       }
 
       // Добавляем description

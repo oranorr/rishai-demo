@@ -5,7 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 
-class RishButton extends StatelessWidget {
+class RishButton extends StatefulWidget {
   const RishButton({
     required this.title,
     required this.backgroundColor,
@@ -87,35 +87,64 @@ class RishButton extends StatelessWidget {
   final Color? borderColor;
 
   @override
+  State<RishButton> createState() => _RishButtonState();
+}
+
+class _RishButtonState extends State<RishButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _animation = Tween<double>(begin: 0, end: 1).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: !enabled
+      onTap: !widget.enabled
           ? () {}
-          : isLoading ?? false
+          : widget.isLoading ?? false
               ? () {}
-              : action,
+              : widget.action,
       // onTap: isLoading ?? false ? () {} : action,
-      child: Container(
-        height: height,
-        width: width,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        height: widget.height,
+        width: widget.width,
         decoration: BoxDecoration(
-          color: enabled ? backgroundColor : RishColors.stroke,
-          border: needsBorder
+          color: widget.enabled ? widget.backgroundColor : RishColors.stroke,
+          border: widget.needsBorder
               ? Border.all(
-                  color: borderColor ?? context.theme.colorScheme.primary,
+                  color:
+                      widget.borderColor ?? context.theme.colorScheme.primary,
                 )
               : null,
-          borderRadius: BorderRadius.circular(radius),
+          borderRadius: BorderRadius.circular(widget.radius),
         ),
         child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                title,
-                style: context.styles.boldLarge.copyWith(color: textColor),
+                widget.title,
+                style:
+                    context.styles.boldLarge.copyWith(color: widget.textColor),
               ),
-              if (isLoading ?? false) ...[
+              if (widget.isLoading ?? false) ...[
                 SizedBox(width: 8.h),
                 const SizedBox.square(
                   dimension: 16,

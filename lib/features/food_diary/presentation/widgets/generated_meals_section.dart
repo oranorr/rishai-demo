@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/diary_dropdown.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/meal_item.dart';
@@ -16,7 +20,7 @@ import 'package:rishai/features/food_diary/presentation/widgets/meal_item.dart';
 /// - Отображает список сгенерированных блюд в выпадающем списке
 /// - Показывает количество доступных блюд
 /// - Поддерживает множественный выбор блюд
-/// - Отображает состояние "пусто" если блюд нет
+/// - Отображает кнопку создания индивидуального плана, если блюд нет
 ///
 /// **UI/UX:**
 /// - Заголовок секции с счетчиком
@@ -78,51 +82,50 @@ class GeneratedMealsSection extends StatelessWidget {
         SizedBox(height: 12.h),
 
         // ┌───────────────────────────────────────────────────────────────────┐
-        // │ Выпадающий список с блюдами                                       │
+        // │ Выпадающий список с блюдами или кнопка создания плана              │
         // └───────────────────────────────────────────────────────────────────┘
-        DiaryDropDown(
-          title: 'Choose from the list',
-          child: meals.isEmpty
-              // ┌───────────────────────────────────────────────────────────┐
-              // │ Состояние "пусто" - нет доступных блюд                   │
-              // └───────────────────────────────────────────────────────────┘
-              ? Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16.h),
-                  child: Text(
-                    'No meals available',
-                    style: context.styles.regularMedium.copyWith(
-                      color: RishColors.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              // ┌───────────────────────────────────────────────────────────┐
-              // │ Список блюд с разделителями                               │
-              // └───────────────────────────────────────────────────────────┘
-              : Column(
-                  children: meals.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final meal = entry.value;
+        if (meals.isEmpty)
+          Column(
+            children: [
+              // Кнопка создания индивидуального плана питания
+              RishButton.primary(
+                title: 'Create Individual Meal Plan',
+                enabled: true,
+                isLoading: false,
+                action: () async {
+                  appNavigationService.pop(path: AppRoutes.chat.path);
+                  await homePageControllerService.navigateToPage(page: 2);
+                },
+              ),
+            ],
+          )
+        else
+          DiaryDropDown(
+            title: 'Choose from the list',
+            child: Column(
+              children: meals.asMap().entries.map((entry) {
+                final index = entry.key;
+                final meal = entry.value;
 
-                    return Column(
-                      children: [
-                        MealItem(
-                          meal: meal,
-                          isSelected: _isMealSelected(meal),
-                          onSelectionChanged: (isSelected) {
-                            onMealSelectionChanged(meal, isSelected);
-                          },
-                        ),
-                        // Разделитель между элементами (кроме последнего)
-                        if (index < meals.length - 1)
-                          const Divider(
-                            color: RishColors.stroke,
-                          ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-        ),
+                return Column(
+                  children: [
+                    MealItem(
+                      meal: meal,
+                      isSelected: _isMealSelected(meal),
+                      onSelectionChanged: (isSelected) {
+                        onMealSelectionChanged(meal, isSelected);
+                      },
+                    ),
+                    // Разделитель между элементами (кроме последнего)
+                    if (index < meals.length - 1)
+                      const Divider(
+                        color: RishColors.stroke,
+                      ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
       ],
     );
   }

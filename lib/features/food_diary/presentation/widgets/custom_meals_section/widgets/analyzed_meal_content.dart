@@ -169,7 +169,7 @@ class AnalyzedMealContent extends StatelessWidget {
                     colorFilter: ColorFilter.mode(
                       meal.isSelected
                           ? RishColors.primary
-                          : RishColors.textSecondary.withOpacity(0.3),
+                          : RishColors.textPrimary,
                       BlendMode.srcIn,
                     ),
                   ),

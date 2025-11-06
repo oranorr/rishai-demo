@@ -85,7 +85,7 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
                       const CustomMealsSection(),
 
                       // [build] Дополнительный отступ снизу для кнопки
-                      SizedBox(height: 100.h),
+                      SizedBox(height: 50.h),
                     ],
                   ),
                 ),

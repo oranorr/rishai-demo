@@ -21,12 +21,6 @@ import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.da
 /// чтобы уменьшить сложность виджета.
 ///
 class ImagePickerHandler {
-  /// Сервис для работы с изображениями
-  final ImagePickerService _imagePickerService;
-
-  /// Хелпер для работы с диалогами выбора изображений
-  late final ImagePickerHelper _imagePickerHelper;
-
   /// Конструктор
   ImagePickerHandler({
     ImagePickerService? imagePickerService,
@@ -34,14 +28,23 @@ class ImagePickerHandler {
     _imagePickerHelper = ImagePickerHelper(_imagePickerService);
   }
 
+  /// Сервис для работы с изображениями
+  final ImagePickerService _imagePickerService;
+
+  /// Хелпер для работы с диалогами выбора изображений
+  late final ImagePickerHelper _imagePickerHelper;
+
   /// [pickImages] Выбирает изображения из камеры или галереи
   ///
   /// Показывает диалог выбора источника и обрабатывает результат.
   /// Учитывает лимит на количество фотографий.
+  /// Разрешения проверяются и запрашиваются после выбора источника
+  /// пользователем (камера или галерея) в ImagePickerHelper.
   ///
   /// **Параметры:**
   /// - context: Контекст для показа диалога
   /// - currentPhotoCount: Текущее количество фотографий (для проверки лимита)
+  /// - maxPhotos: Максимальное количество фотографий для данного блюда
   ///
   /// **Возвращает:**
   /// - XFile? если выбрана одна фотография
@@ -54,18 +57,19 @@ class ImagePickerHandler {
   Future<dynamic> pickImages({
     required BuildContext context,
     required int currentPhotoCount,
+    required int maxPhotos,
   }) async {
     // Вычисляем доступные слоты
-    final availableSlots =
-        FoodDiaryCubit.maxPhotos - currentPhotoCount;
+    final availableSlots = maxPhotos - currentPhotoCount;
 
     // Проверяем лимит фотографий
     if (availableSlots <= 0) {
-      throw Exception('Maximum ${FoodDiaryCubit.maxPhotos} photos allowed');
+      throw Exception('Maximum $maxPhotos photos allowed');
     }
 
     try {
       // Показываем диалог выбора источника
+      // Разрешения будут запрошены в ImagePickerHelper после выбора источника
       final dynamic result =
           await _imagePickerHelper.showAppleStyleImageSourceDialog(
         context: context,
@@ -95,7 +99,7 @@ class ImagePickerHandler {
   /// **Выбрасывает:**
   /// Exception если результат пустой или имеет неожиданный тип
   ///
-  List<XFile> handleImageResult(dynamic result) {
+  List<XFile> handleImageResult(result) {
     if (result is XFile) {
       // Одна фотография
       return [result];
@@ -113,4 +117,3 @@ class ImagePickerHandler {
     }
   }
 }
-

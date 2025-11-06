@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 
 /// ═══════════════════════════════════════════════════════════════════════════
@@ -47,26 +48,26 @@ class AddMealsButton extends StatelessWidget {
   /// - "Add 1 meal to diary" - когда выбрано 1 блюдо
   /// - "Add X meals to diary" - когда выбрано несколько блюд
   ///
-  String _getButtonTitle() {
-    if (selectedMealsCount == 0) {
-      return 'Select meals';
-    } else if (selectedMealsCount == 1) {
-      return 'Add 1 meal to diary';
-    } else {
-      return 'Add $selectedMealsCount meals to diary';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       minimum: const EdgeInsets.only(top: 16),
       child: RishButton.primary(
-        title: _getButtonTitle(),
+        title: selectedMealsCount == 0 ? 'Select meals' : 'Add meals to diary',
         enabled: selectedMealsCount > 0,
         isLoading: isLoading,
         action: () {
-          onPressed();
+          // [action] Показываем диалог подтверждения перед добавлением блюд
+          // Используем готовое решение из RishiDialog
+          RishiDialog.showAddMealsConfirmationDialog(
+            context,
+            mealsCount: selectedMealsCount,
+            action: () {
+              // [action] Вызываем оригинальный callback только после подтверждения
+              onPressed();
+            },
+          );
         },
       ),
     );

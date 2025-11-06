@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:rishai/core/extensions/page_controller_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart';
@@ -35,8 +34,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
+  /// PageController для управления переключением страниц
+  /// Регистрируется в сервисе для доступа извне
   late PageController pageController;
-  final ValueNotifier<int> currentPageNotifier = ValueNotifier<int>(0);
 
   // Состояние для управления overlay с блюром
   bool _isOverlayVisible = false;
@@ -45,13 +45,14 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void initState() {
-    pageController = PageController(initialPage: currentPageNotifier.value)
-      ..addListener(() {
-        final newPage = pageController.page?.round() ?? 0;
-        if (newPage != currentPageNotifier.value) {
-          currentPageNotifier.value = newPage;
-        }
-      });
+    super.initState();
+
+    // Инициализируем PageController (начинаем с первой страницы)
+    pageController = PageController();
+
+    // Регистрируем PageController в сервисе для доступа извне
+    // Сервис обновит currentPageNotifier через listener при изменениях страницы
+    homePageControllerService.registerPageController(pageController);
 
     // Инициализация анимации для overlay
     _overlayAnimationController = AnimationController(
@@ -67,13 +68,14 @@ class _HomeScreenState extends State<HomeScreen>
     // t = Timer.periodic(const Duration(minutes: 10), (t) {
     //   whoopBloc.add(const WhoopCheckForRefresh(needsErrorSnack: false));
     // });
-    super.initState();
   }
 
   @override
   void dispose() {
+    // Отменяем регистрацию PageController в сервисе
+    homePageControllerService.unregisterPageController();
+    // Освобождаем ресурсы PageController
     pageController.dispose();
-    currentPageNotifier.dispose();
     _overlayAnimationController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -128,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen>
         ];
 
         return ValueListenableBuilder<int>(
-          valueListenable: currentPageNotifier,
+          valueListenable: homePageControllerService.currentPageNotifier,
           builder: (context, currentPage, _) {
             return RishScaffold(
               implyLeading: false,
@@ -148,12 +150,15 @@ class _HomeScreenState extends State<HomeScreen>
               floatingActionButtonLocation:
                   FloatingActionButtonLocation.endFloat,
               bottomNavigationBar: ValueListenableBuilder<int>(
-                valueListenable: currentPageNotifier,
+                valueListenable: homePageControllerService.currentPageNotifier,
                 builder: (context, currentPage, _) {
                   return RishiBottonNavigationBar(
                     currentPage: currentPage,
                     jump: (page) async {
-                      await pageController.rAnimate(page);
+                      // Используем метод сервиса для навигации
+                      await homePageControllerService.navigateToPage(
+                        page: page,
+                      );
                     },
                   );
                 },
@@ -175,7 +180,6 @@ class _HomeScreenState extends State<HomeScreen>
                   if (_isOverlayVisible)
                     _FabOverlayWidget(
                       overlayAnimation: _overlayAnimation,
-                      pageController: pageController,
                       onHideOverlay: _hideOverlay,
                     ),
                 ],

@@ -4,6 +4,7 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/food_diary/domain/entities/custom_meal_entry.dart';
+import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/camera_button.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/meal_type_selector.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/photos_gallery.dart';
@@ -58,6 +59,14 @@ class EditableMealContent extends StatelessWidget {
   /// Callback для отправки запроса на анализ
   final VoidCallback onSendRequest;
 
+  /// [decideMaxSlots] Вычисляет максимальное количество слотов для фотографий
+  ///
+  /// Использует метод FoodDiaryCubit.getMaxPhotosForMeal для определения лимита
+  /// на основе подписки и типа блюда.
+  int decideMaxSlots() {
+    return FoodDiaryCubit.getMaxPhotosForMeal(meal.mealType);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -78,6 +87,7 @@ class EditableMealContent extends StatelessWidget {
           photos: meal.photos,
           onRemove: onPhotoRemove,
           onAddPhoto: onCameraTap,
+          maxSlots: decideMaxSlots(),
         ),
         SizedBox(height: 12.h),
 
@@ -95,8 +105,16 @@ class EditableMealContent extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: descriptionController,
+                  maxLength: 300,
+                  buildCounter: (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    required maxLength,
+                  }) =>
+                      const SizedBox.shrink(),
                   decoration: InputDecoration(
-                    hintText: 'Add meal description',
+                    hintText: 'What did you have?',
                     hintStyle: context.styles.regularMedium.copyWith(
                       color: RishColors.textSecondary,
                     ),
@@ -113,14 +131,14 @@ class EditableMealContent extends StatelessWidget {
 
               // Круглая кнопка камеры
               AnalyzeButton(
-                isEnabled: meal.hasPhotos || meal.hasDescription,
+                isEnabled: meal.hasDescription && meal.mealType != null,
                 onTap: onSendRequest,
                 isLoading: isLoading,
               ),
             ],
           ),
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 6.h),
       ],
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/string_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/food_diary/domain/entities/custom_meal_entry.dart'
     show CustomMealEntry;
 import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart';

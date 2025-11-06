@@ -22,13 +22,13 @@ import 'package:rishai/features/food_diary/domain/diary_meal.dart';
 /// чтобы уменьшить сложность виджета.
 ///
 class MealAnalysisHandler {
-  /// Клиент для работы с LLM прокси
-  final LlmProxyClient _llmProxyClient;
-
   /// Конструктор с инъекцией зависимостей
   MealAnalysisHandler({
     LlmProxyClient? llmProxyClient,
   }) : _llmProxyClient = llmProxyClient ?? getIt.get<LlmProxyClient>();
+
+  /// Клиент для работы с LLM прокси
+  final LlmProxyClient _llmProxyClient;
 
   /// [analyzeMeal] Анализирует блюдо по фотографиям и описанию
   ///
@@ -36,7 +36,7 @@ class MealAnalysisHandler {
   /// в виде DiaryMeal.
   ///
   /// **Параметры:**
-  /// - photos: Список фотографий блюда (должен быть не пустым)
+  /// - photos: Список фотографий блюда (опционально, может быть пустым)
   /// - description: Текстовое описание блюда
   /// - mealType: Тип приема пищи для сохранения в результате
   ///
@@ -51,10 +51,8 @@ class MealAnalysisHandler {
     required String description,
     required mealType,
   }) async {
-    // Валидация: должна быть хотя бы одна фотография
-    if (photos.isEmpty) {
-      throw Exception('Photos list cannot be empty');
-    }
+    // Фотографии опциональны - можно передавать пустой массив
+    // Анализ будет проводиться только на основе текстового описания
 
     try {
       // Отправляем запрос на анализ
@@ -78,7 +76,7 @@ class MealAnalysisHandler {
   /// Используется когда пользователь хочет получить другой результат анализа.
   ///
   /// **Параметры:**
-  /// - photos: Список фотографий блюда
+  /// - photos: Список фотографий блюда (опционально, может быть пустым)
   /// - description: Текстовое описание блюда
   /// - mealType: Тип приема пищи
   ///
@@ -86,18 +84,14 @@ class MealAnalysisHandler {
   /// Новый DiaryMeal с результатами регенерации
   ///
   /// **Выбрасывает:**
-  /// Exception при ошибке запроса или если нет фотографий
+  /// Exception при ошибке запроса
   ///
   Future<DiaryMeal> regenerateAnalysis({
     required List<XFile> photos,
     required String description,
     required mealType,
   }) async {
-    // Проверяем наличие фотографий
-    if (photos.isEmpty) {
-      throw Exception('No photos available for regeneration');
-    }
-
+    // Фотографии опциональны - можно передавать пустой массив
     // Используем тот же метод анализа
     return analyzeMeal(
       photos: photos,
@@ -106,4 +100,3 @@ class MealAnalysisHandler {
     );
   }
 }
-

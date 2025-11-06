@@ -64,22 +64,43 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
     if (!mounted) return;
 
     try {
+      // Вычисляем максимальное количество фотографий для данного блюда
+      // на основе подписки и типа блюда
+      final maxPhotos =
+          FoodDiaryCubit.getMaxPhotosForMeal(widget.meal.mealType);
+
       // Используем обработчик для выбора изображений
       final result = await _imagePickerHandler.pickImages(
         context: context,
         currentPhotoCount: widget.meal.photos.length,
+        maxPhotos: maxPhotos,
       );
 
       // Обрабатываем результат
+      // Если result == null, пользователь отменил выбор - это нормально, не показываем ошибку
       if (result != null) {
         _handleImageResult(result);
       }
     } catch (e) {
-      _showSnackbar(
-        e.toString().contains('Maximum')
-            ? e.toString()
-            : 'Error accessing camera or gallery. Please check permissions.',
-      );
+      // Показываем ошибку только если это реальная ошибка, а не отмена выбора
+      final errorMessage = e.toString();
+
+      // Если это ошибка лимита фотографий - показываем конкретное сообщение
+      if (errorMessage.contains('Maximum')) {
+        _showSnackbar(errorMessage);
+      }
+      // Если это ошибка разрешений - показываем сообщение о разрешениях
+      else if (errorMessage.toLowerCase().contains('permission') ||
+          errorMessage.toLowerCase().contains('denied')) {
+        _showSnackbar(
+          'Error accessing camera or gallery. Please check permissions.',
+        );
+      }
+      // Для других ошибок тоже показываем сообщение, но более общее
+      else {
+        print('[CustomMealItemMixin._handleCameraTap] Неожиданная ошибка: $e');
+        // Не показываем снек для неизвестных ошибок, возможно это просто отмена
+      }
     }
   }
 
@@ -193,14 +214,7 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
   /// [_showSnackbar] Показывает уведомление пользователю
   void _showSnackbar(String message) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    RishSnackbar().showSnackBar(message);
   }
 
   /// [_handleSendRequest] Обрабатывает отправку запроса на анализ фотографий
@@ -210,18 +224,6 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
   Future<void> _handleSendRequest() async {
     final photos = widget.meal.photos;
     final description = widget.meal.description;
-
-    // Валидация: должно быть хотя бы 1 фото ИЛИ описание
-    if (photos.isEmpty && description.isEmpty) {
-      _showSnackbar('Please add at least one photo or description');
-      return;
-    }
-
-    // Если нет фотографий, но есть описание - требуем фото
-    if (photos.isEmpty) {
-      _showSnackbar('Please add at least one photo');
-      return;
-    }
 
     try {
       // Устанавливаем состояние загрузки

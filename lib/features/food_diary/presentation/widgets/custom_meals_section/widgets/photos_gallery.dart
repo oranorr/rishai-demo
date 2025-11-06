@@ -27,6 +27,7 @@ class PhotosGallery extends StatelessWidget {
     required this.photos,
     required this.onRemove,
     required this.onAddPhoto,
+    required this.maxSlots,
     super.key,
   });
 
@@ -40,7 +41,7 @@ class PhotosGallery extends StatelessWidget {
   final VoidCallback onAddPhoto;
 
   /// Максимальное количество фотографий (слотов)
-  static const int maxSlots = 3;
+  final int maxSlots;
 
   @override
   Widget build(BuildContext context) {
