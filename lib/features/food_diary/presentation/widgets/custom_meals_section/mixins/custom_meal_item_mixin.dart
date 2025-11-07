@@ -59,9 +59,44 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
 
   /// [_handleCameraTap] Обработчик нажатия на кнопку камеры
   ///
-  /// Показывает диалог выбора источника изображения
+  /// Показывает диалог выбора источника изображения.
+  /// Для бесплатных пользователей проверяет 24-часовой лимит загрузки фотографий.
   Future<void> _handleCameraTap() async {
     if (!mounted) return;
+
+    // ┌───────────────────────────────────────────────────────────────────┐
+    // │ Проверка 24-часового лимита для бесплатных пользователей          │
+    // └───────────────────────────────────────────────────────────────────┘
+    // [freeUserPhotoLimitCheck] Проверяем лимит загрузки фотографий для
+    // бесплатных пользователей перед выбором изображения
+    if (!adapty.isActive) {
+      // [canUploadPhoto] Проверяем, прошло ли 24 часа с последней загрузки
+      final canUploadPhoto = prefsRepo.canFreeUserUploadPhoto();
+
+      if (!canUploadPhoto) {
+        // [limitExceeded] Лимит не истек - показываем диалог и блокируем добавление
+        final lastUploadTime = prefsRepo.getLastFreeUserPhotoUploadTime();
+        final timeRemaining = lastUploadTime != null
+            ? DateTime.now().difference(lastUploadTime)
+            : Duration.zero;
+        final hoursRemaining = 24 - timeRemaining.inHours;
+
+        log(
+          '[CustomMealItemMixin._handleCameraTap] ⚠️ Лимит загрузки фотографий не истек. Осталось часов: $hoursRemaining',
+        );
+
+        // Показываем диалог о лимите
+        await RishiDialog.showPhotoUploadLimitDialog(
+          context,
+          hoursRemaining: hoursRemaining,
+          onUpgrade: () {
+            // [navigateToPaywall] Переходим на экран paywall для обновления подписки
+            appNavigationService.go(path: AppRoutes.paywall.path);
+          },
+        );
+        return;
+      }
+    }
 
     try {
       // Вычисляем максимальное количество фотографий для данного блюда
@@ -230,7 +265,6 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
       setState(() {
         _isLoading = true;
       });
-
       // Используем обработчик для анализа блюда
       final diaryMeal = await _mealAnalysisHandler.analyzeMeal(
         photos: photos,

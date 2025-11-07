@@ -287,13 +287,7 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.factory<_i1018.WeekPlanBloc>(
         () => _i1018.WeekPlanBloc(gh<_i1015.GenerateWeekPlanUsecaseV2>()));
-    gh.factory<_i672.FoodDiaryCubit>(() => _i672.FoodDiaryCubit(
-          gh<_i793.WellnessScoreCalculator>(),
-          gh<_i1051.WhoopBloc>(),
-          gh<_i1018.WeekPlanBloc>(),
-          gh<_i984.UserBloc>(),
-          gh<_i89.DirectusService>(),
-        ));
+    gh.factory<_i672.FoodDiaryCubit>(() => _i672.FoodDiaryCubit());
     return this;
   }
 }

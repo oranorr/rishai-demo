@@ -66,13 +66,17 @@ class _CalendarWidget extends StatelessWidget {
           ),
 
           GestureDetector(
-            onTap: () async {
-              await userBloc.showDataPicker(
-                context: context,
-                initalDate: widget.day.dateTime,
-                controller: widget.homePageController,
-              );
-            },
+            onTap: !adapty.isActive
+                ? () {
+                    appNavigationService.go(path: AppRoutes.paywall.path);
+                  }
+                : () async {
+                    await userBloc.showDataPicker(
+                      context: context,
+                      initalDate: widget.day.dateTime,
+                      controller: widget.homePageController,
+                    );
+                  },
             child: adapty.isActive
                 ? SvgPicture.asset('assets/icons/calendar.svg')
                 : _buildUpgradeButton(context, fake: false),

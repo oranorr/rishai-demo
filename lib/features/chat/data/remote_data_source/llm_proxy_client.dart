@@ -626,12 +626,6 @@ class LlmProxyClient {
       log('📝 [analyzeFoodPhoto] Количество фотографий: ${images.length}');
       log('📝 [analyzeFoodPhoto] Описание: "$description"');
 
-      // Валидация количества изображений
-      // Фотографии опциональны - можно передавать пустой массив
-      if (images.length > 5) {
-        throw Exception('Максимум 5 фотографий за один запрос');
-      }
-
       final url = Uri.parse('$_baseUrl/llm-proxy-food-photo/analyze');
       log('📦 [analyzeFoodPhoto] URL: $url');
 

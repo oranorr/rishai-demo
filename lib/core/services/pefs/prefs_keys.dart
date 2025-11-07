@@ -14,3 +14,7 @@ const String wellnessTooltipViewed = 'wellnessTooltipViewed';
 /// При изменении схемы данных (добавление/изменение HiveType/HiveField)
 /// эта версия должна увеличиваться для автоматического сброса локальных данных
 const String hiveSchemaVersion = 'hiveSchemaVersion';
+
+/// [lastFreeUserPhotoUploadTime] Ключ для хранения времени последней загрузки фотографии
+/// бесплатным пользователем (в миллисекундах с эпохи Unix)
+const String lastFreeUserPhotoUploadTime = 'lastFreeUserPhotoUploadTime';

@@ -5,7 +5,7 @@ import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/food_diary/domain/entities/custom_meal_entry.dart';
 import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart';
-import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/camera_button.dart';
+import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/analyze_button.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/meal_type_selector.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/photos_gallery.dart';
 

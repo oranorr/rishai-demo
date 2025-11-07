@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/custom_meals_section/widgets/custom_meal_item.dart';
 
@@ -31,7 +35,25 @@ class CustomMealsSection extends StatelessWidget {
   const CustomMealsSection({super.key});
 
   /// [_handleAddMore] Обработчик нажатия на "Add more"
+  ///
+  /// Проверяет статус подписки пользователя:
+  /// - Если подписка активна - добавляет новое блюдо
+  /// - Если подписка неактивна - показывает диалог с предложением обновить подписку
   void _handleAddMore(BuildContext context) {
+    // [subscriptionCheck] Проверяем статус подписки перед добавлением блюда
+    if (!adapty.isActive) {
+      // [showDialog] Показываем диалог о необходимости подписки
+      RishiDialog.showSubscriptionRequiredDialog(
+        context,
+        onUpgrade: () {
+          // [navigateToPaywall] Переходим на экран paywall для обновления подписки
+          appNavigationService.go(path: AppRoutes.paywall.path);
+        },
+      );
+      return;
+    }
+
+    // [addMeal] Если подписка активна, добавляем новое блюдо
     context.read<FoodDiaryCubit>().add(const CustomMealAdd());
   }
 

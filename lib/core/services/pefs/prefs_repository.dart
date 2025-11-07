@@ -166,4 +166,61 @@ class PrefsRepository {
     _ensureInitialized();
     await _prefs.setInt(hiveSchemaVersion, version);
   }
+
+  /// [setLastFreeUserPhotoUploadTime] Сохраняет время последней загрузки фотографии
+  /// бесплатным пользователем
+  ///
+  /// **Параметры:**
+  /// - time: Время загрузки фотографии
+  ///
+  /// Сохраняет время в миллисекундах с эпохи Unix для последующей проверки
+  /// 24-часового лимита загрузки фотографий.
+  Future<void> setLastFreeUserPhotoUploadTime(DateTime time) async {
+    _ensureInitialized();
+    await _prefs.setInt(
+      lastFreeUserPhotoUploadTime,
+      time.millisecondsSinceEpoch,
+    );
+  }
+
+  /// [getLastFreeUserPhotoUploadTime] Получает время последней загрузки фотографии
+  /// бесплатным пользователем
+  ///
+  /// **Возвращает:**
+  /// - `DateTime?` - время последней загрузки или `null`, если загрузок не было
+  DateTime? getLastFreeUserPhotoUploadTime() {
+    _ensureInitialized();
+    final timestamp = _prefs.getInt(lastFreeUserPhotoUploadTime);
+    if (timestamp == null) {
+      return null;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(timestamp);
+  }
+
+  /// [canFreeUserUploadPhoto] Проверяет, может ли бесплатный пользователь
+  /// загрузить фотографию (прошло ли 24 часа с последней загрузки)
+  ///
+  /// **Логика проверки:**
+  /// - Если загрузок не было (время не сохранено) - возвращает `true`
+  /// - Если прошло 24+ часа с последней загрузки - возвращает `true`
+  /// - Если прошло менее 24 часов - возвращает `false`
+  ///
+  /// **Возвращает:**
+  /// - `bool` - `true` если можно загрузить, `false` если лимит не истек
+  bool canFreeUserUploadPhoto() {
+    _ensureInitialized();
+    final lastUploadTime = getLastFreeUserPhotoUploadTime();
+
+    // Если загрузок не было - разрешаем загрузку
+    if (lastUploadTime == null) {
+      return true;
+    }
+
+    // Проверяем, прошло ли 24 часа с последней загрузки
+    final now = DateTime.now();
+    final timeDifference = now.difference(lastUploadTime);
+
+    // Если прошло 24+ часа - разрешаем загрузку
+    return timeDifference >= const Duration(hours: 24);
+  }
 }

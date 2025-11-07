@@ -573,6 +573,254 @@ class RishiDialog {
       ),
     );
   }
+
+  /// [showSubscriptionRequiredDialog] Показывает диалог о необходимости подписки
+  ///
+  /// Показывает диалог с сообщением о том, что добавлять больше блюд за раз могут
+  /// только пользователи с подпиской. Имеет две кнопки:
+  /// - OK - закрывает диалог
+  /// - Upgrade - переходит на экран paywall
+  ///
+  /// **Параметры:**
+  /// - context: Контекст для показа диалога
+  /// - onUpgrade: Callback для перехода на paywall
+  static Future<void> showSubscriptionRequiredDialog(
+    BuildContext context, {
+    required VoidCallback onUpgrade,
+  }) async {
+    await showGeneralDialog(
+      context: context,
+      barrierLabel: '',
+      barrierDismissible: true,
+      barrierColor: const Color(0xff1717253d).withOpacity(0.25),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
+          child: Center(
+            child: _buildSubscriptionRequiredDialog(
+              context: context,
+              onUpgrade: onUpgrade,
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, anim, __, child) {
+        Tween<double> tween;
+        if (anim.status == AnimationStatus.reverse) {
+          tween = Tween(begin: 0, end: 1);
+        } else {
+          tween = Tween(begin: 0, end: 1);
+        }
+
+        return FadeTransition(
+          opacity: tween.animate(anim),
+          child: child,
+        );
+      },
+    );
+  }
+
+  /// [_buildSubscriptionRequiredDialog] Строит виджет диалога о необходимости подписки
+  ///
+  /// Создает диалог с иконкой, текстом о необходимости подписки и двумя кнопками:
+  /// - OK (тертиарная кнопка) - закрывает диалог
+  /// - Upgrade (основная кнопка) - переходит на paywall
+  ///
+  /// **UI/UX:**
+  /// - Следует Apple HIG для диалогов с призывом к действию
+  /// - Использует иконку подписки (workspace_premium) для визуального акцента
+  /// - Primary action (Upgrade) выделен как основная кнопка
+  static Widget _buildSubscriptionRequiredDialog({
+    required BuildContext context,
+    required VoidCallback onUpgrade,
+  }) {
+    return Container(
+      height: 340.h,
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: 24.w),
+      decoration: BoxDecoration(
+        color: context.theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: RishColors.stroke),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 41),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: RishColors.primary,
+              ),
+              child: const Icon(
+                Icons.workspace_premium,
+                color: Colors.white,
+                size: 45,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Text(
+              'Adding more meals at once is available only for subscribers.',
+              style: context.styles.h3,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 20.h),
+            RishButton.primary(
+              title: 'Upgrade',
+              action: () {
+                onUpgrade();
+                context.pop();
+              },
+              enabled: true,
+              isLoading: false,
+              height: 48.h,
+            ),
+            SizedBox(height: 12.h),
+            RishButton.teritary(
+              height: 48.h,
+              title: 'OK',
+              textColor: RishColors.textSecondary,
+              action: () {
+                context.pop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// [showPhotoUploadLimitDialog] Показывает диалог о лимите загрузки фотографий
+  ///
+  /// Показывает диалог с сообщением о том, что бесплатные пользователи могут
+  /// добавлять фотографию к блюду только раз в 24 часа. Имеет две кнопки:
+  /// - OK - закрывает диалог
+  /// - Upgrade - переходит на экран paywall для снятия ограничений
+  ///
+  /// **Параметры:**
+  /// - context: Контекст для показа диалога
+  /// - hoursRemaining: Количество оставшихся часов до следующей загрузки
+  /// - onUpgrade: Callback для перехода на paywall
+  static Future<void> showPhotoUploadLimitDialog(
+    BuildContext context, {
+    required int hoursRemaining,
+    required VoidCallback onUpgrade,
+  }) async {
+    await showGeneralDialog(
+      context: context,
+      barrierLabel: '',
+      barrierDismissible: true,
+      barrierColor: const Color(0xff1717253d).withOpacity(0.25),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
+          child: Center(
+            child: _buildPhotoUploadLimitDialog(
+              context: context,
+              hoursRemaining: hoursRemaining,
+              onUpgrade: onUpgrade,
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, anim, __, child) {
+        Tween<double> tween;
+        if (anim.status == AnimationStatus.reverse) {
+          tween = Tween(begin: 0, end: 1);
+        } else {
+          tween = Tween(begin: 0, end: 1);
+        }
+
+        return FadeTransition(
+          opacity: tween.animate(anim),
+          child: child,
+        );
+      },
+    );
+  }
+
+  /// [_buildPhotoUploadLimitDialog] Строит виджет диалога о лимите загрузки фотографий
+  ///
+  /// Создает диалог с иконкой, текстом о лимите загрузки и двумя кнопками:
+  /// - OK (тертиарная кнопка) - закрывает диалог
+  /// - Upgrade (основная кнопка) - переходит на paywall
+  ///
+  /// **UI/UX:**
+  /// - Следует Apple HIG для диалогов с призывом к действию
+  /// - Использует иконку камеры (camera_alt) для визуального акцента
+  /// - Primary action (Upgrade) выделен как основная кнопка
+  static Widget _buildPhotoUploadLimitDialog({
+    required BuildContext context,
+    required int hoursRemaining,
+    required VoidCallback onUpgrade,
+  }) {
+    final hoursText = hoursRemaining == 1 ? 'hour' : 'hours';
+    final messageText =
+        'You can add a photo once every 24 hours.\nPlease wait $hoursRemaining $hoursText.';
+
+    return Container(
+      height: 340.h,
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: 24.w),
+      decoration: BoxDecoration(
+        color: context.theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: RishColors.stroke),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 41),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: RishColors.primary,
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 45,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Text(
+              messageText,
+              style: context.styles.h3,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 20.h),
+            RishButton.primary(
+              title: 'Upgrade',
+              action: () {
+                onUpgrade();
+                context.pop();
+              },
+              enabled: true,
+              isLoading: false,
+              height: 48.h,
+            ),
+            SizedBox(height: 12.h),
+            RishButton.teritary(
+              height: 48.h,
+              title: 'OK',
+              textColor: RishColors.textSecondary,
+              action: () {
+                context.pop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 enum ActionDialogType {

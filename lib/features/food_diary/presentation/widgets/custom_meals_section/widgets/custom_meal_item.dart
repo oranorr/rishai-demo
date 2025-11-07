@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,6 +7,11 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/extensions/string_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
+import 'package:rishai/core/widgets/dialog.dart';
+import 'package:rishai/core/router/app_navigation_service.dart';
+import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/features/food_diary/domain/entities/custom_meal_entry.dart'
     show CustomMealEntry;
 import 'package:rishai/features/food_diary/presentation/bloc/food_diary_cubit.dart';
