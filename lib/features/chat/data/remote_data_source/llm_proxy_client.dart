@@ -228,6 +228,30 @@ class MacrosBreakdownDto {
   final int kcals;
 }
 
+/// Модель запроса для получения рекомендаций от ИИ
+class RecommendationRequest {
+  RecommendationRequest({
+    required this.foodPreferences,
+    required this.consumedMacros,
+    required this.targetMacros,
+  });
+
+  /// Предпочтения в еде (диеты, кухни, ограничения)
+  final Map<String, dynamic> foodPreferences;
+
+  /// Потребленные макросы
+  final Map<String, dynamic> consumedMacros;
+
+  /// Целевые макросы
+  final Map<String, dynamic> targetMacros;
+
+  Map<String, dynamic> toJson() => {
+        'foodPreferences': foodPreferences,
+        'consumedMacros': consumedMacros,
+        'targetMacros': targetMacros,
+      };
+}
+
 /// HTTP клиент для взаимодействия с LLM прокси
 @injectable
 class LlmProxyClient {
@@ -711,6 +735,65 @@ class LlmProxyClient {
     } catch (e) {
       log('💥 [analyzeFoodPhoto] Исключение при анализе фотографий: $e');
       rethrow;
+    }
+  }
+
+  /// [getRecommendation] Получает рекомендацию от ИИ на основе предпочтений и макросов
+  ///
+  /// Отправляет запрос к endpoint `/recommend` с предпочтениями в еде,
+  /// потребленными и целевыми макросами.
+  ///
+  /// Параметры:
+  /// - [request] - запрос с предпочтениями и макросами
+  ///
+  /// Возвращает [String?] - текст рекомендации или null при ошибке
+  Future<String?> getRecommendation(RecommendationRequest request) async {
+    try {
+      log('[RecommendationsWidget] 🔄 Отправляем запрос к /recommend');
+      log('[RecommendationsWidget] 📝 Предпочтения: ${request.foodPreferences}');
+      log('[RecommendationsWidget] 📊 Потребленные макросы: ${request.consumedMacros}');
+      log('[RecommendationsWidget] 🎯 Целевые макросы: ${request.targetMacros}');
+
+      final url = '$_baseUrl/recommend';
+      final requestBody = jsonEncode(request.toJson());
+
+      log('[RecommendationsWidget] 📦 URL: $url');
+      log('[RecommendationsWidget] 📦 BODY: $requestBody');
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          _authHeaderKey: _authHeaderValue,
+        },
+        body: requestBody,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // API возвращает JSON объект с полем "recommendation"
+        try {
+          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+          final recommendation = responseData['recommendation'] as String?;
+          
+          if (recommendation != null && recommendation.isNotEmpty) {
+            log('[RecommendationsWidget] ✅ Получена рекомендация: ${recommendation.substring(0, recommendation.length > 100 ? 100 : recommendation.length)}...');
+            return recommendation;
+          } else {
+            log('[RecommendationsWidget] ⚠️ Поле "recommendation" пустое или отсутствует');
+            return null;
+          }
+        } catch (e) {
+          log('[RecommendationsWidget] ❌ Ошибка парсинга JSON ответа: $e');
+          log('[RecommendationsWidget] 📦 Тело ответа: ${response.body}');
+          return null;
+        }
+      } else {
+        log('[RecommendationsWidget] ❌ Ошибка от API: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      log('[RecommendationsWidget] 💥 Исключение при запросе рекомендации: $e');
+      return null;
     }
   }
 }

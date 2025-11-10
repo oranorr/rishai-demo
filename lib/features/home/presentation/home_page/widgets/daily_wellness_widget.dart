@@ -260,7 +260,6 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                   "Today's Consumption",
                   style: context.styles.boldLarge,
                 ),
-                SizedBox(height: 24.h),
                 // [ringDisplay] Фитнесс кольца в центре
                 Center(
                   child: () {
@@ -323,32 +322,35 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                             ),
                           // [rippleContainer] Центральный контейнер с ripple анимацией
                           GestureDetector(
-                            onTap: () async {
-                              // [hideTooltip] Скрываем подсказку при нажатии и сохраняем состояние
-                              if (_showTooltip) {
-                                setState(() {
-                                  _showTooltip = false;
-                                });
-                                _tooltipAnimationController.reverse();
+                            onTap: !widget.day.isToday
+                                ? null
+                                : () async {
+                                    // [hideTooltip] Скрываем подсказку при нажатии и сохраняем состояние
+                                    if (_showTooltip) {
+                                      setState(() {
+                                        _showTooltip = false;
+                                      });
+                                      _tooltipAnimationController.reverse();
 
-                                // [saveTooltipState] Сохраняем, что пользователь видел подсказку
-                                await prefsRepo.setWellnessTooltipViewed();
+                                      // [saveTooltipState] Сохраняем, что пользователь видел подсказку
+                                      await prefsRepo
+                                          .setWellnessTooltipViewed();
 
-                                // Запускаем ripple анимацию
-                                Future.delayed(
-                                  const Duration(milliseconds: 300),
-                                  () {
-                                    if (mounted) {
-                                      _rippleAnimationController.repeat();
+                                      // Запускаем ripple анимацию
+                                      Future.delayed(
+                                        const Duration(milliseconds: 300),
+                                        () {
+                                          if (mounted) {
+                                            _rippleAnimationController.repeat();
+                                          }
+                                        },
+                                      );
                                     }
+                                    // Переходим на страницу wellness
+                                    appNavigationService.push(
+                                      path: AppRoutes.wellnessPage.path,
+                                    );
                                   },
-                                );
-                              }
-                              // Переходим на страницу wellness
-                              appNavigationService.push(
-                                path: AppRoutes.wellnessPage.path,
-                              );
-                            },
                             child: AnimatedBuilder(
                               animation: _rippleAnimation,
                               builder: (context, child) {
@@ -409,7 +411,6 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                     );
                   }(),
                 ),
-                SizedBox(height: 24.h),
                 // Легенда с данными
                 _buildLegend(),
               ],

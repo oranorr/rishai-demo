@@ -68,7 +68,8 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
 
     await result.fold((failure) {
       emit(state.copyWith(isLoading: false));
-      RishSnackbar().showSnackBar('Failed to generate week plan, $failure');
+      RishSnackbar()
+          .showSnackBar('Failed to generate week plan, please try again later');
     }, (week) async {
       print(
         'Generated ${week.plans.length} meal plans with dates ${week.startDate} - ${week.endDate}',
