@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/services/day_manager/day_manager.dart';
+import 'package:rishai/core/services/directus/directus_repository.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/food_diary/domain/diary_meal.dart';
 import 'package:rishai/features/food_diary/domain/pivot_life_scrore_entity.dart';
@@ -23,11 +24,13 @@ class WellnessScoreCalculator {
     this._dayManager,
     this._whoopBloc,
     this._userBloc,
+    this._directusService,
   );
 
   final DayManager _dayManager;
   final WhoopBloc _whoopBloc;
   final UserBloc _userBloc;
+  final DirectusService _directusService;
 
   /// [calculateDailyWellnessScore] Рассчитывает Daily Wellness Score на основе потребленных блюд
   ///
@@ -250,6 +253,7 @@ class WellnessScoreCalculator {
   ///
   /// Получает все дни пользователя с wellness score, вычисляет среднее арифметическое
   /// и обновляет PivotLifeScoreEntity в профиле пользователя локально и удаленно.
+  /// Учитывает дату начала отсчета (inceptionDate) - считаются только дни >= inceptionDate.
   Future<void> calculatePivotLifeScore() async {
     try {
       // Получаем ID текущего пользователя
@@ -260,6 +264,46 @@ class WellnessScoreCalculator {
           name: 'WellnessScoreCalculator',
         );
         return;
+      }
+
+      // Получаем inceptionDate из app_config в Directus
+      DateTime? inceptionDateFromConfig;
+      try {
+        final appConfig = await _directusService.readAppConfig();
+        final inceptionDateValue = appConfig['inceptionDate'];
+
+        if (inceptionDateValue != null) {
+          // Парсим DateTime из app_config (может быть в разных форматах)
+          if (inceptionDateValue is int) {
+            // Если это timestamp в миллисекундах
+            inceptionDateFromConfig =
+                DateTime.fromMillisecondsSinceEpoch(inceptionDateValue);
+          } else if (inceptionDateValue is String) {
+            // Если это строка ISO8601
+            inceptionDateFromConfig = DateTime.parse(inceptionDateValue);
+          } else {
+            throw Exception('Неизвестный формат inceptionDate в app_config');
+          }
+
+          log(
+            '[WellnessScoreCalculator] 📅 Получена дата начала отсчета из app_config: ${inceptionDateFromConfig.toIso8601String().split('T')[0]}',
+            name: 'WellnessScoreCalculator',
+          );
+        } else {
+          // Если inceptionDate не задана в app_config, используем дату первого дня с wellness score
+          log(
+            '[WellnessScoreCalculator] ⚠️ inceptionDate не найдена в app_config, будет использована дата первого дня с wellness score',
+            name: 'WellnessScoreCalculator',
+          );
+        }
+      } catch (e, stackTrace) {
+        log(
+          '[WellnessScoreCalculator] ❌ Ошибка при получении inceptionDate из app_config: $e',
+          error: e,
+          stackTrace: stackTrace,
+          name: 'WellnessScoreCalculator',
+        );
+        // В случае ошибки используем дату первого дня с wellness score
       }
 
       // Получаем все дни пользователя через DayManager
@@ -298,14 +342,54 @@ class WellnessScoreCalculator {
         return;
       }
 
+      // Определяем inceptionDate:
+      // - Если получена из app_config - используем её
+      // - Если нет - используем дату первого дня с wellness score
+      final DateTime inceptionDate;
+      if (inceptionDateFromConfig != null) {
+        inceptionDate = inceptionDateFromConfig;
+      } else {
+        // Находим самый ранний день с wellness score
+        daysWithWellnessScore.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+        inceptionDate = daysWithWellnessScore.first.dateTime;
+        log(
+          '[WellnessScoreCalculator] 🆕 Устанавливаем дату начала отсчета как дату первого дня с wellness score: ${inceptionDate.toIso8601String().split('T')[0]}',
+          name: 'WellnessScoreCalculator',
+        );
+      }
+
+      // Фильтруем дни, которые >= inceptionDate (сравниваем только дату, без времени)
+      final filteredDays = daysWithWellnessScore.where((day) {
+        final dayDate = DateTime(
+          day.dateTime.year,
+          day.dateTime.month,
+          day.dateTime.day,
+        );
+        final inceptionDateOnly = DateTime(
+          inceptionDate.year,
+          inceptionDate.month,
+          inceptionDate.day,
+        );
+        return dayDate.isAfter(inceptionDateOnly) ||
+            dayDate.isAtSameMomentAs(inceptionDateOnly);
+      }).toList();
+
+      if (filteredDays.isEmpty) {
+        log(
+          '[WellnessScoreCalculator] ⚠️ Нет дней с Daily Wellness Score после даты начала отсчета (${inceptionDate.toIso8601String().split('T')[0]})',
+          name: 'WellnessScoreCalculator',
+        );
+        return;
+      }
+
       log(
-        '[WellnessScoreCalculator] 📈 Найдено ${daysWithWellnessScore.length} дней с Daily Wellness Score из ${userDays.length} общих дней',
+        '[WellnessScoreCalculator] 📈 Найдено ${filteredDays.length} дней с Daily Wellness Score после даты начала отсчета (${inceptionDate.toIso8601String().split('T')[0]}) из ${daysWithWellnessScore.length} общих дней с wellness score',
         name: 'WellnessScoreCalculator',
       );
 
       // Вычисляем среднее арифметическое
       double totalWellnessScore = 0;
-      for (final day in daysWithWellnessScore) {
+      for (final day in filteredDays) {
         final wellnessScore = day.welnessEntity!.welnessPercentage;
         totalWellnessScore += wellnessScore;
         log(
@@ -314,18 +398,18 @@ class WellnessScoreCalculator {
         );
       }
 
-      final averageWellnessScore =
-          totalWellnessScore / daysWithWellnessScore.length;
+      final averageWellnessScore = totalWellnessScore / filteredDays.length;
 
       log(
-        '[WellnessScoreCalculator] 🎯 Рассчитанный средний Daily Wellness Score (Pivot Life Score): ${averageWellnessScore.toStringAsFixed(2)}%',
+        '[WellnessScoreCalculator] 🎯 Рассчитанный средний Daily Wellness Score (Pivot Life Score): ${averageWellnessScore.toStringAsFixed(2)}% (на основе ${filteredDays.length} дней с ${inceptionDate.toIso8601String().split('T')[0]})',
         name: 'WellnessScoreCalculator',
       );
 
-      // Создаем или обновляем PivotLifeScoreEntity
+      // Создаем или обновляем PivotLifeScoreEntity с сохранением inceptionDate
       final pivotLifeScore = PivotLifeScoreEntity(
         score: averageWellnessScore,
         updatedAt: DateTime.now(),
+        inceptionDate: inceptionDate,
       );
 
       // Обновляем пользователя с новым Pivot Life Score

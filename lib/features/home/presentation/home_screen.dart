@@ -155,6 +155,13 @@ class _HomeScreenState extends State<HomeScreen>
                   return RishiBottonNavigationBar(
                     currentPage: currentPage,
                     jump: (page) async {
+                      // ┌─────────────────────────────────────────────────────────┐
+                      // │ Закрываем overlay от FAB при нажатии на кнопки         │
+                      // │ bottom navigation bar                                  │
+                      // └─────────────────────────────────────────────────────────┘
+                      if (_isOverlayVisible) {
+                        _hideOverlay();
+                      }
                       // Используем метод сервиса для навигации
                       await homePageControllerService.navigateToPage(
                         page: page,

@@ -93,7 +93,11 @@ class CustomMealEntry extends Equatable {
   bool get hasPhotos => photos.isNotEmpty;
 
   /// [hasDescription] Проверяет, есть ли описание
-  bool get hasDescription => description.isNotEmpty;
+  /// 
+  /// Возвращает true только если описание содержит непустую строку
+  /// после удаления пробелов в начале и конце (trim).
+  /// Это предотвращает отправку запроса, если пользователь ввел только пробелы.
+  bool get hasDescription => description.trim().isNotEmpty;
 
   /// [hasMealType] Проверяет, выбран ли тип приема пищи
   bool get hasMealType => mealType != null;

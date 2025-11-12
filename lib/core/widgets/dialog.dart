@@ -485,23 +485,23 @@ class RishiDialog {
             ),
             SizedBox(height: 20.h),
             RishButton.primary(
-              title: 'Cancel',
-              action: () {
-                context.pop();
-              },
-              enabled: true,
-              isLoading: false,
-              height: 48.h,
-            ),
-            SizedBox(height: 20.h),
-            RishButton.teritary(
               height: 48.h,
               title: 'Add to diary',
-              textColor: context.theme.colorScheme.primary,
+              enabled: true,
+              isLoading: false,
               action: () {
                 action();
                 context.pop();
               },
+            ),
+            SizedBox(height: 12.h),
+            RishButton.teritary(
+              title: 'Cancel',
+              action: () {
+                context.pop();
+              },
+              textColor: context.theme.colorScheme.primary,
+              height: 48.h,
             ),
           ],
         ),
@@ -652,7 +652,7 @@ class RishiDialog {
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: RishColors.primary,
               ),
@@ -780,7 +780,7 @@ class RishiDialog {
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: RishColors.primary,
               ),

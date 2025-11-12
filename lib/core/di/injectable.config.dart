@@ -156,6 +156,7 @@ extension GetItInjectableX on _i174.GetIt {
       environmentFilter,
     );
     gh.factory<_i572.NavigatorKeyProvider>(() => _i572.NavigatorKeyProvider());
+    gh.factory<_i672.FoodDiaryCubit>(() => _i672.FoodDiaryCubit());
     gh.factory<_i947.LlmProxyClient>(() => _i947.LlmProxyClient());
     gh.singleton<_i97.PrefsRepository>(() => _i97.PrefsRepository());
     gh.singleton<_i149.AnalyticsRepository>(
@@ -241,6 +242,13 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i547.GetUserDaysUsecase>(),
           gh<_i751.AccountsWhiteListService>(),
         ));
+    gh.factory<_i793.WellnessScoreCalculator>(
+        () => _i793.WellnessScoreCalculator(
+              gh<_i300.DayManager>(),
+              gh<_i1051.WhoopBloc>(),
+              gh<_i984.UserBloc>(),
+              gh<_i89.DirectusService>(),
+            ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
           gh<_i1003.LoginViaGoogleUsecase>(),
           gh<_i734.CreateNewUserUsecase>(),
@@ -248,12 +256,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i914.LoginViaAppleUsecase>(),
           gh<_i751.AccountsWhiteListService>(),
         ));
-    gh.factory<_i793.WellnessScoreCalculator>(
-        () => _i793.WellnessScoreCalculator(
-              gh<_i300.DayManager>(),
-              gh<_i1051.WhoopBloc>(),
-              gh<_i984.UserBloc>(),
-            ));
     gh.factory<_i241.InitGptUsecase>(
         () => _i241.InitGptUsecase(gh<_i831.ChatRepository>()));
     gh.factory<_i786.SendMessageGptUsecase>(
@@ -287,7 +289,6 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.factory<_i1018.WeekPlanBloc>(
         () => _i1018.WeekPlanBloc(gh<_i1015.GenerateWeekPlanUsecaseV2>()));
-    gh.factory<_i672.FoodDiaryCubit>(() => _i672.FoodDiaryCubit());
     return this;
   }
 }

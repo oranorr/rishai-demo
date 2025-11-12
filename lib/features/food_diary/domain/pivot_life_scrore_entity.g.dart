@@ -19,17 +19,20 @@ class PivotLifeScoreEntityAdapter extends TypeAdapter<PivotLifeScoreEntity> {
     return PivotLifeScoreEntity(
       score: fields[0] as double,
       updatedAt: fields[1] as DateTime,
+      inceptionDate: fields[2] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, PivotLifeScoreEntity obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(3)
       ..writeByte(0)
       ..write(obj.score)
       ..writeByte(1)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(2)
+      ..write(obj.inceptionDate);
   }
 
   @override

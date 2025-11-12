@@ -44,6 +44,7 @@ class _DiaryDropDownState extends State<DiaryDropDown>
   late bool isExpanded;
   late AnimationController _animationController;
   late Animation<double> _iconRotationAnimation;
+  late Animation<double> _sizeAnimation;
 
   @override
   void initState() {
@@ -71,6 +72,15 @@ class _DiaryDropDownState extends State<DiaryDropDown>
         parent: _animationController,
         curve: Curves.easeInOut,
       ),
+    );
+
+    // ┌─────────────────────────────────────────────────────────────────────┐
+    // │ Создаем анимацию размера для плавного скрытия контента              │
+    // │ Используется для предотвращения видимости контента при закрытии     │
+    // └─────────────────────────────────────────────────────────────────────┘
+    _sizeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
     );
 
     // Если начальное состояние раскрыто, сразу устанавливаем анимацию
@@ -170,23 +180,27 @@ class _DiaryDropDownState extends State<DiaryDropDown>
 
           // ┌───────────────────────────────────────────────────────────────┐
           // │ Контент дропдауна с анимированным появлением                  │
-          // │ AnimatedCrossFade обеспечивает плавный переход                │
+          // │ ClipRect с Align и heightFactor обеспечивает плавное скрытие  │
+          // │ без видимости остатков контента при закрытии                  │
           // └───────────────────────────────────────────────────────────────┘
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Padding(
-              padding: EdgeInsets.only(
-                left: 16.w,
-                right: 16.w,
-                bottom: 16.h,
-              ),
-              child: widget.child,
-            ),
-            crossFadeState: isExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 300),
-            sizeCurve: Curves.easeInOut,
+          AnimatedBuilder(
+            animation: _sizeAnimation,
+            builder: (context, child) {
+              return ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: _sizeAnimation.value,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 16.w,
+                      right: 16.w,
+                      bottom: 16.h,
+                    ),
+                    child: widget.child,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

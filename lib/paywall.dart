@@ -2,7 +2,6 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:adapty_flutter/adapty_flutter.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -10,11 +9,11 @@ import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class Paywall extends StatefulWidget {
   const Paywall({super.key});
@@ -23,23 +22,63 @@ class Paywall extends StatefulWidget {
   State<Paywall> createState() => _PaywallState();
 }
 
+/// [PaywallViewState] Перечисление состояний paywall
+///
+/// [free] - Показывает функционал для бесплатных пользователей
+/// [premium] - Показывает премиум версию с подпиской
+enum PaywallViewState {
+  free,
+  premium,
+}
+
+/// [PaywallFeature] Структура для описания функции paywall
+///
+/// [title] - Название функции
+/// [subtitle] - Дополнительное описание (опционально)
+class PaywallFeature {
+  const PaywallFeature({
+    required this.title,
+    this.subtitle,
+  });
+  final String title;
+  final String? subtitle;
+}
+
 class _PaywallState extends State<Paywall> {
   bool processing = false;
   late bool isFreeTrialAvailable;
   late String price;
   AdaptyPaywallProduct? selectedProduct;
+  PaywallViewState _currentViewState = PaywallViewState.free;
 
   @override
   void initState() {
+    super.initState();
+
     // [DEBUG MODE] Проверяем наличие продуктов перед доступом
     // В режиме симулятора products может быть пустым
     if (adapty.products.isNotEmpty) {
-      selectedProduct = adapty.products.first;
+      // По умолчанию выбираем годовую подписку, если она доступна
+      final annualProduct = adapty.products.firstWhere(
+        (p) =>
+            p.vendorProductId.contains('annual') ||
+            p.vendorProductId == 'pivot_annual',
+        orElse: () => adapty.products.first,
+      );
+      selectedProduct = annualProduct;
     } else {
       // В режиме симулятора products пустой, используем null
       selectedProduct = null;
     }
-    super.initState();
+
+    // [ViewState] Проверяем, видел ли пользователь бесплатную версию
+    // Если видел - сразу показываем премиум версию
+    final hasViewedFreePaywall = prefsRepo.hasViewedFreePaywall();
+    if (hasViewedFreePaywall) {
+      _currentViewState = PaywallViewState.premium;
+    } else {
+      _currentViewState = PaywallViewState.free;
+    }
   }
 
   @override
@@ -80,160 +119,442 @@ class _PaywallState extends State<Paywall> {
       );
     }
 
+    // [ViewState Check] Проверяем, видел ли пользователь бесплатную версию
+    // Если видел - показываем только премиум карточку с кнопкой назад
+    final hasViewedFreePaywall = prefsRepo.hasViewedFreePaywall();
+    if (hasViewedFreePaywall) {
+      price = selectedProduct!.price.localizedString!;
+      return _buildPremiumOnlyView(context);
+    }
+
+    // [Unified View] Единый экран с сегментированным контролом
     price = selectedProduct!.price.localizedString!;
-    // '${selectedProduct!.price.currencySymbol}${(selectedProduct!.price.amount).toStringAsFixed(2)}';
-    // print(selectedProduct!.price);
+    return _buildUnifiedView(context);
+  }
+
+  /// [buildPremiumOnlyView] Строит экран только с премиум карточкой
+  ///
+  /// Показывается когда пользователь уже видел бесплатную версию
+  /// Включает кнопку назад для закрытия экрана
+  Widget _buildPremiumOnlyView(BuildContext context) {
     return RishScaffold(
       needsAppBar: false,
-      child: ListView(
-        shrinkWrap: true,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: 50.h),
+              // [Back Button] Кнопка назад для закрытия экрана
+              Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => appNavigationService.go(
+                        path: AppRoutes.homeScreen.path,
+                      ),
+                      child: Container(
+                        padding: EdgeInsets.all(8.w),
+                        decoration: const BoxDecoration(
+                          color: RishColors.formBackgroun,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          color: RishColors.textPrimary,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // const Spacer(),
+                  Align(
+                    child: Text(
+                      'Upgrade plan',
+                      style: context.styles.h1,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 24.h),
+              // [Premium Card] Только премиум карточка
+              _buildPremiumCard(context),
+              SizedBox(height: 24.h),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// [buildUnifiedView] Строит единый экран с сегментированным контролом
+  ///
+  /// Позволяет переключаться между Free и Premium планами
+  Widget _buildUnifiedView(BuildContext context) {
+    return RishScaffold(
+      needsAppBar: false,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: 50.h),
+              // [Title] Заголовок "Choose a plan"
+              Text(
+                'Choose a plan',
+                style: context.styles.h1,
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24.h),
+              // [Segmented Control] Переключатель между Free и Premium
+              _buildSegmentedControl(context),
+              SizedBox(height: 24.h),
+              // [Plan Card] Карточка с выбранным планом
+              _buildPlanCard(context),
+              SizedBox(height: 24.h),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// [buildSegmentedControl] Строит сегментированный контрол для переключения планов
+  Widget _buildSegmentedControl(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(4.w),
+      decoration: BoxDecoration(
+        color: RishColors.stroke,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
         children: [
+          // [Premium Button]
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _currentViewState = PaywallViewState.premium;
+                });
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: _currentViewState == PaywallViewState.premium
+                      ? RishColors.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Premium',
+                  style: context.styles.h2.copyWith(
+                    color: _currentViewState == PaywallViewState.premium
+                        ? RishColors.formBackgroun
+                        : RishColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+          // [Free Button]
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _currentViewState = PaywallViewState.free;
+                });
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: _currentViewState == PaywallViewState.free
+                      ? RishColors.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Free',
+                  style: context.styles.h2.copyWith(
+                    color: _currentViewState == PaywallViewState.free
+                        ? RishColors.formBackgroun
+                        : RishColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// [buildPlanCard] Строит карточку с выбранным планом
+  Widget _buildPlanCard(BuildContext context) {
+    if (_currentViewState == PaywallViewState.free) {
+      return _buildFreeCard(context);
+    } else {
+      return _buildPremiumCard(context);
+    }
+  }
+
+  /// [buildFreeCard] Строит карточку для Free плана
+  Widget _buildFreeCard(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: RishColors.textPrimary,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // [Title] Заголовок карточки
+          Text(
+            'Enjoy core features for free',
+            style: context.styles.h2.copyWith(
+              color: RishColors.formBackgroun,
+            ),
+          ),
           SizedBox(height: 16.h),
-          if (isFreeTrialAvailable) ...[
-            Text(
-              'Enjoy a fully featured 30-day FREE trial!',
-              style: context.styles.h1,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              softWrap: true,
+          // [Price] Цена "$0 / forever"
+          Text(
+            r'$0 / forever',
+            style: context.styles.h1.copyWith(
+              fontWeight: FontWeight.w900,
+              color: RishColors.formBackgroun,
             ),
-            SizedBox(height: 16.h),
-            Text(
-              'Start your journey without any commitment.',
-              style: context.styles.h3.copyWith(),
-              textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8.h),
+          // [Subtitle] Подзаголовок
+          Text(
+            'Start free. Upgrade anytime.',
+            style: context.styles.regularMedium.copyWith(
+              color: RishColors.formBackgroun,
             ),
-          ],
-          if (!isFreeTrialAvailable)
-            Text(
-              'To continue enjoying Pivot and all its features, subscribe now for only $price per ${selectedProduct!.subscription!.period.unit.name}',
-              // 'To continue enjoying Pivot and all its features, subscribe now for only $price per ${selectedProduct!.subscriptionDetails!.subscriptionPeriod.unit.name}',
-              // 'Subscribe now for $price to continue enjoying Pivot and all its features.',
-              style: context.styles.h2.copyWith(color: RishColors.primary),
-              textAlign: TextAlign.center,
-            ),
-          SizedBox(height: 16.h),
-          ...nices.map(
-            (nice) => Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.h).copyWith(top: 0),
+          ),
+          SizedBox(height: 24.h),
+          // [Divider] Разделитель
+          Divider(
+            color: RishColors.formBackgroun.withOpacity(0.3),
+            thickness: 1,
+          ),
+          SizedBox(height: 24.h),
+          // [Free Features] Список функций для бесплатных пользователей
+          // Включенные функции (с галочкой)
+          ..._freeFeaturesIncluded.map(
+            (feature) => Padding(
+              padding: EdgeInsets.only(bottom: 16.h),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 4),
                     child: Icon(
-                      Icons.check,
-                      color: RishColors.primary,
+                      Icons.check_circle,
+                      color: RishColors.success,
+                      size: 20,
                     ),
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 12.w),
                   Expanded(
-                    child: Text(
-                      nice,
-                      maxLines: 10,
-                      softWrap: true,
-                      style: context.styles.regularLarge,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          feature.title,
+                          style: context.styles.regularLarge.copyWith(
+                            color: RishColors.formBackgroun,
+                          ),
+                        ),
+                        if (feature.subtitle != null) ...[
+                          SizedBox(height: 4.h),
+                          Text(
+                            feature.subtitle!,
+                            style: context.styles.regularSmall.copyWith(
+                              color: RishColors.formBackgroun,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          SizedBox(height: 16.h),
-          Text(
-            'Your subscription will automatically renew at $price per ${selectedProduct!.subscription!.period.unit.name}, after the 1-month trial ends.',
-            // 'Your subscription will automatically renew at $price after the trial ends.',
-            style: context.styles.regularMedium,
-            textAlign: TextAlign.center,
-            softWrap: true,
-            maxLines: 4,
+          // Исключенные функции (с X)
+          ..._freeFeaturesExcluded.map(
+            (feature) => Padding(
+              padding: EdgeInsets.only(bottom: 16.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Icon(
+                      Icons.cancel,
+                      color: RishColors.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      feature.title,
+                      style: context.styles.regularLarge.copyWith(
+                        color: RishColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          SizedBox(height: 28.h),
-          _SubButtons(
-            callback: (product) {
-              setState(() {
-                selectedProduct = product;
-              });
+          SizedBox(height: 32.h),
+          // [Select Button] Кнопка для выбора Free плана
+          RishButton.primary(
+            title: 'Subscribe',
+            enabled: !processing,
+            isLoading: processing,
+            action: () async {
+              // [SaveFlag] Сохраняем флаг, что пользователь видел бесплатную версию
+              await prefsRepo.setFreePaywallViewed();
+              log(
+                '[Paywall] Флаг просмотра бесплатной версии сохранен',
+                name: 'Paywall',
+              );
+              // Переходим на главный экран
+              context.go(AppRoutes.homeScreen.path);
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  /// [buildPremiumCard] Строит карточку для Premium плана
+  Widget _buildPremiumCard(BuildContext context) {
+    // Получаем цены для месячной и годовой подписки
+    final monthlyProduct = adapty.products.firstWhere(
+      (p) =>
+          p.vendorProductId.contains('month') ||
+          p.vendorProductId == 'pivot_sub',
+      orElse: () => adapty.products.first,
+    );
+    final annualProduct = adapty.products.firstWhere(
+      (p) =>
+          p.vendorProductId.contains('annual') ||
+          p.vendorProductId == 'pivot_annual',
+      orElse: () => adapty.products.length > 1
+          ? adapty.products[1]
+          : adapty.products.first,
+    );
+
+    final monthlyPrice = monthlyProduct.price.localizedString ?? r'$9.99';
+    final annualPricePerMonth = annualProduct.price.amount / 12;
+    final annualPricePerMonthString =
+        '${annualProduct.price.currencySymbol}${annualPricePerMonth.toStringAsFixed(2)}';
+
+    // [Price Display] Определяем, какой план выбран и показываем соответствующую цену
+    final isAnnualSelected =
+        selectedProduct?.vendorProductId == annualProduct.vendorProductId;
+    final displayPrice = isAnnualSelected
+        ? '$annualPricePerMonthString / month'
+        : '$monthlyPrice / month';
+    final billingText = isAnnualSelected
+        ? 'Billed yearly or $monthlyPrice/month billed monthly.'
+        : 'Billed monthly.';
+
+    return Container(
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: RishColors.formBackgroun,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // [Title] Заголовок карточки
+          Text(
+            'Unlock advanced features',
+            style: context.styles.h2,
+          ),
           SizedBox(height: 16.h),
-          if (!isFreeTrialAvailable)
-            Text(
-              _getSubtitle(
-                selectedProduct!.subscription!.period.unit.name,
-                price,
-              ),
-              style: context.styles.boldLarge,
-              textAlign: TextAlign.center,
-            ),
-          Text.rich(
-            textAlign: TextAlign.center,
-            TextSpan(
-              text: 'Cancel anytime. ',
-              style: context.styles.boldMedium,
-              children: [
-                TextSpan(
-                  text: 'Restore Purchases.',
-                  style: context.styles.regularMedium.copyWith(
-                    decoration: TextDecoration.underline,
-                  ),
-                  recognizer: TapGestureRecognizer()
-                    ..onTap = () async => restore(),
-                ),
-              ],
+          // [Price] Цена с подзаголовком (зависит от выбранного плана)
+          Text(
+            displayPrice,
+            style: context.styles.h1.copyWith(
+              fontWeight: FontWeight.w900,
             ),
           ),
           SizedBox(height: 8.h),
-          RichText(
-            textAlign: TextAlign.center,
-            text: TextSpan(
-              text: 'By subscribing you agree to our ',
-              style: context.styles.regularMedium
-                  .copyWith(color: RishColors.textSecondary),
-              children: [
-                TextSpan(
-                  text: Platform.isAndroid
-                      ? 'Terms of Service '
-                      : 'Terms of Use ',
-                  style: context.styles.boldMedium.copyWith(
-                    color: RishColors.primary,
-                    decoration: TextDecoration.underline,
-                  ),
-                  recognizer: TapGestureRecognizer()
-                    ..onTap = () async => launchUrl(
-                          Uri.parse(
-                            Platform.isAndroid
-                                ? 'https://thepivotapp.ai/terms-of-service'
-                                : 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
-                          ),
-                        ),
-                ),
-                TextSpan(
-                  text: '& ',
-                  style: context.styles.boldMedium
-                      .copyWith(color: RishColors.textSecondary),
-                ),
-                TextSpan(
-                  text: 'Privacy Policy',
-                  style: context.styles.boldMedium.copyWith(
-                    color: RishColors.primary,
-                    decoration: TextDecoration.underline,
-                  ),
-                  recognizer: TapGestureRecognizer()
-                    ..onTap = () async => launchUrl(
-                          Uri.parse(
-                            'https://thepivotapp.ai/privacy-policy',
-                          ),
-                        ),
-                ),
-              ],
+          Text(
+            billingText,
+            style: context.styles.regularSmall.copyWith(
+              color: RishColors.textSecondary,
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 24.h),
+
+          // [Divider] Разделитель
+          Divider(
+            color: RishColors.textSecondary.withOpacity(0.3),
+            thickness: 1,
+          ),
+          SizedBox(height: 24.h),
+          // [Premium Features] Список всех премиум функций (все включены)
+          ..._premiumFeatures.map(
+            (feature) => Padding(
+              padding: EdgeInsets.only(bottom: 16.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: RishColors.success,
+                      size: 20,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          feature.title,
+                          style: context.styles.regularLarge,
+                        ),
+                        if (feature.subtitle != null) ...[
+                          SizedBox(height: 4.h),
+                          Text(
+                            feature.subtitle!,
+                            style: context.styles.regularSmall.copyWith(
+                              color: RishColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SizedBox(height: 24.h),
+          // [Subscription Buttons] Кнопки выбора подписки
+          _buildSubscriptionButtons(context, monthlyProduct, annualProduct),
+          SizedBox(height: 32.h),
+          // [Subscribe Button] Кнопка для покупки подписки
           RishButton.primary(
-            title: isFreeTrialAvailable
-                ? 'Start free trial!'
-                : 'Purchase subscription',
+            title: 'Subscribe',
             enabled: !processing,
             isLoading: processing,
             action: () async {
@@ -244,21 +565,129 @@ class _PaywallState extends State<Paywall> {
               processPurchaseResult(res);
             },
           ),
-          // Кнопка Skip теперь доступна всегда для фремиум режима
-          SizedBox(height: 20.h),
-          Center(
-            child: GestureDetector(
-              onTap: () => context.go(AppRoutes.homeScreen.path),
-              child: Text(
-                'Skip',
-                style: context.styles.boldLarge.copyWith(
-                  color: RishColors.primary,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  /// [buildSubscriptionButtons] Строит кнопки выбора подписки (Monthly/Annually)
+  Widget _buildSubscriptionButtons(
+    BuildContext context,
+    AdaptyPaywallProduct monthlyProduct,
+    AdaptyPaywallProduct annualProduct,
+  ) {
+    final isAnnualSelected =
+        selectedProduct?.vendorProductId == annualProduct.vendorProductId;
+    final monthlyPrice = monthlyProduct.price.localizedString ?? r'$9.99';
+    final annualPrice = annualProduct.price.localizedString ?? r'$96';
+    final annualPricePerMonth = annualProduct.price.amount / 12;
+    final annualPricePerMonthString =
+        '\$${annualPricePerMonth.toStringAsFixed(2)}';
+
+    return Row(
+      children: [
+        // [Monthly Button]
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              selectedProduct = monthlyProduct;
+            });
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: 27.h, horizontal: 12.w),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: !isAnnualSelected
+                    ? RishColors.primary
+                    : RishColors.textSecondary,
+                width: 2,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Monthly',
+                  style: context.styles.boldMedium,
+                ),
+                // SizedBox(height: 4.h),
+                Text(
+                  '$monthlyPrice/month',
+                  style: context.styles.regularMedium,
+                ),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(width: 12.w),
+        // [Annually Button]
+        Expanded(
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedProduct = annualProduct;
+                  });
+                },
+                child: Container(
+                  padding:
+                      EdgeInsets.symmetric(vertical: 16.h, horizontal: 12.w),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: isAnnualSelected
+                          ? RishColors.primary
+                          : RishColors.textSecondary,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Annually',
+                        style: context.styles.boldMedium,
+                      ),
+                      // SizedBox(height: 4.h),
+                      Text(
+                        '$annualPricePerMonthString/month',
+                        style: context.styles.regularMedium,
+                      ),
+                      // SizedBox(height: 4.h),
+                      Text(
+                        '$annualPrice/year',
+                        style: context.styles.regularSmall.copyWith(
+                          color: RishColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // [Badge] "20% off" badge
+              Positioned(
+                top: -8.h,
+                right: 8.w,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: RishColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '20% off',
+                    style: context.styles.boldSmall.copyWith(
+                      color: RishColors.formBackgroun,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -281,15 +710,63 @@ class _PaywallState extends State<Paywall> {
     });
   }
 
-  String _getSubtitle(String duration, String price) {
-    return '1 month for free, then $price per $duration.';
-  }
+  /// [freeFeaturesIncluded] Список функций, включенных в бесплатную версию
+  final List<PaywallFeature> _freeFeaturesIncluded = const [
+    PaywallFeature(
+      title: 'Wearable Integration (Whoop)',
+    ),
+    PaywallFeature(
+      title: 'Health Metrics',
+      subtitle: '(Daily calorie and macro targets)',
+    ),
+    PaywallFeature(
+      title: 'Food Diary (Log or capture meals)',
+    ),
+    PaywallFeature(
+      title: 'Daily Nutrition Wellness Score',
+      subtitle: '(View only)',
+    ),
+  ];
 
-  List<String> nices = [
-    'Daily calorie and macronutrient targets inline with your fitness goal, calculated using our proprietary algorithm based on WHOOP data.',
-    'Create daily meal plans tailored to your taste profile and dietary preferences, aligned with your goals.',
-    // 'Regeneration of any 1 meal per day of your choice.',
-    'Chat with our AI coach on anything nutrition related. (limited to 5 questions a day)',
+  /// [freeFeaturesExcluded] Список функций, исключенных из бесплатной версии
+  final List<PaywallFeature> _freeFeaturesExcluded = const [
+    PaywallFeature(
+      title: 'Generate Daily Meal Plans',
+    ),
+    PaywallFeature(
+      title: '5-Day Meal Prep',
+    ),
+    PaywallFeature(
+      title: 'AI Nutrition Coach',
+    ),
+  ];
+
+  /// [premiumFeatures] Список всех премиум функций (все включены)
+  final List<PaywallFeature> _premiumFeatures = const [
+    PaywallFeature(
+      title: 'Wearable Integration (Whoop)',
+    ),
+    PaywallFeature(
+      title: 'Health Metrics',
+      subtitle: '(Daily calorie and macro targets)',
+    ),
+    PaywallFeature(
+      title: 'Food Diary (Log or capture meals)',
+    ),
+    PaywallFeature(
+      title: 'Daily Nutrition Wellness Score',
+      subtitle: '(Advanced insights)',
+    ),
+    PaywallFeature(
+      title: 'Generate Daily Meal Plans',
+    ),
+    PaywallFeature(
+      title: '5-Day Meal Prep',
+    ),
+    PaywallFeature(
+      title: 'AI Nutrition Coach',
+      subtitle: '(Recommendations, chat)',
+    ),
   ];
 
   void processPurchaseResult(String res) {

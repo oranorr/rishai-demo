@@ -361,15 +361,10 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                                     Container(
                                       width: 80.w, // Размер центрального круга
                                       height: 80.h,
-                                      decoration: BoxDecoration(
+                                      decoration: const BoxDecoration(
                                         shape: BoxShape.circle,
-                                        // [border] Белая граница как на изображении
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2.w,
-                                        ),
                                         // [gradient] Радиальный градиент от краев к центру как на изображении
-                                        gradient: const RadialGradient(
+                                        gradient: RadialGradient(
                                           radius: 0.8,
                                           colors: [
                                             Color(
@@ -384,18 +379,15 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                                             Color(
                                               0xFFEFC9ED,
                                             ), // Светло-розовый в центре
+                                            Colors.white,
                                           ],
-                                          stops: [0.0, 0.3, 0.6, 1.0],
+                                          stops: [0.0, 0.2, 0.3, 0.6, 1],
                                         ),
                                       ),
                                       child: Center(
                                         child: Text(
                                           '${_calculateOverallProgress().toStringAsFixed(1)}%',
-                                          style: context.styles.numsL.copyWith(
-                                            fontSize: 20.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
+                                          style: context.styles.h2,
                                         ),
                                       ),
                                     ),
@@ -498,10 +490,7 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                 children: [
                   // [tooltipContainer] Контейнер с текстом подсказкиi
                   Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 12.h,
-                    ),
+                    padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
                       // [tooltipBackground] Розово-фиолетовый градиент как на дизайне
                       color: RishColors.primary,
@@ -515,14 +504,13 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                         ),
                       ],
                     ),
-                    child: Text(
-                      'Tap here for details on your Wellness Score.',
-                      style: context.styles.regularSmall.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13.sp,
+                    child: Center(
+                      child: Text(
+                        'Tap here for details on your Wellness Score.',
+                        style:
+                            context.styles.regularSmall.copyWith(height: 1.3),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                   // [tooltipArrow] Стрелка вниз к центральному кругу

@@ -235,7 +235,7 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
       if (!mounted) return;
 
       // Показываем ошибку пользователю
-      _showSnackbar('Error regenerating analysis: $e');
+      _showSnackbar('Something failed, please try again');
     } finally {
       // Убираем состояние загрузки
       if (mounted) {
@@ -286,7 +286,7 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
       if (!mounted) return;
 
       // Показываем ошибку пользователю
-      _showSnackbar('Error analyzing photo: $e');
+      _showSnackbar('Something failed, please try again');
     } finally {
       // Убираем состояние загрузки
       if (mounted) {

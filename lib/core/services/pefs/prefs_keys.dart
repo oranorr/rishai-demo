@@ -18,3 +18,7 @@ const String hiveSchemaVersion = 'hiveSchemaVersion';
 /// [lastFreeUserPhotoUploadTime] Ключ для хранения времени последней загрузки фотографии
 /// бесплатным пользователем (в миллисекундах с эпохи Unix)
 const String lastFreeUserPhotoUploadTime = 'lastFreeUserPhotoUploadTime';
+
+/// [freePaywallViewed] Ключ для хранения флага просмотра бесплатной версии paywall
+/// Если флаг установлен, при следующих вызовах paywall будет показываться премиум версия
+const String freePaywallViewed = 'freePaywallViewed';

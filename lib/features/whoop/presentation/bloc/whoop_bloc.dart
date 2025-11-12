@@ -6,7 +6,6 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
@@ -116,9 +115,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         appNavigationService.go(
           path: needsQuestionary
               ? AppRoutes.questionary.path
-              : adapty.isActive
-                  ? AppRoutes.homeScreen.path
-                  : AppRoutes.paywall.path,
+              : AppRoutes.homeScreen.path,
         );
         emit(state.copyWith(status: Status.initial));
       });
@@ -332,9 +329,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           // Переходим на домашний экран после завершения инициализации
           log('Навигация на главный экран', name: 'WhoopBloc');
           appNavigationService.go(
-            path: adapty.isActive
-                ? AppRoutes.homeScreen.path
-                : AppRoutes.paywall.path,
+            path: AppRoutes.homeScreen.path,
           );
           emit(state.copyWith(status: Status.success));
           return;
@@ -954,9 +949,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         (failure) {
           emit(state.copyWith(status: Status.error));
           appNavigationService.go(
-            path: adapty.isActive
-                ? AppRoutes.homeScreen.path
-                : AppRoutes.paywall.path,
+            path: AppRoutes.homeScreen.path,
           );
         },
         (newDay) async {
@@ -995,9 +988,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           // Завершаем загрузку и возвращаемся на главный экран
           emit(state.copyWith(status: Status.success));
           appNavigationService.go(
-            path: adapty.isActive
-                ? AppRoutes.homeScreen.path
-                : AppRoutes.paywall.path,
+            path: AppRoutes.homeScreen.path,
           );
 
           // Показываем уведомление об успешном обновлении
@@ -1050,14 +1041,16 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         );
       }
 
-      // Если обновилась wellness entity (дневниковые записи)
-      if (oldDay.welnessEntity != event.day.welnessEntity) {
-        needsDirectusUpdate = true;
-        log(
-          '[WhoopBloc] Wellness entity обновлена - обновляем в Directus',
-          name: 'WhoopBloc',
-        );
-      }
+      // [FIX] НЕ сохраняем для welnessEntity, так как это уже делается в FoodDiaryCubit
+      // Это предотвращает задвойку дня при обновлении дневника питания
+      // Если обновилась wellness entity - сохранение уже произошло в FoodDiaryCubit
+      // if (oldDay.welnessEntity != event.day.welnessEntity) {
+      //   needsDirectusUpdate = true;
+      //   log(
+      //     '[WhoopBloc] Wellness entity обновлена - обновляем в Directus',
+      //     name: 'WhoopBloc',
+      //   );
+      // }
 
       if (needsDirectusUpdate) {
         await dayManager.createOrUpdateDay(day: event.day);

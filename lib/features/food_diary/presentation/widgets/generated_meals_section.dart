@@ -31,6 +31,7 @@ import 'package:rishai/features/food_diary/presentation/widgets/meal_item.dart';
 class GeneratedMealsSection extends StatelessWidget {
   const GeneratedMealsSection({
     required this.meals,
+    required this.allMealsFromPlan,
     required this.selectedMeals,
     required this.onMealSelectionChanged,
     super.key,
@@ -38,6 +39,10 @@ class GeneratedMealsSection extends StatelessWidget {
 
   /// Список доступных блюд для выбора
   final List<Meal> meals;
+
+  /// Список всех блюд из плана (до фильтрации потребленных)
+  /// Используется для определения, есть ли план вообще и все ли блюда добавлены
+  final List<Meal> allMealsFromPlan;
 
   /// Список выбранных блюд
   final List<Meal> selectedMeals;
@@ -53,6 +58,20 @@ class GeneratedMealsSection extends StatelessWidget {
   ///
   bool _isMealSelected(Meal meal) {
     return selectedMeals.contains(meal);
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// _areAllMealsLogged
+  /// ═══════════════════════════════════════════════════════════════════════
+  ///
+  /// Проверяет, все ли блюда из плана были добавлены в дневник.
+  ///
+  /// **Логика:**
+  /// - Если есть план (allMealsFromPlan.isNotEmpty) и нет доступных блюд
+  ///   (meals.isEmpty), значит все блюда из плана уже добавлены в дневник.
+  ///
+  bool _areAllMealsLogged() {
+    return allMealsFromPlan.isNotEmpty && meals.isEmpty;
   }
 
   @override
@@ -82,21 +101,32 @@ class GeneratedMealsSection extends StatelessWidget {
         SizedBox(height: 12.h),
 
         // ┌───────────────────────────────────────────────────────────────────┐
-        // │ Выпадающий список с блюдами или кнопка создания плана              │
+        // │ Выпадающий список с блюдами, кнопка создания плана или сообщение   │
+        // │ о том, что все блюда добавлены                                      │
         // └───────────────────────────────────────────────────────────────────┘
         if (meals.isEmpty)
           Column(
             children: [
-              // Кнопка создания индивидуального плана питания
-              RishButton.primary(
-                title: 'Create Individual Meal Plan',
-                enabled: true,
-                isLoading: false,
-                action: () async {
-                  appNavigationService.pop(path: AppRoutes.chat.path);
-                  await homePageControllerService.navigateToPage(page: 2);
-                },
-              ),
+              // Если все блюда из плана добавлены - показываем сообщение
+              if (_areAllMealsLogged())
+                Text(
+                  'You have logged all your generated meals for the day',
+                  style: context.styles.regularMedium.copyWith(
+                    color: RishColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                )
+              else
+                // Иначе показываем кнопку создания индивидуального плана питания
+                RishButton.primary(
+                  title: 'Create Individual Meal Plan',
+                  enabled: true,
+                  isLoading: false,
+                  action: () async {
+                    appNavigationService.pop(path: AppRoutes.chat.path);
+                    await homePageControllerService.navigateToPage(page: 2);
+                  },
+                ),
             ],
           )
         else

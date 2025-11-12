@@ -9,6 +9,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
+import 'package:rishai/core/services/directus/directus_repository.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -28,6 +29,7 @@ part 'food_diary_state.dart';
 
 // [FoodDiaryCubit] Глобальные экземпляры для доступа из других частей приложения
 final foodDiaryCubit = getIt.get<FoodDiaryCubit>();
+final directusService = getIt.get<DirectusService>();
 
 /// [FoodDiaryCubit] Кубит для управления состоянием дневника питания
 ///
@@ -273,6 +275,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
   ///
   /// Получает все дни пользователя с wellness score, вычисляет среднее арифметическое
   /// и обновляет PivotLifeScoreEntity в профиле пользователя локально и удаленно.
+  /// Учитывает дату начала отсчета (inceptionDate) - считаются только дни >= inceptionDate.
   Future<void> calculatePivotLifeScore() async {
     try {
       // Получаем ID текущего пользователя
@@ -283,6 +286,46 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
           name: 'FoodDiaryCubit',
         );
         return;
+      }
+
+      // Получаем inceptionDate из app_config в Directus
+      DateTime? inceptionDateFromConfig;
+      try {
+        final appConfig = await directusService.readAppConfig();
+        final inceptionDateValue = appConfig['inceptionDate'];
+
+        if (inceptionDateValue != null) {
+          // Парсим DateTime из app_config (может быть в разных форматах)
+          if (inceptionDateValue is int) {
+            // Если это timestamp в миллисекундах
+            inceptionDateFromConfig =
+                DateTime.fromMillisecondsSinceEpoch(inceptionDateValue);
+          } else if (inceptionDateValue is String) {
+            // Если это строка ISO8601
+            inceptionDateFromConfig = DateTime.parse(inceptionDateValue);
+          } else {
+            throw Exception('Неизвестный формат inceptionDate в app_config');
+          }
+
+          log(
+            '[FoodDiaryCubit] 📅 Получена дата начала отсчета из app_config: ${inceptionDateFromConfig.toIso8601String().split('T')[0]}',
+            name: 'FoodDiaryCubit',
+          );
+        } else {
+          // Если inceptionDate не задана в app_config, используем дату первого дня с wellness score
+          log(
+            '[FoodDiaryCubit] ⚠️ inceptionDate не найдена в app_config, будет использована дата первого дня с wellness score',
+            name: 'FoodDiaryCubit',
+          );
+        }
+      } catch (e, stackTrace) {
+        log(
+          '[FoodDiaryCubit] ❌ Ошибка при получении inceptionDate из app_config: $e',
+          error: e,
+          stackTrace: stackTrace,
+          name: 'FoodDiaryCubit',
+        );
+        // В случае ошибки используем дату первого дня с wellness score
       }
 
       // Получаем все дни пользователя через DayManager
@@ -321,14 +364,54 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         return;
       }
 
+      // Определяем inceptionDate:
+      // - Если получена из app_config - используем её
+      // - Если нет - используем дату первого дня с wellness score
+      final DateTime inceptionDate;
+      if (inceptionDateFromConfig != null) {
+        inceptionDate = inceptionDateFromConfig;
+      } else {
+        // Находим самый ранний день с wellness score
+        daysWithWellnessScore.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+        inceptionDate = daysWithWellnessScore.first.dateTime;
+        log(
+          '[FoodDiaryCubit] 🆕 Устанавливаем дату начала отсчета как дату первого дня с wellness score: ${inceptionDate.toIso8601String().split('T')[0]}',
+          name: 'FoodDiaryCubit',
+        );
+      }
+
+      // Фильтруем дни, которые >= inceptionDate (сравниваем только дату, без времени)
+      final filteredDays = daysWithWellnessScore.where((day) {
+        final dayDate = DateTime(
+          day.dateTime.year,
+          day.dateTime.month,
+          day.dateTime.day,
+        );
+        final inceptionDateOnly = DateTime(
+          inceptionDate.year,
+          inceptionDate.month,
+          inceptionDate.day,
+        );
+        return dayDate.isAfter(inceptionDateOnly) ||
+            dayDate.isAtSameMomentAs(inceptionDateOnly);
+      }).toList();
+
+      if (filteredDays.isEmpty) {
+        log(
+          '[FoodDiaryCubit] ⚠️ Нет дней с Daily Wellness Score после даты начала отсчета (${inceptionDate.toIso8601String().split('T')[0]})',
+          name: 'FoodDiaryCubit',
+        );
+        return;
+      }
+
       log(
-        '[FoodDiaryCubit] 📈 Найдено ${daysWithWellnessScore.length} дней с Daily Wellness Score из ${userDays.length} общих дней',
+        '[FoodDiaryCubit] 📈 Найдено ${filteredDays.length} дней с Daily Wellness Score после даты начала отсчета (${inceptionDate.toIso8601String().split('T')[0]}) из ${daysWithWellnessScore.length} общих дней с wellness score',
         name: 'FoodDiaryCubit',
       );
 
       // Вычисляем среднее арифметическое
       double totalWellnessScore = 0;
-      for (final day in daysWithWellnessScore) {
+      for (final day in filteredDays) {
         final wellnessScore = day.welnessEntity!.welnessPercentage;
         totalWellnessScore += wellnessScore;
         log(
@@ -337,18 +420,18 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         );
       }
 
-      final averageWellnessScore =
-          totalWellnessScore / daysWithWellnessScore.length;
+      final averageWellnessScore = totalWellnessScore / filteredDays.length;
 
       log(
-        '[FoodDiaryCubit] 🎯 Рассчитанный средний Daily Wellness Score (Pivot Life Score): ${averageWellnessScore.toStringAsFixed(2)}%',
+        '[FoodDiaryCubit] 🎯 Рассчитанный средний Daily Wellness Score (Pivot Life Score): ${averageWellnessScore.toStringAsFixed(2)}% (на основе ${filteredDays.length} дней с ${inceptionDate.toIso8601String().split('T')[0]})',
         name: 'FoodDiaryCubit',
       );
 
-      // Создаем или обновляем PivotLifeScoreEntity
+      // Создаем или обновляем PivotLifeScoreEntity с сохранением inceptionDate
       final pivotLifeScore = PivotLifeScoreEntity(
         score: averageWellnessScore,
         updatedAt: DateTime.now(),
+        inceptionDate: inceptionDate,
       );
 
       // Обновляем пользователя с новым Pivot Life Score
@@ -565,18 +648,26 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
 
       // Обновляем день с обновленной wellness entity
       final updatedDay = currentDay.copyWith(welnessEntity: welnessEntity);
-      whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
+
+      // [FIX] Сохраняем день в Directus ДО отправки события в WhoopBloc
+      // Это предотвращает задвойку дня, аналогично логике создания плана питания
+      log(
+        '[FoodDiaryCubit] 💾 Сохраняем обновленный день в Directus перед отправкой в WhoopBloc',
+        name: 'FoodDiaryCubit',
+      );
+      await dayManager.createOrUpdateDay(day: updatedDay);
 
       log(
         '[FoodDiaryCubit] ✅ Daily Wellness Score успешно ${existingWelness != null ? 'обновлен' : 'рассчитан'} и ${existingWelness != null ? 'обновлен' : 'добавлен'} в день',
         name: 'FoodDiaryCubit',
       );
 
-      // Обновляем день в WhoopBloc
+      // Обновляем день в WhoopBloc (без повторного сохранения в Directus)
       log(
         '[FoodDiaryCubit] 🔄 Отправляем обновленный день в WhoopBloc',
         name: 'FoodDiaryCubit',
       );
+      whoopBloc.add(WhoopUpdateCurrentDay(day: updatedDay));
 
       // После успешного расчета Daily Wellness Score пересчитываем Pivot Life Score
       log(
@@ -870,6 +961,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         DiaryEntryPageState.initial().copyWith(
           status: Status.success,
           availableMeals: availableMeals,
+          allMealsFromPlan: allMeals,
         ),
       );
 

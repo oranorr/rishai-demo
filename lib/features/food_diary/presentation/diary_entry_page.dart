@@ -48,6 +48,7 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
 
           // [build] Извлекаем данные из состояния cubit
           final meals = foodDiaryState.availableMeals;
+          final allMealsFromPlan = foodDiaryState.allMealsFromPlan;
           final selectedMeals = foodDiaryState.selectedMeals;
           final selectedCustomMealsCount =
               foodDiaryState.selectedCustomMealsCount;
@@ -67,6 +68,7 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
                     children: [
                       GeneratedMealsSection(
                         meals: meals,
+                        allMealsFromPlan: allMealsFromPlan,
                         selectedMeals: selectedMeals,
                         onMealSelectionChanged: (meal, isSelected) {
                           // [onMealSelectionChanged] Отправляем событие в cubit для переключения выбора блюда

@@ -223,4 +223,22 @@ class PrefsRepository {
     // Если прошло 24+ часа - разрешаем загрузку
     return timeDifference >= const Duration(hours: 24);
   }
+
+  /// [setFreePaywallViewed] Устанавливает флаг, что пользователь видел бесплатную версию paywall
+  ///
+  /// После установки этого флага все последующие вызовы paywall будут показывать
+  /// премиум версию вместо бесплатной
+  Future<void> setFreePaywallViewed() async {
+    _ensureInitialized();
+    await _prefs.setBool(freePaywallViewed, true);
+  }
+
+  /// [hasViewedFreePaywall] Проверяет, видел ли пользователь бесплатную версию paywall
+  ///
+  /// **Возвращает:**
+  /// - `bool` - `true` если пользователь уже видел бесплатную версию, `false` если нет
+  bool hasViewedFreePaywall() {
+    _ensureInitialized();
+    return _prefs.getBool(freePaywallViewed) ?? false;
+  }
 }

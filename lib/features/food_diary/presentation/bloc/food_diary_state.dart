@@ -235,6 +235,10 @@ class DiaryEntryPageState extends FoodDiaryState {
   /// Список доступных блюд для выбора (из дневного и недельного планов, исключая уже потребленные)
   final List<Meal> availableMeals;
 
+  /// Список всех блюд из плана (до фильтрации потребленных)
+  /// Используется для определения, есть ли план вообще и все ли блюда добавлены
+  final List<Meal> allMealsFromPlan;
+
   /// Список выбранных пользователем блюд для добавления в дневник
   final List<Meal> selectedMeals;
 
@@ -260,6 +264,7 @@ class DiaryEntryPageState extends FoodDiaryState {
   const DiaryEntryPageState({
     required this.status,
     required this.availableMeals,
+    required this.allMealsFromPlan,
     required this.selectedMeals,
     required this.customMeals,
     required this.selectedPhotos,
@@ -273,6 +278,7 @@ class DiaryEntryPageState extends FoodDiaryState {
     return DiaryEntryPageState(
       status: Status.initial,
       availableMeals: const [],
+      allMealsFromPlan: const [],
       selectedMeals: const [],
       customMeals: [CustomMealEntry.empty()], // Начинаем с одного пустого блюда
       selectedPhotos: const [],
@@ -284,6 +290,7 @@ class DiaryEntryPageState extends FoodDiaryState {
   DiaryEntryPageState copyWith({
     Status? status,
     List<Meal>? availableMeals,
+    List<Meal>? allMealsFromPlan,
     List<Meal>? selectedMeals,
     List<CustomMealEntry>? customMeals,
     ServingType? selectedMealType,
@@ -295,6 +302,7 @@ class DiaryEntryPageState extends FoodDiaryState {
     return DiaryEntryPageState(
       status: status ?? this.status,
       availableMeals: availableMeals ?? this.availableMeals,
+      allMealsFromPlan: allMealsFromPlan ?? this.allMealsFromPlan,
       selectedMeals: selectedMeals ?? this.selectedMeals,
       customMeals: customMeals ?? this.customMeals,
       selectedMealType:
@@ -340,6 +348,7 @@ class DiaryEntryPageState extends FoodDiaryState {
   List<Object?> get props => [
         status,
         availableMeals,
+        allMealsFromPlan,
         selectedMeals,
         customMeals,
         selectedMealType,

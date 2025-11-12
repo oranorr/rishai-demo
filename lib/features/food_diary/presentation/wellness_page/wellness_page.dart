@@ -102,12 +102,23 @@ class _AnimationWidget extends StatelessWidget {
       width: double.infinity,
       height: 311.h,
       decoration: BoxDecoration(
-        color: RishColors.formBackgroun,
+        // color: RishColors.formBackgroun,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Center(
-        child: Text(
-          'animation goes brrrr\n $welnessPercentage',
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              child: Image.asset('assets/images/wellness.png'),
+            ),
+            Align(
+              child: Text(
+                '${welnessPercentage.toStringAsFixed(0)}%',
+                style: context.styles.h2,
+              ),
+            ),
+          ],
         ),
       ),
     );
