@@ -20,7 +20,7 @@ import 'package:rishai/features/settings/presentation/settings_pages/profile_set
 import 'package:rishai/features/whoop/presentation/calibrating_screen.dart';
 import 'package:rishai/features/whoop/presentation/fetching_data_screen.dart';
 import 'package:rishai/features/whoop/presentation/whoop_connect_page.dart';
-import 'package:rishai/paywall.dart';
+import 'package:rishai/core/services/adapty_service/presentation/paywall.dart';
 import 'package:rishai/splash.dart';
 
 final appNavigationService = getIt<AppNavigationService>();
@@ -186,6 +186,71 @@ class AppNavigationService {
 
   Future<void> push({required String path, Object? state}) async {
     await ctx!.push(path);
+  }
+
+  /// Выполняет pop до тех пор, пока не достигнет указанного пути.
+  ///
+  /// [path] - путь, до которого нужно делать pop.
+  /// Если путь не найден в стеке навигации, будет выполнен pop до корня.
+  ///
+  /// Пример использования:
+  /// ```dart
+  /// appNavigationService.popUntil(path: AppRoutes.homeScreen.path);
+  /// ```
+  void popUntil({required String path}) {
+    final context = ctx;
+    if (context == null) return;
+
+    final navigator = Navigator.of(context);
+
+    // Нормализуем путь (убираем trailing slash для сравнения)
+    final normalizedTargetPath = path.endsWith('/') && path.length > 1
+        ? path.substring(0, path.length - 1)
+        : path;
+
+    // Используем popUntil с предикатом, который проверяет текущий путь
+    navigator.popUntil((route) {
+      // Проверяем, является ли это первым маршрутом (корнем стека)
+      // Если да, останавливаемся, чтобы не удалить корневой маршрут
+      if (route.isFirst) {
+        return true;
+      }
+
+      // Пытаемся получить путь из route.settings.name
+      // В GoRouter путь может храниться в name
+      final routeName = route.settings.name;
+      if (routeName != null) {
+        final normalizedRouteName =
+            routeName.endsWith('/') && routeName.length > 1
+                ? routeName.substring(0, routeName.length - 1)
+                : routeName;
+
+        // Если путь совпадает, останавливаемся
+        if (normalizedRouteName == normalizedTargetPath) {
+          return true;
+        }
+      }
+
+      // Также проверяем текущий путь через routeInformationProvider
+      // Это полезно, если путь не хранится в route.settings.name
+      try {
+        final currentUri = config.routeInformationProvider.value.uri;
+        final currentPath = currentUri.path;
+        final normalizedCurrentPath =
+            currentPath.endsWith('/') && currentPath.length > 1
+                ? currentPath.substring(0, currentPath.length - 1)
+                : currentPath;
+
+        if (normalizedCurrentPath == normalizedTargetPath) {
+          return true;
+        }
+      } catch (e) {
+        // Игнорируем ошибки при получении пути
+      }
+
+      // Продолжаем pop, если путь не совпадает
+      return false;
+    });
   }
 
   String get currentPath =>

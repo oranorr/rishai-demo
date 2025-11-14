@@ -1,4 +1,5 @@
 const String onboardWatched = 'watchedOnboard';
+const String shouldRedirectAfterPaywallKey = 'shouldRedirectAfterPaywall';
 const String isLoggedIn = 'isLoggedIn';
 const String whoopAccessToken = 'whoopAccessToken';
 const String whoopRefreshToken = 'whoopRefreshToken';

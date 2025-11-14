@@ -190,8 +190,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     Emitter<WhoopState> emit,
   ) async {
     try {
+      log('[WhoopBloc] _initWhoopOnLogin начат', name: 'WhoopBloc');
       emit(state.copyWith(status: Status.loading));
       UserEntity user = userBloc.state.user;
+      log(
+        '[WhoopBloc] Пользователь: ${user.directusId}, needsQuestionary: ${user.needsQuestionary}',
+        name: 'WhoopBloc',
+      );
       final isTokenOk = await wTokenService.initService();
       await adapty.initAdapty();
       emit(state.copyWith(whoopConnected: isTokenOk));
@@ -226,7 +231,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
       if (!user.needsQuestionary) {
         log('retrieveing data');
-        appNavigationService.go(path: AppRoutes.redirect.path);
+        // [CheckCurrentPath] Проверяем, не находимся ли мы уже на странице /redirect
+        // Если да, не переходим туда снова (это предотвращает автоматический редирект
+        // когда мы вызываем InitWhoopOnLogin из Redirect после paywall)
+        final currentPath = appNavigationService.currentPath;
+        if (!currentPath.contains(AppRoutes.redirect.path)) {
+          appNavigationService.go(path: AppRoutes.redirect.path);
+        }
 
         await _getUserData(
           WhoopGetUserData(

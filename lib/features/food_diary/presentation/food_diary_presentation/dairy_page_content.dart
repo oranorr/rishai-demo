@@ -113,8 +113,9 @@ class _DiaryPageContent extends StatelessWidget {
           mealType.contains('meal 5')) {
         groupKey = 'Snacks';
       } else {
-        // По умолчанию относим к разному
-        groupKey = 'Other Meals';
+        // [skip] Типы блюд зафиксированы, если тип не распознан - пропускаем блюдо
+        // Это не должно происходить в нормальной работе приложения
+        continue;
       }
 
       // Добавляем блюдо в соответствующую группу
@@ -150,6 +151,42 @@ class _DiaryPageContent extends StatelessWidget {
     }
 
     return sortedEntries;
+  }
+
+  /// [_getGroupTitle] Возвращает заголовок группы с правильным числом
+  ///
+  /// Если в группе одно блюдо, возвращает заголовок в единственном числе.
+  /// Если блюд несколько, возвращает заголовок во множественном числе.
+  ///
+  /// **Параметры:**
+  /// - groupName: Название группы во множественном числе (например, 'Breakfasts')
+  /// - mealsCount: Количество блюд в группе
+  ///
+  /// **Возвращает:**
+  /// Заголовок в единственном или множественном числе в зависимости от количества блюд
+  String _getGroupTitle(String groupName, int mealsCount) {
+    // Если блюд несколько, возвращаем множественное число
+    if (mealsCount > 1) {
+      return groupName;
+    }
+
+    // Если блюдо одно, преобразуем в единственное число
+    switch (groupName) {
+      case 'Breakfasts':
+        return 'Breakfast';
+      case 'Lunches':
+        return 'Lunch';
+      case 'Dinners':
+        return 'Dinner';
+      case 'Suppers':
+        return 'Supper';
+      case 'Snacks':
+        return 'Snack';
+      default:
+        // Если группа не распознана, возвращаем как есть
+        // Это не должно происходить, так как типы зафиксированы
+        return groupName;
+    }
   }
 
   @override
@@ -211,12 +248,16 @@ class _DiaryPageContent extends StatelessWidget {
             final groupName = entry.key;
             final mealsInGroup = entry.value;
 
+            // [getGroupTitle] Получаем заголовок с правильным числом
+            // Если в группе одно блюдо - единственное число, иначе - множественное
+            final displayTitle = _getGroupTitle(groupName, mealsInGroup.length);
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Заголовок группы
+                // [build] Заголовок группы с правильным числом
                 Text(
-                  groupName,
+                  displayTitle,
                   style: context.styles.boldLarge,
                 ),
                 SizedBox(height: 8.h),

@@ -32,7 +32,17 @@ export 'package:rishai/features/food_diary/presentation/widgets/custom_meals_sec
 /// - Плавные переходы и взаимодействия
 ///
 class CustomMealsSection extends StatelessWidget {
-  const CustomMealsSection({super.key});
+  const CustomMealsSection({
+    this.expandedMealId,
+    this.onMealExpansionChanged,
+    super.key,
+  });
+
+  /// ID раскрытого кастомного блюда (если null, ни одно не раскрыто)
+  final String? expandedMealId;
+
+  /// Callback для изменения состояния раскрытия кастомного блюда
+  final void Function(String mealId, bool isExpanded)? onMealExpansionChanged;
 
   /// [_handleAddMore] Обработчик нажатия на "Add more"
   ///
@@ -99,6 +109,7 @@ class CustomMealsSection extends StatelessWidget {
               final index = entry.key;
               final meal = entry.value;
               final showDeleteButton = customMeals.length > 1;
+              final isMealExpanded = expandedMealId == meal.id;
 
               return Padding(
                 padding: EdgeInsets.only(bottom: 12.h),
@@ -106,6 +117,10 @@ class CustomMealsSection extends StatelessWidget {
                   meal: meal,
                   mealIndex: index + 1,
                   showDeleteButton: showDeleteButton,
+                  isExpanded: isMealExpanded,
+                  onExpansionChanged: (isExpanded) {
+                    onMealExpansionChanged?.call(meal.id, isExpanded);
+                  },
                 ),
               );
             }),

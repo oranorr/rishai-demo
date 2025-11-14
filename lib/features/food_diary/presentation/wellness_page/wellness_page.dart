@@ -42,16 +42,18 @@ class WellnessPage extends StatelessWidget {
                 ),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () async => RishiDialog.infoPopup(context, '''
-Recommendations change dynamically over the day as you capture meals.
+                  onTap: () async => RishiDialog.infoPopup(
+                    context,
+                    '''
+The Daily Nutritional Wellness Score is your personal performance tracker and gives you a clear snapshot of how well you're fueling your body, measuring your nutritional consistency.
 
-Staying within ±10% of your daily goal gives the highest score.
+Our proprietary algorithm calculates a % score based on how closely your calorie and macro intake matches your daily targets.
 
-Going beyond 10% reduces your score progressively, as overeating affects energy balance and recovery.
+Your Daily Nutritional Wellness score provides nutritional insights and personalized recommendations for dietary choices by Pivot's nutritional intelligence.
 
-Pivot's nutritional intelligence instantly analyzes your day and recommends foods to fill your remaining targets.
-
-Scores above target are penalized to encourage balanced nutrition, not overeating.'''),
+Your DNWS drops faster once you exceed 110% of your target intake, encouraging balance over excess.''',
+                    title: 'Daily Nutritional Wellness',
+                  ),
                   child: SvgPicture.asset('assets/icons/info_round.svg'),
                 ),
               ],

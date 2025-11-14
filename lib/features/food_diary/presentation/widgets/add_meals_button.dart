@@ -54,20 +54,30 @@ class AddMealsButton extends StatelessWidget {
     return SafeArea(
       minimum: const EdgeInsets.only(top: 16),
       child: RishButton.primary(
-        title: selectedMealsCount == 0 ? 'Select meals' : 'Add meals to diary',
+        title: selectedMealsCount == 0 ? 'Select meals' : 'Add to diary',
         enabled: selectedMealsCount > 0,
         isLoading: isLoading,
         action: () {
-          // [action] Показываем диалог подтверждения перед добавлением блюд
-          // Используем готовое решение из RishiDialog
-          RishiDialog.showAddMealsConfirmationDialog(
-            context,
-            mealsCount: selectedMealsCount,
-            action: () {
-              // [action] Вызываем оригинальный callback только после подтверждения
-              onPressed();
-            },
-          );
+          // [unfocus] Убираем фокус с поля ввода перед открытием диалога
+          // Это предотвращает автоматическую прокрутку к полю ввода после закрытия диалога
+          FocusScope.of(context).unfocus();
+
+          // [delay] Небольшая задержка для гарантированного снятия фокуса
+          // перед открытием диалога
+          Future.delayed(const Duration(milliseconds: 50), () {
+            if (!context.mounted) return;
+
+            // [action] Показываем диалог подтверждения перед добавлением блюд
+            // Используем готовое решение из RishiDialog
+            RishiDialog.showAddMealsConfirmationDialog(
+              context,
+              mealsCount: selectedMealsCount,
+              action: () {
+                // [action] Вызываем оригинальный callback только после подтверждения
+                onPressed();
+              },
+            );
+          });
         },
       ),
     );

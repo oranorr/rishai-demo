@@ -24,6 +24,11 @@ class ImagePickerHelper {
   /// - [limit] - максимальное количество изображений (для iOS 14+)
   ///
   /// Возвращает [XFile?] для одного изображения или [List<XFile>] для нескольких
+  ///
+  /// **Логика работы:**
+  /// 1. Сразу показываем bottom sheet с выбором источника (камера/галерея)
+  /// 2. При выборе источника проверяем разрешения
+  /// 3. Если разрешения запрещены - показываем диалог для перехода в настройки
   Future<dynamic> showAppleStyleImageSourceDialog({
     required BuildContext context,
     double? maxWidth,
@@ -32,6 +37,8 @@ class ImagePickerHelper {
     bool allowMultiple = false,
     int? limit,
   }) async {
+    // [showBottomSheetFirst] Сразу показываем bottom sheet с выбором источника
+    // Проверка разрешений будет происходить при выборе конкретного источника
     // Показываем диалог и ждём выбора источника (камера/галерея/отмена)
     final String? sourceChoice = await showModalBottomSheet<String>(
       context: context,
@@ -145,10 +152,41 @@ class ImagePickerHelper {
     print('[ImagePickerHelper] Выбран источник: $sourceChoice');
 
     if (sourceChoice == 'camera') {
-      // На Android проверяем и запрашиваем разрешение на камеру
+      // [checkCameraPermissionBeforeOpen] Проверяем статус разрешения на камеру перед открытием
+      // Если разрешение запрещено - показываем диалог для перехода в настройки
+      final cameraStatus = await Permission.camera.status;
+      
+      if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
+        // Разрешение запрещено - показываем диалог
+        if (context.mounted) {
+          await RishiDialog.showPermissionDeniedDialog(
+            context,
+            permissionType: 'camera',
+          );
+        }
+        return null;
+      }
+
+      // На Android запрашиваем разрешение, если оно еще не предоставлено
       // На iOS разрешение запрашивается автоматически через image_picker
-      if (Platform.isAndroid) {
-        await _checkAndRequestCameraPermission(context: context);
+      if (Platform.isAndroid && !cameraStatus.isGranted && !cameraStatus.isLimited) {
+        try {
+          await _checkAndRequestCameraPermission(context: context);
+        } catch (e) {
+          // Если запрос разрешения был отклонен, показываем диалог
+          // Метод _checkAndRequestCameraPermission уже показал диалог для permanently denied,
+          // но для обычного denied мы показываем диалог здесь
+          final updatedStatus = await Permission.camera.status;
+          if (updatedStatus.isDenied || updatedStatus.isPermanentlyDenied) {
+            if (context.mounted) {
+              await RishiDialog.showPermissionDeniedDialog(
+                context,
+                permissionType: 'camera',
+              );
+            }
+          }
+          return null;
+        }
       }
 
       // Открываем камеру
@@ -165,7 +203,22 @@ class ImagePickerHelper {
         // Если пользователь отменил выбор или ошибка не связана с разрешениями,
         // возвращаем null без исключения
         print('[ImagePickerHelper] Ошибка при съемке фото: $e');
-        // Проверяем, является ли это ошибкой разрешения
+        
+        // [checkPermissionAfterError] Проверяем статус разрешения после ошибки
+        // Если разрешение запрещено, показываем диалог
+        final cameraStatus = await Permission.camera.status;
+        if (cameraStatus.isDenied || cameraStatus.isPermanentlyDenied) {
+          // Показываем диалог с предложением открыть настройки
+          if (context.mounted) {
+            await RishiDialog.showPermissionDeniedDialog(
+              context,
+              permissionType: 'camera',
+            );
+          }
+          return null;
+        }
+        
+        // Проверяем, является ли это ошибкой разрешения по тексту ошибки
         if (e.toString().toLowerCase().contains('permission') ||
             e.toString().toLowerCase().contains('denied')) {
           // Показываем диалог с предложением открыть настройки
@@ -180,10 +233,53 @@ class ImagePickerHelper {
         return null;
       }
     } else if (sourceChoice == 'gallery') {
-      // На Android проверяем и запрашиваем разрешение на галерею
-      // На iOS разрешение запрашивается автоматически через image_picker
-      if (Platform.isAndroid) {
-        await _checkAndRequestGalleryPermission(context: context);
+      // [checkGalleryPermissionBeforeOpen] На Android 10+ (API 29+) с scoped storage
+      // разрешение может не требоваться для системного picker, и статус Permission.photos
+      // может быть неправильным даже когда доступ предоставлен.
+      // Поэтому на Android не проверяем разрешение заранее, а просто пытаемся открыть галерею.
+      // На iOS проверяем разрешение перед открытием.
+      
+      if (Platform.isIOS) {
+        // На iOS проверяем разрешение перед открытием
+        final galleryStatus = await Permission.photos.status;
+        
+        if (galleryStatus.isDenied || galleryStatus.isPermanentlyDenied) {
+          // Разрешение запрещено - показываем диалог
+          if (context.mounted) {
+            await RishiDialog.showPermissionDeniedDialog(
+              context,
+              permissionType: 'gallery',
+            );
+          }
+          return null;
+        }
+      } else {
+        // На Android проверяем только permanently denied
+        // На Android 10+ с scoped storage разрешение может быть denied, но доступ все равно работать
+        final galleryStatus = await Permission.photos.status;
+        
+        if (galleryStatus.isPermanentlyDenied) {
+          // Разрешение постоянно запрещено - показываем диалог
+          if (context.mounted) {
+            await RishiDialog.showPermissionDeniedDialog(
+              context,
+              permissionType: 'gallery',
+            );
+          }
+          return null;
+        }
+
+        // На Android запрашиваем разрешение, если оно еще не предоставлено
+        // Но не блокируем доступ, если оно denied (может работать через scoped storage)
+        if (!galleryStatus.isGranted && !galleryStatus.isLimited) {
+          try {
+            await _checkAndRequestGalleryPermission(context: context);
+          } catch (e) {
+            // Если запрос разрешения был отклонен, не блокируем доступ
+            // Попробуем открыть галерею - может работать через scoped storage
+            print('[ImagePickerHelper] Запрос разрешения на галерею отклонен, но продолжаем попытку открыть галерею');
+          }
+        }
       }
 
       // Открываем галерею
@@ -220,7 +316,22 @@ class ImagePickerHelper {
         // Если пользователь отменил выбор или ошибка не связана с разрешениями,
         // возвращаем null без исключения
         print('[ImagePickerHelper] Ошибка при выборе из галереи: $e');
-        // Проверяем, является ли это ошибкой разрешения
+        
+        // [checkPermissionAfterError] Проверяем статус разрешения после ошибки
+        // Если разрешение запрещено, показываем диалог
+        final galleryStatus = await Permission.photos.status;
+        if (galleryStatus.isDenied || galleryStatus.isPermanentlyDenied) {
+          // Показываем диалог с предложением открыть настройки
+          if (context.mounted) {
+            await RishiDialog.showPermissionDeniedDialog(
+              context,
+              permissionType: 'gallery',
+            );
+          }
+          return null;
+        }
+        
+        // Проверяем, является ли это ошибкой разрешения по тексту ошибки
         if (e.toString().toLowerCase().contains('permission') ||
             e.toString().toLowerCase().contains('denied')) {
           // Показываем диалог с предложением открыть настройки

@@ -43,6 +43,8 @@ class CustomMealItem extends StatefulWidget {
     required this.meal,
     required this.mealIndex,
     required this.showDeleteButton,
+    this.isExpanded,
+    this.onExpansionChanged,
     super.key,
   });
 
@@ -55,6 +57,12 @@ class CustomMealItem extends StatefulWidget {
   /// Показывать ли кнопку удаления
   final bool showDeleteButton;
 
+  /// Управляемое состояние раскрытия dropdown'а
+  final bool? isExpanded;
+
+  /// Callback для изменения состояния раскрытия dropdown'а
+  final void Function(bool isExpanded)? onExpansionChanged;
+
   @override
   State<CustomMealItem> createState() => _CustomMealItemState();
 }
@@ -63,7 +71,7 @@ class _CustomMealItemState extends State<CustomMealItem>
     with CustomMealItemMixin {
   @override
   Widget build(BuildContext context) {
-    // Определяем заголовок dropdown
+    // [dropdownTitle] Определяем заголовок dropdown
     // Если блюдо проанализировано - показываем название блюда
     // Иначе - показываем тип приема пищи или placeholder
     final dropdownTitle =
@@ -72,8 +80,10 @@ class _CustomMealItemState extends State<CustomMealItem>
     //     ? widget.meal.analyzedMeal!.title
     //     : (widget.meal.mealType?.name ?? 'Choose from the list');
 
-    // Dropdown должен быть открыт если есть фото или если блюдо проанализировано
-    final initiallyExpanded = widget.meal.hasPhotos || widget.meal.isAnalyzed;
+    // [initiallyExpanded] Dropdown должен быть открыт если есть фото или если блюдо проанализировано
+    // Если передано управляемое состояние, используем его для initiallyExpanded
+    final initiallyExpanded = widget.isExpanded ??
+        (widget.meal.hasPhotos || widget.meal.isAnalyzed);
 
     return Column(
       children: [
@@ -114,6 +124,8 @@ class _CustomMealItemState extends State<CustomMealItem>
         DiaryDropDown(
           title: dropdownTitle,
           initiallyExpanded: initiallyExpanded,
+          isExpanded: widget.isExpanded,
+          onExpansionChanged: widget.onExpansionChanged,
           child: widget.meal.isAnalyzed
               ? AnalyzedMealContent(
                   meal: widget.meal,

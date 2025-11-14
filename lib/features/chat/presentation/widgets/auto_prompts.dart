@@ -5,9 +5,11 @@ class _AutoPrompts extends StatefulWidget {
   const _AutoPrompts({
     required this.controller,
     required this.isThereText,
+    this.initialStepNotifier,
   });
   final PageController controller;
   final bool isThereText;
+  final ValueNotifier<int?>? initialStepNotifier;
 
   @override
   State<_AutoPrompts> createState() => __AutoPromptsState();
@@ -30,8 +32,35 @@ class __AutoPromptsState extends State<_AutoPrompts>
 
   @override
   void initState() {
-    _checkForDate();
     super.initState();
+    // [initState] Проверяем, есть ли установленный начальный шаг извне
+    if (widget.initialStepNotifier?.value != null) {
+      currentStep = widget.initialStepNotifier!.value!;
+      // [initState] Сбрасываем значение после использования
+      widget.initialStepNotifier?.value = null;
+    } else {
+      _checkForDate();
+    }
+    // [initState] Слушаем изменения initialStepNotifier
+    widget.initialStepNotifier?.addListener(_handleInitialStepChange);
+  }
+
+  @override
+  void dispose() {
+    // [dispose] Отписываемся от изменений initialStepNotifier
+    widget.initialStepNotifier?.removeListener(_handleInitialStepChange);
+    super.dispose();
+  }
+
+  /// [handleInitialStepChange] Обработчик изменения initialStepNotifier
+  void _handleInitialStepChange() {
+    if (widget.initialStepNotifier?.value != null) {
+      setState(() {
+        currentStep = widget.initialStepNotifier!.value!;
+      });
+      // [handleInitialStepChange] Сбрасываем значение после использования
+      widget.initialStepNotifier?.value = null;
+    }
   }
 
   @override

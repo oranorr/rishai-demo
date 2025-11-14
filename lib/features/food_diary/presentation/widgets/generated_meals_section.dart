@@ -3,10 +3,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/features/chat/presentation/chat_page.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/diary_dropdown.dart';
 import 'package:rishai/features/food_diary/presentation/widgets/meal_item.dart';
 
@@ -34,6 +37,8 @@ class GeneratedMealsSection extends StatelessWidget {
     required this.allMealsFromPlan,
     required this.selectedMeals,
     required this.onMealSelectionChanged,
+    this.isExpanded = false,
+    this.onExpansionChanged,
     super.key,
   });
 
@@ -49,6 +54,12 @@ class GeneratedMealsSection extends StatelessWidget {
 
   /// Callback для изменения состояния выбора блюда
   final void Function(Meal meal, bool isSelected) onMealSelectionChanged;
+
+  /// Управляемое состояние раскрытия dropdown'а
+  final bool isExpanded;
+
+  /// Callback для изменения состояния раскрытия dropdown'а
+  final void Function(bool isExpanded)? onExpansionChanged;
 
   /// ═══════════════════════════════════════════════════════════════════════
   /// _isMealSelected
@@ -123,7 +134,28 @@ class GeneratedMealsSection extends StatelessWidget {
                   enabled: true,
                   isLoading: false,
                   action: () async {
-                    appNavigationService.pop(path: AppRoutes.chat.path);
+                    // [subscriptionCheck] Проверяем статус подписки перед созданием плана
+                    if (!adapty.isActive) {
+                      // [showDialog] Если подписка не активна, показываем диалог и ведем на paywall
+                      if (context.mounted) {
+                        RishiDialog.showSubscriptionRequiredDialog(
+                          context,
+                          onUpgrade: () {
+                            // [navigateToPaywall] Переходим на экран paywall для обновления подписки
+                            appNavigationService.go(
+                                path: AppRoutes.paywall.path);
+                          },
+                        );
+                      }
+                      return;
+                    }
+
+                    // [navigateToChat] Если подписка активна, устанавливаем начальный шаг и переходим на чат
+                    // Устанавливаем step 1 (выбор типов блюд) в AutoPrompts
+                    ChatPage.initialStepNotifier.value = 1;
+
+                    // [navigateToChat] Переходим на страницу чата
+                    appNavigationService.popUntil(path: AppRoutes.chat.path);
                     await homePageControllerService.navigateToPage(page: 2);
                   },
                 ),
@@ -132,6 +164,8 @@ class GeneratedMealsSection extends StatelessWidget {
         else
           DiaryDropDown(
             title: 'Choose from the list',
+            isExpanded: isExpanded,
+            onExpansionChanged: onExpansionChanged,
             child: Column(
               children: meals.asMap().entries.map((entry) {
                 final index = entry.key;

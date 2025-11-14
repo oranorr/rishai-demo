@@ -69,6 +69,11 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            
+            // Игнорируем ошибки R8 для отсутствующих классов Google Play Core
+            // Эти классы не используются в runtime, так как deferred components не включены
+            // Используем опцию для игнорирования ошибок об отсутствующих классах
+            proguardFiles += file('proguard-r8-ignore-missing.pro')
         }
     }
 }

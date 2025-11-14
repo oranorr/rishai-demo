@@ -296,7 +296,8 @@ class _HomePageBodyState extends State<_HomePageBody> {
         }
       },
       builder: (BuildContext context, state) {
-        print(state.day.directusId);
+        // print(
+        //     'directusId: ${state.day.directusId}, cycleId: ${state.day.cycleId}');
         return RefreshIndicator(
           color: RishColors.primary,
           backgroundColor: RishColors.stroke,

@@ -141,3 +141,28 @@
 -keepattributes *Annotation*
 -keepattributes Signature
 -keepattributes Exceptions
+
+# Игнорируем отсутствующие классы Google Play Core (для deferred components)
+# Эти классы нужны только если используются deferred components, 
+# в противном случае их можно игнорировать
+# Используем -dontwarn для игнорирования предупреждений об отсутствующих классах
+# Правила сгенерированы автоматически R8 и добавлены вручную
+-dontwarn com.google.android.play.core.splitcompat.SplitCompat
+-dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallException
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallManager
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallManagerFactory
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallRequest$Builder
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallRequest
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallSessionState
+-dontwarn com.google.android.play.core.splitinstall.SplitInstallStateUpdatedListener
+-dontwarn com.google.android.play.core.tasks.OnFailureListener
+-dontwarn com.google.android.play.core.tasks.OnSuccessListener
+-dontwarn com.google.android.play.core.tasks.Task
+# Общее правило для всех классов из пакета play.core (на случай новых)
+-dontwarn com.google.android.play.core.**
+
+# Игнорируем ошибки R8 для отсутствующих классов Google Play Core
+# Эти классы не используются в runtime, так как deferred components не включены
+# Используем -dontnote для полного игнорирования (включая ошибки)
+-dontnote com.google.android.play.core.**

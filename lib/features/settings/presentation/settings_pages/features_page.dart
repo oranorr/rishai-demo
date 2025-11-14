@@ -11,15 +11,10 @@ class FeaturesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final features = LegalTextsRepo().comingSoon.split('\n\n');
-    final currentFeatures = features[0]
-        .split('\n')
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
-    final comingSoonFeatures = features[1]
-        .split('\n')
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
+    final repo = LegalTextsRepo();
+    // final features = LegalTextsRepo().comingSoon.split('\n\n');
+    final currentFeatures = repo.currentFeatures.split('\n');
+    final comingSoonFeatures = repo.comingSoon.split('\n');
 
     return RishScaffold(
       centerTitle: true,
@@ -72,13 +67,16 @@ class FeaturesPage extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 6.w,
-                  height: 6.w,
-                  margin: EdgeInsets.only(top: 8.h),
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
+                Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: Container(
+                    width: 6.w,
+                    height: 6.w,
+                    margin: EdgeInsets.only(top: 8.h),
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
                 SizedBox(width: 12.w),

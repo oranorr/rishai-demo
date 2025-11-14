@@ -241,4 +241,26 @@ class PrefsRepository {
     _ensureInitialized();
     return _prefs.getBool(freePaywallViewed) ?? false;
   }
+
+  /// [setShouldRedirectAfterPaywall] Устанавливает флаг, что после закрытия paywall
+  /// нужно перейти на redirect (используется после завершения опросника)
+  ///
+  /// **Параметры:**
+  /// - value: `true` если нужно перейти на redirect, `false` если нет
+  Future<void> setShouldRedirectAfterPaywall(bool value) async {
+    _ensureInitialized();
+    await _prefs.setBool(
+      shouldRedirectAfterPaywallKey,
+      value,
+    );
+  }
+
+  /// [getShouldRedirectAfterPaywall] Проверяет, нужно ли переходить на redirect после paywall
+  ///
+  /// **Возвращает:**
+  /// - `bool` - `true` если нужно перейти на redirect, `false` если нет
+  bool getShouldRedirectAfterPaywall() {
+    _ensureInitialized();
+    return _prefs.getBool(shouldRedirectAfterPaywallKey) ?? false;
+  }
 }

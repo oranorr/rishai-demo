@@ -24,6 +24,8 @@ class DiaryDropDown extends StatefulWidget {
     required this.title,
     super.key,
     this.initiallyExpanded = false,
+    this.isExpanded,
+    this.onExpansionChanged,
   });
 
   /// Контент, который будет раскрываться/скрываться
@@ -35,21 +37,33 @@ class DiaryDropDown extends StatefulWidget {
   /// Начальное состояние раскрытия
   final bool initiallyExpanded;
 
+  /// Управляемое состояние раскрытия (если null, используется внутреннее состояние)
+  final bool? isExpanded;
+
+  /// Callback для изменения состояния раскрытия
+  final void Function(bool isExpanded)? onExpansionChanged;
+
   @override
   State<DiaryDropDown> createState() => _DiaryDropDownState();
 }
 
 class _DiaryDropDownState extends State<DiaryDropDown>
     with SingleTickerProviderStateMixin {
-  late bool isExpanded;
+  late bool _internalExpanded;
   late AnimationController _animationController;
   late Animation<double> _iconRotationAnimation;
   late Animation<double> _sizeAnimation;
 
+  /// [isExpanded] Получает текущее состояние раскрытия
+  /// Если widget.isExpanded != null, используется управляемое состояние
+  /// Иначе используется внутреннее состояние
+  bool get isExpanded => widget.isExpanded ?? _internalExpanded;
+
   @override
   void initState() {
     super.initState();
-    isExpanded = widget.initiallyExpanded;
+    // [initState] Инициализируем внутреннее состояние
+    _internalExpanded = widget.initiallyExpanded;
 
     // ┌─────────────────────────────────────────────────────────────────────┐
     // │ Инициализируем контроллер анимации для плавного поворота иконки     │
@@ -66,7 +80,7 @@ class _DiaryDropDownState extends State<DiaryDropDown>
     // └─────────────────────────────────────────────────────────────────────┘
     _iconRotationAnimation = Tween<double>(
       begin: -1,
-      end: 1,
+      end: 0.5,
     ).animate(
       CurvedAnimation(
         parent: _animationController,
@@ -93,14 +107,20 @@ class _DiaryDropDownState extends State<DiaryDropDown>
   void didUpdateWidget(DiaryDropDown oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Автоматически раскрываем, если initiallyExpanded изменился на true
-    if (widget.initiallyExpanded != oldWidget.initiallyExpanded &&
+    // [didUpdateWidget] Если используется управляемое состояние и оно изменилось
+    if (widget.isExpanded != null) {
+      final newExpanded = widget.isExpanded!;
+      final oldExpanded = oldWidget.isExpanded ?? _internalExpanded;
+      if (newExpanded != oldExpanded) {
+        // [didUpdateWidget] Обновляем состояние без уведомления родителя,
+        // так как изменение пришло от родителя
+        _updateExpansion(newExpanded, notifyParent: false);
+      }
+    } else if (widget.initiallyExpanded != oldWidget.initiallyExpanded &&
         widget.initiallyExpanded &&
-        !isExpanded) {
-      setState(() {
-        isExpanded = true;
-      });
-      _animationController.forward();
+        !_internalExpanded) {
+      // Автоматически раскрываем, если initiallyExpanded изменился на true
+      _updateExpansion(true);
     }
   }
 
@@ -112,22 +132,42 @@ class _DiaryDropDownState extends State<DiaryDropDown>
   }
 
   /// ═══════════════════════════════════════════════════════════════════════
+  /// _updateExpansion
+  /// ═══════════════════════════════════════════════════════════════════════
+  ///
+  /// Обновляет состояние расширения дропдауна с плавной анимацией иконки.
+  ///
+  /// [newExpanded] - новое состояние раскрытия
+  /// [notifyParent] - нужно ли уведомлять родителя через callback (по умолчанию true)
+  void _updateExpansion(bool newExpanded, {bool notifyParent = true}) {
+    // [updateExpansion] Если используется управляемое состояние, не обновляем внутреннее
+    if (widget.isExpanded == null) {
+      setState(() {
+        _internalExpanded = newExpanded;
+      });
+    }
+
+    // [updateExpansion] Запускаем или останавливаем анимацию поворота иконки
+    if (newExpanded) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+
+    // [onExpansionChanged] Вызываем callback для уведомления родителя только если нужно
+    if (notifyParent) {
+      widget.onExpansionChanged?.call(newExpanded);
+    }
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════
   /// _toggleExpansion
   /// ═══════════════════════════════════════════════════════════════════════
   ///
   /// Переключает состояние расширения дропдауна с плавной анимацией иконки.
   ///
   void _toggleExpansion() {
-    setState(() {
-      isExpanded = !isExpanded;
-    });
-
-    // [_toggleExpansion] Запускаем или останавливаем анимацию поворота иконки
-    if (isExpanded) {
-      _animationController.forward();
-    } else {
-      _animationController.reverse();
-    }
+    _updateExpansion(!isExpanded);
   }
 
   @override

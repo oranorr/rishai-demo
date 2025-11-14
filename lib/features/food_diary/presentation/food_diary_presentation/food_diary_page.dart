@@ -123,7 +123,7 @@ class _FoodDiaryPageState extends State<FoodDiaryPage> {
                           Text(
                             isToday
                                 ? 'You havent consumed any meals today'
-                                : 'No meals recorded for this day',
+                                : 'No meals were captured on this day',
                             textAlign: TextAlign.center,
                             style: context.styles.h2,
                           ),

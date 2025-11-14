@@ -111,6 +111,7 @@ mixin QuestionaryMixin on State<Questionary> {
         curve: Curves.easeIn,
       );
     } else {
+      // [SaveUserData] Сохраняем данные пользователя из опросника
       UserEntity updUser = user.copyWith(
         gender: gender,
         age: age,
@@ -124,14 +125,14 @@ mixin QuestionaryMixin on State<Questionary> {
         // bodyMeasurements: whoopBloc.state.day.bodyMeasurements,
       );
 
-      // Обновляем пользователя и ждем завершения
+      // [UpdateUser] Обновляем пользователя и ждем завершения
       userBloc.add(UpdateUserEvent(user: updUser));
 
-      // Ждем обновления состояния UserBloc перед инициализацией WHOOP
+      // [WaitForUpdate] Ждем обновления состояния UserBloc перед инициализацией WHOOP
       // Это критически важно для правильной работы проверки needsQuestionary
       await Future.delayed(const Duration(milliseconds: 200));
 
-      // Дополнительно проверяем, что состояние действительно обновилось
+      // [VerifyUpdate] Дополнительно проверяем, что состояние действительно обновилось
       int attempts = 0;
       const maxAttempts = 10;
       while (userBloc.state.user.needsQuestionary && attempts < maxAttempts) {
@@ -139,8 +140,12 @@ mixin QuestionaryMixin on State<Questionary> {
         attempts++;
       }
 
-      whoopBloc.add(const InitWhoopOnLogin());
-      context.go(AppRoutes.redirect.path);
+      // [ShowPaywall] Устанавливаем флаг, что после paywall нужно перейти на redirect
+      // и переходим на paywall для нового пользователя
+      // [NOTE] InitWhoopOnLogin НЕ вызываем здесь, так как он автоматически переходит на /redirect
+      // Вместо этого вызываем его на странице Redirect после paywall
+      await prefsRepo.setShouldRedirectAfterPaywall(true);
+      context.go(AppRoutes.paywall.path);
     }
   }
 }

@@ -138,10 +138,20 @@ class RishiDialog {
     );
   }
 
+  /// [infoPopup] Показывает информационный попап с текстом и опциональным заголовком
+  ///
+  /// Показывает диалог с информационным текстом. Если передан заголовок,
+  /// он отображается перед текстом в более крупном стиле.
+  ///
+  /// **Параметры:**
+  /// - context: Контекст для показа диалога
+  /// - text: Текст для отображения в попапе
+  /// - title: Опциональный заголовок, который отображается перед текстом
   static Future<void> infoPopup(
     BuildContext context,
-    String text,
-  ) async {
+    String text, {
+    String? title,
+  }) async {
     await showGeneralDialog(
       context: context,
       barrierLabel: '',
@@ -170,6 +180,15 @@ class RishiDialog {
                     shrinkWrap: true,
                     padding: EdgeInsets.zero,
                     children: [
+                      // [title] Если заголовок передан, отображаем его перед текстом
+                      if (title != null) ...[
+                        Text(
+                          title,
+                          style: context.styles.boldLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 12.h),
+                      ],
                       Text(
                         text,
                         style: context.styles.regularMedium,
@@ -303,7 +322,7 @@ class RishiDialog {
     required String permissionType,
   }) {
     return Container(
-      height: 340.h,
+      height: 400.h,
       width: double.infinity,
       margin: EdgeInsets.symmetric(horizontal: 24.w),
       decoration: BoxDecoration(
@@ -402,14 +421,29 @@ class RishiDialog {
       barrierDismissible: true,
       barrierColor: const Color(0xff1717253d).withOpacity(0.25),
       transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
-          child: Center(
-            child: _buildAddMealsConfirmationDialog(
-              context: context,
-              mealsCount: mealsCount,
-              action: action,
+      pageBuilder: (dialogContext, __, ___) {
+        return PopScope(
+          // [onPopInvoked] Убираем фокус при закрытии диалога через barrier
+          // Это предотвращает автоматическую прокрутку к полю ввода
+          onPopInvoked: (didPop) {
+            if (didPop) {
+              FocusScope.of(context).unfocus();
+              // [primaryFocus] Дополнительно убираем фокус через FocusManager
+              FocusManager.instance.primaryFocus?.unfocus();
+              // [postFrameCallback] Дополнительная проверка после закрытия диалога
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                FocusManager.instance.primaryFocus?.unfocus();
+              });
+            }
+          },
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
+            child: Center(
+              child: _buildAddMealsConfirmationDialog(
+                context: context,
+                mealsCount: mealsCount,
+                action: action,
+              ),
             ),
           ),
         );
@@ -498,7 +532,19 @@ class RishiDialog {
             RishButton.teritary(
               title: 'Cancel',
               action: () {
+                // [unfocus] Убираем фокус с поля ввода перед закрытием диалога
+                // Это предотвращает автоматическую прокрутку к полю ввода после закрытия
+                FocusScope.of(context).unfocus();
+                // [primaryFocus] Дополнительно убираем фокус через FocusManager
+                // для более надежного снятия фокуса
+                FocusManager.instance.primaryFocus?.unfocus();
                 context.pop();
+
+                // [postFrameCallback] Дополнительная проверка после закрытия диалога
+                // для гарантированного снятия фокуса
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                });
               },
               textColor: context.theme.colorScheme.primary,
               height: 48.h,

@@ -114,7 +114,7 @@ class EditableMealContent extends StatelessWidget {
                   }) =>
                       const SizedBox.shrink(),
                   decoration: InputDecoration(
-                    hintText: 'What did you have?',
+                    hintText: 'Add meal description',
                     hintStyle: context.styles.regularMedium.copyWith(
                       color: RishColors.textSecondary,
                     ),

@@ -1,50 +1,6 @@
-import 'dart:developer';
-import 'dart:io';
+part of 'paywall.dart';
 
-import 'package:adapty_flutter/adapty_flutter.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
-import 'package:rishai/core/extensions/build_context_extension.dart';
-import 'package:rishai/core/router/app_navigation_service.dart';
-import 'package:rishai/core/router/app_routes.dart';
-import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
-import 'package:rishai/core/services/pefs/prefs_repository.dart';
-import 'package:rishai/core/theme/theme_colors.dart';
-import 'package:rishai/core/widgets/new_button.dart';
-import 'package:rishai/core/widgets/rish_scaffold.dart';
-import 'package:rishai/core/widgets/snackbar.dart';
-
-class Paywall extends StatefulWidget {
-  const Paywall({super.key});
-
-  @override
-  State<Paywall> createState() => _PaywallState();
-}
-
-/// [PaywallViewState] Перечисление состояний paywall
-///
-/// [free] - Показывает функционал для бесплатных пользователей
-/// [premium] - Показывает премиум версию с подпиской
-enum PaywallViewState {
-  free,
-  premium,
-}
-
-/// [PaywallFeature] Структура для описания функции paywall
-///
-/// [title] - Название функции
-/// [subtitle] - Дополнительное описание (опционально)
-class PaywallFeature {
-  const PaywallFeature({
-    required this.title,
-    this.subtitle,
-  });
-  final String title;
-  final String? subtitle;
-}
-
-class _PaywallState extends State<Paywall> {
+mixin PaywallMixin on State<Paywall> {
   bool processing = false;
   late bool isFreeTrialAvailable;
   late String price;
@@ -58,13 +14,20 @@ class _PaywallState extends State<Paywall> {
     // [DEBUG MODE] Проверяем наличие продуктов перед доступом
     // В режиме симулятора products может быть пустым
     if (adapty.products.isNotEmpty) {
-      // По умолчанию выбираем годовую подписку, если она доступна
-      final annualProduct = adapty.products.firstWhere(
-        (p) =>
-            p.vendorProductId.contains('annual') ||
-            p.vendorProductId == 'pivot_annual',
-        orElse: () => adapty.products.first,
-      );
+      // [initSelectedProduct] Определяем начальный выбранный продукт
+      // По умолчанию выбираем годовую подписку (продукт с большей ценой)
+      // Используем ту же логику, что и в _buildPremiumCard - различаем по цене
+      AdaptyPaywallProduct annualProduct;
+      if (adapty.products.length > 1) {
+        // Сортируем по цене и берем самый дорогой (годовая подписка)
+        final sortedProducts = List<AdaptyPaywallProduct>.from(adapty.products)
+          ..sort((a, b) => a.price.amount.compareTo(b.price.amount));
+        annualProduct = sortedProducts.last;
+      } else {
+        annualProduct = adapty.products.first;
+      }
+
+      // По умолчанию выбираем годовую подписку
       selectedProduct = annualProduct;
     } else {
       // В режиме симулятора products пустой, используем null
@@ -79,57 +42,6 @@ class _PaywallState extends State<Paywall> {
     } else {
       _currentViewState = PaywallViewState.free;
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    isFreeTrialAvailable = adapty.isTrialActive;
-    // adapty.test();
-
-    // [DEBUG MODE] Проверяем наличие selectedProduct (может быть null в режиме симулятора)
-    if (selectedProduct == null) {
-      // В режиме симулятора показываем заглушку с возможностью пропустить
-      return RishScaffold(
-        needsAppBar: false,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Simulator Mode',
-                style: context.styles.h1,
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 16.h),
-              Text(
-                'Subscription purchases are not available in simulator mode.',
-                style: context.styles.h3,
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 32.h),
-              RishButton.primary(
-                title: 'Continue to App',
-                enabled: true,
-                isLoading: false,
-                action: () => context.go(AppRoutes.homeScreen.path),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // [ViewState Check] Проверяем, видел ли пользователь бесплатную версию
-    // Если видел - показываем только премиум карточку с кнопкой назад
-    final hasViewedFreePaywall = prefsRepo.hasViewedFreePaywall();
-    if (hasViewedFreePaywall) {
-      price = selectedProduct!.price.localizedString!;
-      return _buildPremiumOnlyView(context);
-    }
-
-    // [Unified View] Единый экран с сегментированным контролом
-    price = selectedProduct!.price.localizedString!;
-    return _buildUnifiedView(context);
   }
 
   /// [buildPremiumOnlyView] Строит экран только с премиум карточкой
@@ -428,8 +340,17 @@ class _PaywallState extends State<Paywall> {
                 '[Paywall] Флаг просмотра бесплатной версии сохранен',
                 name: 'Paywall',
               );
-              // Переходим на главный экран
-              context.go(AppRoutes.homeScreen.path);
+              // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
+              // (используется после завершения опросника)
+              // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
+              final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
+              if (shouldRedirect) {
+                // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
+                context.go(AppRoutes.redirect.path);
+              } else {
+                // [NormalFlow] Обычный поток - переходим на главный экран
+                context.go(AppRoutes.homeScreen.path);
+              }
             },
           ),
         ],
@@ -439,20 +360,47 @@ class _PaywallState extends State<Paywall> {
 
   /// [buildPremiumCard] Строит карточку для Premium плана
   Widget _buildPremiumCard(BuildContext context) {
-    // Получаем цены для месячной и годовой подписки
-    final monthlyProduct = adapty.products.firstWhere(
-      (p) =>
-          p.vendorProductId.contains('month') ||
-          p.vendorProductId == 'pivot_sub',
-      orElse: () => adapty.products.first,
+    // [debugProducts] Выводим все продукты для отладки
+    print(
+      '[Paywall._buildPremiumCard] Все продукты в adapty.products:',
     );
-    final annualProduct = adapty.products.firstWhere(
-      (p) =>
-          p.vendorProductId.contains('annual') ||
-          p.vendorProductId == 'pivot_annual',
-      orElse: () => adapty.products.length > 1
-          ? adapty.products[1]
-          : adapty.products.first,
+    for (int i = 0; i < adapty.products.length; i++) {
+      final product = adapty.products[i];
+      print(
+        '  [$i] vendorProductId: ${product.vendorProductId}, price: ${product.price.amount} ${product.price.currencyCode}',
+      );
+    }
+
+    // [getProducts] Получаем цены для месячной и годовой подписки
+    // Используем универсальную логику: различаем продукты по цене
+    // Годовая подписка всегда дороже месячной (общая цена, не в пересчете на месяц)
+    // Это работает для всех платформ (iOS: pivot_sub/pivot_annual, Android: оба pivot_monthly)
+    AdaptyPaywallProduct monthlyProduct;
+    AdaptyPaywallProduct annualProduct;
+
+    if (adapty.products.length < 2) {
+      // Если только один продукт, используем его для обоих
+      monthlyProduct = adapty.products.first;
+      annualProduct = adapty.products.first;
+      print(
+        '[Paywall._buildPremiumCard] Только один продукт, используем его для обоих',
+      );
+    } else {
+      // [sortByPrice] Сортируем продукты по цене: меньшая цена = monthly, большая = annual
+      // Это работает для всех платформ, так как годовая подписка всегда дороже месячной
+      final sortedProducts = List<AdaptyPaywallProduct>.from(adapty.products)
+        ..sort((a, b) => a.price.amount.compareTo(b.price.amount));
+
+      monthlyProduct = sortedProducts[0];
+      annualProduct = sortedProducts[sortedProducts.length - 1];
+
+      print(
+        '[Paywall._buildPremiumCard] Определено по цене: monthlyProduct (${monthlyProduct.vendorProductId}, ${monthlyProduct.price.amount} ${monthlyProduct.price.currencyCode}), annualProduct (${annualProduct.vendorProductId}, ${annualProduct.price.amount} ${annualProduct.price.currencyCode})',
+      );
+    }
+
+    print(
+      '[Paywall._buildPremiumCard] ✅ Финальные продукты: monthlyProduct: ${monthlyProduct.vendorProductId} (${monthlyProduct.price.amount}), annualProduct: ${annualProduct.vendorProductId} (${annualProduct.price.amount})',
     );
 
     final monthlyPrice = monthlyProduct.price.localizedString ?? r'$9.99';
@@ -461,8 +409,17 @@ class _PaywallState extends State<Paywall> {
         '${annualProduct.price.currencySymbol}${annualPricePerMonth.toStringAsFixed(2)}';
 
     // [Price Display] Определяем, какой план выбран и показываем соответствующую цену
-    final isAnnualSelected =
-        selectedProduct?.vendorProductId == annualProduct.vendorProductId;
+    // Сравниваем по vendorProductId, а если они одинаковые - по цене
+    bool isAnnualSelected;
+    if (monthlyProduct.vendorProductId == annualProduct.vendorProductId) {
+      // Если vendorProductId одинаковые (Android), сравниваем по цене
+      isAnnualSelected =
+          selectedProduct?.price.amount == annualProduct.price.amount;
+    } else {
+      // Если vendorProductId разные (iOS), сравниваем по vendorProductId
+      isAnnualSelected =
+          selectedProduct?.vendorProductId == annualProduct.vendorProductId;
+    }
     final displayPrice = isAnnualSelected
         ? '$annualPricePerMonthString / month'
         : '$monthlyPrice / month';
@@ -576,8 +533,20 @@ class _PaywallState extends State<Paywall> {
     AdaptyPaywallProduct monthlyProduct,
     AdaptyPaywallProduct annualProduct,
   ) {
-    final isAnnualSelected =
-        selectedProduct?.vendorProductId == annualProduct.vendorProductId;
+    // [isAnnualSelected] Вычисляем на основе текущего selectedProduct
+    // Сравниваем по vendorProductId, а если они одинаковые - по цене
+    // Пересчитывается автоматически при каждом build после setState
+    bool isAnnualSelected;
+    if (monthlyProduct.vendorProductId == annualProduct.vendorProductId) {
+      // Если vendorProductId одинаковые (Android), сравниваем по цене
+      isAnnualSelected =
+          selectedProduct?.price.amount == annualProduct.price.amount;
+    } else {
+      // Если vendorProductId разные (iOS), сравниваем по vendorProductId
+      isAnnualSelected =
+          selectedProduct?.vendorProductId == annualProduct.vendorProductId;
+    }
+
     final monthlyPrice = monthlyProduct.price.localizedString ?? r'$9.99';
     final annualPrice = annualProduct.price.localizedString ?? r'$96';
     final annualPricePerMonth = annualProduct.price.amount / 12;
@@ -586,36 +555,43 @@ class _PaywallState extends State<Paywall> {
 
     return Row(
       children: [
-        // [Monthly Button]
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              selectedProduct = monthlyProduct;
-            });
-          },
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: 27.h, horizontal: 12.w),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: !isAnnualSelected
-                    ? RishColors.primary
-                    : RishColors.textSecondary,
-                width: 2,
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() {
+                selectedProduct = monthlyProduct;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 27.h, horizontal: 12.w),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: !isAnnualSelected
+                      ? RishColors.primary
+                      : RishColors.textSecondary,
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'Monthly',
-                  style: context.styles.boldMedium,
-                ),
-                // SizedBox(height: 4.h),
-                Text(
-                  '$monthlyPrice/month',
-                  style: context.styles.regularMedium,
-                ),
-              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Monthly',
+                    style: context.styles.boldMedium,
+                  ),
+                  // SizedBox(height: 4.h),
+                  Text(
+                    '$monthlyPrice/month',
+                    style: context.styles.regularMedium,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -626,12 +602,17 @@ class _PaywallState extends State<Paywall> {
             clipBehavior: Clip.none,
             children: [
               GestureDetector(
+                key: ValueKey('annually_${selectedProduct?.vendorProductId}'),
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   setState(() {
                     selectedProduct = annualProduct;
                   });
                 },
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  width: double.infinity,
                   padding:
                       EdgeInsets.symmetric(vertical: 16.h, horizontal: 12.w),
                   decoration: BoxDecoration(
@@ -644,6 +625,8 @@ class _PaywallState extends State<Paywall> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'Annually',
@@ -669,17 +652,20 @@ class _PaywallState extends State<Paywall> {
               Positioned(
                 top: -8.h,
                 right: 8.w,
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: RishColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '20% off',
-                    style: context.styles.boldSmall.copyWith(
-                      color: RishColors.formBackgroun,
-                      fontSize: 10,
+                child: IgnorePointer(
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: RishColors.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '20% off',
+                      style: context.styles.boldSmall.copyWith(
+                        color: RishColors.formBackgroun,
+                        fontSize: 10,
+                      ),
                     ),
                   ),
                 ),
@@ -698,7 +684,17 @@ class _PaywallState extends State<Paywall> {
     final res = await adapty.restorePurchases();
     switch (res) {
       case 'ACTIVE':
-        appNavigationService.go(path: AppRoutes.homeScreen.path);
+        // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
+        // (используется после завершения опросника)
+        // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
+        final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
+        if (shouldRedirect) {
+          // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
+          appNavigationService.go(path: AppRoutes.redirect.path);
+        } else {
+          // [NormalFlow] Обычный поток - переходим на главный экран
+          appNavigationService.go(path: AppRoutes.homeScreen.path);
+        }
       case 'NO_ACTIVE':
         RishSnackbar().showSnackBar('No purchases were found');
       case 'ERROR':
@@ -769,9 +765,19 @@ class _PaywallState extends State<Paywall> {
     ),
   ];
 
-  void processPurchaseResult(String res) {
+  void processPurchaseResult(String res) async {
     if (res == 'SUCCESS') {
-      appNavigationService.go(path: AppRoutes.homeScreen.path);
+      // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
+      // (используется после завершения опросника)
+      // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
+      final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
+      if (shouldRedirect) {
+        // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
+        appNavigationService.go(path: AppRoutes.redirect.path);
+      } else {
+        // [NormalFlow] Обычный поток - переходим на главный экран
+        appNavigationService.go(path: AppRoutes.homeScreen.path);
+      }
     } else if (res == 'CANCEL') {
       RishSnackbar().showSnackBar('Purchase was cancelled.');
     } else if (res == 'ALREADY_EXISTS') {
@@ -803,7 +809,17 @@ class _PaywallState extends State<Paywall> {
           'Подписка успешно восстановлена после ALREADY_EXISTS',
           name: 'Paywall',
         );
-        appNavigationService.go(path: AppRoutes.homeScreen.path);
+        // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
+        // (используется после завершения опросника)
+        // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
+        final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
+        if (shouldRedirect) {
+          // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
+          appNavigationService.go(path: AppRoutes.redirect.path);
+        } else {
+          // [NormalFlow] Обычный поток - переходим на главный экран
+          appNavigationService.go(path: AppRoutes.homeScreen.path);
+        }
         return;
       }
 
@@ -820,183 +836,6 @@ class _PaywallState extends State<Paywall> {
       setState(() {
         processing = false;
       });
-    }
-  }
-}
-
-class _SubButtons extends StatefulWidget {
-  const _SubButtons({
-    required this.callback,
-  });
-  final Function(AdaptyPaywallProduct) callback;
-
-  @override
-  State<_SubButtons> createState() => __SubButtonsState();
-}
-
-class __SubButtonsState extends State<_SubButtons> {
-  int indexSelected = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    // [DEBUG MODE] Если нет продуктов (режим симулятора), не показываем кнопки
-    if (adapty.products.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        for (int i = 0; i < adapty.products.length; i++)
-          Padding(
-            padding: EdgeInsets.zero,
-            child: GestureDetector(
-              onTap: () => _select(i),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    height: 106.h,
-                    width: 152.w,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        width: 2,
-                        color: i == indexSelected
-                            ? RishColors.primary
-                            : RishColors.textSecondary,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            Platform.isIOS
-                                ? _getTitleIOs(
-                                    adapty.products[i].vendorProductId,
-                                  )
-                                : '1 ${adapty.products[i].subscription!.period.unit.name}',
-                            style:
-                                context.styles.boldMedium.copyWith(height: 0),
-                          ),
-                          FittedBox(
-                            child: _getPrice(i, context, i == indexSelected),
-                          ),
-                          if (i == 1)
-                            FittedBox(
-                              child: Text(
-                                '${adapty.products[i].price.currencySymbol}${(adapty.products[i].price.amount / 12).toStringAsFixed(2)} per month.\nSave 20%',
-                                textAlign: TextAlign.center,
-                                style: context.styles.regularSmall.copyWith(
-                                  color: RishColors.primary,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (i == 1)
-                    Positioned(
-                      top: -15.h,
-                      left: 26.w,
-                      right: 26.w,
-                      child: Container(
-                        width: 100.w,
-                        height: 25.h,
-                        decoration: BoxDecoration(
-                          color: indexSelected == 1
-                              ? RishColors.primary
-                              : RishColors.textSecondary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          Platform.isAndroid ? 'Best offer' : 'Save 20%',
-                          style: context.styles.boldSmall.copyWith(
-                            color: RishColors.formBackgroun,
-                            // height: 1.5.h,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _getPrice(int i, BuildContext context, bool isSelected) {
-    if (i == 0) {
-      return Text(
-        adapty.products[i].price.localizedString!,
-        // "${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}",
-        style: context.styles.h3.copyWith(
-          color: isSelected ? null : RishColors.textSecondary,
-          fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
-          height: 1.5,
-        ),
-      );
-    } else {
-      return RichText(
-        maxLines: 2,
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          text: adapty.products[i].price.localizedString,
-          // '${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
-          style: context.styles.h3.copyWith(
-            decoration: TextDecoration.none,
-            color: isSelected ? null : RishColors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
-            height: 1.5,
-          ),
-        ),
-        // TextSpan(
-        //     text:
-        //         '${adapty.products[i].price.currencySymbol}${(adapty.products[0].price.amount * 12).toStringAsFixed(2)}',
-        //     style: context.styles.boldLarge.copyWith(
-        //       decoration: TextDecoration.lineThrough,
-        //       color: RishColors.textSecondary,
-        //       height: 1.5,
-        //     ),
-        //     children: [
-        //       TextSpan(
-        //         text:
-        //             '\n${adapty.products[i].price.currencySymbol}${adapty.products[i].price.amount.toStringAsFixed(2)}',
-        //         style: context.styles.h3.copyWith(
-        //             decoration: TextDecoration.none,
-        //             color: isSelected ? null : RishColors.textSecondary,
-        //             fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
-        //             height: 1.5),
-        //       ),
-        //     ]),
-      );
-    }
-  }
-
-  void _select(int i) {
-    setState(() {
-      indexSelected = i;
-    });
-    widget.callback(
-      adapty.products[i],
-    );
-  }
-
-  String _getTitleIOs(String vendorId) {
-    // print(vendorId);
-    switch (vendorId) {
-      case 'pivot_sub':
-        return '1 month';
-      case 'pivot_annual':
-        return '1 year';
-
-      default:
-        return 'Some error?';
     }
   }
 }

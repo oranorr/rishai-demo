@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/cpi.dart';
 
@@ -37,12 +38,22 @@ class AnalyzeButton extends StatelessWidget {
                 color: isEnabled ? RishColors.primary : RishColors.stroke,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.generating_tokens,
-                color: Colors.black,
-                size: 24.w,
-                weight: 100,
+              child: SizedBox(
+                width: 24.w,
+                height: 24.w,
+                child: SvgPicture.asset(
+                  'assets/icons/generate.svg',
+                  width: 24.w,
+                  height: 24.w,
+                  fit: BoxFit.scaleDown,
+                ),
               ),
+              // Icon(
+              //   Icons.generating_tokens,
+              //   color: Colors.black,
+              //   size: 24.w,
+              //   weight: 100,
+              // ),
             ),
     );
   }

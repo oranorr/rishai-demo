@@ -386,7 +386,7 @@ class _DailyWellnessWidgetState extends State<DailyWellnessWidget>
                                       ),
                                       child: Center(
                                         child: Text(
-                                          '${_calculateOverallProgress().toStringAsFixed(1)}%',
+                                          '${_calculateOverallProgress().toStringAsFixed(0)}%',
                                           style: context.styles.h2,
                                         ),
                                       ),

@@ -32,6 +32,10 @@ class ChatPage extends StatefulWidget {
   });
   final PageController controller;
 
+  /// ValueNotifier для установки начального шага в AutoPrompts
+  /// Может быть установлен извне перед навигацией на чат
+  static final ValueNotifier<int?> initialStepNotifier = ValueNotifier<int?>(null);
+
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
@@ -66,6 +70,7 @@ class _ChatPageState extends State<ChatPage>
         _AutoPrompts(
           controller: widget.controller,
           isThereText: controller.text.isNotEmpty,
+          initialStepNotifier: ChatPage.initialStepNotifier,
         ),
         _InputAndSend(
           textEditingController: controller,

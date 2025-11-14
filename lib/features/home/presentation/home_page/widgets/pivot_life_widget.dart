@@ -108,6 +108,7 @@ class _PivotLifeWidgetState extends State<PivotLifeWidget>
                   onTap: () async => RishiDialog.infoPopup(
                     context,
                     'Your Pivot Life score is a running average of your daily Wellness score since its inception',
+                    title: 'Pivot Life Score',
                   ),
                   child: SvgPicture.asset('assets/icons/info_round.svg'),
                 ),

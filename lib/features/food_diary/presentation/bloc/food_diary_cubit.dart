@@ -932,25 +932,16 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         allMeals = <Meal>[];
       }
 
-      // Получаем уже потребленные блюда
-      final consumedMeals =
-          whoopState.day.welnessEntity?.consumedMeals ?? <DiaryMeal>[];
-
-      log(
-        '[FoodDiaryCubit._initializeDiaryEntryPage] Потребленных блюд: ${consumedMeals.length}',
-        name: 'FoodDiaryCubit',
+      // [filterAvailableMeals] Используем единый метод фильтрации, который учитывает:
+      // 1. Уже потребленные блюда (точное совпадение)
+      // 2. Типы кастомных блюд (если есть)
+      // 3. Типы уже добавленных в дневник блюд
+      // На момент инициализации кастомных блюд еще нет, но метод все равно работает корректно
+      final initialState = DiaryEntryPageState.initial();
+      final availableMeals = _filterAvailableMealsByCustomMealTypes(
+        allMealsFromPlan: allMeals,
+        customMeals: initialState.customMeals,
       );
-
-      // Фильтруем блюда, исключая уже потребленные
-      final availableMeals = allMeals.where((meal) {
-        final diaryMeal = meal.toDiaryMeal(isGeneratedMeal: true);
-        final isConsumed = consumedMeals.any(
-          (consumed) =>
-              consumed.title == diaryMeal.title &&
-              consumed.type == diaryMeal.type,
-        );
-        return !isConsumed;
-      }).toList();
 
       log(
         '[FoodDiaryCubit._initializeDiaryEntryPage] Доступных блюд для выбора: ${availableMeals.length}',
@@ -1062,6 +1053,136 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
     );
 
     return todayPlan.meals;
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// [_getServingTypeFromString] Преобразует строку типа блюда в ServingType
+  /// ═══════════════════════════════════════════════════════════════════════
+  ///
+  /// Использует ту же логику, что и Meal.servingType для преобразования
+  /// строки типа блюда (например, "Breakfast", "Savoury Breakfast") в ServingType enum.
+  ///
+  /// **Параметры:**
+  /// - [typeString] - строка типа блюда из DiaryMeal.type
+  ///
+  /// **Возвращает:**
+  /// ServingType enum или null, если тип не распознан
+  ServingType? _getServingTypeFromString(String typeString) {
+    final type = typeString.toLowerCase();
+    if (type.contains('breakfast') || type.contains('meal 1')) {
+      return ServingType.breakfast;
+    } else if (type.contains('lunch') || type.contains('meal 2')) {
+      return ServingType.lunch;
+    } else if (type.contains('dinner') || type.contains('meal 3')) {
+      return ServingType.dinner;
+    } else if (type.contains('supper') || type.contains('meal 4')) {
+      return ServingType.supper;
+    } else if (type.contains('snack') || type.contains('meal 5')) {
+      return ServingType.snack;
+    }
+    return null;
+  }
+
+  /// ═══════════════════════════════════════════════════════════════════════
+  /// [_filterAvailableMealsByCustomMealTypes] Фильтрует доступные блюда
+  /// ═══════════════════════════════════════════════════════════════════════
+  ///
+  /// Фильтрует список доступных сгенерированных блюд, исключая:
+  /// 1. Уже потребленные блюда (точное совпадение title и type)
+  /// 2. Блюда, тип которых совпадает с типом кастомных блюд
+  /// 3. Блюда, тип которых совпадает с типом уже добавленных в дневник блюд
+  ///
+  /// **Логика:**
+  /// - Собирает все типы из кастомных блюд (где mealType != null)
+  /// - Собирает все типы из уже добавленных в дневник блюд (consumedMeals)
+  /// - Исключает из allMealsFromPlan блюда, у которых servingType
+  ///   совпадает с одним из собранных типов
+  /// - Также исключает уже потребленные блюда (точное совпадение)
+  ///
+  /// **Параметры:**
+  /// - [allMealsFromPlan] - все блюда из плана (до фильтрации)
+  /// - [customMeals] - массив кастомных блюд
+  ///
+  /// **Возвращает:**
+  /// Отфильтрованный список доступных блюд
+  List<Meal> _filterAvailableMealsByCustomMealTypes({
+    required List<Meal> allMealsFromPlan,
+    required List<CustomMealEntry> customMeals,
+  }) {
+    // [getConsumedMeals] Получаем уже потребленные блюда
+    final whoopState = whoopBloc.state;
+    final consumedMeals =
+        whoopState.day.welnessEntity?.consumedMeals ?? <DiaryMeal>[];
+
+    // [collectCustomMealTypes] Собираем все типы из кастомных блюд
+    final customMealTypes = customMeals
+        .where((meal) => meal.mealType != null)
+        .map((meal) => meal.mealType!)
+        .toSet();
+
+    // [collectConsumedMealTypes] Собираем все типы из уже добавленных в дневник блюд
+    final consumedMealTypes = consumedMeals
+        .map((meal) => _getServingTypeFromString(meal.type))
+        .whereType<ServingType>()
+        .toSet();
+
+    // [combineExcludedTypes] Объединяем типы кастомных блюд и уже добавленных блюд
+    final excludedTypes = <ServingType>{
+      ...customMealTypes,
+      ...consumedMealTypes,
+    };
+
+    log(
+      '[FoodDiaryCubit._filterAvailableMealsByCustomMealTypes] Типы кастомных блюд: ${customMealTypes.map((t) => t.name).join(", ")}',
+      name: 'FoodDiaryCubit',
+    );
+    log(
+      '[FoodDiaryCubit._filterAvailableMealsByCustomMealTypes] Типы уже добавленных блюд: ${consumedMealTypes.map((t) => t.name).join(", ")}',
+      name: 'FoodDiaryCubit',
+    );
+    log(
+      '[FoodDiaryCubit._filterAvailableMealsByCustomMealTypes] Исключаемые типы: ${excludedTypes.map((t) => t.name).join(", ")}',
+      name: 'FoodDiaryCubit',
+    );
+
+    // [filterMeals] Фильтруем блюда
+    final filteredMeals = allMealsFromPlan.where((meal) {
+      // [checkConsumed] Проверяем, не потреблено ли блюдо (точное совпадение)
+      final diaryMeal = meal.toDiaryMeal(isGeneratedMeal: true);
+      final isConsumed = consumedMeals.any(
+        (consumed) =>
+            consumed.title == diaryMeal.title &&
+            consumed.type == diaryMeal.type,
+      );
+
+      if (isConsumed) {
+        return false;
+      }
+
+      // [checkExcludedType] Проверяем, не совпадает ли тип с исключаемыми типами
+      final mealServingType = meal.servingType;
+      final isExcludedByType = excludedTypes.contains(mealServingType);
+
+      if (isExcludedByType) {
+        final reason = customMealTypes.contains(mealServingType)
+            ? 'кастомного блюда'
+            : 'уже добавленного в дневник блюда';
+        log(
+          '[FoodDiaryCubit._filterAvailableMealsByCustomMealTypes] Исключено блюдо "${meal.title}" (тип: ${mealServingType.name}) из-за $reason того же типа',
+          name: 'FoodDiaryCubit',
+        );
+        return false;
+      }
+
+      return true;
+    }).toList();
+
+    log(
+      '[FoodDiaryCubit._filterAvailableMealsByCustomMealTypes] Отфильтровано блюд: ${filteredMeals.length} из ${allMealsFromPlan.length}',
+      name: 'FoodDiaryCubit',
+    );
+
+    return filteredMeals;
   }
 
   /// [_toggleMealSelection] Переключает выбор блюда
@@ -1604,6 +1725,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
   /// [_customMealRemove] Удаляет кастомное блюдо по ID
   ///
   /// Удаляет блюдо из массива. Если остается 0 блюд, создает одно пустое.
+  /// После удаления обновляет фильтрацию доступных блюд.
   FutureOr<void> _customMealRemove(
     CustomMealRemove event,
     Emitter<FoodDiaryState> emit,
@@ -1618,6 +1740,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         return;
       }
 
+      // [removeMeal] Удаляем блюдо из массива
       final updatedMeals = currentState.customMeals
           .where((meal) => meal.id != event.mealId)
           .toList();
@@ -1636,10 +1759,26 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         name: 'FoodDiaryCubit',
       );
 
-      emit(currentState.copyWith(customMeals: updatedMeals));
+      // [filterAvailableMeals] Обновляем фильтрацию доступных блюд после удаления
+      final filteredAvailableMeals = _filterAvailableMealsByCustomMealTypes(
+        allMealsFromPlan: currentState.allMealsFromPlan,
+        customMeals: updatedMeals,
+      );
 
       log(
-        '[FoodDiaryCubit._customMealRemove] ✅ Блюдо удалено',
+        '[FoodDiaryCubit._customMealRemove] Отфильтровано доступных блюд: ${filteredAvailableMeals.length} (было: ${currentState.availableMeals.length})',
+        name: 'FoodDiaryCubit',
+      );
+
+      emit(
+        currentState.copyWith(
+          customMeals: updatedMeals,
+          availableMeals: filteredAvailableMeals,
+        ),
+      );
+
+      log(
+        '[FoodDiaryCubit._customMealRemove] ✅ Блюдо удалено и доступные блюда обновлены',
         name: 'FoodDiaryCubit',
       );
     } on Exception catch (e, stackTrace) {
@@ -1916,9 +2055,10 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
     }
   }
 
-  /// [_customMealSetMealType] Устанавливает тип приема пищи для блюда
+  /// [_customMealSetMealType] Устанавливает тип приема пищи для кастомного блюда
   ///
   /// Устанавливает тип приема пищи (завтрак, обед, ужин, перекус) для указанного блюда.
+  /// После установки типа фильтрует доступные сгенерированные блюда, исключая блюда того же типа.
   FutureOr<void> _customMealSetMealType(
     CustomMealSetMealType event,
     Emitter<FoodDiaryState> emit,
@@ -1933,6 +2073,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         return;
       }
 
+      // [updateCustomMeals] Обновляем тип приема пищи для указанного блюда
       final updatedMeals = currentState.customMeals.map((meal) {
         if (meal.id == event.mealId) {
           return meal.copyWith(
@@ -1948,10 +2089,26 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         name: 'FoodDiaryCubit',
       );
 
-      emit(currentState.copyWith(customMeals: updatedMeals));
+      // [filterAvailableMeals] Фильтруем доступные блюда на основе типов кастомных блюд
+      final filteredAvailableMeals = _filterAvailableMealsByCustomMealTypes(
+        allMealsFromPlan: currentState.allMealsFromPlan,
+        customMeals: updatedMeals,
+      );
 
       log(
-        '[FoodDiaryCubit._customMealSetMealType] ✅ Тип приема пищи установлен',
+        '[FoodDiaryCubit._customMealSetMealType] Отфильтровано доступных блюд: ${filteredAvailableMeals.length} (было: ${currentState.availableMeals.length})',
+        name: 'FoodDiaryCubit',
+      );
+
+      emit(
+        currentState.copyWith(
+          customMeals: updatedMeals,
+          availableMeals: filteredAvailableMeals,
+        ),
+      );
+
+      log(
+        '[FoodDiaryCubit._customMealSetMealType] ✅ Тип приема пищи установлен и доступные блюда отфильтрованы',
         name: 'FoodDiaryCubit',
       );
     } on Exception catch (e, stackTrace) {
@@ -2014,6 +2171,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
   ///
   /// Заменяет блюдо на пустую карточку с тем же ID.
   /// Используется при удалении единственного проанализированного блюда.
+  /// После сброса обновляет фильтрацию доступных блюд.
   FutureOr<void> _customMealReset(
     CustomMealReset event,
     Emitter<FoodDiaryState> emit,
@@ -2028,6 +2186,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         return;
       }
 
+      // [resetMeal] Сбрасываем блюдо в пустое состояние
       final updatedMeals = currentState.customMeals.map((meal) {
         if (meal.id == event.mealId) {
           // Создаем пустое блюдо с тем же ID
@@ -2041,10 +2200,26 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         name: 'FoodDiaryCubit',
       );
 
-      emit(currentState.copyWith(customMeals: updatedMeals));
+      // [filterAvailableMeals] Обновляем фильтрацию доступных блюд после сброса
+      final filteredAvailableMeals = _filterAvailableMealsByCustomMealTypes(
+        allMealsFromPlan: currentState.allMealsFromPlan,
+        customMeals: updatedMeals,
+      );
 
       log(
-        '[FoodDiaryCubit._customMealReset] ✅ Блюдо сброшено в пустое состояние',
+        '[FoodDiaryCubit._customMealReset] Отфильтровано доступных блюд: ${filteredAvailableMeals.length} (было: ${currentState.availableMeals.length})',
+        name: 'FoodDiaryCubit',
+      );
+
+      emit(
+        currentState.copyWith(
+          customMeals: updatedMeals,
+          availableMeals: filteredAvailableMeals,
+        ),
+      );
+
+      log(
+        '[FoodDiaryCubit._customMealReset] ✅ Блюдо сброшено в пустое состояние и доступные блюда обновлены',
         name: 'FoodDiaryCubit',
       );
     } on Exception catch (e, stackTrace) {

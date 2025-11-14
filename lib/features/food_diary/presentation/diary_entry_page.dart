@@ -17,11 +17,46 @@ class DiaryEntryPage extends StatefulWidget {
 }
 
 class _DiaryEntryPageState extends State<DiaryEntryPage> {
+  // [expandedDropdownId] ID раскрытого dropdown'а
+  // null - нет раскрытых, 'generated' - раскрыт GeneratedMealsSection,
+  // 'custom_<mealId>' - раскрыт CustomMealItem с указанным ID
+  String? expandedDropdownId;
+
   @override
   void initState() {
     super.initState();
     // [initState] Инициализируем страницу при создании виджета
     foodDiaryCubit.add(const DiaryEntryPageInitialize());
+  }
+
+  /// [handleGeneratedMealsExpansion] Обработчик раскрытия/закрытия GeneratedMealsSection
+  void handleGeneratedMealsExpansion(bool isExpanded) {
+    setState(() {
+      if (isExpanded) {
+        // [handleGeneratedMealsExpansion] Раскрываем GeneratedMealsSection, закрываем все остальные
+        expandedDropdownId = 'generated';
+      } else {
+        // [handleGeneratedMealsExpansion] Закрываем GeneratedMealsSection
+        if (expandedDropdownId == 'generated') {
+          expandedDropdownId = null;
+        }
+      }
+    });
+  }
+
+  /// [handleCustomMealExpansion] Обработчик раскрытия/закрытия CustomMealItem
+  void handleCustomMealExpansion(String mealId, bool isExpanded) {
+    setState(() {
+      if (isExpanded) {
+        // [handleCustomMealExpansion] Раскрываем CustomMealItem, закрываем все остальные
+        expandedDropdownId = 'custom_$mealId';
+      } else {
+        // [handleCustomMealExpansion] Закрываем CustomMealItem
+        if (expandedDropdownId == 'custom_$mealId') {
+          expandedDropdownId = null;
+        }
+      }
+    });
   }
 
   @override
@@ -62,6 +97,9 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
+                  // [keyboardDismissBehavior] Предотвращаем автоматическую прокрутку
+                  // при закрытии клавиатуры/диалога
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   //NO PADDING HERE NEVER
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,6 +108,8 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
                         meals: meals,
                         allMealsFromPlan: allMealsFromPlan,
                         selectedMeals: selectedMeals,
+                        isExpanded: expandedDropdownId == 'generated',
+                        onExpansionChanged: handleGeneratedMealsExpansion,
                         onMealSelectionChanged: (meal, isSelected) {
                           // [onMealSelectionChanged] Отправляем событие в cubit для переключения выбора блюда
                           foodDiaryCubit.add(
@@ -84,7 +124,12 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
 
                       // [CustomMealsSection] Секция кастомных блюд
                       // Управляется полностью через cubit с массивом customMeals
-                      const CustomMealsSection(),
+                      CustomMealsSection(
+                        expandedMealId: expandedDropdownId?.startsWith('custom_') == true
+                            ? expandedDropdownId!.substring(7) // Убираем префикс 'custom_'
+                            : null,
+                        onMealExpansionChanged: handleCustomMealExpansion,
+                      ),
 
                       // [build] Дополнительный отступ снизу для кнопки
                       SizedBox(height: 50.h),

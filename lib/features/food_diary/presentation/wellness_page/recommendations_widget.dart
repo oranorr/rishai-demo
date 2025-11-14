@@ -370,12 +370,25 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
               Row(
                 children: [
                   Text(
-                    'Recommendations',
+                    'Nutritional Intelligence',
                     style: context.styles.boldLarge,
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () => () {},
+                    onTap: () async => RishiDialog.infoPopup(
+                      context,
+                      '''
+Recommendations change dynamically over the day as you capture meals.
+
+Staying within ±10% of your daily goal gives the highest score.
+
+Going beyond 10% reduces your score progressively, as overeating affects energy balance and recovery.
+
+Pivot's nutritional intelligence instantly analyzes your day and recommends foods to fill your remaining targets.
+
+Scores above target are penalized to encourage balanced nutrition, not overeating.''',
+                      title: 'Nutritional Intelligence',
+                    ),
                     child: SvgPicture.asset('assets/icons/info_round.svg'),
                   ),
                 ],
