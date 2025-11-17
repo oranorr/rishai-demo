@@ -54,6 +54,15 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
       _selectedDay = filter.startDate;
       _rangeStart = filter.startDate;
       _rangeEnd = filter.endDate;
+      
+      // Устанавливаем _focusedDay на выбранную дату, чтобы календарь
+      // показывал правильный месяц при открытии попапа
+      // Приоритет: startDate > endDate > текущая дата
+      if (filter.startDate != null) {
+        _focusedDay = filter.startDate!;
+      } else if (filter.endDate != null) {
+        _focusedDay = filter.endDate!;
+      }
     } else {
       filter = WeekFilterEntity(
         startDate: null,
@@ -283,10 +292,17 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
               ),
               SizedBox(height: 20.h),
               RishButton.primary(
-                title: 'Close',
+                title: filter.hasActiveFilters ? 'Confirm' : 'Close',
                 enabled: true,
                 isLoading: false,
                 action: () {
+                  // Применяем фильтр при закрытии, если есть активные фильтры
+                  if (filter.hasActiveFilters) {
+                    weekPlanBloc.add(WeekPlanEvent.filter(filter: filter));
+                  } else {
+                    // Если фильтров нет, очищаем их
+                    weekPlanBloc.add(const WeekPlanEvent.clearFilter());
+                  }
                   Navigator.of(context).pop();
                 },
               ),
@@ -298,6 +314,8 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
     );
   }
 
+  /// Обновляет фильтр по датам
+  /// Обновляет локальное состояние фильтра с новыми датами начала и конца диапазона
   void updateFilterDates(
     DateTime? startDate,
     DateTime? endDate,
@@ -308,6 +326,9 @@ class __FiltersWidgetState extends State<_FiltersWidget> {
         endDate: endDate,
       );
     });
+    // Примечание: фильтр по датам применяется при нажатии на кнопку Confirm,
+    // в отличие от других фильтров, которые применяются автоматически
+    // Это позволяет пользователю выбрать диапазон дат и применить его одним нажатием
   }
 
   void updateFilterPrefs(String incPref) {

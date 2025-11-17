@@ -38,8 +38,13 @@ class WeekFilterEntity {
     return 'WeekFilterEntity(startDate: $startDate, endDate: $endDate, fitnessGoal: $fitnessGoal, dietaryPreferences: $dietaryPreferences, cuisines: $cuisines, mealsTypes: $mealsTypes)';
   }
 
+  /// Проверяет, есть ли активные фильтры
+  /// Фильтр считается активным, если выбрана хотя бы одна дата (startDate или endDate),
+  /// или есть другие активные фильтры (диеты, цели, кухни, типы блюд)
   bool get hasActiveFilters {
-    final hasDates = startDate != null && endDate != null;
+    // Фильтр по датам активен, если выбрана хотя бы одна дата
+    // (bloc поддерживает фильтрацию как по диапазону, так и по одной дате)
+    final hasDates = startDate != null || endDate != null;
     final hasDiet = dietaryPreferences.isNotEmpty;
     final hasGoal = fitnessGoal.isNotEmpty;
     final hasCuisines = cuisines.isNotEmpty;
