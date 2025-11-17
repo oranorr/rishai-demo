@@ -99,7 +99,8 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
                 child: SingleChildScrollView(
                   // [keyboardDismissBehavior] Предотвращаем автоматическую прокрутку
                   // при закрытии клавиатуры/диалога
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   //NO PADDING HERE NEVER
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,9 +126,11 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
                       // [CustomMealsSection] Секция кастомных блюд
                       // Управляется полностью через cubit с массивом customMeals
                       CustomMealsSection(
-                        expandedMealId: expandedDropdownId?.startsWith('custom_') == true
-                            ? expandedDropdownId!.substring(7) // Убираем префикс 'custom_'
-                            : null,
+                        expandedMealId:
+                            expandedDropdownId?.startsWith('custom_') ?? false
+                                ? expandedDropdownId!
+                                    .substring(7) // Убираем префикс 'custom_'
+                                : null,
                         onMealExpansionChanged: handleCustomMealExpansion,
                       ),
 
@@ -143,7 +146,10 @@ class _DiaryEntryPageState extends State<DiaryEntryPage> {
               // └───────────────────────────────────────────────────────────────┘
               AddMealsButton(
                 selectedMealsCount: totalSelectedMealsCount,
-                isLoading: isLoading,
+                // [isLoading] Кнопка неактивна если идет загрузка или регенерация блюда
+                // Регенерация блокирует кнопку, чтобы предотвратить добавление блюд
+                // во время обновления анализа
+                isLoading: isLoading || foodDiaryState.isRegenerating,
                 onPressed: () async {
                   // [onPressed] Отправляем событие в cubit для добавления выбранных блюд
                   foodDiaryCubit.add(const DiaryEntryAddSelectedMeals());

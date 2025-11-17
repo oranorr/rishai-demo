@@ -334,33 +334,6 @@ class _HomePageBodyState extends State<_HomePageBody> {
                 isToday: widget.day.isToday,
                 day: widget.day.isToday ? state.day : widget.day,
               ),
-              // SizedBox(height: 20.h),
-              // Text(
-              //   'Health metrics',
-              //   style: context.styles.h3,
-              // ),
-
-              // SizedBox(height: 20.h),
-              // Row(
-              //   children: [
-              //     Text(
-              //       'Meal plan',
-              //       style: context.styles.h3,
-              //     ),
-              //     const Spacer(),
-              //     GestureDetector(
-              //       onTap: () async => RishiDialog.infoPopup(
-              //         context,
-              //         'Cooking instructions & ingredients for each meal are provided in the meal landing card and you can ask for more detail in the AI chat. You may also replace any ONE meal for an alternative, ONCE per day, if you wish to.',
-              //       ),
-              //       child: const Icon(
-              //         Icons.info_outline,
-              //         size: 30,
-              //         color: RishColors.primary,
-              //       ),
-              //     ),
-              //   ],
-              // ),
               SizedBox(height: 12.h),
               BlocBuilder<WhoopBloc, WhoopState>(
                 bloc: whoopBloc,

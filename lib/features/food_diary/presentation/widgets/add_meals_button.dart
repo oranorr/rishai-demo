@@ -55,7 +55,7 @@ class AddMealsButton extends StatelessWidget {
       minimum: const EdgeInsets.only(top: 16),
       child: RishButton.primary(
         title: selectedMealsCount == 0 ? 'Select meals' : 'Add to diary',
-        enabled: selectedMealsCount > 0,
+        enabled: selectedMealsCount > 0 || isLoading,
         isLoading: isLoading,
         action: () {
           // [unfocus] Убираем фокус с поля ввода перед открытием диалога

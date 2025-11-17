@@ -107,11 +107,16 @@ class ImagePickerService {
         '[ImagePickerService.pickMultipleImages] Запрос на выбор изображений (limit: $limit)',
       );
 
+      // [validateLimit] pickMultiImage не принимает limit: 1 (минимум 2)
+      // Если limit == 1, не передаем его в pickMultiImage
+      // Это защита на случай, если метод вызван напрямую с limit: 1
+      final int? validLimit = (limit != null && limit > 1) ? limit : null;
+
       // Загружаем изображения БЕЗ всех ограничений для максимальной совместимости с iCloud
       // Параметры maxWidth, maxHeight, imageQuality и requestFullMetadata могут вызывать
       // ошибки "Cannot load representation" для изображений в iCloud
       final List<XFile> images = await _picker.pickMultiImage(
-        limit: limit,
+        limit: validLimit,
       );
 
       print(
@@ -155,6 +160,17 @@ class ImagePickerService {
       print(
         '[ImagePickerService.pickMultipleImages] Валидных изображений: ${validImages.length}',
       );
+      
+      // [enforceLimit] На Android параметр limit не работает в системном picker'е,
+      // поэтому нужно обрезать список после выбора
+      // На iOS limit работает только для iOS 14+, на старых версиях тоже нужно обрезать
+      if (limit != null && validImages.length > limit) {
+        print(
+          '[ImagePickerService.pickMultipleImages] ⚠️ Выбрано ${validImages.length} фото, но лимит: $limit. Обрезаем до лимита.',
+        );
+        return validImages.take(limit).toList();
+      }
+      
       return validImages;
     } catch (e, stackTrace) {
       print('[ImagePickerService.pickMultipleImages] Критическая ошибка: $e');

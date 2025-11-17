@@ -141,14 +141,36 @@ class _PivotLifeWidgetState extends State<PivotLifeWidget>
     );
   }
 
+  /// [getColor] Определяет цвет прогресс-бара на основе процента прогресса
+  /// 
+  /// Цветовое распределение:
+  /// - 0-29%: Красный (RishColors.error)
+  /// - 30-54%: Оранжевый (#FA8F3E)
+  /// - 55-79%: Желтый (RishColors.warning)
+  /// - 80-100%: Зеленый (RishColors.success)
+  /// 
+  /// **Примечание:** Если progress приходит как доля (0.0-1.0), 
+  /// функция автоматически конвертирует в проценты (0-100)
   Color getColor(double progress) {
-    if (progress <= 0.29) {
+    // [getColor] Проверяем, пришел ли progress как доля (0.0-1.0) или проценты (0-100)
+    // Если значение меньше 1, значит это доля - конвертируем в проценты
+    final progressInPercent = progress < 1.0 ? progress * 100 : progress;
+    
+    // [getColor] Используем строгие границы для правильного определения цвета
+    // Округляем до целого для точного сравнения
+    final roundedProgress = progressInPercent.round();
+    
+    if (roundedProgress <= 29) {
+      // [getColor] 0-29%: Красный цвет для низкого прогресса
       return RishColors.error;
-    } else if (progress >= 0.3 && progress <= 0.54) {
+    } else if (roundedProgress >= 30 && roundedProgress <= 54) {
+      // [getColor] 30-54%: Оранжевый цвет для среднего-низкого прогресса
       return const Color(0xffFA8F3E);
-    } else if (progress >= 0.55 && progress <= 0.79) {
+    } else if (roundedProgress >= 55 && roundedProgress <= 79) {
+      // [getColor] 55-79%: Желтый цвет для среднего-высокого прогресса
       return RishColors.warning;
     } else {
+      // [getColor] 80-100%: Зеленый цвет для высокого прогресса
       return RishColors.success;
     }
   }

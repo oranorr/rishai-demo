@@ -479,10 +479,8 @@ class RishiDialog {
     required int mealsCount,
     required VoidCallback action,
   }) {
-    // [mealsText] Формируем текст с правильной плюрализацией
-    final mealsText = mealsCount == 1 ? 'meal' : 'meals';
-    final confirmationText =
-        'Are you sure you want to add $mealsCount $mealsText to diary?';
+    const confirmationText =
+        'Are you sure?\nOnce you confirm you will not be able to delete the meal';
 
     return Container(
       height: 340.h,
@@ -520,7 +518,7 @@ class RishiDialog {
             SizedBox(height: 20.h),
             RishButton.primary(
               height: 48.h,
-              title: 'Add to diary',
+              title: 'Confirm',
               enabled: true,
               isLoading: false,
               action: () {

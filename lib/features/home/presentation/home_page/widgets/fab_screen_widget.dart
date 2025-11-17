@@ -81,12 +81,27 @@ class _FabOverlayWidget extends StatelessWidget {
                               action: () async {
                                 if (!hasMealPlan) {
                                   onHideOverlay();
-                                  // Переход на страницу чата (страница 2)
+                                  // [action] Переход на страницу чата (страница 2) для создания нового плана
                                   await homePageControllerService.navigateToPage(
                                     page: 2,
                                   );
                                 } else {
                                   onHideOverlay();
+                                  // [action] Проверяем текущую страницу перед скроллом
+                                  final currentPage =
+                                      homePageControllerService.currentPage;
+                                  
+                                  // [action] Если мы не на домашней странице (0), сначала переходим на неё
+                                  if (currentPage != null && currentPage != 0) {
+                                    await homePageControllerService
+                                        .navigateToPage(page: 0);
+                                    // [action] Небольшая задержка для завершения анимации перехода
+                                    await Future.delayed(
+                                      const Duration(milliseconds: 200),
+                                    );
+                                  }
+                                  
+                                  // [action] Выполняем скролл к meal plan на домашней странице
                                   await homePageControllerService
                                       .scrollToBottom();
                                 }

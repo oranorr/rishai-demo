@@ -532,3 +532,35 @@ class CustomMealToggleSelection extends FoodDiaryEvent {
   @override
   List<Object?> get props => [mealId];
 }
+
+/// [CustomMealStartRegenerating] Событие начала регенерации анализа блюда
+///
+/// Отмечает блюдо как регенерирующееся, чтобы заблокировать кнопку добавления
+/// в дневник во время процесса регенерации.
+class CustomMealStartRegenerating extends FoodDiaryEvent {
+  /// ID блюда, которое регенерируется
+  final String mealId;
+
+  const CustomMealStartRegenerating({
+    required this.mealId,
+  });
+
+  @override
+  List<Object?> get props => [mealId];
+}
+
+/// [CustomMealStopRegenerating] Событие окончания регенерации анализа блюда
+///
+/// Убирает блюдо из списка регенерирующихся, разблокируя кнопку добавления
+/// в дневник после завершения процесса регенерации.
+class CustomMealStopRegenerating extends FoodDiaryEvent {
+  /// ID блюда, которое завершило регенерацию
+  final String mealId;
+
+  const CustomMealStopRegenerating({
+    required this.mealId,
+  });
+
+  @override
+  List<Object?> get props => [mealId];
+}

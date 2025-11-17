@@ -207,14 +207,20 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
   Future<void> _handleRegenerateAnalysis() async {
     final photos = widget.meal.photos;
     final description = widget.meal.description;
+    final cubit = context.read<FoodDiaryCubit>();
 
     try {
-      // Устанавливаем состояние загрузки для регенерации
+      // [setState] Устанавливаем локальное состояние загрузки для регенерации
       setState(() {
         _isRegenerating = true;
       });
 
-      // Используем обработчик для регенерации анализа
+      // [cubit] Отправляем событие начала регенерации для блокировки кнопки добавления
+      cubit.add(
+        CustomMealStartRegenerating(mealId: widget.meal.id),
+      );
+
+      // [regenerateAnalysis] Используем обработчик для регенерации анализа
       final diaryMeal = await _mealAnalysisHandler.regenerateAnalysis(
         photos: photos,
         description: description,
@@ -223,8 +229,7 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
 
       if (!mounted) return;
 
-      // Обновляем результат анализа в блюде
-      final cubit = context.read<FoodDiaryCubit>();
+      // [cubit] Обновляем результат анализа в блюде
       cubit.add(
         CustomMealSetAnalyzedResult(
           mealId: widget.meal.id,
@@ -234,10 +239,17 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
     } catch (e) {
       if (!mounted) return;
 
-      // Показываем ошибку пользователю
+      // [showSnackbar] Показываем ошибку пользователю
       _showSnackbar('Something failed, please try again');
     } finally {
-      // Убираем состояние загрузки
+      // [cubit] Отправляем событие окончания регенерации для разблокировки кнопки
+      if (mounted) {
+        cubit.add(
+          CustomMealStopRegenerating(mealId: widget.meal.id),
+        );
+      }
+
+      // [setState] Убираем локальное состояние загрузки
       if (mounted) {
         setState(() {
           _isRegenerating = false;

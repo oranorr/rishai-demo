@@ -246,6 +246,10 @@ class DiaryEntryPageState extends FoodDiaryState {
   /// По умолчанию содержит одно пустое блюдо
   final List<CustomMealEntry> customMeals;
 
+  /// Множество ID блюд, которые в данный момент регенерируются
+  /// Используется для блокировки кнопки добавления в дневник во время регенерации
+  final Set<String> regeneratingMealIds;
+
   /// [LEGACY] Выбранный тип приема пищи для кастомных блюд
   /// @deprecated Используйте customMeals[index].mealType
   final ServingType? selectedMealType;
@@ -271,6 +275,7 @@ class DiaryEntryPageState extends FoodDiaryState {
     required this.mealDescription,
     this.selectedMealType,
     this.errorMessage,
+    this.regeneratingMealIds = const {},
   });
 
   /// [DiaryEntryPageState.initial] Начальное состояние страницы
@@ -283,6 +288,7 @@ class DiaryEntryPageState extends FoodDiaryState {
       customMeals: [CustomMealEntry.empty()], // Начинаем с одного пустого блюда
       selectedPhotos: const [],
       mealDescription: '',
+      regeneratingMealIds: const {},
     );
   }
 
@@ -297,6 +303,7 @@ class DiaryEntryPageState extends FoodDiaryState {
     List<XFile>? selectedPhotos,
     String? mealDescription,
     String? errorMessage,
+    Set<String>? regeneratingMealIds,
     bool clearMealType = false,
   }) {
     return DiaryEntryPageState(
@@ -310,6 +317,7 @@ class DiaryEntryPageState extends FoodDiaryState {
       selectedPhotos: selectedPhotos ?? this.selectedPhotos,
       mealDescription: mealDescription ?? this.mealDescription,
       errorMessage: errorMessage ?? this.errorMessage,
+      regeneratingMealIds: regeneratingMealIds ?? this.regeneratingMealIds,
     );
   }
 
@@ -344,6 +352,10 @@ class DiaryEntryPageState extends FoodDiaryState {
     return selectedCustomMeals.length;
   }
 
+  /// [isRegenerating] Проверяет, выполняется ли регенерация хотя бы одного блюда
+  /// Используется для блокировки кнопки добавления в дневник
+  bool get isRegenerating => regeneratingMealIds.isNotEmpty;
+
   @override
   List<Object?> get props => [
         status,
@@ -355,5 +367,6 @@ class DiaryEntryPageState extends FoodDiaryState {
         selectedPhotos,
         mealDescription,
         errorMessage,
+        regeneratingMealIds,
       ];
 }

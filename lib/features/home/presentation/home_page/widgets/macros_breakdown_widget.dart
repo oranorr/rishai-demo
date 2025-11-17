@@ -77,6 +77,7 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                 onTap: () async => RishiDialog.infoPopup(
                   context,
                   'Your daily consumption goal of calories is broken up into its macronutrient constituents of proteins, carbs, and fats. This gives you individualised targets for each macronutrient, and they sum up to your daily calorie consumption goal.',
+                  title: "Today's targets",
                 ),
                 child: SvgPicture.asset('assets/icons/info_round.svg'),
               ),

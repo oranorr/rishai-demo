@@ -82,6 +82,8 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
     on<CustomMealSetAnalyzedResult>(_customMealSetAnalyzedResult);
     on<CustomMealReset>(_customMealReset);
     on<CustomMealToggleSelection>(_customMealToggleSelection);
+    on<CustomMealStartRegenerating>(_customMealStartRegenerating);
+    on<CustomMealStopRegenerating>(_customMealStopRegenerating);
   }
   // ════════════════════════════════════════════════════════════════════════════
   // Константы для работы с фотографиями
@@ -2289,6 +2291,103 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
     } on Exception catch (e, stackTrace) {
       log(
         '[FoodDiaryCubit._customMealToggleSelection] ❌ Ошибка при переключении выбора: $e',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'FoodDiaryCubit',
+      );
+    }
+  }
+
+  /// [_customMealStartRegenerating] Отмечает блюдо как регенерирующееся
+  ///
+  /// Добавляет ID блюда в множество регенерирующихся блюд,
+  /// что используется для блокировки кнопки добавления в дневник.
+  FutureOr<void> _customMealStartRegenerating(
+    CustomMealStartRegenerating event,
+    Emitter<FoodDiaryState> emit,
+  ) async {
+    try {
+      final currentState = state;
+      if (currentState is! DiaryEntryPageState) {
+        log(
+          '[FoodDiaryCubit._customMealStartRegenerating] ⚠️ Некорректное состояние: ${currentState.runtimeType}',
+          name: 'FoodDiaryCubit',
+        );
+        return;
+      }
+
+      log(
+        '[FoodDiaryCubit._customMealStartRegenerating] Начало регенерации блюда (ID: ${event.mealId})',
+        name: 'FoodDiaryCubit',
+      );
+
+      // Добавляем ID блюда в множество регенерирующихся
+      final updatedRegeneratingIds = {
+        ...currentState.regeneratingMealIds,
+        event.mealId,
+      };
+
+      emit(
+        currentState.copyWith(
+          regeneratingMealIds: updatedRegeneratingIds,
+        ),
+      );
+
+      log(
+        '[FoodDiaryCubit._customMealStartRegenerating] ✅ Блюдо отмечено как регенерирующееся. Всего регенерируется: ${updatedRegeneratingIds.length}',
+        name: 'FoodDiaryCubit',
+      );
+    } on Exception catch (e, stackTrace) {
+      log(
+        '[FoodDiaryCubit._customMealStartRegenerating] ❌ Ошибка при отметке начала регенерации: $e',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'FoodDiaryCubit',
+      );
+    }
+  }
+
+  /// [_customMealStopRegenerating] Убирает блюдо из списка регенерирующихся
+  ///
+  /// Удаляет ID блюда из множества регенерирующихся блюд,
+  /// разблокируя кнопку добавления в дневник после завершения регенерации.
+  FutureOr<void> _customMealStopRegenerating(
+    CustomMealStopRegenerating event,
+    Emitter<FoodDiaryState> emit,
+  ) async {
+    try {
+      final currentState = state;
+      if (currentState is! DiaryEntryPageState) {
+        log(
+          '[FoodDiaryCubit._customMealStopRegenerating] ⚠️ Некорректное состояние: ${currentState.runtimeType}',
+          name: 'FoodDiaryCubit',
+        );
+        return;
+      }
+
+      log(
+        '[FoodDiaryCubit._customMealStopRegenerating] Окончание регенерации блюда (ID: ${event.mealId})',
+        name: 'FoodDiaryCubit',
+      );
+
+      // Удаляем ID блюда из множества регенерирующихся
+      final updatedRegeneratingIds = {
+        ...currentState.regeneratingMealIds,
+      }..remove(event.mealId);
+
+      emit(
+        currentState.copyWith(
+          regeneratingMealIds: updatedRegeneratingIds,
+        ),
+      );
+
+      log(
+        '[FoodDiaryCubit._customMealStopRegenerating] ✅ Блюдо убрано из регенерирующихся. Всего регенерируется: ${updatedRegeneratingIds.length}',
+        name: 'FoodDiaryCubit',
+      );
+    } on Exception catch (e, stackTrace) {
+      log(
+        '[FoodDiaryCubit._customMealStopRegenerating] ❌ Ошибка при отметке окончания регенерации: $e',
         error: e,
         stackTrace: stackTrace,
         name: 'FoodDiaryCubit',

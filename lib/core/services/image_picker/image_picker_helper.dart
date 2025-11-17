@@ -285,8 +285,17 @@ class ImagePickerHelper {
       // Открываем галерею
       // На iOS разрешения запрашиваются автоматически при первом обращении
       try {
-        if (allowMultiple && (limit == null || limit > 1)) {
-          // Используем multiple picker только если limit > 1 или не указан
+        // [decidePickerType] Определяем тип picker'а на основе allowMultiple и limit
+        // pickMultiImage не принимает limit: 1 (минимум 2), поэтому для limit == 1
+        // используем одиночный picker даже если allowMultiple == true
+        // Это важно для бесплатных пользователей, у которых лимит = 1 фото в сутки
+        final bool shouldUseMultiplePicker = allowMultiple && (limit == null || limit > 1);
+        
+        if (shouldUseMultiplePicker) {
+          // [useMultiplePicker] Используем множественный выбор для limit > 1 или без лимита
+          // Это позволяет пользователю выбрать несколько фотографий за раз в пределах лимита
+          // На Android pickMultiImage поддерживает множественный выбор независимо от limit
+          // На iOS limit работает только для iOS 14+, но множественный выбор доступен и на более старых версиях
           final List<XFile> images =
               await _imagePickerService.pickMultipleImages(
             maxWidth: maxWidth,
@@ -295,19 +304,35 @@ class ImagePickerHelper {
             limit: limit,
           );
           print(
-            '[ImagePickerHelper] Результат галереи (multiple): ${images.length} фото',
+            '[ImagePickerHelper] Результат галереи (multiple): ${images.length} фото (limit: $limit)',
           );
+          
+          // [validateLimit] ВАЖНО: На Android параметр limit не работает в системном picker'е
+          // На iOS limit работает только для iOS 14+, на старых версиях тоже может быть проигнорирован
+          // Поэтому всегда обрезаем список до лимита, если он указан
+          final List<XFile> finalImages;
+          if (limit != null && images.length > limit) {
+            print(
+              '[ImagePickerHelper] ⚠️ Выбрано ${images.length} фото, но лимит: $limit. Обрезаем до лимита.',
+            );
+            finalImages = images.take(limit).toList();
+          } else {
+            finalImages = images;
+          }
+          
           // Если список пустой (пользователь отменил выбор), возвращаем null
-          return images.isEmpty ? null : images;
+          return finalImages.isEmpty ? null : finalImages;
         } else {
-          // Используем одиночный picker если limit == 1 или allowMultiple == false
+          // [useSinglePicker] Используем одиночный picker если:
+          // - allowMultiple == false, или
+          // - limit == 1 (pickMultiImage не поддерживает limit: 1)
           final XFile? image = await _imagePickerService.pickImageFromGallery(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
             imageQuality: imageQuality,
           );
           print(
-            '[ImagePickerHelper] Результат галереи (single): ${image?.path ?? "null"}',
+            '[ImagePickerHelper] Результат галереи (single): ${image?.path ?? "null"} (limit: $limit, allowMultiple: $allowMultiple)',
           );
           // Возвращаем как список для совместимости с allowMultiple
           return image != null ? [image] : null;
