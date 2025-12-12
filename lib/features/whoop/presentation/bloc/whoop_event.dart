@@ -93,3 +93,5 @@ class WhoopUpdateCurrentDay extends WhoopEvent {
   @override
   List<Object> get props => [day];
 }
+
+class WhoopResetState extends WhoopEvent {}

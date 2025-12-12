@@ -389,6 +389,152 @@ class RishiDialog {
     );
   }
 
+  /// [showPermissionSettingsDialog] Показывает диалог с объяснением о необходимости разрешения
+  ///
+  /// Показывает popup с объяснением, что разрешения на источник у нас нет,
+  /// и кнопкой для перехода в настройки. Используется при повторном нажатии
+  /// на источник без разрешения.
+  ///
+  /// **Параметры:**
+  /// - context: Контекст для показа диалога
+  /// - permissionType: Тип разрешения ('camera' или 'gallery') для кастомизации сообщения
+  ///
+  /// **UI/UX:**
+  /// - Следует Apple HIG для диалогов с призывом к действию
+  /// - Использует иконку блокировки для визуального акцента
+  /// - Primary action (Go to Settings) выделен как основная кнопка
+  static Future<void> showPermissionSettingsDialog(
+    BuildContext context, {
+    String permissionType = 'camera or gallery',
+  }) async {
+    await showGeneralDialog(
+      context: context,
+      barrierLabel: '',
+      barrierDismissible: true,
+      barrierColor: const Color(0xff1717253d).withOpacity(0.25),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 10),
+          child: Center(
+            child: _buildPermissionSettingsDialog(
+              context: context,
+              permissionType: permissionType,
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, anim, __, child) {
+        Tween<double> tween;
+        if (anim.status == AnimationStatus.reverse) {
+          tween = Tween(begin: 0, end: 1);
+        } else {
+          tween = Tween(begin: 0, end: 1);
+        }
+
+        return FadeTransition(
+          opacity: tween.animate(anim),
+          child: child,
+        );
+      },
+    );
+  }
+
+  /// [_buildPermissionSettingsDialog] Строит виджет диалога для перехода в настройки
+  ///
+  /// Создает диалог с иконкой, объяснением о необходимости разрешения и двумя кнопками:
+  /// - Cancel (тертиарная кнопка) - закрывает диалог
+  /// - Go to Settings (основная кнопка) - открывает настройки приложения
+  ///
+  /// **UI/UX:**
+  /// - Следует Apple HIG для диалогов с призывом к действию
+  /// - Использует иконку блокировки (lock_outline_rounded) для визуального акцента
+  /// - Primary action (Go to Settings) выделен как основная кнопка
+  static Widget _buildPermissionSettingsDialog({
+    required BuildContext context,
+    required String permissionType,
+  }) {
+    // Формируем текст объяснения в зависимости от типа разрешения
+    final String explanationText;
+    if (permissionType == 'camera') {
+      explanationText =
+          'To use the camera, you need to grant permission. Please enable camera access in the app settings.';
+    } else if (permissionType == 'gallery') {
+      explanationText =
+          'To access the gallery, you need to grant permission. Please enable photo access in the app settings.';
+    } else {
+      explanationText =
+          'To use this feature, you need to grant permission. Please enable access in the app settings.';
+    }
+
+    return Container(
+      height: 400.h,
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(horizontal: 24.w),
+      decoration: BoxDecoration(
+        color: context.theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: RishColors.stroke),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 41),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: context.theme.colorScheme.primary,
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                color: Colors.white,
+                size: 45,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Text(
+              'Permission Required',
+              style: context.styles.h3,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              explanationText,
+              style: context.styles.regularMedium.copyWith(
+                color: RishColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 20.h),
+            RishButton.primary(
+              title: 'Go to Settings',
+              action: () async {
+                context.pop();
+                // Открываем настройки приложения
+                await _openAppSettings(context);
+              },
+              enabled: true,
+              isLoading: false,
+              height: 48.h,
+            ),
+            SizedBox(height: 12.h),
+            RishButton.teritary(
+              height: 48.h,
+              title: 'Cancel',
+              textColor: RishColors.textSecondary,
+              action: () {
+                context.pop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// [_openAppSettings] Открывает настройки приложения для изменения разрешений
   ///
   /// Использует permission_handler.openAppSettings() для открытия настроек приложения
@@ -483,7 +629,7 @@ class RishiDialog {
         'Are you sure?\nOnce you confirm you will not be able to delete the meal';
 
     return Container(
-      height: 340.h,
+      // height: 400.h,
       width: double.infinity,
       margin: EdgeInsets.symmetric(horizontal: 24.w),
       decoration: BoxDecoration(
@@ -492,9 +638,10 @@ class RishiDialog {
         border: Border.all(color: RishColors.stroke),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 41),
+        padding: const EdgeInsets.symmetric(horizontal: 41, vertical: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 80,
@@ -631,6 +778,7 @@ class RishiDialog {
   static Future<void> showSubscriptionRequiredDialog(
     BuildContext context, {
     required VoidCallback onUpgrade,
+    required String body,
   }) async {
     await showGeneralDialog(
       context: context,
@@ -645,6 +793,7 @@ class RishiDialog {
             child: _buildSubscriptionRequiredDialog(
               context: context,
               onUpgrade: onUpgrade,
+              body: body,
             ),
           ),
         );
@@ -678,6 +827,7 @@ class RishiDialog {
   static Widget _buildSubscriptionRequiredDialog({
     required BuildContext context,
     required VoidCallback onUpgrade,
+    required String body,
   }) {
     return Container(
       height: 340.h,
@@ -708,7 +858,8 @@ class RishiDialog {
             ),
             SizedBox(height: 24.h),
             Text(
-              'Adding more meals at once is available only for subscribers.',
+              'Upgrade to unlock this feature',
+              // body,
               style: context.styles.h3,
               textAlign: TextAlign.center,
             ),
@@ -717,7 +868,10 @@ class RishiDialog {
               title: 'Upgrade',
               action: () {
                 onUpgrade();
-                context.pop();
+                // [mountedCheck] Проверяем, что виджет все еще смонтирован перед закрытием
+                if (context.mounted) {
+                  context.pop();
+                }
               },
               enabled: true,
               isLoading: false,
@@ -729,7 +883,10 @@ class RishiDialog {
               title: 'OK',
               textColor: RishColors.textSecondary,
               action: () {
-                context.pop();
+                // [mountedCheck] Проверяем, что виджет все еще смонтирован перед закрытием
+                if (context.mounted) {
+                  context.pop();
+                }
               },
             ),
           ],

@@ -112,7 +112,8 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
 
   Future<void> _onLoad(WeekPlanLoad event, Emitter<WeekPlanState> emit) async {
     emit(state.copyWith(isLoading: true, filter: null));
-    final res = await getWeeks();
+    // Используем новую логику с синхронизацией
+    final res = await _syncAndLoadWeeks();
     emit(
       state.copyWith(
         allWeekPlans: res,
@@ -120,6 +121,108 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
         isLoading: false,
       ),
     );
+  }
+
+  /// Метод полной синхронизации:
+  /// 1. Берет локальные данные
+  /// 2. Берет удаленные данные
+  /// 3. Находит локальные планы, которых нет на сервере, и ОТПРАВЛЯЕТ их туда (спасает данные)
+  /// 4. Возвращает объединенный актуальный список
+  Future<List<WeekPlanEntity>> _syncAndLoadWeeks() async {
+    final currentUserId = userBloc.state.user.directusId;
+    _logger('=== НАЧАЛО СИНХРОНИЗАЦИИ (SYNC & LOAD) ===');
+
+    if (currentUserId == '-1') {
+      _logger('Пользователь не авторизован, возвращаем пустой список');
+      return [];
+    }
+
+    try {
+      // 1. Получаем локальные данные
+      final allLocal = await hive.retrieveWeekPlan() ?? [];
+      final userLocalWeeks =
+          allLocal.where((w) => w.userId == currentUserId).toList();
+
+      // 2. Получаем удаленные данные
+      // (Используем try-catch, чтобы ошибка сети не убила локальные данные)
+      List<WeekPlanEntity> remoteWeeks = [];
+      try {
+        final remoteData = await directus.readMany(
+          collection: weekPlanCollection,
+          filters: Filters({'userId': F.eq(currentUserId)}),
+        );
+        remoteWeeks = remoteData.map((e) => WeekPlanEntity.fromMap(e)).toList();
+      } catch (e) {
+        _logger(
+          'Ошибка получения данных с сервера: $e. Работаем только с локальными.',
+        );
+        return userLocalWeeks; // Возвращаем локальные, если сети нет
+      }
+
+      _logger(
+        'Локально планов: ${userLocalWeeks.length}, Удаленно: ${remoteWeeks.length}',
+      );
+
+      // 3. Ищем "Потерянные" планы (есть локально, но нет на сервере по дате)
+      final missingOnRemote = userLocalWeeks.where((localPlan) {
+        // Проверяем, есть ли план с такой же датой старта на сервере
+        final existsRemote = remoteWeeks.any(
+          (remotePlan) => remotePlan.startDate.isSameDate(localPlan.startDate),
+        );
+        return !existsRemote;
+      }).toList();
+
+      if (missingOnRemote.isNotEmpty) {
+        _logger(
+          '⚠️ Найдено ${missingOnRemote.length} планов, которые не сохранены на сервере! Начинаем выгрузку...',
+        );
+
+        for (final plan in missingOnRemote) {
+          try {
+            await directus.createOne(
+              collection: weekPlanCollection,
+              data: plan.toMap(),
+            );
+            _logger(
+              '✅ План от ${plan.startDate} успешно восстановлен на сервере',
+            );
+            // Добавляем в список remoteWeeks, так как теперь он там есть
+            remoteWeeks.add(plan);
+          } catch (e) {
+            _logger('❌ Не удалось восстановить план от ${plan.startDate}: $e');
+            // Если не вышло отправить, всё равно покажем его пользователю из локальной копии
+            remoteWeeks.add(plan);
+          }
+        }
+      } else {
+        _logger('✅ Все локальные планы уже есть на сервере (синхронизированы)');
+      }
+
+      // 4. Обновляем локальный кэш актуальными данными с сервера
+      // (Опционально: можно чистить старые, но HiveImpl.save просто добавляет)
+      // Для надежности сохраняем то, что пришло с сервера, если его не было локально
+      for (final remotePlan in remoteWeeks) {
+        final existsLocal = userLocalWeeks.any(
+          (local) => local.startDate.isSameDate(remotePlan.startDate),
+        );
+
+        if (!existsLocal) {
+          _logger(
+            '📥 Сохраняем новый план с сервера в Hive: ${remotePlan.startDate}',
+          );
+          await hive.saveWeekPlan(weekPlan: remotePlan);
+        }
+      }
+
+      // Сортируем по дате для красоты
+      remoteWeeks.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+      return remoteWeeks;
+    } catch (e) {
+      _logger('Критическая ошибка синхронизации: $e');
+      // В случае полной катастрофы пробуем старый метод или возвращаем пустоту
+      return [];
+    }
   }
 
   Future<void> saveWeek(WeekPlanEntity week) async {
@@ -155,42 +258,55 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
     _logger('Пользователь авторизован: ${currentUserId != '-1'}');
 
     final weeks = await hive.retrieveWeekPlan();
+
+    // 1. Проверяем локальный кэш
     if (weeks != null && weeks.isNotEmpty) {
       _logger('Retrieved ${weeks.length} weeks from hive');
-      // ✅ Фильтруем по текущему пользователю (на всякий случай)
-      final userWeeks = weeks
-          .where(
-            (week) => week.userId == currentUserId,
-          )
-          .toList();
-      _logger('Filtered to ${userWeeks.length} weeks for current user');
-      _logger('Все userId в планах: ${weeks.map((w) => w.userId).toList()}');
-      return userWeeks;
+
+      final userWeeks =
+          weeks.where((week) => week.userId == currentUserId).toList();
+
+      // Если нашли валидные планы - возвращаем их
+      if (userWeeks.isNotEmpty) {
+        _logger('Filtered to ${userWeeks.length} weeks for current user');
+        _logger('Все userId в планах: ${weeks.map((w) => w.userId).toList()}');
+        return userWeeks;
+      }
+
+      _logger(
+        'В Hive есть планы, но не для текущего пользователя. Идем в Directus...',
+      );
     } else {
       _logger('Нет планов в Hive, загружаем из Directus');
-      final weeks = await directus.readMany(
+    }
+
+    // 2. Если локально не нашли - идем в Directus
+    try {
+      final remoteWeeks = await directus.readMany(
         collection: weekPlanCollection,
-        filters: Filters(
-          {
-            'userId': F.eq(
-              currentUserId,
-            ),
-          },
-        ),
+        filters: Filters({
+          'userId': F.eq(currentUserId),
+        }),
       );
-      if (weeks.isNotEmpty) {
-        _logger('Retrieved ${weeks.length} weeks from Directus');
-        final weekPlans = weeks.map((e) async {
+
+      if (remoteWeeks.isNotEmpty) {
+        _logger('Retrieved ${remoteWeeks.length} weeks from Directus');
+
+        final weekPlans = remoteWeeks.map((e) async {
           final weekPlan = WeekPlanEntity.fromMap(e);
+          // Обновляем кэш свежими данными
           await hive.saveWeekPlan(weekPlan: weekPlan);
           return weekPlan;
         }).toList();
 
         return Future.wait(weekPlans);
       }
-      _logger('No weeks found in Directus or Hive');
-      return [];
+    } catch (e) {
+      _logger('Ошибка при загрузке из Directus: $e');
     }
+
+    _logger('No weeks found in Directus');
+    return [];
   }
 
   void _logger(String message) {

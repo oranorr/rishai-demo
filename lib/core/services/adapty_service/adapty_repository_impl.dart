@@ -41,7 +41,7 @@ class AdaptyRepositoryImpl implements AdaptyRepository {
 
         // В режиме симулятора используем заглушки
         // [DEBUG MODE] Устанавливаем как неоплаченного пользователя для отладки
-        isActive = true;
+        isActive = false;
         isTrialActive = true;
         products = [];
         return;

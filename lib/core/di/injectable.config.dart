@@ -246,7 +246,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i793.WellnessScoreCalculator(
               gh<_i300.DayManager>(),
               gh<_i1051.WhoopBloc>(),
-              gh<_i984.UserBloc>(),
               gh<_i89.DirectusService>(),
             ));
     gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(

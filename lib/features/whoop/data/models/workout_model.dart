@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -20,6 +21,7 @@ class WorkoutModel {
   });
 
   factory WorkoutModel.fromMap(Map<String, dynamic> map) {
+    log(map.toString());
     return WorkoutModel(
       id: map['id'] as String,
       userId: map['user_id'] as int,

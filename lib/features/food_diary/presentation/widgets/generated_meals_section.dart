@@ -140,10 +140,13 @@ class GeneratedMealsSection extends StatelessWidget {
                       if (context.mounted) {
                         RishiDialog.showSubscriptionRequiredDialog(
                           context,
+                          body:
+                              'Creating an individual meal plan is available only for subscribers.',
                           onUpgrade: () {
                             // [navigateToPaywall] Переходим на экран paywall для обновления подписки
                             appNavigationService.go(
-                                path: AppRoutes.paywall.path);
+                              path: AppRoutes.paywall.path,
+                            );
                           },
                         );
                       }

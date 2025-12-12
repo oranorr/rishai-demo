@@ -55,6 +55,7 @@ class CustomMealsSection extends StatelessWidget {
       // [showDialog] Показываем диалог о необходимости подписки
       RishiDialog.showSubscriptionRequiredDialog(
         context,
+        body: 'Adding more meals at once is available only for subscribers.',
         onUpgrade: () {
           // [navigateToPaywall] Переходим на экран paywall для обновления подписки
           appNavigationService.go(path: AppRoutes.paywall.path);

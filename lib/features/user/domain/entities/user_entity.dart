@@ -119,7 +119,7 @@ class UserEntity extends HiveObject {
       'cuisines': foodPreferences?.cuisines,
       'userGoal': userGoal?.toMap(),
       'adaptyId': adaptyId,
-      'weekPlanIds': weekPlanIds,
+      // 'weekPlanIds': weekPlanIds,
       'pivotLifeScore': pivotLifeScore?.toMap(),
     };
   }
@@ -149,6 +149,8 @@ class UserEntity extends HiveObject {
         other.gender == gender &&
         other.foodPreferences == foodPreferences &&
         other.bodyMeasurements == bodyMeasurements &&
+        other.userGoal == userGoal &&
+        other.adaptyId == adaptyId &&
         other.pivotLifeScore == pivotLifeScore;
   }
 
@@ -162,6 +164,8 @@ class UserEntity extends HiveObject {
         gender.hashCode ^
         foodPreferences.hashCode ^
         bodyMeasurements.hashCode ^
+        userGoal.hashCode ^
+        adaptyId.hashCode ^
         pivotLifeScore.hashCode;
   }
 }

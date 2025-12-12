@@ -114,7 +114,7 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
       // Обрабатываем результат
       // Если result == null, пользователь отменил выбор - это нормально, не показываем ошибку
       if (result != null) {
-        _handleImageResult(result);
+        await _handleImageResult(result);
       }
     } catch (e) {
       // Показываем ошибку только если это реальная ошибка, а не отмена выбора
@@ -140,7 +140,10 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
   }
 
   /// [_handleImageResult] Обрабатывает результат выбора изображений
-  void _handleImageResult(result) {
+  ///
+  /// После успешного добавления фотографий для бесплатных пользователей
+  /// сохраняет время загрузки для проверки 24-часового лимита.
+  Future<void> _handleImageResult(result) async {
     final cubit = context.read<FoodDiaryCubit>();
 
     // Конвертируем результат в список XFile
@@ -152,6 +155,19 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
           .add(CustomMealAddPhoto(mealId: widget.meal.id, photo: photos.first));
     } else {
       cubit.add(CustomMealAddPhotos(mealId: widget.meal.id, photos: photos));
+    }
+
+    // ┌───────────────────────────────────────────────────────────────────┐
+    // │ Сохранение времени загрузки для бесплатных пользователей          │
+    // └───────────────────────────────────────────────────────────────────┘
+    // [saveUploadTime] Сохраняем время загрузки только для бесплатных
+    // пользователей после успешного добавления фотографии
+    if (!adapty.isActive && photos.isNotEmpty) {
+      // [setLastUploadTime] Сохраняем текущее время как время последней загрузки
+      await prefsRepo.setLastFreeUserPhotoUploadTime(DateTime.now());
+      log(
+        '[CustomMealItemMixin._handleImageResult] ✅ Время загрузки фотографии сохранено для бесплатного пользователя',
+      );
     }
   }
 

@@ -35,6 +35,7 @@ class ProfileSettings extends StatefulWidget {
 }
 
 class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
+  bool _pendingSave = false;
   bool planCreated =
       kDebugMode ? false : whoopBloc.state.day.mealPlanEntity != null;
 
@@ -63,12 +64,38 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
+    return BlocConsumer<UserBloc, UserState>(
       bloc: userBloc,
+      listener: (context, userState) {
+        // [FIX] State Awareness:
+        // Если мы ждем сохранения (_pendingSave), проверяем, пришли ли новые данные.
+        // Как только данные совпали, выключаем режим ожидания.
+        if (_pendingSave) {
+          final blocUser = userState.user;
+          // Проверяем критические поля, которые могли измениться
+          final isGoalMatch = blocUser.userGoal?.goal == updUser.userGoal?.goal;
+          final isModMatch =
+              blocUser.userGoal?.modificator == updUser.userGoal?.modificator;
+          final isGenderMatch = blocUser.gender == updUser.gender;
+
+          // Проверяем списки диет
+          final isDietsMatch = listEquals(
+              blocUser.foodPreferences?.diets, updUser.foodPreferences?.diets);
+
+          if (isGoalMatch && isModMatch && isGenderMatch && isDietsMatch) {
+            setState(() {
+              _pendingSave = false;
+            });
+          }
+        }
+      },
       builder: (context, userState) {
-        // [FIX] Всегда используем актуальные данные из UserBloc
-        // Если пользователь не редактирует (кнопка неактивна), показываем данные из блока
-        final displayUser = buttonIsActive ? updUser : userState.user;
+        // [FIX] Smart Data Display:
+        // Показываем локальные данные (updUser), если:
+        // 1. Мы редактируем (buttonIsActive)
+        // 2. ИЛИ мы только что сохранили и ждем синхронизации (_pendingSave)
+        final displayUser =
+            (buttonIsActive || _pendingSave) ? updUser : userState.user;
 
         return RishScaffold(
           implyLeading: !buttonIsActive,
@@ -458,9 +485,12 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             // Обновляем пользователя
             userBloc.add(UpdateUserEvent(user: updUser));
 
-            // [FIX] Деактивируем кнопку сразу, BlocBuilder автоматически покажет актуальные данные
+            // [FIX] UX Restore:
+            // Сразу отключаем кнопку и возвращаем интерфейс в режим просмотра.
+            // Но ставим флаг _pendingSave, чтобы builder продолжал показывать новые данные.
             setState(() {
               buttonIsActive = false;
+              _pendingSave = true;
             });
 
             // [FIX] Небольшая задержка перед проверкой изменений

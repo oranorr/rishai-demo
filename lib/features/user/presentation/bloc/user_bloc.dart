@@ -102,8 +102,17 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       }
 
       // [FIX] Всегда обновляем локальное состояние сразу
-      emit(state.copyWith(user: UserEntity.unauthorized()));
+      // Убрали промежуточный emit с UserEntity.unauthorized() чтобы избежать race condition
+      // когда другие части кода читают состояние между emit'ами
+      log(
+        '[UserBloc] 🔄 Emit: обновляем состояние с directusId=${user.directusId}, UserBloc instance=${hashCode}',
+        name: 'UserBloc',
+      );
       emit(state.copyWith(user: user));
+      log(
+        '[UserBloc] ✅ State обновлен: directusId=${state.user.directusId}, email=${state.user.email}, UserBloc instance=${hashCode}',
+        name: 'UserBloc',
+      );
       log('state: ${state.user.userGoal}', name: 'UserBloc');
       // Пытаемся синхронизировать с backend в фоновом режиме
       final res = await updateUserUsecase.call(user);
@@ -193,7 +202,13 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     Emitter<UserState> emit,
   ) async {
     await hive.saveUser(user: event.user);
-    emit(state.copyWith(user: event.user));
+
+    // Если пользователь не авторизован (логаут), очищаем список дней
+    if (event.user.directusId == '-1') {
+      emit(state.copyWith(user: event.user, days: []));
+    } else {
+      emit(state.copyWith(user: event.user));
+    }
 
     // Если флаг установлен, создаем исторические дни СИНХРОННО
     if (event.shouldCreateHistoryDays) {
@@ -409,10 +424,52 @@ class UserBloc extends Bloc<UserEvent, UserState> {
           '[_getDays] Обновляем существующий день на индексе $existingDayIndex',
           name: 'UserBloc',
         );
+        
+        // [FIX] Детальное логирование для отладки потери welnessEntity
+        log(
+          '[_getDays] existingDay.welnessEntity: ${existingDay.welnessEntity != null ? "есть (${existingDay.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+          name: 'UserBloc',
+        );
+        log(
+          '[_getDays] currentDay.welnessEntity: ${currentDay.welnessEntity != null ? "есть (${currentDay.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+          name: 'UserBloc',
+        );
 
-        // Используем актуальные данные из currentDay, сохраняя только ID
-        daysList[existingDayIndex] = currentDay.copyWith(
-          directusId: existingDay.directusId, // Сохраняем ID существующего дня
+        // [FIX] Исправлен баг потери welnessEntity при входе после логаута
+        // КРИТИЧЕСКИ ВАЖНО: Используем existingDay (из Directus) как основу полностью,
+        // так как он содержит все сохраненные данные, включая welnessEntity
+        // НЕ обновляем существующий день данными из currentDay, чтобы не потерять welnessEntity
+        // currentDay может не содержать welnessEntity, если он создан заново при входе
+        final finalWelnessEntity = existingDay.welnessEntity ?? currentDay.welnessEntity;
+        
+        log(
+          '[_getDays] Финальный welnessEntity: ${finalWelnessEntity != null ? "есть (${finalWelnessEntity.consumedMeals.length} блюд)" : "нет"}',
+          name: 'UserBloc',
+        );
+        
+        // [FIX] Проверяем, содержит ли currentDay валидные данные (не пустые/нулевые)
+        // Если currentDay пустой (например, при инициализации), не перезаписываем данные из базы нулями
+        final isCurrentDayEmpty = currentDay.macros.kcal == 0 && 
+                                 currentDay.weekTdeeAverage == 0;
+
+        if (isCurrentDayEmpty) {
+          log(
+            '[_getDays] ⚠️ currentDay пустой (инициализация), оставляем данные из базы (healthMetrics, macros)',
+            name: 'UserBloc',
+          );
+        }
+
+        // Используем existingDay полностью, обновляя только метрики из currentDay,
+        // но сохраняя welnessEntity из existingDay (Directus)
+        daysList[existingDayIndex] = existingDay.copyWith(
+          // Обновляем актуальные метрики здоровья и макросы из currentDay,
+          // только если они валидны. Иначе оставляем данные из базы.
+          healthMetrics: isCurrentDayEmpty ? existingDay.healthMetrics : currentDay.healthMetrics,
+          macros: isCurrentDayEmpty ? existingDay.macros : currentDay.macros,
+          weekTdeeAverage: isCurrentDayEmpty ? existingDay.weekTdeeAverage : currentDay.weekTdeeAverage,
+          // КРИТИЧЕСКИ ВАЖНО: Сохраняем welnessEntity из загруженного дня (Directus)
+          // Это гарантирует, что данные дневника питания не потеряются
+          welnessEntity: finalWelnessEntity,
         );
 
         log(

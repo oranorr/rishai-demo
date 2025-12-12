@@ -11,6 +11,7 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
+import 'package:rishai/features/food_diary/presentation/wellness_page/wellness_page.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 final chatRemoteSrc = getIt.get<ChatRemoteDataSource>();
@@ -78,6 +79,39 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
             );
           } else {
             log('⚠️ План питания не найден или пуст');
+          }
+
+          // Добавляем текущую рекомендацию по питанию в контекст
+          final currentRecommendation = RecommendationService.getCurrentRecommendation();
+          if (currentRecommendation != null && currentRecommendation.isNotEmpty) {
+            log('💡 Добавляем текущую рекомендацию в контекст чата: ${currentRecommendation.substring(0, currentRecommendation.length > 200 ? 200 : currentRecommendation.length)}...');
+            contextMessages.add(
+              PreviousMessage(
+                text: 'Current nutritional recommendation: $currentRecommendation',
+                role: 'user',
+              ),
+            );
+            contextMessages.add(
+              PreviousMessage(
+                text: 'I understand the current nutritional recommendation. I will consider it when answering questions.',
+                role: 'model',
+              ),
+            );
+          } else {
+            log('⚠️ Текущая рекомендация не найдена или пуста');
+            // Добавляем информацию о том, что рекомендации нет
+            contextMessages.add(
+              PreviousMessage(
+                text: 'The user does not have a current nutritional recommendation at this time.',
+                role: 'user',
+              ),
+            );
+            contextMessages.add(
+              PreviousMessage(
+                text: 'I understand. I will help with nutrition questions without a specific recommendation.',
+                role: 'model',
+              ),
+            );
           }
 
           // Добавляем историю чата

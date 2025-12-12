@@ -40,14 +40,25 @@ class _CalendarWidget extends StatelessWidget {
                   isDisabled: widget.isLastPage,
                 ),
                 SizedBox(width: 2.w),
-                Text(
-                  widget.day.dateTime.formatAsDayString(),
-                  style: context.styles.h2.copyWith(
-                    color: widget.isLoading
-                        ? context.styles.h2.color?.withOpacity(0.6)
-                        : context.styles.h2.color,
+                // Дата открывает календарь для всех пользователей
+                // (как для бесплатных, так и для платных)
+                GestureDetector(
+                  onTap: () async {
+                    await userBloc.showDataPicker(
+                      context: context,
+                      initalDate: widget.day.dateTime,
+                      controller: widget.homePageController,
+                    );
+                  },
+                  child: Text(
+                    widget.day.dateTime.formatAsDayString(),
+                    style: context.styles.h2.copyWith(
+                      color: widget.isLoading
+                          ? context.styles.h2.color?.withOpacity(0.6)
+                          : context.styles.h2.color,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
                 ),
                 SizedBox(width: 2.w),
                 _buildNavigationButton(

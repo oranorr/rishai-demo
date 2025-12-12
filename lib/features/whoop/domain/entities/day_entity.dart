@@ -42,6 +42,26 @@ class DayEntity {
   }
 
   factory DayEntity.fromMap(Map<String, dynamic> map) {
+    // [DayEntity.fromMap] Безопасная обработка welnessEntity
+    // Проверяем не только на null, но и на тип данных
+    // Directus может вернуть null, отсутствующее поле, или валидный объект
+    WelnessEntity? welnessEntity;
+    final welnessData = map['welnessEntity'];
+    if (welnessData != null && welnessData is Map<String, dynamic>) {
+      try {
+        // Проверяем, что объект не пустой и содержит хотя бы одно поле
+        // Пустой объект {} не должен создавать WelnessEntity
+        if (welnessData.isNotEmpty) {
+          welnessEntity = WelnessEntity.fromMap(welnessData);
+        }
+      } catch (e) {
+        // Если парсинг не удался, логируем и оставляем null
+        // Не прерываем создание DayEntity из-за ошибки в welnessEntity
+        print('[DayEntity.fromMap] Ошибка парсинга welnessEntity: $e');
+        welnessEntity = null;
+      }
+    }
+
     return DayEntity(
       directusId: map['id'] as int,
       weekTdeeAverage: (map['weekTdeeAverage'] as num).toInt(),
@@ -61,9 +81,7 @@ class DayEntity {
         map['chatSnap'],
       ),
       cycleId: map['cycleId'] != null ? int.parse(map['cycleId']) : null,
-      welnessEntity: map['welnessEntity'] != null
-          ? WelnessEntity.fromMap(map['welnessEntity'])
-          : null,
+      welnessEntity: welnessEntity,
     );
   }
   @HiveField(0)

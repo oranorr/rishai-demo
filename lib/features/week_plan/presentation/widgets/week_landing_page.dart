@@ -9,6 +9,99 @@ class WeekLandingPage extends StatefulWidget {
 }
 
 class _WeekLandingPageState extends State<WeekLandingPage> {
+  /// Обработчик нажатия на кнопку создания/открытия плана питания
+  /// 
+  /// Проверяет статус подписки и наличие активного плана,
+  /// затем выполняет навигацию к соответствующему экрану.
+  /// 
+  /// [plan] - опциональный план питания (не используется, но оставлен для совместимости)
+  Future<void> handleButton(WeekPlanEntity? plan) async {
+    // Проверяем, что виджет все еще смонтирован
+    if (!mounted) return;
+
+    try {
+      // Логируем статус подписки для отладки
+      print('[handleButton] adapty.isActive: ${adapty.isActive}');
+      
+      // Проверяем статус подписки
+      if (!adapty.isActive) {
+        // Проверяем mounted перед показом диалога
+        if (!mounted) return;
+        
+        await RishiDialog.showSubscriptionRequiredDialog(
+          context,
+          body: 'Creating a new meal prep is available only for subscribers.',
+          onUpgrade: () {
+            // Проверяем mounted перед навигацией
+            if (!mounted) return;
+            appNavigationService.go(path: AppRoutes.paywall.path);
+          },
+        );
+        return;
+      }
+
+      // Проверяем mounted перед проверкой состояния блока
+      if (!mounted) return;
+
+      // Получаем текущее состояние блока
+      final currentState = weekPlanBloc.state;
+      
+      // Проверяем наличие активного плана
+      if (weekPlanBloc.isThereActivePlan) {
+        // Дополнительная проверка на пустоту списка для безопасности
+        if (currentState.allWeekPlans.isEmpty) {
+          print('[handleButton] Ошибка: isThereActivePlan вернул true, но список планов пуст');
+          // Если нет планов, переходим к созданию нового
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const RishScaffold(
+                implyLeading: true,
+                child: _ServingsSelector(),
+              ),
+            ),
+          );
+          return;
+        }
+
+        // Проверяем mounted перед навигацией
+        if (!mounted) return;
+        
+        final activePlan = currentState.allWeekPlans.last;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WeekContentWrap(plan: activePlan),
+          ),
+        );
+      } else {
+        // Нет активного плана - переходим к созданию нового
+        if (!mounted) return;
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const RishScaffold(
+              implyLeading: true,
+              child: _ServingsSelector(),
+            ),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      // Логируем ошибку для отладки
+      print('[handleButton] Ошибка при обработке нажатия кнопки: $e');
+      print('[handleButton] Stack trace: $stackTrace');
+      
+      // Проверяем mounted перед показом ошибки пользователю
+      if (!mounted) return;
+      
+      // Можно показать пользователю сообщение об ошибке, если нужно
+      // Но пока просто логируем, чтобы не прерывать пользовательский опыт
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final plans = widget.plans;
@@ -57,6 +150,7 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
                 ),
               ],
             ),
+            // ignore: use_if_null_to_convert_nulls_to_bools
             if (plans.isEmpty && state.filter?.hasActiveFilters == true) ...[
               const Spacer(),
               Text(
@@ -90,28 +184,13 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
               title: weekPlanBloc.isThereActivePlan
                   ? 'Open current prep'
                   : 'Create new prep',
-              action: weekPlanBloc.isThereActivePlan
-                  ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              WeekContentWrap(plan: state.allWeekPlans.last),
-                        ),
-                      );
-                    }
-                  : () {
-                      // Переходим к экрану выбора порций для создания нового плана
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RishScaffold(
-                            implyLeading: true,
-                            child: _ServingsSelector(),
-                          ),
-                        ),
-                      );
-                    },
+              action: () async {
+                await handleButton(
+                  state.allWeekPlans.isNotEmpty
+                      ? state.allWeekPlans.last
+                      : null,
+                );
+              },
               enabled: true,
               isLoading: false,
             ),

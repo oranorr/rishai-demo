@@ -134,6 +134,19 @@ class UserGoal {
   }
 
   String toJson() => json.encode(toMap());
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is UserGoal &&
+        other.goal == goal &&
+        other.modificator == modificator &&
+        other.updatedAt == updatedAt;
+  }
+
+  @override
+  int get hashCode => goal.hashCode ^ modificator.hashCode ^ updatedAt.hashCode;
 }
 
 @HiveType(typeId: 11)

@@ -1,5 +1,17 @@
 part of 'wellness_page.dart';
 
+/// [RecommendationService] Публичный сервис для получения текущей рекомендации
+/// Используется для передачи рекомендации в контекст чата
+class RecommendationService {
+  RecommendationService._();
+
+  /// [getCurrentRecommendation] Получает текущую рекомендацию на основе макросов
+  /// Возвращает текущую рекомендацию или null, если рекомендации нет
+  static String? getCurrentRecommendation() {
+    return _RecommendationsWidgetState.getCurrentRecommendation();
+  }
+}
+
 /// Класс для анализа состояния макросов и определения сценария рекомендаций
 class _MacrosAnalyzer {
   /// Анализирует состояние макросов и определяет дефицит/профицит
@@ -51,7 +63,7 @@ class _MacrosAnalyzer {
 
   /// Форматирует список макросов в читаемую строку
   /// Например: ["protein", "carbs"] -> "protein and carbs"
-  static String _formatMacrosList(List<String> macros) {
+  static String formatMacrosList(List<String> macros) {
     if (macros.isEmpty) return '';
     if (macros.length == 1) return macros.first;
     if (macros.length == 2) return '${macros.first} and ${macros.last}';
@@ -104,8 +116,8 @@ class _MacrosAnalyzer {
       scenario: scenario,
       deficitMacros: deficitMacros,
       surplusMacros: surplusMacros,
-      deficitMacrosFormatted: _formatMacrosList(deficitMacros),
-      surplusMacrosFormatted: _formatMacrosList(surplusMacros),
+      deficitMacrosFormatted: formatMacrosList(deficitMacros),
+      surplusMacrosFormatted: formatMacrosList(surplusMacros),
     );
   }
 }
@@ -147,6 +159,8 @@ class _RecommendationsWidget extends StatefulWidget {
 class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
   bool _isLoading = false;
   String? _recommendation;
+  bool _hasError =
+      false; // Флаг для отслеживания ошибки при загрузке рекомендации
 
   // Кэш рекомендаций: ключ - хеш макросов, значение - рекомендация
   static final Map<String, String> _recommendationCache = {};
@@ -154,12 +168,17 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
   // Последний ключ кэша для отслеживания изменений
   String? _lastCacheKey;
 
+  // [previousRecommendation] Предыдущая рекомендация для передачи в следующий запрос
+  // Используется для генерации нового блюда отличного от предыдущего
+  static String? _previousRecommendation;
+
   @override
   void initState() {
     super.initState();
-    // Загружаем рекомендации при открытии виджета
+    // [loadOnOpen] Загружаем рекомендации при каждом открытии страницы
+    // Используем forceRefresh: true чтобы гарантировать генерацию даже если данные не изменились
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRecommendation();
+      _loadRecommendation(forceRefresh: true);
     });
   }
 
@@ -170,6 +189,35 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
   ) {
     return '${targetMacros.kcal}_${targetMacros.protein}_${targetMacros.carbs}_${targetMacros.fat}_'
         '${consumedMacros.kcal}_${consumedMacros.protein}_${consumedMacros.carbs}_${consumedMacros.fat}';
+  }
+
+  /// [getCurrentRecommendation] Статический метод для получения текущей рекомендации
+  /// Используется для передачи рекомендации в контекст чата
+  /// Возвращает текущую рекомендацию на основе макросов из whoopBloc или null, если рекомендации нет
+  static String? getCurrentRecommendation() {
+    try {
+      final whoopState = whoopBloc.state;
+      final welnessEntity = whoopState.day.welnessEntity;
+      final targetMacros = whoopState.day.macros;
+      final consumedMacros = welnessEntity?.consumedMacros ??
+          MacrosBreakdown(
+            kcal: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+          );
+
+      // Генерируем ключ кэша для текущего состояния
+      final cacheKey =
+          '${targetMacros.kcal}_${targetMacros.protein}_${targetMacros.carbs}_${targetMacros.fat}_'
+          '${consumedMacros.kcal}_${consumedMacros.protein}_${consumedMacros.carbs}_${consumedMacros.fat}';
+
+      // Возвращаем рекомендацию из кэша, если она есть
+      return _recommendationCache[cacheKey];
+    } catch (e) {
+      // В случае ошибки возвращаем null
+      return null;
+    }
   }
 
   /// Загружает рекомендацию на основе анализа макросов
@@ -193,7 +241,8 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
     // Генерируем ключ кэша
     final cacheKey = _generateCacheKey(targetMacros, consumedMacros);
 
-    // Проверяем, изменились ли данные
+    // [checkDataChange] Проверяем, изменились ли данные
+    // Если forceRefresh = true, пропускаем эту проверку и всегда генерируем рекомендацию
     if (!forceRefresh && cacheKey == _lastCacheKey && _recommendation != null) {
       // Данные не изменились, рекомендация уже загружена
       return;
@@ -207,7 +256,8 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
     // Определяем, нужен ли запрос к API
     final needsApiRequest = analysis.scenario == 2;
 
-    // Проверяем кэш для всех сценариев
+    // [checkCache] Проверяем кэш для всех сценариев
+    // Если forceRefresh = true, пропускаем кэш и всегда генерируем новую рекомендацию
     if (!forceRefresh && _recommendationCache.containsKey(cacheKey)) {
       final cachedRecommendation = _recommendationCache[cacheKey]!;
       if (mounted) {
@@ -236,12 +286,31 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
         break;
       case 2:
         // Дефицит калорий + смешанные макросы
+        // Исключаем "calories" из списка дефицитных макросов, так как они уже упомянуты в начале предложения
+        final deficitMacrosWithoutCalories = analysis.deficitMacros
+            .where((macro) => macro != 'calories')
+            .toList();
+        final deficitMacrosFormattedWithoutCalories =
+            _MacrosAnalyzer.formatMacrosList(deficitMacrosWithoutCalories);
+
         if (analysis.surplusMacros.isNotEmpty) {
-          hardcodedMessage =
-              'You are in a deficit for calories for the day along with ${analysis.deficitMacrosFormatted}, but you have met your ${analysis.surplusMacrosFormatted} targets for the day. You still have some ${analysis.deficitMacrosFormatted} available to consume.';
+          if (deficitMacrosFormattedWithoutCalories.isNotEmpty) {
+            hardcodedMessage =
+                'You are in a deficit for calories for the day along with $deficitMacrosFormattedWithoutCalories, but you have met your ${analysis.surplusMacrosFormatted} targets for the day. You still have some calories, $deficitMacrosFormattedWithoutCalories available to consume.';
+          } else {
+            // Если кроме калорий нет других дефицитных макросов
+            hardcodedMessage =
+                'You are in a deficit for calories for the day, but you have met your ${analysis.surplusMacrosFormatted} targets for the day. You still have some calories available to consume.';
+          }
         } else {
-          hardcodedMessage =
-              'You are in a deficit for calories for the day along with ${analysis.deficitMacrosFormatted}. You still have some ${analysis.deficitMacrosFormatted} available to consume.';
+          if (deficitMacrosFormattedWithoutCalories.isNotEmpty) {
+            hardcodedMessage =
+                'You are in a deficit for calories for the day along with $deficitMacrosFormattedWithoutCalories. You still have some calories, $deficitMacrosFormattedWithoutCalories available to consume.';
+          } else {
+            // Если кроме калорий нет других дефицитных макросов
+            hardcodedMessage =
+                'You are in a deficit for calories for the day. You still have some calories available to consume.';
+          }
         }
         break;
       case 3:
@@ -261,6 +330,15 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
       try {
         final llmProxyClient = getIt.get<LlmProxyClient>();
 
+        // [buildComment] Формируем comment с предыдущей рекомендацией
+        // Если есть предыдущая рекомендация, добавляем её в запрос
+        String? comment;
+        if (_previousRecommendation != null &&
+            _previousRecommendation!.isNotEmpty) {
+          comment =
+              'Here is my previous recommendation: $_previousRecommendation. Please suggest a dish different from the previous one';
+        }
+
         // Формируем запрос
         final request = RecommendationRequest(
           foodPreferences: {
@@ -270,6 +348,7 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
           },
           consumedMacros: consumedMacros.toMap(),
           targetMacros: targetMacros.toMap(),
+          comment: comment,
         );
 
         // Запрашиваем рекомендацию от ИИ
@@ -278,28 +357,47 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
 
         if (mounted) {
           String finalRecommendation;
+          bool hasError = false;
+
           // Объединяем хардкодед часть и AI рекомендацию
           if (aiRecommendation != null && aiRecommendation.isNotEmpty) {
-            finalRecommendation =
-                '$hardcodedMessage\n\nI would recommend you eat something high in ${analysis.deficitMacrosFormatted}, while low in ${analysis.surplusMacrosFormatted} - such as $aiRecommendation';
+            // Успешно получили рекомендацию от AI
+            // Формируем рекомендацию с учетом наличия профицитных макросов
+            if (analysis.surplusMacrosFormatted.isNotEmpty) {
+              // Если есть профицитные макросы, добавляем "while low in"
+              finalRecommendation =
+                  '$hardcodedMessage\n\nI would recommend you eat something high in ${analysis.deficitMacrosFormatted}, while low in ${analysis.surplusMacrosFormatted}. $aiRecommendation';
+            } else {
+              // Если нет профицитных макросов, не добавляем "while low in"
+              finalRecommendation =
+                  '$hardcodedMessage\n\nI would recommend you eat something high in ${analysis.deficitMacrosFormatted}. $aiRecommendation';
+            }
+            // [savePreviousRecommendation] Сохраняем текущую рекомендацию как предыдущую
+            // для использования в следующем запросе
+            _previousRecommendation = finalRecommendation;
+            // Сохраняем в кэш только при успешном получении рекомендации
+            _recommendationCache[cacheKey] = finalRecommendation;
           } else {
-            // Если API вернул null, показываем только хардкодед сообщение
+            // Если API вернул null или пустую строку, это ошибка
+            // Показываем только хардкодед сообщение и устанавливаем флаг ошибки
             finalRecommendation = hardcodedMessage;
+            hasError = true;
+            // Не сохраняем в кэш при ошибке, чтобы можно было повторить попытку
           }
-
-          // Сохраняем в кэш
-          _recommendationCache[cacheKey] = finalRecommendation;
 
           setState(() {
             _isLoading = false;
+            _hasError =
+                hasError; // Устанавливаем флаг ошибки в зависимости от результата
             _recommendation = finalRecommendation;
           });
         }
       } catch (e) {
-        // При ошибке показываем только хардкодед сообщение
+        // При ошибке показываем только хардкодед сообщение и устанавливаем флаг ошибки
         if (mounted) {
           setState(() {
             _isLoading = false;
+            _hasError = true; // Устанавливаем флаг ошибки
             _recommendation = hardcodedMessage;
           });
         }
@@ -312,6 +410,7 @@ class _RecommendationsWidgetState extends State<_RecommendationsWidget> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _hasError = false; // Сбрасываем флаг ошибки для сценариев без API
           _recommendation = hardcodedMessage;
         });
       }
@@ -382,7 +481,7 @@ Recommendations change dynamically over the day as you capture meals.
 
 Staying within ±10% of your daily goal gives the highest score.
 
-Going beyond 10% reduces your score progressively, as overeating affects energy balance and recovery.
+Going beyond 100% reduces your score progressively, as overeating affects energy balance and recovery.
 
 Pivot's nutritional intelligence instantly analyzes your day and recommends foods to fill your remaining targets.
 
@@ -409,11 +508,32 @@ Scores above target are penalized to encourage balanced nutrition, not overeatin
                           color: RishColors.primary,
                         ),
                       )
-                    : Text(
-                        _recommendation ?? 'Loading recommendations...',
-                        style: context.styles.regularMedium
-                            .copyWith(color: RishColors.primary),
-                        textAlign: TextAlign.center,
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Текст рекомендации
+                          Text(
+                            _recommendation ?? 'Loading recommendations...',
+                            style: context.styles.regularMedium
+                                .copyWith(color: RishColors.primary),
+                            // textAlign: TextAlign.center,
+                          ),
+                          // Кнопка "Try again" при ошибке
+                          if (_hasError) ...[
+                            SizedBox(height: 16.h),
+                            RishButton.secondary(
+                              title: 'Try again',
+                              action: () {
+                                // Сбрасываем флаг ошибки и перезагружаем рекомендацию
+                                setState(() {
+                                  _hasError = false;
+                                });
+                                _loadRecommendation(forceRefresh: true);
+                              },
+                              width: double.infinity,
+                            ),
+                          ],
+                        ],
                       ),
               ),
               SizedBox(height: 20.h),
@@ -477,12 +597,15 @@ Scores above target are penalized to encourage balanced nutrition, not overeatin
   }
 
   String _getCaloriesText(int target, int consumed) {
+    // [numberFormatter] Форматируем числа с запятыми для тысяч
+    final numberFormatter = NumberFormat('#,###');
+
     if (consumed < target) {
       final deficit = target - consumed;
-      return 'You are in a deficit and need to consume $deficit more kcals.';
+      return 'You are in a deficit and need to consume ${numberFormatter.format(deficit)} more kcals.';
     } else {
       final surplus = consumed - target;
-      return 'You are eating in a surplus and have consumed $surplus more than your daily target.';
+      return 'You are eating in a surplus and have consumed ${numberFormatter.format(surplus)} more than your daily target.';
     }
   }
 

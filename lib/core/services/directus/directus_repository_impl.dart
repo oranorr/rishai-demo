@@ -67,30 +67,149 @@ class DirectusRepositoryImpl implements DirectusService {
     }
   }
 
+  /// Определяет, является ли ошибка retryable (можно ли повторить попытку).
+  ///
+  /// Retryable ошибки:
+  /// - DioException с типами: connectionTimeout, sendTimeout, receiveTimeout, connectionError
+  /// - HTTP статусы: 5xx (кроме 501), 429, 502, 503, 504
+  /// - SocketException и HttpException
+  ///
+  /// Non-retryable ошибки:
+  /// - HTTP статусы: 400, 401, 403, 404, 422
+  /// - 500 (если это не временная проблема)
+  bool _isRetryableError(Object error) {
+    // DioException - проверяем тип и статус
+    if (error is DioException) {
+      // Проверяем типы ошибок соединения и таймаутов
+      final retryableTypes = [
+        DioExceptionType.connectionTimeout,
+        DioExceptionType.sendTimeout,
+        DioExceptionType.receiveTimeout,
+        DioExceptionType.connectionError,
+      ];
+      
+      if (retryableTypes.contains(error.type)) {
+        return true;
+      }
+      
+      // Проверяем HTTP статус код
+      final statusCode = error.response?.statusCode;
+      if (statusCode != null) {
+        // Retryable статусы: 429 (Too Many Requests), 5xx (кроме 501)
+        if (statusCode == 429) {
+          return true;
+        }
+        
+        // 5xx ошибки (кроме 501 Not Implemented)
+        if (statusCode >= 500 && statusCode < 600 && statusCode != 501) {
+          return true;
+        }
+        
+        // Специфичные retryable статусы
+        if ([502, 503, 504].contains(statusCode)) {
+          return true;
+        }
+        
+        // Non-retryable статусы: 400, 401, 403, 404, 422
+        if ([400, 401, 403, 404, 422].contains(statusCode)) {
+          return false;
+        }
+      }
+      
+      // Если тип ошибки unknown, проверяем сообщение на наличие сетевых проблем
+      if (error.type == DioExceptionType.unknown) {
+        final message = error.message?.toLowerCase() ?? '';
+        if (message.contains('connection') ||
+            message.contains('network') ||
+            message.contains('timeout')) {
+          return true;
+        }
+      }
+    }
+    
+    // SocketException - всегда retryable (проблемы с сетью)
+    if (error is SocketException) {
+      return true;
+    }
+    
+    // HttpException - проверяем сообщение
+    if (error is HttpException) {
+      final message = error.message.toLowerCase();
+      // Если это временная проблема сервера, можно retry
+      if (message.contains('connection') ||
+          message.contains('timeout') ||
+          message.contains('network')) {
+        return true;
+      }
+    }
+    
+    // По умолчанию не retry для неизвестных ошибок
+    return false;
+  }
+
   @override
   Future<Map<String, dynamic>> updateOne({
     required String collection,
     required String itemId,
     required Map<String, dynamic> updateData,
   }) async {
-    try {
-      log('UPDATE DATA: $updateData');
-      final res =
-          await sdk.items(collection).updateOne(data: updateData, id: itemId);
-      return res.data;
-    } catch (e, stackTrace) {
-      await NetworkErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'directus_update_one',
-        extras: {
-          'collection': collection,
-          'itemId': itemId,
-          'updateData': updateData,
-        },
-      );
-      return {};
+    const maxRetries = 3;
+    int attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        attempt += 1;
+        log('UPDATE DATA (попытка $attempt/$maxRetries): $updateData');
+        
+        final res =
+            await sdk.items(collection).updateOne(data: updateData, id: itemId);
+        
+        if (attempt > 1) {
+          log('UPDATE успешно после retry на попытке $attempt');
+        }
+        
+        return res.data;
+      } on Exception catch (e, stackTrace) {
+        final isRetryable = _isRetryableError(e);
+        
+        log(
+          'Ошибка UPDATE на попытке $attempt/$maxRetries: $e (retryable: $isRetryable)',
+        );
+        
+        await NetworkErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'directus_update_one',
+          extras: {
+            'collection': collection,
+            'itemId': itemId,
+            'updateData': updateData,
+            'attempt': attempt,
+            'max_retries': maxRetries,
+            'is_retryable': isRetryable,
+          },
+        );
+        
+        // Если ошибка не retryable или попытки исчерпаны, выходим
+        if (!isRetryable || attempt >= maxRetries) {
+          if (!isRetryable) {
+            log('Ошибка не является retryable, прекращаем попытки');
+          } else {
+            log('Все попытки UPDATE исчерпаны');
+          }
+          // Сохраняем текущее поведение: возвращаем пустой объект
+          return {};
+        }
+        
+        // Экспоненциальная задержка: 1, 2, 4 секунды
+        final delaySeconds = 1 << (attempt - 1); // 1, 2, 4
+        log('Повторная попытка UPDATE через $delaySeconds секунд(ы)...');
+        await Future.delayed(Duration(seconds: delaySeconds));
+      }
     }
+    
+    // Этот код не должен выполниться, но на всякий случай
+    return {};
   }
 
   @override
@@ -98,21 +217,72 @@ class DirectusRepositoryImpl implements DirectusService {
     required String collection,
     required Map<String, dynamic> data,
   }) async {
-    try {
-      final res = await sdk.items(collection).createOne(data);
-      return res.data;
-    } catch (e, stackTrace) {
-      await NetworkErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'directus_create_one',
-        extras: {
-          'collection': collection,
-          'data': data,
-        },
-      );
-      rethrow;
+    const maxRetries = 3;
+    int attempt = 0;
+    Object? lastError;
+    StackTrace? lastStackTrace;
+
+    while (attempt < maxRetries) {
+      try {
+        attempt += 1;
+        log('CREATE (попытка $attempt/$maxRetries) в коллекции $collection');
+        
+        final res = await sdk.items(collection).createOne(data);
+        
+        if (attempt > 1) {
+          log('CREATE успешно после retry на попытке $attempt');
+        }
+        
+        return res.data;
+      } on Exception catch (e, stackTrace) {
+        lastError = e;
+        lastStackTrace = stackTrace;
+        
+        final isRetryable = _isRetryableError(e);
+        
+        log(
+          'Ошибка CREATE на попытке $attempt/$maxRetries: $e (retryable: $isRetryable)',
+        );
+        
+        await NetworkErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'directus_create_one',
+          extras: {
+            'collection': collection,
+            'data': data,
+            'attempt': attempt,
+            'max_retries': maxRetries,
+            'is_retryable': isRetryable,
+          },
+        );
+        
+        // Если ошибка не retryable или попытки исчерпаны, пробрасываем исключение
+        if (!isRetryable || attempt >= maxRetries) {
+          if (!isRetryable) {
+            log('Ошибка не является retryable, прекращаем попытки');
+          } else {
+            log('Все попытки CREATE исчерпаны, пробрасываем исключение');
+          }
+          // Сохраняем текущее поведение: пробрасываем исключение
+          rethrow;
+        }
+        
+        // Экспоненциальная задержка: 1, 2, 4 секунды
+        final delaySeconds = 1 << (attempt - 1); // 1, 2, 4
+        log('Повторная попытка CREATE через $delaySeconds секунд(ы)...');
+        await Future.delayed(Duration(seconds: delaySeconds));
+      }
     }
+    
+    // Этот код не должен выполниться, но на всякий случай пробрасываем последнюю ошибку
+    if (lastError != null && lastStackTrace != null) {
+      if (lastError is Exception || lastError is Error) {
+        throw lastError as Exception;
+      }
+      throw Exception('Неожиданная ошибка в createOne: $lastError');
+    }
+    throw Exception('Неожиданная ошибка в createOne');
   }
 
   @override

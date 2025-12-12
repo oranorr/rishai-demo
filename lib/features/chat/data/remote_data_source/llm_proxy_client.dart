@@ -234,6 +234,7 @@ class RecommendationRequest {
     required this.foodPreferences,
     required this.consumedMacros,
     required this.targetMacros,
+    this.comment,
   });
 
   /// Предпочтения в еде (диеты, кухни, ограничения)
@@ -245,10 +246,14 @@ class RecommendationRequest {
   /// Целевые макросы
   final Map<String, dynamic> targetMacros;
 
+  /// [comment] Комментарий с предыдущей рекомендацией для генерации нового блюда
+  final String? comment;
+
   Map<String, dynamic> toJson() => {
         'foodPreferences': foodPreferences,
         'consumedMacros': consumedMacros,
         'targetMacros': targetMacros,
+        if (comment != null) 'comment': comment,
       };
 }
 
@@ -747,53 +752,112 @@ class LlmProxyClient {
   /// - [request] - запрос с предпочтениями и макросами
   ///
   /// Возвращает [String?] - текст рекомендации или null при ошибке
+  /// Включает retry логику для обработки HTTP 500 и 502 ошибок
   Future<String?> getRecommendation(RecommendationRequest request) async {
-    try {
-      log('[RecommendationsWidget] 🔄 Отправляем запрос к /recommend');
-      log('[RecommendationsWidget] 📝 Предпочтения: ${request.foodPreferences}');
-      log('[RecommendationsWidget] 📊 Потребленные макросы: ${request.consumedMacros}');
-      log('[RecommendationsWidget] 🎯 Целевые макросы: ${request.targetMacros}');
+    const maxRetries = 3;
+    int retryCount = 0;
 
-      final url = '$_baseUrl/recommend';
-      final requestBody = jsonEncode(request.toJson());
+    while (retryCount <= maxRetries) {
+      try {
+        log('[RecommendationsWidget] 🔄 Попытка ${retryCount + 1}/${maxRetries + 1} - Отправляем запрос к /recommend');
+        log('[RecommendationsWidget] 📝 Предпочтения: ${request.foodPreferences}');
+        log('[RecommendationsWidget] 📊 Потребленные макросы: ${request.consumedMacros}');
+        log('[RecommendationsWidget] 🎯 Целевые макросы: ${request.targetMacros}');
 
-      log('[RecommendationsWidget] 📦 URL: $url');
-      log('[RecommendationsWidget] 📦 BODY: $requestBody');
+        final url = '$_baseUrl/recommend';
+        final requestBody = jsonEncode(request.toJson());
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          _authHeaderKey: _authHeaderValue,
-        },
-        body: requestBody,
-      );
+        log('[RecommendationsWidget] 📦 URL: $url');
+        log('[RecommendationsWidget] 📦 BODY: $requestBody');
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // API возвращает JSON объект с полем "recommendation"
-        try {
-          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-          final recommendation = responseData['recommendation'] as String?;
-          
-          if (recommendation != null && recommendation.isNotEmpty) {
-            log('[RecommendationsWidget] ✅ Получена рекомендация: ${recommendation.substring(0, recommendation.length > 100 ? 100 : recommendation.length)}...');
-            return recommendation;
-          } else {
-            log('[RecommendationsWidget] ⚠️ Поле "recommendation" пустое или отсутствует');
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {
+            'Content-Type': 'application/json',
+            _authHeaderKey: _authHeaderValue,
+          },
+          body: requestBody,
+        );
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          // API возвращает JSON объект с полем "recommendation"
+          try {
+            final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+            final recommendation = responseData['recommendation'] as String?;
+            
+            if (recommendation != null && recommendation.isNotEmpty) {
+              // Если это была повторная попытка, логируем успех
+              if (retryCount > 0) {
+                log('[RecommendationsWidget] 🎉 Успешно получена рекомендация после $retryCount повторных попыток');
+              }
+              
+              log('[RecommendationsWidget] ✅ Получена рекомендация: ${recommendation.substring(0, recommendation.length > 100 ? 100 : recommendation.length)}...');
+              return recommendation;
+            } else {
+              log('[RecommendationsWidget] ⚠️ Поле "recommendation" пустое или отсутствует');
+              return null;
+            }
+          } catch (e) {
+            log('[RecommendationsWidget] ❌ Ошибка парсинга JSON ответа: $e');
+            log('[RecommendationsWidget] 📦 Тело ответа: ${response.body}');
+            // Ошибка парсинга не требует ретрая, возвращаем null
             return null;
           }
-        } catch (e) {
-          log('[RecommendationsWidget] ❌ Ошибка парсинга JSON ответа: $e');
-          log('[RecommendationsWidget] 📦 Тело ответа: ${response.body}');
+        } else {
+          // Проверяем, является ли это HTTP 500 или 502 ошибкой (временные ошибки сервера)
+          final isRetryableError = response.statusCode == 500 || response.statusCode == 502;
+          final errorMessage = 'HTTP ${response.statusCode}: ${response.body}';
+
+          log('[RecommendationsWidget] ❌ Ошибка от API: ${response.statusCode} - ${response.body}');
+
+          // Если это 500 или 502 ошибка и у нас есть попытки, пробуем еще раз
+          if (isRetryableError && retryCount < maxRetries) {
+            retryCount++;
+            // Задержки между попытками: 3, 4, 5 секунд
+            final delays = [3, 4, 5];
+            final delaySeconds = delays[retryCount - 1];
+            log('[RecommendationsWidget] 🔄 HTTP ${response.statusCode} ошибка, повторяем через ${delaySeconds}с (попытка ${retryCount + 1}/${maxRetries + 1})');
+            await Future.delayed(Duration(seconds: delaySeconds));
+            continue;
+          }
+
+          // Если это не 500/502 ошибка или попытки исчерпаны, возвращаем null
+          log('[RecommendationsWidget] ❌ Не удалось получить рекомендацию: $errorMessage');
           return null;
         }
-      } else {
-        log('[RecommendationsWidget] ❌ Ошибка от API: ${response.statusCode} - ${response.body}');
+      } catch (e) {
+        final errorString = e.toString();
+        // Проверяем, является ли это HTTP 500 или 502 ошибкой (временные ошибки сервера)
+        final isRetryableError = errorString.contains('500') ||
+                                errorString.contains('502') ||
+                                errorString.contains('Internal Server Error') ||
+                                errorString.contains('Bad Gateway') ||
+                                errorString.contains('502 Bad Gateway') ||
+                                errorString.contains('500 Internal Server Error');
+
+        // Если это 500 или 502 ошибка и у нас есть попытки, пробуем еще раз
+        if (isRetryableError && retryCount < maxRetries) {
+          retryCount++;
+          // Задержки между попытками: 3, 4, 5 секунд
+          final delays = [3, 4, 5];
+          final delaySeconds = delays[retryCount - 1];
+          log('[RecommendationsWidget] 💥 HTTP 500/502 исключение: $e');
+          log('[RecommendationsWidget] 🔄 Повторяем через ${delaySeconds}с (попытка ${retryCount + 1}/${maxRetries + 1})');
+          await Future.delayed(Duration(seconds: delaySeconds));
+          continue;
+        }
+
+        // Если это не 500/502 ошибка или попытки исчерпаны, логируем и возвращаем null
+        log('[RecommendationsWidget] 💥 Исключение при запросе рекомендации: $e');
+        if (retryCount >= maxRetries) {
+          log('[RecommendationsWidget] ❌ Все ${maxRetries + 1} попытки исчерпаны');
+        }
         return null;
       }
-    } catch (e) {
-      log('[RecommendationsWidget] 💥 Исключение при запросе рекомендации: $e');
-      return null;
     }
+
+    // Этот код никогда не должен выполниться, но на всякий случай
+    log('[RecommendationsWidget] ❌ Неожиданная ошибка в retry логике getRecommendation');
+    return null;
   }
 }

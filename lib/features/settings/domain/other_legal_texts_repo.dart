@@ -179,8 +179,9 @@ By using the Pivot app, you acknowledge that it is for wellness purposes only, a
 12. Setup a daily meal plan reminder notification, so you don’t forget to create your meals.
 13. Integration with food diaries to track your actual meal consumption by logging in the meals you have consumed, whether the suggested ones or anything else you may have consumed outside.
 14. Ability to see in real time how many calories and macros you have consumed for the day and what is leftover to achieve your goal.
-15. Gamification: getting a total percentage score every day to see how close you are to your daily and weekly consumption goals, by tracking calorie and macronutrient targets.
-16. The AI will learn your specific tastes and fine-tune meal recommendations to further suit you over time.''';
+15. Daily Nutritional Wellness score (DNWS): getting a total percentage score every day to see how close you are to your daily and weekly consumption goals, by tracking calorie and macronutrient targets.
+16. The Pivot Life Score is your long-term progress tracker, reflecting how consistent you've been with your daily nutrition and overall wellness habits.
+17. The AI will learn your specific tastes and fine-tune meal recommendations to further suit you over time.''';
 
   String get comingSoon => '''
 1. Integration with other smart devices like Apple watch, Oura ring, Garmin, and Fitbit.

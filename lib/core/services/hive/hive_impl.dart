@@ -519,22 +519,36 @@ class HiveImpl implements HiveRepo {
   @override
   Future<void> saveDay({required DayEntity data}) async {
     try {
+      // [saveDay] Логируем наличие welnessEntity при сохранении
+      final hasWellness = data.welnessEntity != null;
+      print(
+        '[Hive.saveDay] Сохранение дня ID=${data.directusId}, cycleId=${data.cycleId}, wellness=${hasWellness ? "есть (${data.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+      );
+
       if (data.cycleId == null) {
         await dayBox.add(data);
         return;
       }
-
-      print('SAVING DAY: ${data.directusId}');
 
       final existingDays = dayBox.values.toList();
       final existingDayIndex =
           existingDays.indexWhere((day) => day.cycleId == data.cycleId);
 
       if (existingDayIndex != -1) {
-        print('ID EXISTED: ${data.directusId}');
+        // [saveDay] Проверяем, не теряется ли welnessEntity при обновлении
+        final existingDay = existingDays[existingDayIndex];
+        if (hasWellness && existingDay.welnessEntity == null) {
+          print(
+            '[Hive.saveDay] ⚠️ Обновление дня: новый день имеет welnessEntity, старый - нет',
+          );
+        } else if (!hasWellness && existingDay.welnessEntity != null) {
+          print(
+            '[Hive.saveDay] ⚠️ ВНИМАНИЕ: Обновление дня может удалить существующий welnessEntity!',
+          );
+        }
+        
         await dayBox.putAt(existingDayIndex, data);
       } else {
-        print('ID DIDNOT EXISST: ${data.directusId}');
         await dayBox.add(data);
       }
     } on Exception catch (e, stackTrace) {
@@ -559,7 +573,17 @@ class HiveImpl implements HiveRepo {
       if (dayBox.isEmpty) {
         return [];
       }
-      return dayBox.values.toList();
+      
+      final days = dayBox.values.toList();
+      
+      // [retrieveSavedDays] Логируем статистику по welnessEntity
+      final daysWithWellness = days.where((d) => d.welnessEntity != null).length;
+      final daysWithoutWellness = days.length - daysWithWellness;
+      print(
+        '[Hive.retrieveSavedDays] Загружено ${days.length} дней из кэша: с wellness=$daysWithWellness, без wellness=$daysWithoutWellness',
+      );
+      
+      return days;
     } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,

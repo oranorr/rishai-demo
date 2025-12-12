@@ -18,6 +18,7 @@ import 'package:rishai/features/food_diary/domain/diary_meal.dart';
 import 'package:rishai/features/food_diary/domain/entities/custom_meal_entry.dart';
 import 'package:rishai/features/food_diary/domain/pivot_life_scrore_entity.dart';
 import 'package:rishai/features/food_diary/domain/welness_entity.dart';
+import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
@@ -281,10 +282,36 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
   Future<void> calculatePivotLifeScore() async {
     try {
       // Получаем ID текущего пользователя
-      final currentUser = userBloc.state.user;
-      if (currentUser.directusId == '-1') {
+      // [FIX] Добавляем несколько попыток с увеличивающейся задержкой на случай race condition
+      // когда UserBloc обновляет состояние между emit'ами или после UpdateUserEvent
+      UserEntity? currentUser;
+      const maxAttempts = 5;
+      const initialDelay = Duration(milliseconds: 100);
+      
+      for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        currentUser = userBloc.state.user;
+        
+        if (currentUser.directusId != '-1') {
+          // Пользователь авторизован - выходим из цикла
+          break;
+        }
+        
+        // Если это не последняя попытка, ждем перед следующей проверкой
+        if (attempt < maxAttempts - 1) {
+          // Экспоненциальная задержка: 100ms, 200ms, 400ms, 800ms
+          final delay = Duration(milliseconds: initialDelay.inMilliseconds * (1 << attempt));
+          log(
+            '[FoodDiaryCubit] ⏳ Попытка ${attempt + 1}/$maxAttempts: пользователь не авторизован, ждем ${delay.inMilliseconds}ms перед повторной проверкой',
+            name: 'FoodDiaryCubit',
+          );
+          await Future.delayed(delay);
+        }
+      }
+      
+      // Финальная проверка после всех попыток
+      if (currentUser == null || currentUser.directusId == '-1') {
         log(
-          '[FoodDiaryCubit] ❌ Пользователь не авторизован, пропускаем расчет Pivot Life Score',
+          '[FoodDiaryCubit] ❌ Пользователь не авторизован после $maxAttempts попыток, пропускаем расчет Pivot Life Score',
           name: 'FoodDiaryCubit',
         );
         return;

@@ -7,6 +7,7 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/food_diary/domain/diary_meal.dart';
 import 'package:rishai/features/food_diary/domain/pivot_life_scrore_entity.dart';
 import 'package:rishai/features/food_diary/domain/welness_entity.dart';
+import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
@@ -23,13 +24,12 @@ class WellnessScoreCalculator {
   WellnessScoreCalculator(
     this._dayManager,
     this._whoopBloc,
-    this._userBloc,
     this._directusService,
   );
 
   final DayManager _dayManager;
   final WhoopBloc _whoopBloc;
-  final UserBloc _userBloc;
+  final UserBloc _userBloc = userBloc;
   final DirectusService _directusService;
 
   /// [calculateDailyWellnessScore] Рассчитывает Daily Wellness Score на основе потребленных блюд
@@ -257,10 +257,48 @@ class WellnessScoreCalculator {
   Future<void> calculatePivotLifeScore() async {
     try {
       // Получаем ID текущего пользователя
-      final currentUser = _userBloc.state.user;
-      if (currentUser.directusId == '-1') {
+      // [FIX] Добавляем несколько попыток с увеличивающейся задержкой на случай race condition
+      // когда UserBloc обновляет состояние между emit'ами или после UpdateUserEvent
+      UserEntity? currentUser;
+      const maxAttempts = 5;
+      const initialDelay = Duration(milliseconds: 100);
+
+      for (int attempt = 0; attempt < maxAttempts; attempt++) {
+        currentUser = _userBloc.state.user;
+
+        // [DEBUG] Детальное логирование для диагностики
         log(
-          '[WellnessScoreCalculator] ❌ Пользователь не авторизован, пропускаем расчет Pivot Life Score',
+          '[WellnessScoreCalculator] 🔍 Попытка ${attempt + 1}/$maxAttempts: directusId=${currentUser.directusId}, email=${currentUser.email}, UserBloc instance=${_userBloc.hashCode}',
+          name: 'WellnessScoreCalculator',
+        );
+
+        if (currentUser.directusId != '-1') {
+          // Пользователь авторизован - выходим из цикла
+          log(
+            '[WellnessScoreCalculator] ✅ Пользователь авторизован на попытке ${attempt + 1}',
+            name: 'WellnessScoreCalculator',
+          );
+          break;
+        }
+
+        // Если это не последняя попытка, ждем перед следующей проверкой
+        if (attempt < maxAttempts - 1) {
+          // Экспоненциальная задержка: 100ms, 200ms, 400ms, 800ms
+          final delay = Duration(
+            milliseconds: initialDelay.inMilliseconds * (1 << attempt),
+          );
+          log(
+            '[WellnessScoreCalculator] ⏳ Попытка ${attempt + 1}/$maxAttempts: пользователь не авторизован (directusId=${currentUser.directusId}), ждем ${delay.inMilliseconds}ms перед повторной проверкой',
+            name: 'WellnessScoreCalculator',
+          );
+          await Future.delayed(delay);
+        }
+      }
+
+      // Финальная проверка после всех попыток
+      if (currentUser == null || currentUser.directusId == '-1') {
+        log(
+          '[WellnessScoreCalculator] ❌ Пользователь не авторизован после $maxAttempts попыток, пропускаем расчет Pivot Life Score',
           name: 'WellnessScoreCalculator',
         );
         return;
@@ -439,6 +477,154 @@ class WellnessScoreCalculator {
       // Не пробрасываем ошибку, чтобы не нарушить основной процесс добавления блюда
     }
   }
+
+  /// [recalculateWellnessScoreForExistingMeals] Пересчитывает Daily Wellness Score для существующих блюд
+  ///
+  /// Используется когда изменяются целевые макросы (например, при изменении модификатора).
+  /// Пересчитывает wellness score на основе существующих потребленных блюд и новых целевых макросов.
+  ///
+  /// [currentDay] - текущий день с обновленными целевыми макросами
+  /// Возвращает обновленный DayEntity с пересчитанным wellness score
+  Future<DayEntity> recalculateWellnessScoreForExistingMeals(
+    DayEntity currentDay,
+  ) async {
+    try {
+      log(
+        '[WellnessScoreCalculator] 🔄 Пересчет Daily Wellness Score для существующих блюд при изменении целевых макросов',
+        name: 'WellnessScoreCalculator',
+      );
+      log(
+        '[WellnessScoreCalculator] Текущий день: ${currentDay.dateTime}',
+        name: 'WellnessScoreCalculator',
+      );
+
+      // Получаем существующую WelnessEntity
+      final existingWelness = currentDay.welnessEntity;
+
+      // Если нет существующих блюд, нечего пересчитывать
+      if (existingWelness == null || existingWelness.consumedMeals.isEmpty) {
+        log(
+          '[WellnessScoreCalculator] ⚠️ Нет существующих блюд для пересчета wellness score',
+          name: 'WellnessScoreCalculator',
+        );
+        return currentDay;
+      }
+
+      log(
+        '[WellnessScoreCalculator] Найдено ${existingWelness.consumedMeals.length} существующих блюд для пересчета',
+        name: 'WellnessScoreCalculator',
+      );
+
+      // Используем существующие блюда
+      final allConsumedMeals = existingWelness.consumedMeals;
+
+      // Суммируем макросы из всех существующих блюд
+      double totalKcal = 0;
+      double totalProtein = 0;
+      double totalCarbs = 0;
+      double totalFat = 0;
+
+      for (final diaryMeal in allConsumedMeals) {
+        totalKcal += diaryMeal.macros.kcal;
+        totalProtein += diaryMeal.macros.protein;
+        totalCarbs += diaryMeal.macros.carbs;
+        totalFat += diaryMeal.macros.fat;
+      }
+
+      log(
+        '[WellnessScoreCalculator] Суммарные потребленные макросы: K=${totalKcal.toStringAsFixed(1)}ккал, P=${totalProtein.toStringAsFixed(1)}г, C=${totalCarbs.toStringAsFixed(1)}г, F=${totalFat.toStringAsFixed(1)}г',
+        name: 'WellnessScoreCalculator',
+      );
+
+      // Создаем MacrosBreakdown для потребленных макросов
+      final consumedMacros = MacrosBreakdown(
+        kcal: totalKcal.round(),
+        protein: totalProtein.round(),
+        carbs: totalCarbs.round(),
+        fat: totalFat.round(),
+      );
+
+      // Получаем новые целевые макросы из текущего дня
+      final targetMacros = currentDay.macros;
+      log(
+        '[WellnessScoreCalculator] Новые целевые макросы: K=${targetMacros.kcal}ккал, P=${targetMacros.protein}г, C=${targetMacros.carbs}г, F=${targetMacros.fat}г',
+        name: 'WellnessScoreCalculator',
+      );
+
+      // Рассчитываем процентные соотношения потребленных макросов к новым целевым
+      double kcalPercentage =
+          targetMacros.kcal > 0 ? (totalKcal / targetMacros.kcal) * 100 : 0;
+      double proteinPercentage = targetMacros.protein > 0
+          ? (totalProtein / targetMacros.protein) * 100
+          : 0;
+      double carbsPercentage =
+          targetMacros.carbs > 0 ? (totalCarbs / targetMacros.carbs) * 100 : 0;
+      double fatPercentage =
+          targetMacros.fat > 0 ? (totalFat / targetMacros.fat) * 100 : 0;
+
+      log(
+        '[WellnessScoreCalculator] Процентные соотношения: K=${kcalPercentage.toStringAsFixed(1)}%, P=${proteinPercentage.toStringAsFixed(1)}%, C=${carbsPercentage.toStringAsFixed(1)}%, F=${fatPercentage.toStringAsFixed(1)}%',
+        name: 'WellnessScoreCalculator',
+      );
+
+      // Применяем формулу Daily Wellness Score (DWS_raw)
+      // 40% of kcals% + 30% of Protein% + 20% of carbs% + 10% of fats%
+      double dwsRaw = (kcalPercentage * 0.40) +
+          (proteinPercentage * 0.30) +
+          (carbsPercentage * 0.20) +
+          (fatPercentage * 0.10);
+
+      log(
+        '[WellnessScoreCalculator] DWS_raw (до применения штрафов): ${dwsRaw.toStringAsFixed(1)}%',
+        name: 'WellnessScoreCalculator',
+      );
+
+      // Применяем систему штрафов за переедание, если DWS_raw > 100%
+      double wellnessScore = _applyPenaltyForOvereating(dwsRaw);
+
+      log(
+        '[WellnessScoreCalculator] ✅ DWS_final (Daily Wellness Score после пересчета): ${wellnessScore.toStringAsFixed(1)}%',
+        name: 'WellnessScoreCalculator',
+      );
+
+      // Обновляем WelnessEntity с новым wellness score
+      final welnessEntity = existingWelness.copyWith(
+        consumedMeals: allConsumedMeals,
+        welnessPercentage: wellnessScore,
+        consumedMacros: consumedMacros,
+      );
+
+      // Обновляем день с обновленной wellness entity
+      final updatedDay = currentDay.copyWith(welnessEntity: welnessEntity);
+
+      // Сохраняем день в Directus
+      log(
+        '[WellnessScoreCalculator] 💾 Сохраняем обновленный день в Directus',
+        name: 'WellnessScoreCalculator',
+      );
+      await _dayManager.createOrUpdateDay(day: updatedDay);
+
+      // После успешного пересчета Daily Wellness Score пересчитываем Pivot Life Score
+      log(
+        '[WellnessScoreCalculator] 🔄 Запускаем пересчет Pivot Life Score после пересчета Daily Wellness Score',
+        name: 'WellnessScoreCalculator',
+      );
+      await calculatePivotLifeScore();
+
+      log(
+        '[WellnessScoreCalculator] ✅ Daily Wellness Score успешно пересчитан для существующих блюд',
+        name: 'WellnessScoreCalculator',
+      );
+
+      return updatedDay;
+    } catch (e, stackTrace) {
+      log(
+        '[WellnessScoreCalculator] ❌ Ошибка при пересчете Daily Wellness Score для существующих блюд: $e',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'WellnessScoreCalculator',
+      );
+      rethrow;
+    }
+  }
 }
-
-

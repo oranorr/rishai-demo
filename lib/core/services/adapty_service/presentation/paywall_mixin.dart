@@ -34,14 +34,39 @@ mixin PaywallMixin on State<Paywall> {
       selectedProduct = null;
     }
 
-    // [ViewState] Проверяем, видел ли пользователь бесплатную версию
-    // Если видел - сразу показываем премиум версию
-    final hasViewedFreePaywall = prefsRepo.hasViewedFreePaywall();
-    if (hasViewedFreePaywall) {
-      _currentViewState = PaywallViewState.premium;
-    } else {
-      _currentViewState = PaywallViewState.free;
-    }
+    // [ViewState] По умолчанию показываем премиум версию (платный тариф)
+    // Пользователь может переключиться на бесплатный тариф через сегментированный контрол
+    _currentViewState = PaywallViewState.premium;
+  }
+
+  /// [formatPrice] Форматирует цену в едином формате: "Валюта, сумма, пробел, /, пробел, период"
+  ///
+  /// [amount] - сумма цены
+  /// [currencySymbol] - символ валюты (может быть null, тогда используется "$")
+  /// [period] - период (например, "month", "year", "forever")
+  String _formatPrice(double amount, String? currencySymbol, String period) {
+    // Используем символ валюты или значение по умолчанию
+    final symbol = currencySymbol ?? '\$';
+    
+    // Форматируем сумму с двумя знаками после запятой
+    final formattedAmount = amount.toStringAsFixed(2);
+    // Разделяем на целую и дробную части
+    final parts = formattedAmount.split('.');
+    final integerPart = int.parse(parts[0]);
+    final decimalPart = parts[1];
+    
+    // Форматируем целую часть с разделителями тысяч
+    final formattedInteger = integerPart.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match match) => '${match[1]},',
+    );
+    
+    // Если дробная часть не равна "00", добавляем её
+    final cleanDecimal = decimalPart == '00' ? '' : '.$decimalPart';
+    final cleanAmount = '$formattedInteger$cleanDecimal';
+    
+    // Возвращаем в формате: "Валюта, сумма, пробел, /, пробел, период"
+    return '$symbol $cleanAmount / $period';
   }
 
   /// [buildPremiumOnlyView] Строит экран только с премиум карточкой
@@ -51,52 +76,48 @@ mixin PaywallMixin on State<Paywall> {
   Widget _buildPremiumOnlyView(BuildContext context) {
     return RishScaffold(
       needsAppBar: false,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: 20.h),
+          // [Back Button] Кнопка назад для закрытия экрана
+          Stack(
             children: [
-              SizedBox(height: 50.h),
-              // [Back Button] Кнопка назад для закрытия экрана
-              Stack(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () => appNavigationService.go(
-                        path: AppRoutes.homeScreen.path,
-                      ),
-                      child: Container(
-                        padding: EdgeInsets.all(8.w),
-                        decoration: const BoxDecoration(
-                          color: RishColors.formBackgroun,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back,
-                          color: RishColors.textPrimary,
-                          size: 24,
-                        ),
-                      ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () => appNavigationService.go(
+                    path: AppRoutes.homeScreen.path,
+                  ),
+                  child: Container(
+                    padding: EdgeInsets.all(8.w),
+                    decoration: const BoxDecoration(
+                      color: RishColors.formBackgroun,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: RishColors.textPrimary,
+                      size: 24,
                     ),
                   ),
-                  // const Spacer(),
-                  Align(
-                    child: Text(
-                      'Upgrade plan',
-                      style: context.styles.h1,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              SizedBox(height: 24.h),
-              // [Premium Card] Только премиум карточка
-              _buildPremiumCard(context),
-              SizedBox(height: 24.h),
+              // const Spacer(),
+              Align(
+                child: Text(
+                  'Upgrade plan',
+                  style: context.styles.h1,
+                ),
+              ),
             ],
           ),
-        ),
+          SizedBox(height: 16.h),
+          // [Premium Card] Только премиум карточка с возможностью скролла внутри
+          Expanded(
+            child: _buildPremiumCard(context, needsTag: true),
+          ),
+        ],
       ),
     );
   }
@@ -107,29 +128,24 @@ mixin PaywallMixin on State<Paywall> {
   Widget _buildUnifiedView(BuildContext context) {
     return RishScaffold(
       needsAppBar: false,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(height: 50.h),
-              // [Title] Заголовок "Choose a plan"
-              Text(
-                'Choose a plan',
-                style: context.styles.h1,
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 24.h),
-              // [Segmented Control] Переключатель между Free и Premium
-              _buildSegmentedControl(context),
-              SizedBox(height: 24.h),
-              // [Plan Card] Карточка с выбранным планом
-              _buildPlanCard(context),
-              SizedBox(height: 24.h),
-            ],
+      child: Column(
+        children: [
+          SizedBox(height: 20.h),
+          // [Title] Заголовок "Choose a plan"
+          AutoSizeText(
+            'Choose a plan',
+            style: context.styles.h1,
+            textAlign: TextAlign.center,
           ),
-        ),
+          SizedBox(height: 16.h),
+          // [Segmented Control] Переключатель между Free и Premium
+          _buildSegmentedControl(context),
+          SizedBox(height: 16.h),
+          // [Plan Card] Карточка с выбранным планом с возможностью скролла внутри
+          Expanded(
+            child: _buildPlanCard(context),
+          ),
+        ],
       ),
     );
   }
@@ -137,6 +153,7 @@ mixin PaywallMixin on State<Paywall> {
   /// [buildSegmentedControl] Строит сегментированный контрол для переключения планов
   Widget _buildSegmentedControl(BuildContext context) {
     return Container(
+      width: 220.w,
       padding: EdgeInsets.all(4.w),
       decoration: BoxDecoration(
         color: RishColors.stroke,
@@ -181,7 +198,7 @@ mixin PaywallMixin on State<Paywall> {
                 });
               },
               child: Container(
-                padding: EdgeInsets.symmetric(vertical: 12.h),
+                padding: EdgeInsets.symmetric(vertical: 10.h),
                 decoration: BoxDecoration(
                   color: _currentViewState == PaywallViewState.free
                       ? RishColors.primary
@@ -210,20 +227,28 @@ mixin PaywallMixin on State<Paywall> {
     if (_currentViewState == PaywallViewState.free) {
       return _buildFreeCard(context);
     } else {
-      return _buildPremiumCard(context);
+      return _buildPremiumCard(context, needsTag: false);
     }
   }
 
   /// [buildFreeCard] Строит карточку для Free плана
   Widget _buildFreeCard(BuildContext context) {
+    // [Currency Symbol] Получаем символ валюты пользователя из доступных продуктов
+    // Используем валюту из selectedProduct, если доступен, иначе из первого продукта
+    final currencySymbol = selectedProduct?.price.currencySymbol ??
+        (adapty.products.isNotEmpty
+            ? adapty.products.first.price.currencySymbol
+            : '\$');
+
     return Container(
-      padding: EdgeInsets.all(20.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RishColors.textPrimary,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // [Title] Заголовок карточки
           Text(
@@ -232,16 +257,17 @@ mixin PaywallMixin on State<Paywall> {
               color: RishColors.formBackgroun,
             ),
           ),
-          SizedBox(height: 16.h),
-          // [Price] Цена "$0 / forever"
+          SizedBox(height: 12.h),
+          // [Price] Цена в формате "Валюта, сумма, пробел, /, пробел, период"
+          // Используем валюту пользователя вместо жестко закодированного доллара
           Text(
-            r'$0 / forever',
+            _formatPrice(0, currencySymbol, 'forever'),
             style: context.styles.h1.copyWith(
               fontWeight: FontWeight.w900,
               color: RishColors.formBackgroun,
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 6.h),
           // [Subtitle] Подзаголовок
           Text(
             'Start free. Upgrade anytime.',
@@ -249,77 +275,87 @@ mixin PaywallMixin on State<Paywall> {
               color: RishColors.formBackgroun,
             ),
           ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 4.h),
           // [Divider] Разделитель
           Divider(
             color: RishColors.formBackgroun.withOpacity(0.3),
             thickness: 1,
           ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 4.h),
           // [Free Features] Список функций для бесплатных пользователей
-          // Включенные функции (с галочкой)
-          ..._freeFeaturesIncluded.map(
-            (feature) => Padding(
-              padding: EdgeInsets.only(bottom: 16.h),
-              child: Row(
+          // Скроллируемый список функций
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: RishColors.success,
-                      size: 20,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          feature.title,
-                          style: context.styles.regularLarge.copyWith(
-                            color: RishColors.formBackgroun,
+                  // Включенные функции (с галочкой)
+                  ..._freeFeaturesIncluded.map(
+                    (feature) => Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Icon(
+                              Icons.check_circle,
+                              color: RishColors.success,
+                              size: 20,
+                            ),
                           ),
-                        ),
-                        if (feature.subtitle != null) ...[
-                          SizedBox(height: 4.h),
-                          Text(
-                            feature.subtitle!,
-                            style: context.styles.regularSmall.copyWith(
-                              color: RishColors.formBackgroun,
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  feature.title,
+                                  style: context.styles.regularLarge.copyWith(
+                                    color: RishColors.formBackgroun,
+                                  ),
+                                ),
+                                if (feature.subtitle != null) ...[
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    feature.subtitle!,
+                                    style: context.styles.regularSmall.copyWith(
+                                      color: RishColors.formBackgroun,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          // Исключенные функции (с X)
-          ..._freeFeaturesExcluded.map(
-            (feature) => Padding(
-              padding: EdgeInsets.only(bottom: 16.h),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(
-                      Icons.cancel,
-                      color: RishColors.textSecondary,
-                      size: 20,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Text(
-                      feature.title,
-                      style: context.styles.regularLarge.copyWith(
-                        color: RishColors.textSecondary,
+                  // Исключенные функции (с X)
+                  ..._freeFeaturesExcluded.map(
+                    (feature) => Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Icon(
+                              Icons.cancel,
+                              color: RishColors.textSecondary,
+                              size: 20,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Text(
+                              feature.title,
+                              style: context.styles.regularLarge.copyWith(
+                                color: RishColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -327,7 +363,7 @@ mixin PaywallMixin on State<Paywall> {
               ),
             ),
           ),
-          SizedBox(height: 32.h),
+          SizedBox(height: 16.h),
           // [Select Button] Кнопка для выбора Free плана
           RishButton.primary(
             title: 'Subscribe',
@@ -359,7 +395,7 @@ mixin PaywallMixin on State<Paywall> {
   }
 
   /// [buildPremiumCard] Строит карточку для Premium плана
-  Widget _buildPremiumCard(BuildContext context) {
+  Widget _buildPremiumCard(BuildContext context, {required bool needsTag}) {
     // [debugProducts] Выводим все продукты для отладки
     print(
       '[Paywall._buildPremiumCard] Все продукты в adapty.products:',
@@ -403,11 +439,6 @@ mixin PaywallMixin on State<Paywall> {
       '[Paywall._buildPremiumCard] ✅ Финальные продукты: monthlyProduct: ${monthlyProduct.vendorProductId} (${monthlyProduct.price.amount}), annualProduct: ${annualProduct.vendorProductId} (${annualProduct.price.amount})',
     );
 
-    final monthlyPrice = monthlyProduct.price.localizedString ?? r'$9.99';
-    final annualPricePerMonth = annualProduct.price.amount / 12;
-    final annualPricePerMonthString =
-        '${annualProduct.price.currencySymbol}${annualPricePerMonth.toStringAsFixed(2)}';
-
     // [Price Display] Определяем, какой план выбран и показываем соответствующую цену
     // Сравниваем по vendorProductId, а если они одинаковые - по цене
     bool isAnnualSelected;
@@ -420,84 +451,129 @@ mixin PaywallMixin on State<Paywall> {
       isAnnualSelected =
           selectedProduct?.vendorProductId == annualProduct.vendorProductId;
     }
+    
+    // [Formatted Prices] Форматируем цены в едином формате
+    final annualPricePerMonth = annualProduct.price.amount / 12;
     final displayPrice = isAnnualSelected
-        ? '$annualPricePerMonthString / month'
-        : '$monthlyPrice / month';
+        ? _formatPrice(
+            annualPricePerMonth,
+            annualProduct.price.currencySymbol,
+            'month',
+          )
+        : _formatPrice(
+            monthlyProduct.price.amount,
+            monthlyProduct.price.currencySymbol,
+            'month',
+          );
+    
+    // [Billing Text] Форматируем текст о биллинге
+    final monthlyPriceFormatted = _formatPrice(
+      monthlyProduct.price.amount,
+      monthlyProduct.price.currencySymbol,
+      'month',
+    );
     final billingText = isAnnualSelected
-        ? 'Billed yearly or $monthlyPrice/month billed monthly.'
+        ? 'Billed yearly or $monthlyPriceFormatted billed monthly.'
         : 'Billed monthly.';
 
     return Container(
-      padding: EdgeInsets.all(20.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: RishColors.formBackgroun,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // [Title] Заголовок карточки
-          Text(
+          SizedBox(height: needsTag ? 16.h : 0),
+          if (needsTag)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: RishColors.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'PREMIUM',
+                style: context.styles.h3.copyWith(
+                  color: RishColors.formBackgroun,
+                ),
+              ),
+            ),
+          SizedBox(height: needsTag ? 16.h : 0),
+          AutoSizeText(
             'Unlock advanced features',
             style: context.styles.h2,
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 12.h),
           // [Price] Цена с подзаголовком (зависит от выбранного плана)
-          Text(
+          AutoSizeText(
             displayPrice,
             style: context.styles.h1.copyWith(
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: 8.h),
-          Text(
+          SizedBox(height: 6.h),
+          AutoSizeText(
             billingText,
             style: context.styles.regularSmall.copyWith(
               color: RishColors.textSecondary,
             ),
           ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 4.h),
 
           // [Divider] Разделитель
           Divider(
             color: RishColors.textSecondary.withOpacity(0.3),
             thickness: 1,
           ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 4.h),
           // [Premium Features] Список всех премиум функций (все включены)
-          ..._premiumFeatures.map(
-            (feature) => Padding(
-              padding: EdgeInsets.only(bottom: 16.h),
-              child: Row(
+          // Скроллируемый список функций
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: RishColors.success,
-                      size: 20,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          feature.title,
-                          style: context.styles.regularLarge,
-                        ),
-                        if (feature.subtitle != null) ...[
-                          SizedBox(height: 4.h),
-                          Text(
-                            feature.subtitle!,
-                            style: context.styles.regularSmall.copyWith(
-                              color: RishColors.textSecondary,
+                  ..._premiumFeatures.map(
+                    (feature) => Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Icon(
+                              Icons.check_circle,
+                              color: RishColors.success,
+                              size: 20,
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  feature.title,
+                                  style: context.styles.regularLarge,
+                                ),
+                                if (feature.subtitle != null) ...[
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    feature.subtitle!,
+                                    style: context.styles.regularSmall.copyWith(
+                                      color: RishColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -505,10 +581,10 @@ mixin PaywallMixin on State<Paywall> {
             ),
           ),
 
-          SizedBox(height: 24.h),
+          SizedBox(height: 16.h),
           // [Subscription Buttons] Кнопки выбора подписки
           _buildSubscriptionButtons(context, monthlyProduct, annualProduct),
-          SizedBox(height: 32.h),
+          SizedBox(height: 16.h),
           // [Subscribe Button] Кнопка для покупки подписки
           RishButton.primary(
             title: 'Subscribe',
@@ -528,6 +604,9 @@ mixin PaywallMixin on State<Paywall> {
   }
 
   /// [buildSubscriptionButtons] Строит кнопки выбора подписки (Monthly/Annually)
+  ///
+  /// Кнопки адаптируются под размер экрана, используя MediaQuery
+  /// для определения размера экрана и адаптивные отступы/шрифты
   Widget _buildSubscriptionButtons(
     BuildContext context,
     AdaptyPaywallProduct monthlyProduct,
@@ -547,133 +626,239 @@ mixin PaywallMixin on State<Paywall> {
           selectedProduct?.vendorProductId == annualProduct.vendorProductId;
     }
 
-    final monthlyPrice = monthlyProduct.price.localizedString ?? r'$9.99';
-    final annualPrice = annualProduct.price.localizedString ?? r'$96';
+    // [Formatted Prices] Форматируем цены в едином формате для кнопок
     final annualPricePerMonth = annualProduct.price.amount / 12;
-    final annualPricePerMonthString =
-        '\$${annualPricePerMonth.toStringAsFixed(2)}';
+    final monthlyPriceFormatted = _formatPrice(
+      monthlyProduct.price.amount,
+      monthlyProduct.price.currencySymbol,
+      'month',
+    );
+    final annualPricePerMonthFormatted = _formatPrice(
+      annualPricePerMonth,
+      annualProduct.price.currencySymbol,
+      'month',
+    );
+    final annualPriceFormatted = _formatPrice(
+      annualProduct.price.amount,
+      annualProduct.price.currencySymbol,
+      'year',
+    );
 
-    return Row(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              setState(() {
-                selectedProduct = monthlyProduct;
-              });
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: 27.h, horizontal: 12.w),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: !isAnnualSelected
-                      ? RishColors.primary
-                      : RishColors.textSecondary,
-                  width: 2,
+    // [Adaptive Sizing] Определяем размер экрана для адаптации
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // [Screen Size Categories] Категории размеров экрана
+    // Маленький экран: высота < 700 или ширина < 350
+    final isSmallScreen = screenHeight < 700 || screenWidth < 350;
+    // Средний экран: высота между 700 и 850
+    final isMediumScreen = screenHeight >= 700 && screenHeight < 850;
+
+    // [Adaptive Padding] Адаптивные отступы в зависимости от размера экрана
+    final verticalPadding =
+        isSmallScreen ? 12.h : (isMediumScreen ? 16.h : 20.h);
+    final horizontalPadding = isSmallScreen ? 8.w : 12.w;
+
+    // [Adaptive Font Sizes] Адаптивные размеры шрифтов
+    final titleFontSize = isSmallScreen ? 14.0 : 16.0;
+    final priceFontSize = isSmallScreen ? 12.0 : 14.0;
+    final yearPriceFontSize = isSmallScreen ? 10.0 : 12.0;
+    final badgeFontSize = isSmallScreen ? 8.0 : 10.0;
+
+    // [Adaptive Spacing] Адаптивные отступы между элементами
+    final spacingBetweenButtons = isSmallScreen ? 8.w : 12.w;
+    final spacingBetweenTexts = isSmallScreen ? 2.h : 4.h;
+
+    // [Equal Height Buttons] Используем IntrinsicHeight для выравнивания кнопок по высоте
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          // [Monthly Button] Кнопка месячной подписки
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
+                  selectedProduct = monthlyProduct;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  vertical: verticalPadding,
+                  horizontal: horizontalPadding,
                 ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Monthly',
-                    style: context.styles.boldMedium,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: !isAnnualSelected
+                        ? RishColors.primary
+                        : RishColors.textSecondary,
+                    width: 2,
                   ),
-                  // SizedBox(height: 4.h),
-                  Text(
-                    '$monthlyPrice/month',
-                    style: context.styles.regularMedium,
-                  ),
-                ],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // [Monthly Label] Адаптивный текст "Monthly"
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Monthly',
+                        style: context.styles.boldMedium.copyWith(
+                          fontSize: titleFontSize,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                      ),
+                    ),
+                    SizedBox(height: spacingBetweenTexts),
+                    // [Monthly Price] Адаптивный текст с ценой в формате "Валюта, сумма, пробел, /, пробел, период"
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        monthlyPriceFormatted,
+                        style: context.styles.regularMedium.copyWith(
+                          fontSize: priceFontSize,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                      ),
+                    ),
+                    // [Spacer] Добавляем невидимый элемент для выравнивания высоты
+                    // Это компенсирует третью строку в кнопке Annually
+                    SizedBox(height: spacingBetweenTexts),
+                    Opacity(
+                      opacity: 0,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          annualPriceFormatted,
+                          style: context.styles.regularSmall.copyWith(
+                            color: RishColors.textSecondary,
+                            fontSize: yearPriceFontSize,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        SizedBox(width: 12.w),
-        // [Annually Button]
-        Expanded(
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              GestureDetector(
-                key: ValueKey('annually_${selectedProduct?.vendorProductId}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  setState(() {
-                    selectedProduct = annualProduct;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  width: double.infinity,
-                  padding:
-                      EdgeInsets.symmetric(vertical: 16.h, horizontal: 12.w),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: isAnnualSelected
-                          ? RishColors.primary
-                          : RishColors.textSecondary,
-                      width: 2,
+          SizedBox(width: spacingBetweenButtons),
+          // [Annually Button] Кнопка годовой подписки
+          Expanded(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                GestureDetector(
+                  key: ValueKey('annually_${selectedProduct?.vendorProductId}'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    setState(() {
+                      selectedProduct = annualProduct;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      vertical: verticalPadding,
+                      horizontal: horizontalPadding,
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Annually',
-                        style: context.styles.boldMedium,
-                      ),
-                      // SizedBox(height: 4.h),
-                      Text(
-                        '$annualPricePerMonthString/month',
-                        style: context.styles.regularMedium,
-                      ),
-                      // SizedBox(height: 4.h),
-                      Text(
-                        '$annualPrice/year',
-                        style: context.styles.regularSmall.copyWith(
-                          color: RishColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // [Badge] "20% off" badge
-              Positioned(
-                top: -8.h,
-                right: 8.w,
-                child: IgnorePointer(
-                  child: Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     decoration: BoxDecoration(
-                      color: RishColors.primary,
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isAnnualSelected
+                            ? RishColors.primary
+                            : RishColors.textSecondary,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      '20% off',
-                      style: context.styles.boldSmall.copyWith(
-                        color: RishColors.formBackgroun,
-                        fontSize: 10,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // [Annually Label] Адаптивный текст "Annually"
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'Annually',
+                            style: context.styles.boldMedium.copyWith(
+                              fontSize: titleFontSize,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                          ),
+                        ),
+                        SizedBox(height: spacingBetweenTexts),
+                        // [Annual Price Per Month] Адаптивный текст с месячной ценой в формате "Валюта, сумма, пробел, /, пробел, период"
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            annualPricePerMonthFormatted,
+                            style: context.styles.regularMedium.copyWith(
+                              fontSize: priceFontSize,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                          ),
+                        ),
+                        SizedBox(height: spacingBetweenTexts),
+                        // [Annual Price] Адаптивный текст с годовой ценой в формате "Валюта, сумма, пробел, /, пробел, период"
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            annualPriceFormatted,
+                            style: context.styles.regularSmall.copyWith(
+                              color: RishColors.textSecondary,
+                              fontSize: yearPriceFontSize,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // [Badge] "20% off" badge - адаптивный размер
+                Positioned(
+                  top: isSmallScreen ? -6.h : -8.h,
+                  right: isSmallScreen ? 6.w : 8.w,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 6.w : 8.w,
+                        vertical: isSmallScreen ? 2.h : 4.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: RishColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '20% off',
+                        style: context.styles.boldSmall.copyWith(
+                          color: RishColors.formBackgroun,
+                          fontSize: badgeFontSize,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -765,7 +950,7 @@ mixin PaywallMixin on State<Paywall> {
     ),
   ];
 
-  void processPurchaseResult(String res) async {
+  Future<void> processPurchaseResult(String res) async {
     if (res == 'SUCCESS') {
       // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
       // (используется после завершения опросника)

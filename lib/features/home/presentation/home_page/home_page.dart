@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -296,8 +297,6 @@ class _HomePageBodyState extends State<_HomePageBody> {
         }
       },
       builder: (BuildContext context, state) {
-        // print(
-        //     'directusId: ${state.day.directusId}, cycleId: ${state.day.cycleId}');
         return RefreshIndicator(
           color: RishColors.primary,
           backgroundColor: RishColors.stroke,
@@ -322,7 +321,12 @@ class _HomePageBodyState extends State<_HomePageBody> {
                 },
               ),
               SizedBox(height: 20.h),
+              // [FIX] Используем whoopState.day для сегодняшнего дня, так как он содержит
+              // актуальные данные из Directus (включая welnessEntity), которые мы обновили
+              // при входе. Для других дней используем widget.day из UserBloc
+              // Добавляем key для принудительного обновления виджета при изменении day
               DailyWellnessWidget(
+                key: ValueKey('wellness_${widget.day.isToday ? state.day.directusId : widget.day.directusId}_${widget.day.welnessEntity?.consumedMeals.length ?? 0}'),
                 day: widget.day.isToday ? state.day : widget.day,
               ),
               SizedBox(height: 12.h),

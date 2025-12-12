@@ -79,10 +79,34 @@ class _FabOverlayWidget extends StatelessWidget {
                               enabled: true,
                               isLoading: false,
                               action: () async {
+                                // [subscriptionCheck] Проверяем статус подписки перед созданием плана
+                                if (!adapty.isActive) {
+                                  // [showDialog] Если подписка не активна, показываем диалог и ведем на paywall
+                                  // [note] Не закрываем overlay перед показом диалога, чтобы избежать ошибок размонтирования
+                                  if (context.mounted) {
+                                    await RishiDialog
+                                        .showSubscriptionRequiredDialog(
+                                      context,
+                                      body:
+                                          'Creating an individual meal plan is available only for subscribers.',
+                                      onUpgrade: () {
+                                        // [navigateToPaywall] Переходим на экран paywall для обновления подписки
+                                        appNavigationService.go(
+                                          path: AppRoutes.paywall.path,
+                                        );
+                                      },
+                                    );
+                                    // [hideOverlay] Закрываем overlay после закрытия диалога
+                                    onHideOverlay();
+                                  }
+                                  return;
+                                }
+
                                 if (!hasMealPlan) {
                                   onHideOverlay();
                                   // [action] Переход на страницу чата (страница 2) для создания нового плана
-                                  await homePageControllerService.navigateToPage(
+                                  await homePageControllerService
+                                      .navigateToPage(
                                     page: 2,
                                   );
                                 } else {
@@ -90,7 +114,7 @@ class _FabOverlayWidget extends StatelessWidget {
                                   // [action] Проверяем текущую страницу перед скроллом
                                   final currentPage =
                                       homePageControllerService.currentPage;
-                                  
+
                                   // [action] Если мы не на домашней странице (0), сначала переходим на неё
                                   if (currentPage != null && currentPage != 0) {
                                     await homePageControllerService
@@ -100,7 +124,7 @@ class _FabOverlayWidget extends StatelessWidget {
                                       const Duration(milliseconds: 200),
                                     );
                                   }
-                                  
+
                                   // [action] Выполняем скролл к meal plan на домашней странице
                                   await homePageControllerService
                                       .scrollToBottom();
@@ -117,7 +141,30 @@ class _FabOverlayWidget extends StatelessWidget {
                           enabled: true,
                           isLoading: false,
                           action: () async {
-                            // Переход на страницу meal prep (страница 1)
+                            // [subscriptionCheck] Проверяем статус подписки перед созданием meal prep
+                            if (!adapty.isActive) {
+                              // [showDialog] Если подписка не активна, показываем диалог и ведем на paywall
+                              // [note] Не закрываем overlay перед показом диалога, чтобы избежать ошибок размонтирования
+                              if (context.mounted) {
+                                await RishiDialog
+                                    .showSubscriptionRequiredDialog(
+                                  context,
+                                  body:
+                                      'Creating a new meal prep is available only for subscribers.',
+                                  onUpgrade: () {
+                                    // [navigateToPaywall] Переходим на экран paywall для обновления подписки
+                                    appNavigationService.go(
+                                      path: AppRoutes.paywall.path,
+                                    );
+                                  },
+                                );
+                                // [hideOverlay] Закрываем overlay после закрытия диалога
+                                onHideOverlay();
+                              }
+                              return;
+                            }
+
+                            // [navigateToMealPrep] Переход на страницу meal prep (страница 1)
                             await homePageControllerService.navigateToPage(
                               page: 1,
                             );

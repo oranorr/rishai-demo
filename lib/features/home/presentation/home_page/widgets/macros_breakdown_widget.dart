@@ -9,6 +9,18 @@ class _MacrosBreakdownWidget extends StatelessWidget {
   final bool isToday;
   final DayEntity day;
 
+  // [Константы размеров шрифтов] Переменные для адаптивных размеров текста
+  // Минимальные размеры для маленьких экранов
+  static const double _minTitleFontSize = 14;
+  static const double _minMacroLabelFontSize =
+      10; // Минимальный размер для макросов на одной строке
+  static const double _minKcalFontSize = 11;
+
+  // Максимальные размеры (из стилей)
+  static const double _maxTitleFontSize = 18; // boldLarge
+  static const double _maxMacroLabelFontSize = 18; // boldLarge
+  static const double _maxKcalFontSize = 16; // regularMedium
+
   // Локальный метод для расчета процентов макросов для конкретного дня
   (double proteinPer, double carbsPer, double fatsPer)
       _calculatePercentageForDay(DayEntity dayData) {
@@ -68,9 +80,14 @@ class _MacrosBreakdownWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
+              // [Заголовок] "Today's targets" с адаптивным размером
+              AutoSizeText(
                 "Today's targets",
                 style: context.styles.boldLarge,
+                maxLines: 1,
+                minFontSize: _minTitleFontSize,
+                maxFontSize: _maxTitleFontSize,
+                overflow: TextOverflow.ellipsis,
               ),
               SizedBox(width: 8.w),
               GestureDetector(
@@ -82,9 +99,16 @@ class _MacrosBreakdownWidget extends StatelessWidget {
                 child: SvgPicture.asset('assets/icons/info_round.svg'),
               ),
               const Spacer(),
-              Text(
+              // SizedBox(width: 8.w),
+              // [Калории] Общее количество калорий с адаптивным размером
+              AutoSizeText(
                 '${day.macros.kcal.comaThisNumber()} kcals',
                 style: context.styles.boldLarge,
+                maxLines: 1,
+                minFontSize: _minTitleFontSize,
+                maxFontSize: _maxTitleFontSize,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
               ),
             ],
           ),
@@ -142,88 +166,87 @@ class _MacrosBreakdownWidget extends StatelessWidget {
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  // Protein
+                  // [Protein] Макрос белка с адаптивным размером
                   Expanded(
                     child: Column(
                       children: [
-                        Text.rich(
-                          TextSpan(
-                            text:
-                                '${currentDay.macros.protein.comaThisNumber()}g ',
-                            style: context.styles.boldLarge
-                                .copyWith(color: RishColors.protein),
-                            children: [
-                              TextSpan(
-                                text: 'Protein',
-                                style: context.styles.boldLarge
-                                    .copyWith(color: RishColors.protein),
-                              ),
-                            ],
-                          ),
+                        AutoSizeText(
+                          '${currentDay.macros.protein.comaThisNumber()}g Protein',
+                          style: context.styles.boldLarge
+                              .copyWith(color: RishColors.protein),
                           textAlign: TextAlign.center,
+                          maxLines: 1, // Одна строка для умещения на экране
+                          maxFontSize: _maxMacroLabelFontSize,
+                          minFontSize: _minMacroLabelFontSize,
                         ),
-                        Text(
+                        SizedBox(height: 4.h),
+                        AutoSizeText(
                           '${kcals.$2.comaThisNumber()} kcals',
                           style: context.styles.regularMedium
                               .copyWith(color: Colors.white70),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          minFontSize: _minKcalFontSize,
+                          maxFontSize: _maxKcalFontSize,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  // Carbs
+                  SizedBox(width: 10.w),
+
+                  // [Carbs] Макрос углеводов с адаптивным размером
                   Expanded(
                     child: Column(
                       children: [
-                        Text.rich(
-                          TextSpan(
-                            text:
-                                '${currentDay.macros.carbs.comaThisNumber()}g ',
-                            style: context.styles.boldLarge
-                                .copyWith(color: RishColors.carbs),
-                            children: [
-                              TextSpan(
-                                text: 'Carbs',
-                                style: context.styles.boldLarge
-                                    .copyWith(color: RishColors.carbs),
-                              ),
-                            ],
-                          ),
+                        AutoSizeText(
+                          '${currentDay.macros.carbs.comaThisNumber()}g Carbs',
+                          style: context.styles.boldLarge
+                              .copyWith(color: RishColors.carbs),
                           textAlign: TextAlign.center,
+                          maxLines: 1, // Одна строка для умещения на экране
+                          maxFontSize: _maxMacroLabelFontSize,
+                          minFontSize: _minMacroLabelFontSize,
                         ),
-                        Text(
+                        SizedBox(height: 4.h),
+                        AutoSizeText(
                           '${kcals.$1.comaThisNumber()} kcals',
                           style: context.styles.regularMedium
                               .copyWith(color: Colors.white70),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          minFontSize: _minKcalFontSize,
+                          maxFontSize: _maxKcalFontSize,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
-                  // Fat
+                  SizedBox(
+                    width: 10.w,
+                  ), // [Fat] Макрос жиров с адаптивным размером
                   Expanded(
                     child: Column(
                       children: [
-                        Text.rich(
-                          TextSpan(
-                            text: '${currentDay.macros.fat.comaThisNumber()}g ',
-                            style: context.styles.boldLarge
-                                .copyWith(color: RishColors.fat),
-                            children: [
-                              TextSpan(
-                                text: 'Fats',
-                                style: context.styles.boldLarge
-                                    .copyWith(color: RishColors.fat),
-                              ),
-                            ],
-                          ),
+                        AutoSizeText(
+                          '${currentDay.macros.fat.comaThisNumber()}g Fats',
+                          style: context.styles.boldLarge
+                              .copyWith(color: RishColors.fat),
                           textAlign: TextAlign.center,
+                          maxLines: 1, // Одна строка для умещения на экране
+                          maxFontSize: _maxMacroLabelFontSize,
+                          minFontSize: _minMacroLabelFontSize,
                         ),
-                        Text(
+                        SizedBox(height: 4.h),
+                        AutoSizeText(
                           '${kcals.$3.comaThisNumber()} kcals',
                           style: context.styles.regularMedium
                               .copyWith(color: Colors.white70),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          minFontSize: _minKcalFontSize,
+                          maxFontSize: _maxKcalFontSize,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

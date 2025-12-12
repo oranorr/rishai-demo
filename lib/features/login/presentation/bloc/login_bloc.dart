@@ -220,6 +220,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     chatBloc.add(const ChatOnLogout(needsCounterClear: true));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
     weekPlanBloc.add(const WeekPlanClear());
+    whoopBloc.add(WhoopResetState());
     appNavigationService.go(path: AppRoutes.login.path);
   }
 

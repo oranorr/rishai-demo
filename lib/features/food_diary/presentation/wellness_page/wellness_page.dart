@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/build_context_extension.dart';
@@ -45,7 +46,7 @@ class WellnessPage extends StatelessWidget {
                   onTap: () async => RishiDialog.infoPopup(
                     context,
                     '''
-The Daily Nutritional Wellness Score is your personal performance tracker and gives you a clear snapshot of how well you're fueling your body, measuring your nutritional consistency.
+The Daily Nutritional Wellness Score (DNWS) is your personal performance tracker and gives you a clear snapshot of how well you're fueling your body, measuring your nutritional consistency.
 
 Our proprietary algorithm calculates a % score based on how closely your calorie and macro intake matches your daily targets.
 

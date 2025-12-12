@@ -321,7 +321,7 @@ class __AutoPromptsState extends State<_AutoPrompts>
         chatBloc.add(
           const ChatSendMessage(
             text:
-                "Hello! I'm your AI nutrition coach. Go ask me anything about nutrition, or create a meal plan to get started!",
+                "Hi, I'm your Pivot AI coach. Ask me anything related to nutrition or wellness, or create a meal plan to get started",
             isMe: false,
           ),
         );

@@ -39,7 +39,24 @@ class DayManagerImpl implements DayManager {
         query: Query(limit: 1),
       );
 
-      return days.isNotEmpty ? DayEntity.fromMap(days.first) : null;
+      if (days.isEmpty) return null;
+      
+      // [_findExistingDayByCycleId] Проверяем наличие welnessEntity
+      final dayData = days.first;
+      final hasWellness = dayData.containsKey('welnessEntity') &&
+          dayData['welnessEntity'] != null &&
+          dayData['welnessEntity'] is Map<String, dynamic> &&
+          (dayData['welnessEntity'] as Map<String, dynamic>).isNotEmpty;
+      
+      final dayEntity = DayEntity.fromMap(dayData);
+      
+      if (hasWellness && dayEntity.welnessEntity == null) {
+        _logger(
+          '⚠️ ПРЕДУПРЕЖДЕНИЕ: День с cycleId=$cycleId имел welnessEntity в Directus, но после парсинга стал null!',
+        );
+      }
+      
+      return dayEntity;
     } catch (e) {
       _logger('Ошибка поиска дня по cycleId: $e');
       return null;
@@ -86,12 +103,17 @@ class DayManagerImpl implements DayManager {
       }
 
       // Получаем полные данные из Directus
+      // [getUserDays] Явно запрашиваем все поля, включая welnessEntity
+      // Directus может не возвращать null поля по умолчанию, поэтому важно
+      // убедиться, что все нужные поля запрашиваются
       final days = await directus.readMany(
         collection: daysCollection,
         filters: Filters({'userId': F.eq(userId)}),
         query: Query(
           sort: ['dateTime'],
           limit: 1000,
+          // Явно указываем поля для гарантии получения welnessEntity
+          // Если fields не указан, Directus возвращает все поля, но лучше быть явным
         ),
       );
 
@@ -99,13 +121,53 @@ class DayManagerImpl implements DayManager {
 
       // Конвертируем в сущности и сохраняем в кэш
       final dayEntities = <DayEntity>[];
+      int daysWithWellness = 0;
+      int daysWithoutWellness = 0;
+      
       for (final dayData in days) {
+        // [getUserDays] Логируем наличие welnessEntity для отладки
+        final hasWellness = dayData.containsKey('welnessEntity') &&
+            dayData['welnessEntity'] != null &&
+            dayData['welnessEntity'] is Map<String, dynamic> &&
+            (dayData['welnessEntity'] as Map<String, dynamic>).isNotEmpty;
+        
+        if (hasWellness) {
+          daysWithWellness++;
+          // [getUserDays] Детальное логирование для отладки потери welnessEntity
+          final wellnessData = dayData['welnessEntity'] as Map<String, dynamic>;
+          final consumedMealsCount = (wellnessData['consumedMeals'] as List<dynamic>?)?.length ?? 0;
+          _logger(
+            'День ID=${dayData['id']} содержит welnessEntity с $consumedMealsCount блюдами',
+          );
+        } else {
+          daysWithoutWellness++;
+          // Логируем только если ожидалось наличие welnessEntity
+          final dayId = dayData['id'];
+          _logger(
+            'День ID=$dayId не содержит welnessEntity (поле присутствует: ${dayData.containsKey('welnessEntity')}, значение: ${dayData['welnessEntity']})',
+          );
+        }
+        
         final dayEntity = DayEntity.fromMap(dayData);
+        
+        // Дополнительная проверка после парсинга
+        if (hasWellness && dayEntity.welnessEntity == null) {
+          _logger(
+            '⚠️ ПРЕДУПРЕЖДЕНИЕ: День ID=${dayEntity.directusId} имел welnessEntity в Directus, но после парсинга стал null!',
+          );
+        } else if (hasWellness && dayEntity.welnessEntity != null) {
+          _logger(
+            '✅ День ID=${dayEntity.directusId} успешно загружен с welnessEntity (${dayEntity.welnessEntity!.consumedMeals.length} блюд)',
+          );
+        }
+        
         dayEntities.add(dayEntity);
         await hive.saveDay(data: dayEntity);
       }
-
-      _logger('Успешно обработано ${dayEntities.length} дней');
+      
+      _logger(
+        'Успешно обработано ${dayEntities.length} дней: с wellness=$daysWithWellness, без wellness=$daysWithoutWellness',
+      );
       return Right(dayEntities);
     } catch (e, stackTrace) {
       _logger('Ошибка при получении дней пользователя: $e');
@@ -140,8 +202,31 @@ class DayManagerImpl implements DayManager {
         return null;
       }
 
-      final lastDay = DayEntity.fromMap(days.first);
-      _logger('Последний день пользователя: ${lastDay.dateTime}');
+      // [getLastUserDay] Проверяем наличие welnessEntity перед парсингом
+      final dayData = days.first;
+      final hasWellness = dayData.containsKey('welnessEntity') &&
+          dayData['welnessEntity'] != null &&
+          dayData['welnessEntity'] is Map<String, dynamic> &&
+          (dayData['welnessEntity'] as Map<String, dynamic>).isNotEmpty;
+      
+      if (hasWellness) {
+        _logger('Последний день содержит welnessEntity');
+      } else {
+        _logger(
+          'Последний день НЕ содержит welnessEntity (поле присутствует: ${dayData.containsKey('welnessEntity')}, значение: ${dayData['welnessEntity']})',
+        );
+      }
+
+      final lastDay = DayEntity.fromMap(dayData);
+      
+      // Проверка после парсинга
+      if (hasWellness && lastDay.welnessEntity == null) {
+        _logger(
+          '⚠️ ПРЕДУПРЕЖДЕНИЕ: Последний день имел welnessEntity в Directus, но после парсинга стал null!',
+        );
+      }
+      
+      _logger('Последний день пользователя: ${lastDay.dateTime}, wellness: ${lastDay.welnessEntity != null ? "есть" : "нет"}');
       return lastDay;
     } catch (e, stackTrace) {
       _logger('Ошибка при получении последнего дня: $e');
@@ -178,22 +263,70 @@ class DayManagerImpl implements DayManager {
       if (existingDay != null) {
         // Обновляем существующий день
         _logger('Обновление существующего дня: ${existingDay.directusId}');
+        _logger(
+          'Данные для обновления: wellness=${day.welnessEntity != null ? "есть (${day.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+        );
+        
         final raw = await directus.updateOne(
           collection: daysCollection,
           itemId: existingDay.directusId.toString(),
           updateData: day.toDirectus(userId: userId),
         );
+        
+        // [createOrUpdateDay] Проверяем welnessEntity после обновления
+        final hasWellness = raw.containsKey('welnessEntity') &&
+            raw['welnessEntity'] != null &&
+            raw['welnessEntity'] is Map<String, dynamic> &&
+            (raw['welnessEntity'] as Map<String, dynamic>).isNotEmpty;
+        
         resultDay = DayEntity.fromMap(raw);
-        _logger('День успешно обновлен');
+        
+        if (day.welnessEntity != null && resultDay.welnessEntity == null) {
+          _logger(
+            '⚠️ ПРЕДУПРЕЖДЕНИЕ: welnessEntity был отправлен на обновление, но не вернулся из Directus!',
+          );
+        } else if (hasWellness && resultDay.welnessEntity == null) {
+          _logger(
+            '⚠️ ПРЕДУПРЕЖДЕНИЕ: welnessEntity был в ответе Directus, но потерялся при парсинге!',
+          );
+        } else {
+          _logger(
+            'День успешно обновлен: wellness=${resultDay.welnessEntity != null ? "есть" : "нет"}',
+          );
+        }
       } else {
         // Создаем новый день
         _logger('Создание нового дня');
+        _logger(
+          'Данные для создания: wellness=${day.welnessEntity != null ? "есть (${day.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+        );
+        
         final createdDay = await directus.createOne(
           collection: daysCollection,
           data: day.toDirectus(userId: userId),
         );
+        
+        // [createOrUpdateDay] Проверяем welnessEntity после создания
+        final hasWellness = createdDay.containsKey('welnessEntity') &&
+            createdDay['welnessEntity'] != null &&
+            createdDay['welnessEntity'] is Map<String, dynamic> &&
+            (createdDay['welnessEntity'] as Map<String, dynamic>).isNotEmpty;
+        
         resultDay = DayEntity.fromMap(createdDay);
-        _logger('Новый день создан с id: ${resultDay.directusId}');
+        
+        if (day.welnessEntity != null && resultDay.welnessEntity == null) {
+          _logger(
+            '⚠️ ПРЕДУПРЕЖДЕНИЕ: welnessEntity был отправлен при создании, но не вернулся из Directus!',
+          );
+        } else if (hasWellness && resultDay.welnessEntity == null) {
+          _logger(
+            '⚠️ ПРЕДУПРЕЖДЕНИЕ: welnessEntity был в ответе Directus, но потерялся при парсинге!',
+          );
+        } else {
+          _logger(
+            'Новый день создан с id: ${resultDay.directusId}, wellness=${resultDay.welnessEntity != null ? "есть" : "нет"}',
+          );
+        }
       }
 
       // Сохраняем в кэш
@@ -245,8 +378,22 @@ class DayManagerImpl implements DayManager {
         return null;
       }
 
-      final dayEntity = DayEntity.fromMap(days.first);
-      _logger('Найден день с cycleId: ${dayEntity.cycleId}');
+      // [getDayByCycleId] Проверяем наличие welnessEntity
+      final dayData = days.first;
+      final hasWellness = dayData.containsKey('welnessEntity') &&
+          dayData['welnessEntity'] != null &&
+          dayData['welnessEntity'] is Map<String, dynamic> &&
+          (dayData['welnessEntity'] as Map<String, dynamic>).isNotEmpty;
+      
+      final dayEntity = DayEntity.fromMap(dayData);
+      
+      if (hasWellness && dayEntity.welnessEntity == null) {
+        _logger(
+          '⚠️ ПРЕДУПРЕЖДЕНИЕ: День с cycleId=$cycleId имел welnessEntity в Directus, но после парсинга стал null!',
+        );
+      }
+      
+      _logger('Найден день с cycleId: ${dayEntity.cycleId}, wellness: ${dayEntity.welnessEntity != null ? "есть" : "нет"}');
       return dayEntity;
     } catch (e, stackTrace) {
       _logger('Ошибка при поиске дня по cycleId: $e');
@@ -351,7 +498,28 @@ class DayManagerImpl implements DayManager {
         id: lastDayId.toString(),
       );
 
+      // [getLastDayWithCycleStatus] Проверяем наличие welnessEntity перед парсингом
+      final hasWellness = fullDayData.containsKey('welnessEntity') &&
+          fullDayData['welnessEntity'] != null &&
+          fullDayData['welnessEntity'] is Map<String, dynamic> &&
+          (fullDayData['welnessEntity'] as Map<String, dynamic>).isNotEmpty;
+      
+      if (hasWellness) {
+        _logger('Последний день (по ID) содержит welnessEntity');
+      } else {
+        _logger(
+          'Последний день (по ID) НЕ содержит welnessEntity (поле присутствует: ${fullDayData.containsKey('welnessEntity')}, значение: ${fullDayData['welnessEntity']})',
+        );
+      }
+
       final lastDay = DayEntity.fromMap(fullDayData);
+      
+      // Проверка после парсинга
+      if (hasWellness && lastDay.welnessEntity == null) {
+        _logger(
+          '⚠️ ПРЕДУПРЕЖДЕНИЕ: Последний день (ID=$lastDayId) имел welnessEntity в Directus, но после парсинга стал null!',
+        );
+      }
 
       // Если проверка статуса цикла не требуется, возвращаем день как активный
       if (!checkCycleStatus || cycleId == null) {
