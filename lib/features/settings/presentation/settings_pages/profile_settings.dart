@@ -80,7 +80,9 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
 
           // Проверяем списки диет
           final isDietsMatch = listEquals(
-              blocUser.foodPreferences?.diets, updUser.foodPreferences?.diets);
+            blocUser.foodPreferences?.diets,
+            updUser.foodPreferences?.diets,
+          );
 
           if (isGoalMatch && isModMatch && isGenderMatch && isDietsMatch) {
             setState(() {
@@ -299,7 +301,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           preSelectedData: user.foodPreferences!.diets.join(', '),
           action: () async {
             await ModalSheet.showQuestionarySheet(
-              title: 'Dietary prefrence',
+              title: 'Dietary preferences',
               context: context,
               data: QuestionaryRepository().diets,
               onSave: (List<Question> selectedDiets) {
@@ -319,7 +321,7 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
           preSelectedData: user.foodPreferences!.cuisines.join(', '),
           action: () async {
             await ModalSheet.showQuestionarySheet(
-              title: 'Cuisine prefrences',
+              title: 'Cuisine preferences',
               context: context,
               data: QuestionaryRepository().cuisines,
               onSave: (List<Question> selectedCuisines) {

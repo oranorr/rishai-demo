@@ -10,6 +10,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rishai/app.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
+import 'package:rishai/core/services/ads/ads_repository.dart';
 import 'package:rishai/core/services/analytics/analytics_event_tracker.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -146,6 +147,15 @@ void main() async {
       AnalyticsEventTracker().init();
 
       await adapty.initAdapty();
+
+      // Инициализация Google Mobile Ads SDK
+      try {
+        final adsRepository = getIt<AdsRepository>();
+        await adsRepository.init();
+        print('[main] Google Mobile Ads SDK инициализирован');
+      } catch (e) {
+        print('[main] Ошибка инициализации Google Mobile Ads SDK: $e');
+      }
 
       // ВАЖНО: преференсы должны инициализироваться ДО Hive,
       // так как версионирование схемы данных зависит от SharedPreferences

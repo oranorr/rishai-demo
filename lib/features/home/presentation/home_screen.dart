@@ -10,6 +10,7 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/home_page_controller/home_page_controller_service_impl.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
+import 'package:rishai/core/widgets/banner_ad_widget.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
@@ -104,7 +105,8 @@ class _HomeScreenState extends State<HomeScreen>
     // ┌─────────────────────────────────────────────────────────┐
     // │ Отписываемся от изменений текущей страницы               │
     // └─────────────────────────────────────────────────────────┘
-    homePageControllerService.currentPageNotifier.removeListener(_onPageChanged);
+    homePageControllerService.currentPageNotifier
+        .removeListener(_onPageChanged);
     // Отменяем регистрацию PageController в сервисе
     homePageControllerService.unregisterPageController();
     // Освобождаем ресурсы PageController
@@ -203,10 +205,10 @@ class _HomeScreenState extends State<HomeScreen>
         if (currentPage == 1) {
           // Получаем текущее состояние WeekPlanBloc
           final weekPlanState = weekPlanBloc.state;
-          
+
           // Проверяем, есть ли у пользователя планы питания
           final hasMealPlans = weekPlanState.allWeekPlans.isNotEmpty;
-          
+
           // Если планы есть - не показываем попап при открытии экрана
           if (hasMealPlans) {
             // Пользователь может просматривать существующие планы,
@@ -229,7 +231,8 @@ class _HomeScreenState extends State<HomeScreen>
           dialogBody =
               'Access to 5-day meal prep is available only for subscribers.';
         } else {
-          dialogBody = 'Access to AI-Coach chat is available only for subscribers.';
+          dialogBody =
+              'Access to AI-Coach chat is available only for subscribers.';
         }
 
         // ┌─────────────────────────────────────────────────────────┐
@@ -276,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen>
             final weekPlanStateAfterDelay = weekPlanBloc.state;
             final hasMealPlansAfterDelay =
                 weekPlanStateAfterDelay.allWeekPlans.isNotEmpty;
-            
+
             // Если планы появились за время задержки - не показываем попап
             if (hasMealPlansAfterDelay) {
               return;
@@ -381,6 +384,24 @@ class _HomeScreenState extends State<HomeScreen>
                     _FabOverlayWidget(
                       overlayAnimation: _overlayAnimation,
                       onHideOverlay: _hideOverlay,
+                    ),
+                  // ┌─────────────────────────────────────────────────────────┐
+                  // │ Баннерная реклама слева от FAB                        │
+                  // │ Отображается только на страницах, где есть FAB        │
+                  // │ (не на страницах 1 и 2)                               │
+                  // │ Размещается над bottomNavigationBar, слева от FAB      │
+                  // └─────────────────────────────────────────────────────────┘
+                  if ((currentPage != 4) && !adapty.isActive)
+                    Positioned(
+                      left: 0.w,
+                      bottom: 0,
+                      right:
+                          (currentPage == 1 || currentPage == 2) ? 0.w : 60.w,
+                      // bottom: kBottomNavigationBarHeight + 8.h, // Высота bottomNavigationBar + небольшой отступ
+                      child: BannerAdWidget(
+                        androidAdUnitId: 'ca-app-pub-9722388149022562/2699709086',
+                        iosAdUnitId: 'ca-app-pub-9722388149022562/9354399731',
+                      ),
                     ),
                 ],
               ),

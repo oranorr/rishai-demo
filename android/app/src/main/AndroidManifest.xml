@@ -101,6 +101,11 @@
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
         <meta-data android:name="AdaptyPublicSdkKey" android:value="public_live_LKsqyHpI.uNBDvmJqMT1WEzHrJDsL" />
+        
+        <!-- Google AdMob App ID (продакшн) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-9722388149022562~6099758427"/>
     </application>
 
     <queries>

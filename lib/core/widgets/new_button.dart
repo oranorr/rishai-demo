@@ -64,14 +64,16 @@ class RishButton extends StatefulWidget {
     required VoidCallback action,
     Color? textColor,
     double? height,
+    Color? borderColor,
   }) {
     return RishButton(
       title: title,
       backgroundColor: Colors.transparent,
-      needsBorder: false,
+      needsBorder: borderColor != null,
       textColor: textColor ?? RishColors.primary,
       action: action,
       height: height ?? 58.h,
+      borderColor: borderColor,
     );
   }
   final String title;

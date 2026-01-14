@@ -20,6 +20,8 @@ import 'package:rishai/core/services/adapty_service/adapty_repository.dart'
     as _i1067;
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
     as _i910;
+import 'package:rishai/core/services/ads/ads_repository.dart' as _i373;
+import 'package:rishai/core/services/ads/ads_repository_impl.dart' as _i368;
 import 'package:rishai/core/services/analytics/analytics_repository.dart'
     as _i149;
 import 'package:rishai/core/services/analytics/analytics_repository_impl.dart'
@@ -177,6 +179,7 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i675.RemoteDataSourceImpl());
     gh.singleton<_i751.AccountsWhiteListService>(
         () => _i748.AccountsWhiteListServiceImpl(gh<_i89.DirectusService>()));
+    gh.singleton<_i373.AdsRepository>(() => _i368.AdsRepositoryImpl());
     gh.singleton<_i1067.AdaptyRepository>(() => _i910.AdaptyRepositoryImpl());
     gh.singleton<_i675.WhoopRemoteDataSource>(
         () => _i675.WhoopRemoteDataSourceImpl());

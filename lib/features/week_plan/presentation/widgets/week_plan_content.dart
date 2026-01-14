@@ -41,6 +41,13 @@ class _WeekPlanContentState extends State<WeekPlanContent> with WeekPlanMixin {
   // Флаг для отслеживания, выполняется ли в данный момент программное изменение страницы
   bool _isPageChangeFromTap = false;
 
+  // [isExportingGroceryList] Флаг состояния загрузки при экспорте списка покупок
+  bool _isExportingGroceryList = false;
+
+  // [exportButtonKey] GlobalKey для получения позиции кнопки экспорта
+  // Необходимо для передачи sharePositionOrigin на iOS
+  final GlobalKey _exportButtonKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -265,25 +272,109 @@ class _WeekPlanContentState extends State<WeekPlanContent> with WeekPlanMixin {
                   ),
                   Padding(
                     padding: EdgeInsets.only(top: 10.h),
-                    child: RishButton.primary(
-                      title: 'Export grocery list',
-                      enabled: true,
-                      isLoading: false,
-                      action: () async {
-                        // Трекинг экспорта списка покупок из недельного плана
-                        await analytics.logCustomEvent(
-                          name: 'export_grocery_list_from_week_plan',
-                          parameters: {
-                            'day_index': selectedIndex,
-                            'timestamp': DateTime.now().millisecondsSinceEpoch,
-                          },
-                        );
+                    child: Container(
+                      key: _exportButtonKey,
+                      child: RishButton.primary(
+                        title: 'Export grocery list',
+                        enabled: !_isExportingGroceryList,
+                        isLoading: _isExportingGroceryList,
+                        action: () async {
+                            // [exportGroceryList] Экспорт списка покупок с обработкой ошибок
+                            // Предотвращаем множественные нажатия
+                            if (_isExportingGroceryList) return;
 
-                        final allIngredients = collectAllIngredients(plan);
-                        final pdfService = PdfService();
-                        await pdfService.generateShoppingList(allIngredients);
-                      },
-                    ),
+                            setState(() {
+                              _isExportingGroceryList = true;
+                            });
+
+                            try {
+                              // [trackExport] Трекинг экспорта списка покупок из недельного плана
+                              await analytics.logCustomEvent(
+                                name: 'export_grocery_list_from_week_plan',
+                                parameters: {
+                                  'day_index': selectedIndex,
+                                  'timestamp': DateTime.now().millisecondsSinceEpoch,
+                                },
+                              );
+
+                              // [collectIngredients] Собираем все ингредиенты из недельного плана
+                              final allIngredients = collectAllIngredients(plan);
+
+                              // [validateIngredients] Проверяем, что есть ингредиенты для экспорта
+                              if (allIngredients.isEmpty) {
+                                throw PdfServiceException(
+                                  'No ingredients found in the meal plan',
+                                );
+                              }
+
+                              // [getButtonPosition] Получаем позицию кнопки для sharePositionOrigin на iOS
+                              // Это необходимо для корректной работы share sheet, особенно на iPad
+                              // iOS требует валидную позицию с ненулевым размером
+                              Rect? sharePositionOrigin;
+                              if (Platform.isIOS) {
+                                try {
+                                  final BuildContext? buttonContext = _exportButtonKey.currentContext;
+                                  if (buttonContext != null) {
+                                    final RenderBox? renderBox = buttonContext
+                                        .findRenderObject() as RenderBox?;
+                                    if (renderBox != null && renderBox.hasSize) {
+                                      // [getGlobalPosition] Получаем позицию кнопки в глобальных координатах
+                                      final position = renderBox.localToGlobal(Offset.zero);
+                                      final size = renderBox.size;
+                                      
+                                      // [validatePosition] Проверяем, что размер не нулевой
+                                      // iOS требует ненулевой размер для sharePositionOrigin
+                                      if (size.width > 0 && size.height > 0) {
+                                        sharePositionOrigin = Rect.fromLTWH(
+                                          position.dx,
+                                          position.dy,
+                                          size.width,
+                                          size.height,
+                                        );
+                                        print('[WeekPlanContent.exportGroceryList] Button position: $sharePositionOrigin');
+                                      } else {
+                                        print('[WeekPlanContent.exportGroceryList] Warning: Button has zero size, using fallback');
+                                      }
+                                    } else {
+                                      print('[WeekPlanContent.exportGroceryList] Warning: RenderBox is null or has no size, using fallback');
+                                    }
+                                  } else {
+                                    print('[WeekPlanContent.exportGroceryList] Warning: Button context is null, using fallback');
+                                  }
+                                } catch (e) {
+                                  // [handlePositionError] Если не удалось получить позицию, используем fallback
+                                  print('[WeekPlanContent.exportGroceryList] Error getting button position: $e, using fallback');
+                                }
+                              }
+
+                              // [generatePdf] Генерируем PDF со списком покупок
+                              final pdfService = PdfService();
+                              await pdfService.generateShoppingList(
+                                allIngredients,
+                                sharePositionOrigin: sharePositionOrigin,
+                              );
+                            } on PdfServiceException catch (e) {
+                              // [handlePdfError] Обработка специфичных ошибок PDF сервиса
+                              print('[WeekPlanContent.exportGroceryList] PDF error: ${e.message}');
+                              RishSnackbar().showSnackBar(e.message);
+                            } catch (e, stackTrace) {
+                              // [handleGenericError] Обработка неожиданных ошибок
+                              print('[WeekPlanContent.exportGroceryList] Unexpected error: $e');
+                              print('[WeekPlanContent.exportGroceryList] Stack trace: $stackTrace');
+                              RishSnackbar().showSnackBar(
+                                'Failed to export grocery list. Please try again.',
+                              );
+                            } finally {
+                              // [resetLoadingState] Сбрасываем состояние загрузки в любом случае
+                              if (mounted) {
+                                setState(() {
+                                  _isExportingGroceryList = false;
+                                });
+                              }
+                            }
+                          },
+                        ),
+                      ),
                   ),
                   if (Platform.isAndroid) SizedBox(height: 30.h),
                 ],
