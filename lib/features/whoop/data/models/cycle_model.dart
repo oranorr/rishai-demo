@@ -29,21 +29,47 @@ class CycleModel {
     this.score,
   });
 
-  factory CycleModel.fromMap(Map<String, dynamic> map) {
+  /// Безопасный парсинг для случаев, когда WHOOP отдает null/неожиданные типы.
+  /// Возвращает null, если обязательные поля отсутствуют или некорректны.
+  static CycleModel? tryFromMap(Map<String, dynamic> map) {
+    final id = _asInt(map['id']);
+    final userId = _asInt(map['user_id']);
+    final createdAt = _asDateTime(map['created_at']);
+    final start = _asDateTime(map['start']);
+    final scoreState = _asString(map['score_state']);
+
+    if (id == null ||
+        userId == null ||
+        createdAt == null ||
+        start == null ||
+        scoreState == null ||
+        scoreState.isEmpty) {
+      return null;
+    }
+
+    final updatedAt = _asDateTime(map['updated_at']);
+    final end = _asDateTime(map['end']);
+    final scoreMap = _asMap(map['score']);
+    final score = scoreMap != null ? CycleScore.tryFromMap(scoreMap) : null;
+
     return CycleModel(
-      id: map['id'] as int,
-      userId: map['user_id'] as int,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: map['updated_at'] != 'null'
-          ? DateTime.parse(map['updated_at'] as String)
-          : null,
-      start: DateTime.parse(map['start'] as String),
-      end: map['end'] != null ? DateTime.parse(map['end'] as String) : null,
-      scoreState: map['score_state'] as String,
-      score: map['score'] != 'null'
-          ? CycleScore.fromMap(map['score'] as Map<String, dynamic>)
-          : null,
+      id: id,
+      userId: userId,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      start: start,
+      end: end,
+      scoreState: scoreState,
+      score: score,
     );
+  }
+
+  factory CycleModel.fromMap(Map<String, dynamic> map) {
+    final parsed = tryFromMap(map);
+    if (parsed == null) {
+      throw const FormatException('Invalid CycleModel data');
+    }
+    return parsed;
   }
 
   factory CycleModel.fromJson(String source) =>
@@ -68,13 +94,35 @@ class CycleScore {
     required this.maxHeartRate,
   });
 
-  factory CycleScore.fromMap(Map<String, dynamic> map) {
+  /// Безопасный парсинг для случаев, когда WHOOP отдает null/неожиданные типы.
+  /// Возвращает null, если обязательные поля отсутствуют или некорректны.
+  static CycleScore? tryFromMap(Map<String, dynamic> map) {
+    final strain = _asDouble(map['strain']);
+    final kilojoule = _asDouble(map['kilojoule']);
+    final averageHeartRate = _asInt(map['average_heart_rate']);
+    final maxHeartRate = _asInt(map['max_heart_rate']);
+
+    if (strain == null ||
+        kilojoule == null ||
+        averageHeartRate == null ||
+        maxHeartRate == null) {
+      return null;
+    }
+
     return CycleScore(
-      strain: map['strain'] as double,
-      kilojoule: map['kilojoule'] as double,
-      averageHeartRate: map['average_heart_rate'] as int,
-      maxHeartRate: map['max_heart_rate'] as int,
+      strain: strain,
+      kilojoule: kilojoule,
+      averageHeartRate: averageHeartRate,
+      maxHeartRate: maxHeartRate,
     );
+  }
+
+  factory CycleScore.fromMap(Map<String, dynamic> map) {
+    final parsed = tryFromMap(map);
+    if (parsed == null) {
+      throw const FormatException('Invalid CycleScore data');
+    }
+    return parsed;
   }
 
   factory CycleScore.fromJson(String source) =>
@@ -84,4 +132,48 @@ class CycleScore {
   String toString() {
     return 'CycleScore(strain: $strain, kilojoule: $kilojoule, averageHeartRate: $averageHeartRate, maxHeartRate: $maxHeartRate)';
   }
+}
+
+// -------------------------
+// Helpers (safe parsing)
+// -------------------------
+int? _asInt(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
+double? _asDouble(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is double) return value;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+String? _asString(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is String) return value;
+  return value.toString();
+}
+
+DateTime? _asDateTime(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is DateTime) return value;
+  if (value is int) {
+    return DateTime.fromMillisecondsSinceEpoch(value);
+  }
+  if (value is String) {
+    if (value.isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+  return null;
+}
+
+Map<String, dynamic>? _asMap(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is Map<String, dynamic>) return value;
+  return null;
 }

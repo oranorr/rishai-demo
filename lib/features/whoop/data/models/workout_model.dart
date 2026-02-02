@@ -20,22 +20,59 @@ class WorkoutModel {
     this.end,
   });
 
+  /// Безопасный парсинг для случаев, когда WHOOP отдает null/неожиданные типы.
+  /// Возвращает null, если обязательные поля отсутствуют или некорректны.
+  static WorkoutModel? tryFromMap(Map<String, dynamic> map) {
+    final id = _asString(map['id']);
+    final userId = _asInt(map['user_id']);
+    final createdAt = _asDateTime(map['created_at']);
+    final updatedAt = _asDateTime(map['updated_at']);
+    final start = _asDateTime(map['start']);
+    final timezoneOffset = _asString(map['timezone_offset']);
+    final sportId = _asInt(map['sport_id']);
+    final scoreState = _asString(map['score_state']);
+
+    if (id == null ||
+        id.isEmpty ||
+        userId == null ||
+        createdAt == null ||
+        updatedAt == null ||
+        start == null ||
+        timezoneOffset == null ||
+        timezoneOffset.isEmpty ||
+        sportId == null ||
+        scoreState == null ||
+        scoreState.isEmpty) {
+      return null;
+    }
+
+    final end = _asDateTime(map['end']);
+    final scoreMap = _asMap(map['score']);
+    final score = scoreState == 'SCORED' && scoreMap != null
+        ? WorkoutScore.tryFromMap(scoreMap)
+        : null;
+
+    return WorkoutModel(
+      id: id,
+      userId: userId,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      start: start,
+      end: end,
+      timezoneOffset: timezoneOffset,
+      sportId: sportId,
+      scoreState: scoreState,
+      score: score,
+    );
+  }
+
   factory WorkoutModel.fromMap(Map<String, dynamic> map) {
     log(map.toString());
-    return WorkoutModel(
-      id: map['id'] as String,
-      userId: map['user_id'] as int,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
-      start: DateTime.parse(map['start'] as String),
-      end: map['end'] != null ? DateTime.parse(map['end'] as String) : null,
-      timezoneOffset: map['timezone_offset'] as String,
-      sportId: map['sport_id'] as int,
-      scoreState: map['score_state'] as String,
-      score: map['score_state'] == 'SCORED'
-          ? WorkoutScore.fromMap(map['score'])
-          : null,
-    );
+    final parsed = tryFromMap(map);
+    if (parsed == null) {
+      throw const FormatException('Invalid WorkoutModel data');
+    }
+    return parsed;
   }
 
   factory WorkoutModel.fromJson(String source) =>
@@ -96,16 +133,40 @@ class WorkoutScore {
     required this.distanceMeter,
   });
 
-  factory WorkoutScore.fromMap(Map<String, dynamic> map) {
+  /// Безопасный парсинг для случаев, когда WHOOP отдает null/неожиданные типы.
+  /// Возвращает null, если обязательные поля отсутствуют или некорректны.
+  static WorkoutScore? tryFromMap(Map<String, dynamic> map) {
+    final strain = _asDouble(map['strain']);
+    final averageHeartRate = _asInt(map['average_heart_rate']);
+    final maxHeartRate = _asInt(map['max_heart_rate']);
+    final kilojoule = _asDouble(map['kilojoule']);
+    final percentRecorded = _asDouble(map['percent_recorded']);
+    final distanceMeter = _asDouble(map['distance_meter']) ?? 0.0;
+
+    if (strain == null ||
+        averageHeartRate == null ||
+        maxHeartRate == null ||
+        kilojoule == null ||
+        percentRecorded == null) {
+      return null;
+    }
+
     return WorkoutScore(
-      strain: map['strain'] as double,
-      averageHeartRate: map['average_heart_rate'] as int,
-      maxHeartRate: map['max_heart_rate'] as int,
-      kilojoule: map['kilojoule'] as double,
-      percentRecorded: map['percent_recorded'] as double,
-      distanceMeter:
-          map['distance_meter'] != null ? map['distance_meter'] as double : 0.0,
+      strain: strain,
+      averageHeartRate: averageHeartRate,
+      maxHeartRate: maxHeartRate,
+      kilojoule: kilojoule,
+      percentRecorded: percentRecorded,
+      distanceMeter: distanceMeter,
     );
+  }
+
+  factory WorkoutScore.fromMap(Map<String, dynamic> map) {
+    final parsed = tryFromMap(map);
+    if (parsed == null) {
+      throw const FormatException('Invalid WorkoutScore data');
+    }
+    return parsed;
   }
 
   factory WorkoutScore.fromJson(String source) =>
@@ -167,4 +228,48 @@ class WorkoutScore {
         percentRecorded.hashCode ^
         distanceMeter.hashCode;
   }
+}
+
+// -------------------------
+// Helpers (safe parsing)
+// -------------------------
+int? _asInt(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
+double? _asDouble(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is double) return value;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+String? _asString(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is String) return value;
+  return value.toString();
+}
+
+DateTime? _asDateTime(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is DateTime) return value;
+  if (value is int) {
+    return DateTime.fromMillisecondsSinceEpoch(value);
+  }
+  if (value is String) {
+    if (value.isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+  return null;
+}
+
+Map<String, dynamic>? _asMap(dynamic value) {
+  if (value == null || value == 'null') return null;
+  if (value is Map<String, dynamic>) return value;
+  return null;
 }

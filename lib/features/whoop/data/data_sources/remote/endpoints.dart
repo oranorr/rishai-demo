@@ -21,7 +21,7 @@ class WhoopEndpoints {
 // {id: 1206115357, user_id: 57314, created_at: 2024-08-30T06:28:13.828Z, 
 // updated_at: 2024-08-30T06:28:17.415Z, start: 2024-08-30T05:30:00.875Z, end: 2024-08-30T06:10:29.061Z, 
 // timezone_offset: +04:00, sport_id: 44,
-//  score_state: SCORED,
+//  score_state: SCOREDа,
 //   score: {strain: 11.6135, average_heart_rate: 121, max_heart_rate: 160, kilojoule: 1272.5337, 
 //  percent_recorded: 100.0, distance_meter: 0.0, altitude_gain_meter: 0.0, altitude_change_meter: 0.0, 
 //  zone_duration: {zone_zero_milli: 295123, zone_one_milli: 228790, 

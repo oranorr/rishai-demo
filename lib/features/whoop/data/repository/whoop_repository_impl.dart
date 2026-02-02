@@ -376,7 +376,21 @@ class WhoopRepositoryImpl implements WhoopRepository {
           await tryFetch(() => remoteDataSource.getBodyData());
       final res = await tryFetch(() => remoteDataSource.getCycles());
 
-      List<CycleModel> cycles = res!.$1;
+      // Если не смогли получить циклы, считаем это критичной ошибкой и выходим
+      if (res == null) {
+        await WhoopErrorHandler.handleError(
+          'Failed to fetch cycles (null response)',
+          StackTrace.current,
+          context: 'whoop_fetch_fresh_data_cycles_null',
+          extras: {
+            'user_id': userId,
+            'directus_user_id': userId,
+          },
+        );
+        return const Left(WhoopNoDataFailure());
+      }
+
+      List<CycleModel> cycles = res.$1;
       int indexOfCurrentCycle = res.$2;
 
       List<WorkoutModel> workouts = [];
@@ -397,6 +411,68 @@ class WhoopRepositoryImpl implements WhoopRepository {
           await tryFetch(() => remoteDataSource.getLastSleep());
       log('sleep is: $sleep\n\n');
 
+      // -------------------------
+      // Жесткие гварды перед расчетами (без усложнения UI/UX)
+      // -------------------------
+      final List<String> missingReasons = [];
+
+      final hasCycles = cycles.isNotEmpty;
+      if (!hasCycles) {
+        missingReasons.add('cycles_empty');
+      }
+
+      if (body == null) {
+        missingReasons.add('body_null');
+      }
+
+      if (recovery == null) {
+        missingReasons.add('recovery_null');
+      } else if (recovery.score == null) {
+        missingReasons.add('recovery_score_null');
+      } else if (recovery.score!.recoveryScore.isNaN) {
+        missingReasons.add('recovery_score_nan');
+      }
+
+      if (sleep == null) {
+        missingReasons.add('sleep_null');
+      } else if (sleep.score == null) {
+        missingReasons.add('sleep_score_null');
+      } else if (sleep.score!.sleepPerformancePercentage == null) {
+        missingReasons.add('sleep_performance_null');
+      }
+
+      // Для расчетов нужны score в цикле (strain + kilojoule)
+      final CycleScore? cycleScore = hasCycles ? cycles.first.score : null;
+      if (cycleScore == null) {
+        missingReasons.add('cycle_score_null');
+      } else {
+        if (cycleScore.strain.isNaN) {
+          missingReasons.add('cycle_score_strain_nan');
+        }
+        if (cycleScore.kilojoule.isNaN) {
+          missingReasons.add('cycle_score_kilojoule_nan');
+        }
+      }
+
+      if (missingReasons.isNotEmpty) {
+        // Логируем четкую причину, но поведение UI остается прежним (snackbar)
+        await WhoopErrorHandler.handleError(
+          'Missing required data for fresh data fetch',
+          StackTrace.current,
+          context: 'whoop_fetch_fresh_data',
+          extras: {
+            'user_id': userId,
+            'directus_user_id': userId,
+            'missing_reasons': missingReasons,
+            'has_cycles': hasCycles,
+            'has_recovery': recovery != null,
+            'has_sleep': sleep != null,
+            'has_body': body != null,
+          },
+        );
+        return const Left(WhoopNoDataFailure());
+      }
+
       if (cycles.isNotEmpty &&
           recovery != null &&
           sleep != null &&
@@ -405,7 +481,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
 
         final double tdeeAverage = calculateTDEEAverage(cycles);
         print('>>> [_fetchFreshData] Calculated TDEE Average: $tdeeAverage');
-        final double strainValue = cycles.first.score!.strain;
+        final double strainValue = cycleScore!.strain;
 
         print(
           '>>> [_fetchFreshData] Calculating calorie goal with modificator: $modificator',
@@ -479,7 +555,7 @@ class WhoopRepositoryImpl implements WhoopRepository {
             requestsLeft: chatBloc.state.requestsLeft,
           ),
           healthMetrics: calcHealthMetrics(
-            (cycles.first.score!.kilojoule * kjToKcal).round(),
+            (cycleScore.kilojoule * kjToKcal).round(),
           ),
           dateTime: askTime,
           weekTdeeAverage: tdeeAverage.toInt(),

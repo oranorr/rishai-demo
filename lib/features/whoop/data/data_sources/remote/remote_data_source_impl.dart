@@ -10,6 +10,7 @@ import 'package:rishai/core/services/day_manager/day_manager_impl.dart' as dm;
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/network/request_timer.dart';
+import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
@@ -63,6 +64,15 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           'Failed to get body measurements: API returned null',
           name: 'WhoopBodyData',
         );
+        await WhoopErrorHandler.handleError(
+          'Body measurements response is null',
+          StackTrace.current,
+          context: 'whoop_body_data_null',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'endpoint': WhoopEndpoints().bodyMeasurements,
+          },
+        );
         return null;
       }
 
@@ -75,13 +85,51 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           'Body measurements data is incomplete: $rawBm',
           name: 'WhoopBodyData',
         );
+        await WhoopErrorHandler.handleError(
+          'Body measurements data is incomplete',
+          StackTrace.current,
+          context: 'whoop_body_data_incomplete',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'record_keys': rawBm.keys.toList(),
+          },
+        );
+        return null;
+      }
+
+      // Дополнительная защита от неожиданных типов (null, String, num)
+      final height = (rawBm['height_meter'] as num?)?.toDouble();
+      final weightKg = (rawBm['weight_kilogram'] as num?)?.toDouble();
+      final maxHeartRateRaw = rawBm['max_heart_rate'];
+      final maxHeartRate = maxHeartRateRaw is int
+          ? maxHeartRateRaw
+          : maxHeartRateRaw is num
+              ? maxHeartRateRaw.toInt()
+              : int.tryParse(maxHeartRateRaw?.toString() ?? '');
+
+      if (height == null || weightKg == null || maxHeartRate == null) {
+        log(
+          'Body measurements data has invalid types: $rawBm',
+          name: 'WhoopBodyData',
+        );
+        await WhoopErrorHandler.handleError(
+          'Body measurements data has invalid types',
+          StackTrace.current,
+          context: 'whoop_body_data_invalid_types',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'height_type': rawBm['height_meter']?.runtimeType.toString(),
+            'weight_type': rawBm['weight_kilogram']?.runtimeType.toString(),
+            'max_hr_type': rawBm['max_heart_rate']?.runtimeType.toString(),
+          },
+        );
         return null;
       }
 
       final bodyData = BodyMeasurementsEntity(
-        height: rawBm['height_meter'],
-        weight: (rawBm['weight_kilogram'] as double).round(),
-        maxHeartRate: rawBm['max_heart_rate'],
+        height: height,
+        weight: weightKg.round(),
+        maxHeartRate: maxHeartRate,
       );
 
       log(
@@ -116,16 +164,52 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       final List<Map<String, dynamic>> rawCycles =
           List<Map<String, dynamic>>.from(data['records']);
 
-      Map<String, dynamic> currentCycle =
-          rawCycles.firstWhere((map) => map['end'] == null);
+      final Map<String, dynamic>? currentCycle = rawCycles.firstWhere(
+        (map) => map['end'] == null,
+        orElse: () => <String, dynamic>{},
+      );
 
-      final List<CycleModel> cycles = rawCycles
+      if (currentCycle == null || currentCycle.isEmpty) {
+        await WhoopErrorHandler.handleError(
+          'Current cycle not found',
+          StackTrace.current,
+          context: 'whoop_cycles_current_missing',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'records_count': rawCycles.length,
+          },
+        );
+      }
+
+      final List<CycleModel> cycles = [];
+      final scoredCycles = rawCycles
           .take(8)
-          .where((raw) => raw['score_state'] == 'SCORED' && raw['end'] != null)
-          .map((map) => CycleModel.fromMap(map))
-          .toList();
+          .where((raw) => raw['score_state'] == 'SCORED' && raw['end'] != null);
+      for (final raw in scoredCycles) {
+        final parsed = CycleModel.tryFromMap(raw);
+        if (parsed == null) {
+          await WhoopErrorHandler.handleError(
+            'Failed to parse cycle record',
+            StackTrace.current,
+            context: 'whoop_parse_cycle',
+            extras: {
+              'directus_user_id': userBloc.state.user.directusId,
+              'record_keys': raw.keys.toList(),
+            },
+          );
+          continue;
+        }
+        cycles.add(parsed);
+      }
       log('CYCLES LENGTH: ${cycles.length}');
-      return (cycles, currentCycle['id'] as int);
+      final currentCycleIdRaw =
+          currentCycle != null ? currentCycle['id'] : null;
+      final currentCycleId = currentCycleIdRaw is int
+          ? currentCycleIdRaw
+          : currentCycleIdRaw is num
+              ? currentCycleIdRaw.toInt()
+              : int.tryParse(currentCycleIdRaw?.toString() ?? '');
+      return (cycles, currentCycleId ?? 0);
     } on Exception catch (__) {
       rethrow;
     }
@@ -137,15 +221,33 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   }) async {
     final data = await _makeRequest(WhoopEndpoints().workouts);
 
+    if (data == null || data['records'] == null) {
+      return [];
+    }
+
     List<Map<String, dynamic>> rawWorkouts =
-        List.from(data!['records']).cast<Map<String, dynamic>>();
+        List.from(data['records']).cast<Map<String, dynamic>>();
 
     List<Map<String, dynamic>> rawScoredWorkouts =
         rawWorkouts.where((raw) => raw['score_state'] == 'SCORED').toList();
 
-    List<WorkoutModel> workouts = rawScoredWorkouts.map((raw) {
-      return WorkoutModel.fromMap(raw);
-    }).toList();
+    final List<WorkoutModel> workouts = [];
+    for (final raw in rawScoredWorkouts) {
+      final parsed = WorkoutModel.tryFromMap(raw);
+      if (parsed == null) {
+        await WhoopErrorHandler.handleError(
+          'Failed to parse workout record',
+          StackTrace.current,
+          context: 'whoop_parse_workout',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'record_keys': raw.keys.toList(),
+          },
+        );
+        continue;
+      }
+      workouts.add(parsed);
+    }
     if (workouts.isNotEmpty) {
       return emptify
           ? []
@@ -173,7 +275,34 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
             recovery['cycle_id'] == cycleId,
         orElse: () => list.first,
       );
-      return RecoveryModel.fromJson(first);
+      if (first is! Map<String, dynamic>) {
+        await WhoopErrorHandler.handleError(
+          'Recovery record is not a map',
+          StackTrace.current,
+          context: 'whoop_parse_recovery_type',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'cycle_id': cycleId,
+            'record_type': first.runtimeType.toString(),
+          },
+        );
+        return null;
+      }
+      final parsed = RecoveryModel.tryFromJson(first);
+      if (parsed == null) {
+        await WhoopErrorHandler.handleError(
+          'Failed to parse recovery record',
+          StackTrace.current,
+          context: 'whoop_parse_recovery',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'cycle_id': cycleId,
+            'record_keys': first.keys.toList(),
+          },
+        );
+        return null;
+      }
+      return parsed;
     } else {
       return null;
     }
@@ -188,7 +317,32 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         (sleep) => sleep['score_state'] == 'SCORED',
         orElse: () => list.first,
       );
-      return SleepModel.fromMap(first);
+      if (first is! Map<String, dynamic>) {
+        await WhoopErrorHandler.handleError(
+          'Sleep record is not a map',
+          StackTrace.current,
+          context: 'whoop_parse_sleep_type',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'record_type': first.runtimeType.toString(),
+          },
+        );
+        return null;
+      }
+      final parsed = SleepModel.tryFromMap(first);
+      if (parsed == null) {
+        await WhoopErrorHandler.handleError(
+          'Failed to parse sleep record',
+          StackTrace.current,
+          context: 'whoop_parse_sleep',
+          extras: {
+            'directus_user_id': userBloc.state.user.directusId,
+            'record_keys': first.keys.toList(),
+          },
+        );
+        return null;
+      }
+      return parsed;
     } else {
       return null;
     }
@@ -230,6 +384,17 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       return jsonDecode(response.body);
     } else {
       log('Failed to get cycle data: ${response.statusCode} - ${response.body}, endpoint: $endpoint');
+      await WhoopErrorHandler.handleError(
+        'WHOOP API request failed',
+        StackTrace.current,
+        context: 'whoop_api_status',
+        response: response,
+        extras: {
+          'directus_user_id': userBloc.state.user.directusId,
+          'endpoint': endpoint,
+          'attempts': attempts,
+        },
+      );
       return null;
     }
   }
@@ -283,7 +448,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         // Возвращаем последний день как есть
         return lastDay;
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       log('Error in fetchDirectusData: $e');
       return null;
     }

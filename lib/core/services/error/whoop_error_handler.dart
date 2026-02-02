@@ -19,6 +19,16 @@ class WhoopErrorHandler {
           scope.setTag('error_context', context);
         }
 
+        // Привязываем событие к пользователю, если id передан в extras
+        final directusUserId = extras?['directus_user_id'];
+        if (directusUserId != null) {
+          scope.setUser(
+            SentryUser(
+              id: directusUserId.toString(),
+            ),
+          );
+        }
+
         // Добавляем дополнительные данные
         if (extras != null) {
           for (final entry in extras.entries) {
