@@ -898,7 +898,7 @@ class RishiDialog {
   /// [showPhotoUploadLimitDialog] Показывает диалог о лимите загрузки фотографий
   ///
   /// Показывает диалог с сообщением о том, что бесплатные пользователи могут
-  /// добавлять фотографию к блюду только раз в 24 часа. Имеет две кнопки:
+  /// использовать фотографию для блюда только один раз в день. Имеет две кнопки:
   /// - OK - закрывает диалог
   /// - Upgrade - переходит на экран paywall для снятия ограничений
   ///
@@ -945,9 +945,9 @@ class RishiDialog {
     );
   }
 
-  /// [_buildPhotoUploadLimitDialog] Строит виджет диалога о лимите загрузки фотографий
+  /// [_buildPhotoUploadLimitDialog] Строит виджет диалога о лимите использования фотографий
   ///
-  /// Создает диалог с иконкой, текстом о лимите загрузки и двумя кнопками:
+  /// Создает диалог с иконкой, текстом о лимите использования фото для блюд и двумя кнопками:
   /// - OK (тертиарная кнопка) - закрывает диалог
   /// - Upgrade (основная кнопка) - переходит на paywall
   ///
@@ -961,8 +961,8 @@ class RishiDialog {
     required VoidCallback onUpgrade,
   }) {
     final hoursText = hoursRemaining == 1 ? 'hour' : 'hours';
-    final messageText =
-        'You can add a photo once every 24 hours.\nPlease wait $hoursRemaining $hoursText.';
+    final line1Text = 'You can capture a meal with a photo once per day';
+    final line2Text = 'Please wait $hoursRemaining $hoursText';
 
     return Container(
       height: 340.h,
@@ -992,9 +992,19 @@ class RishiDialog {
               ),
             ),
             SizedBox(height: 24.h),
+            // Строка 1: основной текст
             Text(
-              messageText,
+              line1Text,
               style: context.styles.h3,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8.h), // Интервал между строками
+            // Строка 2: текст ожидания (на размер меньше)
+            Text(
+              line2Text,
+              style: context.styles.h3.copyWith(
+                fontSize: (context.styles.h3.fontSize ?? 16) - 1,
+              ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 20.h),

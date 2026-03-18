@@ -11,6 +11,7 @@ import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_repository.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
@@ -1382,6 +1383,28 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         '[FoodDiaryCubit._addSelectedMeals] ✅ Блюда успешно добавлены в дневник',
         name: 'FoodDiaryCubit',
       );
+
+      // ┌───────────────────────────────────────────────────────────────────┐
+      // │ Сохранение времени использования фото для бесплатных пользователей │
+      // └───────────────────────────────────────────────────────────────────┘
+      // [savePhotoUsageTime] Сохраняем время только когда:
+      // 1. Пользователь бесплатный (не активная подписка)
+      // 2. Среди добавленных кастомных блюд есть хотя бы одно с фотографиями
+      if (!adapty.isActive && selectedCustomMeals.isNotEmpty) {
+        // [checkForPhotos] Проверяем, есть ли фотографии в добавляемых блюдах
+        final hasPhotosInCustomMeals = selectedCustomMeals.any(
+          (meal) => meal.photos.isNotEmpty,
+        );
+
+        if (hasPhotosInCustomMeals) {
+          // [setLastUploadTime] Сохраняем текущее время как время последнего использования фото
+          await prefsRepo.setLastFreeUserPhotoUploadTime(DateTime.now());
+          log(
+            '[FoodDiaryCubit._addSelectedMeals] 💾 Время использования фотографии сохранено для бесплатного пользователя',
+            name: 'FoodDiaryCubit',
+          );
+        }
+      }
 
       // Очищаем списки выбранных блюд после успешного добавления
       final updatedCustomMeals = currentState.customMeals.map((meal) {

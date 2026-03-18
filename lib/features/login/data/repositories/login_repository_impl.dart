@@ -1,12 +1,9 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
-import 'package:directus/directus.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/features/login/data/dara_sources/remote/remote_data_source.dart';
 import 'package:rishai/features/login/domain/repositories/login_repository.dart';
 import 'package:rishai/features/login/domain/usecases/create_new_user_usecase.dart';
@@ -16,14 +13,12 @@ import 'package:rishai/features/user/domain/entities/user_entity.dart';
 
 @Singleton(as: LoginRepository)
 class LoginRepositoryImpl implements LoginRepository {
-  // final LoginLocalDataSource _localDataSource;
-
-  const LoginRepositoryImpl(this._remoteDataSource);
+  LoginRepositoryImpl(this._remoteDataSource, this._userServiceClient);
   final LoginRemoteDataSource _remoteDataSource;
+  final UserServiceClient _userServiceClient;
 
   @override
   Future<Either<Failure, UserEntity>> loginViaGoogle() async {
-    UserEntity user;
     try {
       final gUser = await _remoteDataSource.authorizeViaGoogle();
 
@@ -35,23 +30,17 @@ class LoginRepositoryImpl implements LoginRepository {
         );
       }
 
-      final res = await directus.readMany(
-        collection: usersCollection,
-        filters: Filters({'email': F.eq(gUser.email)}),
+      final raw = await _userServiceClient.loginOAuth(
+        email: gUser.email ?? '',
+        name: gUser.displayName ?? '',
+        provider: 'google',
       );
-
-      if (res.isEmpty) {
-        final rawNewUser = await directus.createOne(
-          collection: usersCollection,
-          data: {'email': gUser.email, 'name': gUser.displayName},
-        );
-        user = UserModel.fromMap(rawNewUser).toEntity();
-      } else {
-        user = UserModel.fromMap(res.first).toEntity();
-      }
-
-      return Right(user);
+      return Right(UserModel.fromMap(raw).toEntity());
+    } on UserServiceException catch (e) {
+      log('loginViaGoogle UserServiceException: ${e.code} - ${e.message}');
+      return Left(FailureNoGoogleUser(e.message));
     } on Exception catch (ex) {
+      log('loginViaGoogle Exception: $ex');
       return Left(FailureNoGoogleUser(ex.toString()));
     }
   }
@@ -61,26 +50,23 @@ class LoginRepositoryImpl implements LoginRepository {
     CreateNewUserParams params,
   ) async {
     try {
-      final res = await directus.readMany(
-        collection: usersCollection,
-        filters: Filters({'email': F.eq(params.email)}),
+      final raw = await _userServiceClient.createUser(
+        email: params.email,
+        name: params.name,
+        code: params.code,
       );
-
-      if (res.isEmpty) {
-        final raw = await directus.createOne(
-          collection: usersCollection,
-          data: {
-            'name': params.name,
-            'email': params.email,
-            'code': params.code,
-          },
-        );
-        return Right(UserModel.fromMap(raw).toEntity());
-      } else {
+      return Right(UserModel.fromMap(raw).toEntity());
+    } on UserServiceException catch (e) {
+      log('createNewUser UserServiceException: ${e.code} - ${e.message}');
+      if (e.code == 'CONFLICT') {
         return const Left(FailureUserAlreadyExists());
       }
+      if (e.code == 'VALIDATION_ERROR') {
+        return const Left(FailureOnNewUserCreation());
+      }
+      return const Left(FailureOnNewUserCreation());
     } on Exception catch (e) {
-      log(e.toString());
+      log('createNewUser Exception: $e');
       return const Left(FailureOnNewUserCreation());
     }
   }
@@ -90,35 +76,25 @@ class LoginRepositoryImpl implements LoginRepository {
     LoginViaEmailParams params,
   ) async {
     try {
-      final res = await directus.readMany(
-        collection: usersCollection,
-        filters: Filters({'email': F.eq(params.loginInfoEntity.email)}),
+      final raw = await _userServiceClient.login(
+        email: params.loginInfoEntity.email,
+        code: params.loginInfoEntity.verificationCode,
       );
-
-      if (res.isEmpty) {
+      return Right(UserModel.fromMap(raw).toEntity());
+    } on UserServiceException catch (e) {
+      log('loginViaEmail UserServiceException: ${e.code} - ${e.message}');
+      if (e.code == 'NOT_FOUND') {
         return const Left(FailureNoUserWithEmail());
-      } else {
-        final rawUpd = await directus.updateOne(
-          collection: usersCollection,
-          itemId: res.first['id'].toString(),
-          updateData: {
-            'email': params.loginInfoEntity.email,
-            'code': params.loginInfoEntity.verificationCode,
-            'name': res.first['name'],
-          },
-        );
-        final user = UserModel.fromMap(rawUpd).toEntity();
-        return Right(user);
       }
+      return const Left(FailureDirectus());
     } on Exception catch (e) {
-      log(e.toString());
+      log('loginViaEmail Exception: $e');
       return const Left(FailureDirectus());
     }
   }
 
   @override
   Future<Either<Failure, UserEntity>> loginViaApple() async {
-    UserEntity user;
     try {
       final aUser = await _remoteDataSource.authorizeViaApple();
 
@@ -131,36 +107,17 @@ class LoginRepositoryImpl implements LoginRepository {
       }
 
       log(aUser.email.toString());
-      final res = await directus.readMany(
-        collection: usersCollection,
-        filters: Filters({'email': F.eq(aUser.email)}),
+      final raw = await _userServiceClient.loginOAuth(
+        email: aUser.email ?? '',
+        name: aUser.displayName ?? 'Undefined',
+        provider: 'apple',
       );
-
-      if (res.isEmpty) {
-        final rawNewUser = await directus.createOne(
-          collection: usersCollection,
-          data: {
-            'email': aUser.email,
-            'name': aUser.displayName ?? 'Undefined',
-          },
-        );
-        user = UserModel.fromMap(rawNewUser).toEntity();
-      } else {
-        final existingUser = res.first;
-        final rawUpdUser = await directus.updateOne(
-          collection: usersCollection,
-          itemId: existingUser['id'].toString(),
-          updateData: {
-            'email': aUser.email,
-            'name': aUser.displayName ?? existingUser['name'],
-          },
-        );
-        user = UserModel.fromMap(rawUpdUser).toEntity();
-      }
-
-      return Right(user);
+      return Right(UserModel.fromMap(raw).toEntity());
+    } on UserServiceException catch (e) {
+      log('loginViaApple UserServiceException: ${e.code} - ${e.message}');
+      return Left(FailureNoAppleUser(e.message));
     } on Exception catch (ex) {
-      // return Left(FailureNoGoogleUser(ex.toString()));
+      log('loginViaApple Exception: $ex');
       return const Left(
         FailureNoAppleUser(
           'Apple authentication failed. You may have cancelled login.',

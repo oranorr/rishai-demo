@@ -14,6 +14,7 @@ import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/status.dart';
@@ -42,6 +43,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     this.updateUserUsecase,
     this.getUserDaysUsecase,
     this.accountsWhiteListService,
+    this.userServiceClient,
   ) : super(
           UserMainState(
             status: Status.initial,
@@ -66,6 +68,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   // Удаляем старый use case, оставляем только новый
   final GetUserDaysUsecase getUserDaysUsecase;
   final AccountsWhiteListService accountsWhiteListService;
+  final UserServiceClient userServiceClient;
 
   // Удаляем метод инициализации таймера
   // void _initRecompCheckTimer() { ... }
@@ -239,10 +242,12 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     UserDeleteAccount event,
     Emitter<UserState> emit,
   ) async {
-    await directus.deleteOne(
-      collection: usersCollection,
-      id: state.user.directusId,
-    );
+    try {
+      await userServiceClient.deleteUser(state.user.directusId);
+    } catch (e) {
+      log('Ошибка при удалении аккаунта: $e', name: 'UserBloc');
+      // Продолжаем с logout даже при ошибке — локальные данные должны быть очищены
+    }
     loginBloc.add(LogoutEvent());
   }
 

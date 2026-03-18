@@ -60,15 +60,20 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
   /// [_handleCameraTap] Обработчик нажатия на кнопку камеры
   ///
   /// Показывает диалог выбора источника изображения.
-  /// Для бесплатных пользователей проверяет 24-часовой лимит загрузки фотографий.
+  /// Для бесплатных пользователей проверяет 24-часовой лимит использования фотографий.
+  /// 
+  /// **Важно:** Лимит проверяется перед добавлением фото, но "списывается" только 
+  /// в момент успешного добавления проанализированного блюда в дневник питания
+  /// (в FoodDiaryCubit._addSelectedMeals).
   Future<void> _handleCameraTap() async {
     if (!mounted) return;
 
     // ┌───────────────────────────────────────────────────────────────────┐
     // │ Проверка 24-часового лимита для бесплатных пользователей          │
     // └───────────────────────────────────────────────────────────────────┘
-    // [freeUserPhotoLimitCheck] Проверяем лимит загрузки фотографий для
-    // бесплатных пользователей перед выбором изображения
+    // [freeUserPhotoLimitCheck] Проверяем лимит использования фотографий для
+    // бесплатных пользователей перед выбором изображения.
+    // Сам лимит будет "списан" только при добавлении блюда в дневник.
     if (!adapty.isActive) {
       // [canUploadPhoto] Проверяем, прошло ли 24 часа с последней загрузки
       final canUploadPhoto = prefsRepo.canFreeUserUploadPhoto();
@@ -140,9 +145,6 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
   }
 
   /// [_handleImageResult] Обрабатывает результат выбора изображений
-  ///
-  /// После успешного добавления фотографий для бесплатных пользователей
-  /// сохраняет время загрузки для проверки 24-часового лимита.
   Future<void> _handleImageResult(result) async {
     final cubit = context.read<FoodDiaryCubit>();
 
@@ -155,19 +157,6 @@ mixin CustomMealItemMixin on State<CustomMealItem> {
           .add(CustomMealAddPhoto(mealId: widget.meal.id, photo: photos.first));
     } else {
       cubit.add(CustomMealAddPhotos(mealId: widget.meal.id, photos: photos));
-    }
-
-    // ┌───────────────────────────────────────────────────────────────────┐
-    // │ Сохранение времени загрузки для бесплатных пользователей          │
-    // └───────────────────────────────────────────────────────────────────┘
-    // [saveUploadTime] Сохраняем время загрузки только для бесплатных
-    // пользователей после успешного добавления фотографии
-    if (!adapty.isActive && photos.isNotEmpty) {
-      // [setLastUploadTime] Сохраняем текущее время как время последней загрузки
-      await prefsRepo.setLastFreeUserPhotoUploadTime(DateTime.now());
-      log(
-        '[CustomMealItemMixin._handleImageResult] ✅ Время загрузки фотографии сохранено для бесплатного пользователя',
-      );
     }
   }
 

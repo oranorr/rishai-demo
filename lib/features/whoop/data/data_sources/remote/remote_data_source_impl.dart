@@ -1,21 +1,14 @@
-import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
-import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart' as dm;
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/network/request_timer.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
-import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
-import 'package:rishai/features/whoop/data/data_sources/remote/endpoints.dart';
 import 'package:rishai/features/whoop/data/models/cycle_model.dart';
 import 'package:rishai/features/whoop/data/models/recovery_model.dart';
 import 'package:rishai/features/whoop/data/models/sleep_model.dart';
@@ -29,35 +22,41 @@ final whoopRemote = getIt.get<WhoopRemoteDataSource>();
 
 @Singleton(as: WhoopRemoteDataSource)
 class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
+  WhoopRemoteDataSourceImpl(this._userServiceClient);
+  final UserServiceClient _userServiceClient;
+
   bool emptify = emptifyWhoopData;
   // Константы для повторных попыток
   final int maxRetries = 3;
   final Duration retryDelay = const Duration(seconds: 2);
 
+  String get _currentUserId => userBloc.state.user.directusId;
+
+  @override
+  Future<bool> isWhoopConnected() async {
+    try {
+      final status = await _userServiceClient.getWhoopStatus(userId: _currentUserId);
+      return status['connected'] == true;
+    } on UserServiceException catch (e) {
+      log(
+        'Failed to get WHOOP status: ${e.message}',
+        name: 'WhoopRemoteStatus',
+      );
+      return false;
+    } catch (e) {
+      log('Unexpected WHOOP status error: $e', name: 'WhoopRemoteStatus');
+      return false;
+    }
+  }
+
   @override
   Future<BodyMeasurementsEntity?> getBodyData() async {
     try {
-      // Проверяем и обновляем токен перед запросом
-      final isTokenValid = await wTokenService.isAccessTokenValid();
-      if (!isTokenValid) {
-        log(
-          'Token is invalid, attempting to refresh...',
-          name: 'WhoopBodyData',
-        );
-        final refreshSuccess =
-            await wTokenService.refreshToken(wTokenService.refToken);
-        if (!refreshSuccess) {
-          log(
-            'Failed to refresh token for body data request',
-            name: 'WhoopBodyData',
-          );
-          return null;
-        }
-        log('Token successfully refreshed', name: 'WhoopBodyData');
-      }
-
       log('Making request to get body measurements...', name: 'WhoopBodyData');
-      final rawBm = await _makeRequest(WhoopEndpoints().bodyMeasurements);
+      final rawBm = await _makeRequest(
+        endpointName: '/whoop/body',
+        request: () => _userServiceClient.getWhoopBody(userId: _currentUserId),
+      );
 
       if (rawBm == null) {
         log(
@@ -70,7 +69,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           context: 'whoop_body_data_null',
           extras: {
             'directus_user_id': userBloc.state.user.directusId,
-            'endpoint': WhoopEndpoints().bodyMeasurements,
+            'endpoint': '/whoop/body',
           },
         );
         return null;
@@ -144,8 +143,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         stackTrace: stackTrace,
         hint: Hint.withMap({
           'context': 'whoop_get_body_data',
-          'endpoint': WhoopEndpoints().bodyMeasurements,
-          'token_valid': await wTokenService.isAccessTokenValid(),
+          'endpoint': '/whoop/body',
         }),
       );
       return null;
@@ -155,7 +153,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<(List<CycleModel>, int)> getCycles() async {
     try {
-      final data = await _makeRequest(WhoopEndpoints().whoopCycles);
+      final data = await _makeRequest(
+        endpointName: '/whoop/cycles',
+        request: () => _userServiceClient.getWhoopCycles(userId: _currentUserId),
+      );
 
       if (data == null || data['records'] == null) {
         return (<CycleModel>[], 0);
@@ -219,7 +220,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   Future<List<WorkoutModel>> getWorkoutsOfCycle({
     required CycleModel cycle,
   }) async {
-    final data = await _makeRequest(WhoopEndpoints().workouts);
+    final data = await _makeRequest(
+      endpointName: '/whoop/workouts',
+      request: () => _userServiceClient.getWhoopWorkouts(userId: _currentUserId),
+    );
 
     if (data == null || data['records'] == null) {
       return [];
@@ -265,9 +269,16 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
   @override
   Future<RecoveryModel?> getRecoveryOfCycle({required int cycleId}) async {
-    final data = await _makeRequest(WhoopEndpoints().recoveries);
+    final data = await _makeRequest(
+      endpointName: '/whoop/recovery',
+      request: () => _userServiceClient.getWhoopRecovery(userId: _currentUserId),
+    );
 
-    List<dynamic> list = emptify ? [] : data!['records'];
+    if (data == null) {
+      return null;
+    }
+
+    List<dynamic> list = emptify ? [] : data['records'];
     if (list.isNotEmpty) {
       final first = list.firstWhere(
         (recovery) =>
@@ -310,8 +321,15 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
   @override
   Future<SleepModel?> getLastSleep() async {
-    final rawSleeps = await _makeRequest(WhoopEndpoints().sleeps);
-    List<dynamic> list = emptify ? [] : rawSleeps!['records'];
+    final rawSleeps = await _makeRequest(
+      endpointName: '/whoop/sleep',
+      request: () => _userServiceClient.getWhoopSleep(userId: _currentUserId),
+    );
+    if (rawSleeps == null) {
+      return null;
+    }
+
+    List<dynamic> list = emptify ? [] : rawSleeps['records'];
     if (list.isNotEmpty) {
       final first = list.firstWhere(
         (sleep) => sleep['score_state'] == 'SCORED',
@@ -348,63 +366,60 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
     }
   }
 
-  Future<Map<String, dynamic>?> _makeRequest(
-    String endpoint, {
-    bool? needsLimit,
-    Duration? timeout,
+  Future<Map<String, dynamic>?> _makeRequest({
+    required String endpointName,
+    required Future<Map<String, dynamic>> Function() request,
   }) async {
-    final uri = Uri.parse(endpoint);
-    late http.Response response;
-
-    if (needsLimit ?? false) {
-      uri.replace(queryParameters: {'limit': '7'});
-    }
-    const maxAttempts = 3;
-    int attempts = 0;
-    final client = timeout != null ? http.Client() : RequestTimer.httpClient;
-
-    while (attempts <= maxAttempts) {
-      await Future.delayed(const Duration(seconds: 1));
-      final thisResponse = await client.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer ${wTokenService.accessToken}',
-        },
-      ).timeout(timeout ?? const Duration(seconds: 30));
-      if (thisResponse.statusCode == 200) {
-        response = thisResponse;
-        break;
-      } else {
-        attempts++;
-        response = thisResponse;
+    for (int attempts = 0; attempts <= maxRetries; attempts++) {
+      try {
+        return await request();
+      } on UserServiceException catch (e, stackTrace) {
+        log(
+          'WHOOP proxy request failed: ${e.statusCode} - ${e.message}',
+          name: 'WhoopRemoteDataSource',
+        );
+        await WhoopErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'whoop_api_status',
+          extras: {
+            'directus_user_id': _currentUserId,
+            'endpoint': endpointName,
+            'attempts': attempts + 1,
+            'status_code': e.statusCode,
+            'error_code': e.code,
+          },
+        );
+        if (attempts == maxRetries) {
+          return null;
+        }
+        await Future.delayed(retryDelay);
+      } catch (e, stackTrace) {
+        await WhoopErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'whoop_api_status',
+          extras: {
+            'directus_user_id': _currentUserId,
+            'endpoint': endpointName,
+            'attempts': attempts + 1,
+          },
+        );
+        if (attempts == maxRetries) {
+          return null;
+        }
+        await Future.delayed(retryDelay);
       }
     }
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      log('Failed to get cycle data: ${response.statusCode} - ${response.body}, endpoint: $endpoint');
-      await WhoopErrorHandler.handleError(
-        'WHOOP API request failed',
-        StackTrace.current,
-        context: 'whoop_api_status',
-        response: response,
-        extras: {
-          'directus_user_id': userBloc.state.user.directusId,
-          'endpoint': endpoint,
-          'attempts': attempts,
-        },
-      );
-      return null;
-    }
+    return null;
   }
 
   @override
   Future<DayEntity?> fetchDirectusData() async {
     try {
-      final rawUser = await directus.readOne(
-        collection: usersCollection,
-        id: userBloc.state.user.directusId,
+      final rawUser = await _userServiceClient.getUser(
+        userBloc.state.user.directusId,
       );
 
       if (rawUser.isEmpty) {
@@ -472,12 +487,14 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
 
   @override
   Future<bool> pingLastCycle({required int? cycleId}) async {
-    await wTokenService.initService();
     if (cycleId == null) return true;
 
     final raw = await _makeRequest(
-      WhoopEndpoints().cycleById(cycleId: cycleId),
-      timeout: const Duration(seconds: 5),
+      endpointName: '/whoop/cycle/$cycleId',
+      request: () => _userServiceClient.getWhoopCycleById(
+        userId: _currentUserId,
+        cycleId: cycleId,
+      ),
     );
     // log(raw.toString());
 
@@ -489,14 +506,7 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   @override
   Future<bool> clearWhoopUserDataOnDisconnect({required String userId}) async {
     try {
-      // Используем новую архитектуру - получаем последний день
-      final lastDay = await dm.dayManager.getLastUserDay(userId: userId);
-      if (lastDay != null) {
-        await directus.deleteOne(
-          collection: daysCollection,
-          id: lastDay.directusId.toString(),
-        );
-      }
+      await _userServiceClient.disconnectWhoop(userId: userId);
       return true;
     } on Exception catch (e) {
       log('Error: $e', name: 'Disconnect Whoop RDS');

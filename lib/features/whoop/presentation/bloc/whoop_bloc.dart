@@ -18,7 +18,7 @@ import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
-import 'package:rishai/core/services/whoop_token_service.dart/token_service_impl.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/core/widgets/dialog.dart';
@@ -84,6 +84,34 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   final ChangeModificatorOrSexUsecase changeModificatorOrSexUsecase;
   final DisconnectWhoopUsecase disconnectWhoopUsecase;
 
+  Future<void> _migrateLegacyWhoopRefreshTokenIfNeeded(String userId) async {
+    final legacyRefreshToken = prefsRepo.fetchSavedRefreshToken();
+    if (legacyRefreshToken.isEmpty) {
+      return;
+    }
+
+    try {
+      // [Whoop migration] Одноразово переносим legacy refresh token на backend,
+      // после чего полностью очищаем локальное хранилище WHOOP токенов.
+      await getIt.get<UserServiceClient>().updateUser(
+        userId,
+        {'whoopRefreshToken': legacyRefreshToken},
+      );
+      await prefsRepo.clearTokens();
+      log(
+        '[WhoopBloc] Legacy WHOOP refresh token migrated to backend',
+        name: 'WhoopBloc',
+      );
+    } catch (e, stackTrace) {
+      log(
+        '[WhoopBloc] Failed to migrate legacy WHOOP refresh token: $e',
+        name: 'WhoopBloc',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   FutureOr<void> _connectWhoop(
     WhoopConnectEvent event,
     Emitter<WhoopState> emit,
@@ -146,17 +174,15 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           log('Failed to get user data: ${failure.message}', name: 'WhoopBloc');
           emit(state.copyWith(status: Status.error));
 
-          if (failure is WhoopFailedToReturnAccessToken) {
-            final shouldReconnect =
-                await wTokenService.shouldAttemptReconnect();
-            if (shouldReconnect) {
-              log('WHOOP connection needs to be refreshed');
-              RishSnackbar().showSnackBar(
-                'WHOOP connection needs to be refreshed. Please reconnect.',
-              );
-              appNavigationService.go(path: AppRoutes.whoopConnect.path);
-              return;
-            }
+          if (failure is WhoopFailedToReturnAccessToken ||
+              failure is WhoopAuthenticationFailure) {
+            emit(state.copyWith(whoopConnected: false));
+            log('WHOOP connection needs to be refreshed', name: 'WhoopBloc');
+            RishSnackbar().showSnackBar(
+              'WHOOP connection needs to be refreshed. Please reconnect.',
+            );
+            appNavigationService.go(path: AppRoutes.whoopConnect.path);
+            return;
           }
 
           if (!event.isInitializing) {
@@ -199,27 +225,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         '[WhoopBloc] Пользователь: ${user.directusId}, needsQuestionary: ${user.needsQuestionary}',
         name: 'WhoopBloc',
       );
-      final isTokenOk = await wTokenService.initService();
+      await _migrateLegacyWhoopRefreshTokenIfNeeded(user.directusId);
+      final isWhoopConnected = await whoopRemote.isWhoopConnected();
       await adapty.initAdapty();
-      emit(state.copyWith(whoopConnected: isTokenOk));
-      log('INIT TOKEN SERVICE RES: $isTokenOk');
+      emit(state.copyWith(whoopConnected: isWhoopConnected));
+      log('WHOOP backend status: $isWhoopConnected', name: 'WhoopBloc');
 
-      if (!isTokenOk) {
-        // Проверяем, стоит ли пытаться переподключиться
-        final shouldReconnect = await wTokenService.shouldAttemptReconnect();
-        if (shouldReconnect) {
-          log('Attempting to reconnect to WHOOP');
-          // Очищаем старые данные перед переподключением
-          await wTokenService.diconnect(user.directusId);
-          // Перенаправляем на экран подключения вместо автоматической попытки
-          RishSnackbar().showSnackBar(
-            'WHOOP connection needs to be refreshed. Please reconnect.',
-          );
-          emit(state.copyWith(status: Status.initial));
-          appNavigationService.go(path: AppRoutes.whoopConnect.path);
-          return;
-        }
-
+      if (!isWhoopConnected) {
         RishSnackbar().showSnackBar(
           'Unable to connect to WHOOP. Please reconnect your account.',
         );
