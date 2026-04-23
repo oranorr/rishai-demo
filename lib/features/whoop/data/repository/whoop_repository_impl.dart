@@ -3,31 +3,18 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
-import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
-import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
-import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
-import 'package:rishai/features/whoop/data/data_sources/local/local_data_source.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
-import 'package:rishai/features/whoop/data/models/cycle_model.dart';
-import 'package:rishai/features/whoop/data/models/recovery_model.dart';
-import 'package:rishai/features/whoop/data/models/sleep_model.dart';
-import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
 import 'package:rishai/features/whoop/domain/repository/whoop_repository.dart';
-import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_data_usecase.dart';
 
@@ -37,10 +24,8 @@ final wRepo = getIt.get<WhoopRepository>();
 class WhoopRepositoryImpl implements WhoopRepository {
   WhoopRepositoryImpl({
     required this.remoteDataSource,
-    required this.localDataSource,
   });
   final WhoopRemoteDataSource remoteDataSource;
-  final WhoopLocalDataSource localDataSource;
 
   final String authorizeUrl = 'https://api.prod.whoop.com/oauth/oauth2/auth';
   final String customUriScheme = 'com.rishai';
@@ -143,590 +128,65 @@ class WhoopRepositoryImpl implements WhoopRepository {
   Future<Either<Failure, DayEntity>> getData({
     required GetDataParams params,
   }) async {
-    bool? isCurrentCycleEnded;
     try {
-      final isWhoopConnected = await remoteDataSource.isWhoopConnected();
-      if (!isWhoopConnected) {
-        return const Left(WhoopFailedToReturnAccessToken());
-      }
-
-      log('>>> [getData] Starting data fetch for user: ${params.userId}');
-      log('>>> [getData] User goal modificator: ${params.goal.modificator}');
-
-      final int? lastCycleId = await getLastCycleId(
-        userId: params.userId,
-      ); // Обновлено для UUID строки
-      log('>>> [getData] Last cycle ID: $lastCycleId');
-
-      isCurrentCycleEnded = await tryFetch(
-        () async => remoteDataSource.pingLastCycle(
-          cycleId: lastCycleId,
-        ),
+      log(
+        '>>> [getData] Fetching current day from backend for user: ${params.userId}, forceRefresh=${params.forceRefresh}',
       );
 
-      log('>>> [getData] Cycle is finished: $isCurrentCycleEnded');
+      final day = await remoteDataSource.getCurrentDay(forceRefresh: params.forceRefresh);
+      await _cacheDay(day);
 
-      if (isCurrentCycleEnded == false) {
-        log('>>> [getData] Cycle is NOT finished, attempting to get local/remote data');
-        final res = await _getLocalOrRemoteData();
-
-        return res.fold(
-          (l) async {
-            log('>>> [getData] Local/remote data failed, fetching fresh data: ${l.message}');
-            return _fetchAndSaveFreshData(params, isCurrentCycleEnded!);
-          },
-          (r) {
-            log('>>> [getData] Successfully retrieved local/remote data with calories: ${r.macros.kcal}');
-            return Right(r);
-          },
-        );
-      }
-
-      log('>>> [getData] Cycle is finished, fetching fresh data');
-      return await _fetchAndSaveFreshData(params, isCurrentCycleEnded!);
-    } catch (e, stackTrace) {
-      log('>>> [getData] ERROR WHILE FETCHING WHOOP DATA: $e');
+      return Right(day);
+    } on UserServiceException catch (e, stackTrace) {
+      log('>>> [getData] Backend /days/current failed: ${e.statusCode} ${e.message}');
       await WhoopErrorHandler.handleError(
         e,
         stackTrace,
-        context: 'whoop_get_data',
+        context: 'whoop_get_current_day',
         extras: {
           'user_id': params.userId,
-          'is_current_cycle_ended': isCurrentCycleEnded,
+          'force_refresh': params.forceRefresh,
+          'status_code': e.statusCode,
+          'error_code': e.code,
+        },
+      );
+
+      return Left(_mapCurrentDayFailure(e));
+    } catch (e, stackTrace) {
+      log('>>> [getData] ERROR WHILE FETCHING CURRENT DAY: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_get_current_day',
+        extras: {
+          'user_id': params.userId,
+          'force_refresh': params.forceRefresh,
         },
       );
       return Left(FailedToGetUserData('$e'));
     }
   }
 
-  Future<int?> getLastCycleId({required String userId}) async {
-    // Обновлено для UUID строки
-    try {
-      final result = await dayManager.getLastDayWithCycleStatus(
-        userId: userId,
-        checkCycleStatus: false,
-      );
-
-      return result?.cycleId;
-    } catch (e, stackTrace) {
-      await WhoopErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'whoop_get_last_cycle_id',
-        extras: {'user_id': userId},
-      );
-      rethrow;
-    }
+  Future<void> _cacheDay(DayEntity day) async {
+    // Держим локальный день и чат-снэп синхронизированными с backend-ответом,
+    // чтобы остальной UI и DayManager продолжали работать прозрачно.
+    await hive.saveDay(data: day);
+    await hive.saveChatSnapshot(day.snap, day.dateTime);
   }
 
-  Future<Either<Failure, DayEntity>> _fetchAndSaveFreshData(
-    GetDataParams params,
-    bool needsCreateNewDay,
-  ) async {
-    final res = await tryFetch(
-      () => _fetchFreshData(
-        modificator: params.goal.modificator,
-        gender: params.gender,
-        userId: params.userId,
-        needsCreateNewDay: needsCreateNewDay,
-      ),
-    );
-    return res!.fold((l) {
-      return Left(l);
-    }, (r) async {
-      // await localDataSource.saveData(data: r);
-      return Right(
-        r,
-      );
-    });
-  }
-
-  Future<Either<Failure, DayEntity>> _getLocalOrRemoteData() async {
-    log('>>> [_getLocalOrRemoteData] Checking for local data...');
-    final localData = await localDataSource.retrieveSavedDays();
-
-    if (localData.isNotEmpty) {
-      final sortedDays = localData
-        ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-      log('>>> [_getLocalOrRemoteData] Found local data: ${sortedDays.last.directusId} with calories: ${sortedDays.last.macros.kcal}');
-      return Right(sortedDays.last);
+  Failure _mapCurrentDayFailure(UserServiceException exception) {
+    switch (exception.statusCode) {
+      case 403:
+        return const WhoopFailedToReturnAccessToken();
+      case 503:
+        return const WhoopNoDataFailure();
+      case 400:
+      case 401:
+      case 404:
+      case 502:
+      default:
+        return FailedToGetUserData(exception.message);
     }
-
-    // Если локальные данные пусты, не пытаемся получить данные с сервера
-    // так как они могут быть устаревшими или некорректными
-    log('>>> [_getLocalOrRemoteData] Local data is empty, will fetch fresh data instead of remote data');
-    return const Left(
-      FailedToGetUserData('Local data is empty, need fresh data'),
-    );
-  }
-
-  Future<Either<Failure, DayEntity>> _fetchFreshData({
-    required double modificator,
-    required Gender gender,
-    required String userId,
-    required bool needsCreateNewDay,
-  }) async {
-    try {
-      // 🔄 ПРОВЕРЯЕМ RECOMP ПЕРЕД СОЗДАНИЕМ ДНЯ
-      if (needsCreateNewDay) {
-        log('🔄 [checkRecompForNewDay] Проверяем recomp перед созданием дня...');
-        final updatedModifier = await userBloc.checkRecompForNewDay();
-        log('🔄 [checkRecompForNewDay] Обновленный модификатор: $updatedModifier (был: $modificator)');
-
-        // Используем обновленный модификатор
-        modificator = updatedModifier;
-      }
-
-      final BodyMeasurementsEntity? body =
-          await tryFetch(() => remoteDataSource.getBodyData());
-      final res = await tryFetch(() => remoteDataSource.getCycles());
-      if (res == null) {
-        // Если не смогли получить циклы, используем последний сохраненный день
-        // чтобы пользователь все равно попадал на домашний экран.
-        return _fallbackToLastKnownDay(
-          userId: userId,
-          context: 'whoop_fetch_cycles_null',
-          extras: {
-            'has_cycles': false,
-            'has_recovery': false,
-            'has_sleep': false,
-            'has_body': body != null,
-            'directus_user_id': userId,
-          },
-        );
-      }
-
-      List<CycleModel> cycles = res.$1;
-      int indexOfCurrentCycle = res.$2;
-
-      List<WorkoutModel> workouts = [];
-      RecoveryModel? recovery;
-
-      if (cycles.isNotEmpty) {
-        workouts =
-            await remoteDataSource.getWorkoutsOfCycle(cycle: cycles.first);
-        log('workouts are: $workouts\n\n');
-
-        recovery = await tryFetch(
-          () => remoteDataSource.getRecoveryOfCycle(cycleId: cycles.first.id),
-        );
-        log('recovery is: $recovery\n\n');
-      }
-
-      final SleepModel? sleep =
-          await tryFetch(() => remoteDataSource.getLastSleep());
-      log('sleep is: $sleep\n\n');
-
-      // Явная проверка необходимых данных, чтобы избежать падений на "!".
-      final cycleScore = cycles.isNotEmpty ? cycles.first.score : null;
-      final recoveryScore = recovery?.score;
-      final sleepScore = sleep?.score;
-      final sleepPerformance = sleepScore?.sleepPerformancePercentage;
-
-      final hasRequiredData = cycles.isNotEmpty &&
-          cycleScore != null &&
-          recoveryScore != null &&
-          sleepScore != null &&
-          sleepPerformance != null &&
-          body != null;
-
-      if (hasRequiredData) {
-        final DateTime askTime = DateTime.now();
-
-        final double tdeeAverage = calculateTDEEAverage(cycles);
-        print('>>> [_fetchFreshData] Calculated TDEE Average: $tdeeAverage');
-        final double strainValue = cycleScore.strain;
-
-        print(
-          '>>> [_fetchFreshData] Calculating calorie goal with modificator: $modificator',
-        );
-        final int calorieGoal = calculateCalorieGoal(
-          tdeeAvrage: tdeeAverage,
-          modificator: modificator,
-        ).round();
-        print('>>> [_fetchFreshData] Calculated Calorie Goal: $calorieGoal');
-
-        final int recoveryScoreValue = recoveryScore.recoveryScore.round();
-        final int sleepScoreValue = sleepPerformance.round();
-
-        final userData = UserDataEntity(
-          workouts: workouts,
-          userWeightLbs: body.weight * kgToLbs,
-          gender: gender,
-          strainValue: strainValue,
-          recoveryScore: recoveryScoreValue,
-          sleepPerformance: sleepScoreValue,
-          calorieGoal: calorieGoal,
-          userId: userId,
-          askTime: askTime,
-          currentCycleId: indexOfCurrentCycle,
-        );
-
-        await hive.saveUserData(dataEntity: userData);
-
-        // [DIET_MACRO_FIX] Проверяем диету пользователя и используем правильный алгоритм
-        final user = userBloc.state.user;
-        final userDiets = user.foodPreferences?.diets ?? [];
-        final needsKetoCarnivoreAlgorithm =
-            UserDataEntity.needsNewMacrosOnDietChange(userDiets);
-
-        log('[_fetchFreshData] 👤 Диеты пользователя: $userDiets');
-        log('[_fetchFreshData] 🥩 Нужен кето/карнивор алгоритм: $needsKetoCarnivoreAlgorithm');
-
-        // Используем правильный метод расчета макросов
-        final MacrosBreakdown macros;
-        if (needsKetoCarnivoreAlgorithm) {
-          // Определяем конкретный тип специальной диеты для нового пользователя
-          final specialDietType = UserDataEntity.getSpecialDietType(userDiets);
-
-          switch (specialDietType) {
-            case 'carnivore':
-              log('[_fetchFreshData] 🥩 Применяю CARNIVORE алгоритм для нового пользователя (1% углеводов, 30-35% белки, 65-70% жиры)');
-              macros = userData.calcMacrosForCarnivore();
-              break;
-            case 'keto':
-              log('[_fetchFreshData] 🥑 Применяю KETO алгоритм для нового пользователя (5-10% углеводов, 20-25% белки, 65-75% жиры)');
-              macros = userData.calcMacrosForKeto();
-              break;
-            default:
-              // Fallback на keto алгоритм для совместимости
-              log('[_fetchFreshData] ⚠️ Неопознанная специальная диета для нового пользователя, используем KETO fallback алгоритм');
-              macros = userData.calcMacrosForKeto();
-          }
-        } else {
-          log('[_fetchFreshData] 🍽️ Применяю СТАНДАРТНЫЙ алгоритм для нового пользователя');
-          macros = userData.calcMacros();
-        }
-
-        log('[_fetchFreshData] 📊 Рассчитанные макросы: P=${macros.protein}г, C=${macros.carbs}г, F=${macros.fat}г, K=${macros.kcal}ккал');
-
-        DayEntity newDay = DayEntity(
-          cycleId: indexOfCurrentCycle,
-          directusId: 0,
-          snap: ChatSnapshotEntity(
-            messages: [],
-            date: askTime,
-            requestsLeft: chatBloc.state.requestsLeft,
-          ),
-          healthMetrics: calcHealthMetrics(
-            (cycleScore.kilojoule * kjToKcal).round(),
-          ),
-          dateTime: askTime,
-          weekTdeeAverage: tdeeAverage.toInt(),
-          macros:
-              macros, // Используем рассчитанные макросы вместо раздельных значений
-        );
-
-        print(
-          '>>> [_fetchFreshData] Final Macros: Kcal=${newDay.macros.kcal}, P=${newDay.macros.protein}, C=${newDay.macros.carbs}, F=${newDay.macros.fat}',
-        );
-
-        final chatNeedsRefresh =
-            await remoteDataSource.doesChatNeedsRefreshment(userId: userId);
-
-        chatBloc.add(
-          ChatRefreshChat(
-            needsRequestsAmountRefresh: chatNeedsRefresh,
-            messagesRefresh: chatNeedsRefresh,
-          ),
-        );
-        print('needs creating fresh day? $needsCreateNewDay');
-        if (needsCreateNewDay) {
-          print('>>> [_fetchFreshData] Creating fresh day...');
-          newDay = await createFreshDay(newDay: newDay, userId: userId);
-        }
-        // await tryFetch(() => remoteDataSource.updateDirectus(day: newDay));
-        // await tryFetch(() => localDataSource.saveData(data: newDay));
-
-        return Right(newDay);
-      } else {
-        // Данные неполные или некорректные — используем последний сохраненный день,
-        // чтобы не блокировать вход на домашний экран.
-        return _fallbackToLastKnownDay(
-          userId: userId,
-          context: 'whoop_fetch_fresh_data_incomplete',
-          extras: {
-            'has_cycles': cycles.isNotEmpty,
-            'has_cycle_score': cycleScore != null,
-            'has_recovery': recovery != null,
-            'has_recovery_score': recoveryScore != null,
-            'has_sleep': sleep != null,
-            'has_sleep_score': sleepScore != null,
-            'has_sleep_performance': sleepPerformance != null,
-            'has_body': body != null,
-            'directus_user_id': userId,
-          },
-        );
-      }
-    } on Exception catch (e, stackTrace) {
-      log('ERROR WHILE FETCHING FRESH DATA: $e');
-      await WhoopErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'whoop_fetch_fresh_data',
-        extras: {
-          'user_id': userId,
-          'gender': gender.toString(),
-          'modificator': modificator,
-          'needs_create_new_day': needsCreateNewDay,
-        },
-      );
-      return const Left(WhoopNoDataFailure());
-    }
-  }
-
-  /// Возвращает последний сохраненный день (локально или из Directus),
-  /// чтобы пользователь мог попасть на домашний экран даже при кривых данных.
-  Future<Either<Failure, DayEntity>> _fallbackToLastKnownDay({
-    required String userId,
-    required String context,
-    Map<String, dynamic>? extras,
-  }) async {
-    try {
-      await WhoopErrorHandler.handleError(
-        'Fallback to last known day',
-        StackTrace.current,
-        context: context,
-        extras: {
-          'user_id': userId,
-          'directus_user_id': userId,
-          ...?extras,
-        },
-      );
-
-      // 1) Пробуем локальный кэш дней
-      final localDays = await localDataSource.retrieveSavedDays();
-      if (localDays.isNotEmpty) {
-        localDays.sort((a, b) => a.dateTime.compareTo(b.dateTime));
-        final lastLocalDay = localDays.last;
-        log(
-          '>>> [_fallbackToLastKnownDay] Using local cached day: ${lastLocalDay.directusId}',
-        );
-        return Right(lastLocalDay);
-      }
-
-      // 2) Если локального кэша нет — пробуем Directus
-      final remoteDay = await remoteDataSource.fetchDirectusData();
-      if (remoteDay != null) {
-        log(
-          '>>> [_fallbackToLastKnownDay] Using remote day from Directus: ${remoteDay.directusId}',
-        );
-        return Right(remoteDay);
-      }
-
-      // 3) Ничего нет — возвращаем ошибку как раньше
-      log('>>> [_fallbackToLastKnownDay] No fallback day available');
-      return const Left(WhoopNoDataFailure());
-    } catch (e, stackTrace) {
-      await WhoopErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'whoop_fallback_day',
-        extras: {
-          'user_id': userId,
-          'directus_user_id': userId,
-          ...?extras,
-        },
-      );
-      return const Left(WhoopNoDataFailure());
-    }
-  }
-
-  Future<DayEntity> createFreshDay({
-    required DayEntity newDay,
-    required String userId,
-  }) async {
-    try {
-      print(
-        '>>> [createFreshDay] Before saving - New day macros: ${newDay.macros}',
-      );
-      final DayEntity createdDay =
-          await dayManager.createOrUpdateDay(day: newDay);
-      print(
-        '>>> [createFreshDay] After saving - Created day macros: ${createdDay.macros}',
-      );
-      return createdDay;
-
-      // if (kDebugMode) {
-      //   log(
-      //     'Creating fresh day:\n'
-      //     'New day date: ${newDay.dateTime}\n'
-      //     'New day cycle: ${newDay.cycleId}\n'
-      //     'Current time: ${DateTime.now()}',
-      //     name: 'WhoopRepository',
-      //   );
-      // }
-
-      // final now = DateTime.now();
-      // final isNewDay = newDay.dateTime.year == now.year &&
-      //     newDay.dateTime.month == now.month &&
-      //     newDay.dateTime.day == now.day;
-
-      // if (!isNewDay) {
-      //   final String warning =
-      //       'Warning: Attempting to create a day that is not today:\n'
-      //       'New day date: ${newDay.dateTime}\n'
-      //       'Current time: $now';
-      //   log(warning, name: 'WhoopRepository');
-      //   await WhoopErrorHandler.handleError(
-      //     warning,
-      //     StackTrace.current,
-      //     context: 'whoop_create_fresh_day',
-      //     extras: {
-      //       'new_day_date': newDay.dateTime.toString(),
-      //       'current_time': now.toString(),
-      //       'user_id': userId,
-      //     },
-      //   );
-      // }
-
-      // await localDataSource.saveData(data: freshDay);
-      // await remoteDataSource.updateDirectus(day: freshDay);
-    } catch (e, stackTrace) {
-      await WhoopErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'whoop_create_fresh_day',
-        extras: {
-          'user_id': userId,
-          'cycle_id': newDay.cycleId,
-          'date_time': newDay.dateTime.toString(),
-        },
-      );
-      rethrow;
-    }
-  }
-
-  double calculateCalorieGoal({
-    required double tdeeAvrage,
-    required double modificator,
-  }) {
-    print(
-      '>>> [calculateCalorieGoal] Calculating goal: TDEE Average = $tdeeAvrage, Modificator = $modificator',
-    );
-    final result = (1 + modificator) * tdeeAvrage;
-    print('>>> [calculateCalorieGoal] Resulting Goal = $result');
-    return result;
-  }
-
-  double calculateTDEEAverage(List<CycleModel> cycles) {
-    double sum = 0;
-    print(
-      '>>> [calculateTDEEAverage] Calculating TDEE Average for ${cycles.length} cycles:',
-    );
-    for (final cyc in cycles) {
-      final kj = cyc.score!.kilojoule;
-      print(
-        '>>> [calculateTDEEAverage]   - Cycle ID: ${cyc.id}, Kilojoules: $kj',
-      );
-      sum += kj;
-    }
-    sum = sum * kjToKcal;
-    final average = sum / cycles.length;
-    print(
-      '>>> [calculateTDEEAverage] Total Kcal Sum: $sum, Average TDEE (kcal): $average',
-    );
-    return average;
-  }
-
-  HealthMetricsEntity calcHealthMetrics(int lastTdee) {
-    int calcBMI() {
-      BodyMeasurementsEntity bm = userBloc.state.user.bodyMeasurements!;
-      return (bm.weight / (bm.height * bm.height)).round();
-    }
-
-    int calcBMR() {
-      final user = userBloc.state.user;
-      final s = user.gender == Gender.male ? 5 : -161;
-      final res = (10 * user.bodyMeasurements!.weight) +
-          (6.25 * (user.bodyMeasurements!.height * 100)) -
-          (5 * user.age!) +
-          s;
-
-      return res.round();
-    }
-
-    return HealthMetricsEntity(
-      bmi: calcBMI(),
-      lastTdee: lastTdee,
-      bmr: calcBMR(),
-      bodyFatPerc: 0,
-    );
-  }
-
-  @override
-  Future<Either<Failure, MacrosBreakdown>> changeModificatorOfSex({
-    required ChangeModificatorOrSexParams params,
-  }) async {
-    try {
-      final res =
-          await localDataSource.changeModificatorOrSexLocal(params: params);
-
-      return res.fold((l) async {
-        return Left(l);
-      }, (r) async {
-        print(
-          '>>> [changeModificatorOfSex] Modificator/Sex changed. Old day data: $r',
-        );
-        try {
-          // [FIX] Убираем двойное обновление дня - выполняем обновление сразу
-          await dayManager.createOrUpdateDay(day: r);
-          print(
-            '>>> [changeModificatorOfSex] Day updated successfully. New Macros: ${r.macros}',
-          );
-
-          return Right(r.macros);
-        } catch (e, stackTrace) {
-          await WhoopErrorHandler.handleError(
-            e,
-            stackTrace,
-            context: 'whoop_change_modificator_update_directus',
-            extras: {
-              'modificator': params.modificator,
-              'gender': params.gender.toString(),
-            },
-          );
-          rethrow;
-        }
-      });
-    } catch (e, stackTrace) {
-      await WhoopErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'whoop_change_modificator',
-        extras: {
-          'modificator': params.modificator,
-          'gender': params.gender.toString(),
-        },
-      );
-      rethrow;
-    }
-  }
-
-  Future<T?> tryFetch<T>(Future<T?> Function() fetchFunction) async {
-    const int maxRetries = 3;
-    const Duration retryDelay = Duration(seconds: 2);
-    for (int attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        final result = await fetchFunction();
-        if (result != null) return result;
-      } catch (e, stackTrace) {
-        log('Attempt ${attempt + 1} failed: $e');
-        await WhoopErrorHandler.handleError(
-          e,
-          stackTrace,
-          context: 'whoop_try_fetch',
-          extras: {
-            'attempt': attempt + 1,
-            'max_retries': maxRetries,
-            'function': fetchFunction.toString(),
-          },
-        );
-        if (attempt == maxRetries - 1) rethrow;
-        await Future.delayed(retryDelay);
-      }
-    }
-    return null;
   }
 
   @override

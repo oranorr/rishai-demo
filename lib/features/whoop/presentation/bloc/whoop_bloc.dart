@@ -14,9 +14,6 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
     show adapty;
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/status.dart';
@@ -36,8 +33,6 @@ import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
     show whoopRemote;
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
-import 'package:rishai/features/whoop/domain/usecases/change_modificator_or_sex_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/connect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/disconnect_whoop_usecase.dart';
 import 'package:rishai/features/whoop/domain/usecases/get_body_data_usecase.dart';
@@ -56,7 +51,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     this.connectWhoopUsecase,
     this.getDataUsecase,
     this.getBodyUsecase,
-    this.changeModificatorOrSexUsecase,
     this.disconnectWhoopUsecase,
   ) : super(
           WhoopMainState(
@@ -70,8 +64,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     on<InitWhoopOnLogin>(_initWhoopOnLogin);
     on<WhoopUserCalibrating>(_userCalibrating);
     on<WhoopRetrieveBodyData>(_getBodyData);
-    on<WhoopChangeModificatorOrSex>(_changeModificatorOrSex);
-    on<WhoopCheckDietChange>(_checkDietChange);
+    on<WhoopRefreshAfterProfileChange>(_refreshAfterProfileChange);
     on<WhoopUpdateDayByMealPlan>(_updateDayByMealPlan);
     on<WhoopDisconnect>(_disconnect);
     on<WhoopCheckForRefresh>(_checkForRefresh);
@@ -81,7 +74,6 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   final ConnectWhoopUsecase connectWhoopUsecase;
   final WhoopGetDataUsecase getDataUsecase;
   final WhoopGetBodyData getBodyUsecase;
-  final ChangeModificatorOrSexUsecase changeModificatorOrSexUsecase;
   final DisconnectWhoopUsecase disconnectWhoopUsecase;
 
   Future<void> _migrateLegacyWhoopRefreshTokenIfNeeded(String userId) async {
@@ -438,556 +430,135 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     });
   }
 
-  FutureOr<void> _changeModificatorOrSex(
-    WhoopChangeModificatorOrSex event,
+  FutureOr<void> _refreshAfterProfileChange(
+    WhoopRefreshAfterProfileChange event,
     Emitter<WhoopState> emit,
   ) async {
-    final user = userBloc.state.user;
-    bool success = false;
-    String errorMessage = 'Error happened. Please, try again';
+    emit(state.copyWith(status: Status.loading));
+    await _fetchCurrentDayFromBackend(
+      emit,
+      forceRefresh: true,
+      showLoadingRoute: false,
+      showSuccessSnack: false,
+    );
+  }
 
-    // Сохраняем текущий план питания
-    final currentMealPlan = state.day.mealPlanEntity;
-
-    // Предварительное обновление UI для мгновенной реакции
-    // Делаем предварительный расчет макросов на основе новых значений
-    final estimatedCalories =
-        (1 + event.modificator) * state.day.weekTdeeAverage;
-    final estimatedKcal = estimatedCalories.round();
-
-    // Считаем примерное соотношение макросов по текущим
-    // Используем пропорции из текущих макросов
-    final currentMacros = state.day.macros;
-    final currentTotal = currentMacros.kcal > 0
-        ? currentMacros.kcal
-        : 1; // Защита от деления на ноль
-
-    // Проверяем, что текущие макросы не нулевые
-    bool hasValidCurrentMacros = currentMacros.protein > 0 &&
-        currentMacros.carbs > 0 &&
-        currentMacros.fat > 0;
-
-    // Создаем временные макросы с проверкой на валидность
-    int tempProtein = 0;
-    int tempCarbs = 0;
-    int tempFat = 0;
-
-    if (hasValidCurrentMacros) {
-      // Если текущие макросы валидны, используем пропорции
-      tempProtein =
-          (currentMacros.protein * estimatedKcal / currentTotal).round();
-      tempCarbs = (currentMacros.carbs * estimatedKcal / currentTotal).round();
-      tempFat = (currentMacros.fat * estimatedKcal / currentTotal).round();
-    } else {
-      // Если текущие макросы невалидны, используем стандартное распределение
-      // Примерно 30% белка, 50% углеводов, 20% жиров
-      tempProtein = (0.3 * estimatedKcal / 4).round(); // Белки: 4 ккал/г
-      tempCarbs = (0.5 * estimatedKcal / 4).round(); // Углеводы: 4 ккал/г
-      tempFat = (0.2 * estimatedKcal / 9).round(); // Жиры: 9 ккал/г
+  Future<void> _fetchCurrentDayFromBackend(
+    Emitter<WhoopState> emit, {
+    required bool forceRefresh,
+    required bool showLoadingRoute,
+    required bool showSuccessSnack,
+  }) async {
+    if (showLoadingRoute) {
+      appNavigationService.go(path: AppRoutes.redirect.path);
     }
 
-    // Проверка на нулевые значения
-    tempProtein = tempProtein > 0 ? tempProtein : 1;
-    tempCarbs = tempCarbs > 0 ? tempCarbs : 1;
-    tempFat = tempFat > 0 ? tempFat : 1;
-
-    final estimatedMacros = MacrosBreakdown(
-      protein: tempProtein,
-      carbs: tempCarbs,
-      fat: tempFat,
-      kcal: estimatedKcal,
-    );
-
-    // Обновляем UI с предварительными данными
-    final preliminaryDay = state.day.copyWith(
-      macros: estimatedMacros,
-      mealPlanEntity: currentMealPlan,
-    );
-    emit(state.copyWith(day: preliminaryDay));
-
-    // Затем запускаем полное обновление через usecase
-    final res = await changeModificatorOrSexUsecase.call(
-      ChangeModificatorOrSexParams(
-        modificator: event.modificator,
-        gender: event.gender,
-        weekTdeeAverage: state.day.weekTdeeAverage,
-        userId: user.directusId,
-        lastTdee: state.day.healthMetrics.lastTdee,
-        currentDiets: event.currentDiets, // Передаем актуальные диеты из event
+    final result = await getDataUsecase.call(
+      GetDataParams(
+        gender: userBloc.state.user.gender!,
+        goal: userBloc.state.user.userGoal!,
+        userId: userBloc.state.user.directusId,
+        forceRefresh: forceRefresh,
       ),
     );
 
-    MacrosBreakdown? updatedMacros;
-    await res.fold((failure) async {
-      if (failure.runtimeType == WhoopDataDueToRefresh) {
-        success = false;
-        errorMessage = failure.message;
-      }
-    }, (macros) {
-      success = true;
-      updatedMacros = macros;
+    await result.fold(
+      (failure) async {
+        log('Failed to refresh current day: ${failure.message}', name: 'WhoopBloc');
+        emit(state.copyWith(status: Status.error));
 
-      // Проверяем, что полученные макросы валидны
-      bool isValidMacros =
-          macros.protein > 0 && macros.carbs > 0 && macros.fat > 0;
+        if (failure is WhoopFailedToReturnAccessToken ||
+            failure is WhoopAuthenticationFailure) {
+          emit(state.copyWith(whoopConnected: false));
+          appNavigationService.go(path: AppRoutes.whoopConnect.path);
+          return;
+        }
 
-      if (isValidMacros) {
-        // Обновляем день с точными данными из usecase
-        final updatedDay = state.day.copyWith(
-          macros: macros,
-          mealPlanEntity: currentMealPlan,
+        if (showLoadingRoute) {
+          appNavigationService.go(path: AppRoutes.homeScreen.path);
+        }
+
+        RishSnackbar().showSnackBar(
+          'Failed to refresh WHOOP day: ${failure.message}',
         );
-        emit(state.copyWith(day: updatedDay));
-      } else {
-        // Если полученные макросы невалидны, оставляем предварительные данные
-        // и логируем проблему
-        log(
-          'Получены невалидные макросы из usecase: $macros',
-          name: 'WhoopBloc',
-        );
+      },
+      (newDay) async {
+        final existingSnap = state.day.snap;
+        final mealPlanToUse = shouldKeepExistingMealPlan(state.day, newDay)
+            ? state.day.mealPlanEntity
+            : newDay.mealPlanEntity;
 
-        // Можно также попробовать исправить невалидные значения
-        MacrosBreakdown fixedMacros = macros.copyWith(
-          protein:
-              macros.protein > 0 ? macros.protein : estimatedMacros.protein,
-          carbs: macros.carbs > 0 ? macros.carbs : estimatedMacros.carbs,
-          fat: macros.fat > 0 ? macros.fat : estimatedMacros.fat,
+        final updatedDay = newDay.copyWith(
+          mealPlanEntity: mealPlanToUse,
+          snap: existingSnap,
         );
 
-        final updatedDay = state.day.copyWith(
-          macros: fixedMacros,
-          mealPlanEntity: currentMealPlan,
+        emit(
+          state.copyWith(
+            day: updatedDay,
+            whoopConnected: true,
+          ),
         );
-        emit(state.copyWith(day: updatedDay));
-        updatedMacros = fixedMacros;
-      }
-    });
 
-    // [WELLNESS_SCORE_RECALC] После успешного обновления макросов пересчитываем wellness score
-    // если у пользователя есть потребленные блюда
-    if (success && updatedMacros != null) {
-      try {
-        final currentDay = state.day;
-        final existingWelness = currentDay.welnessEntity;
+        await _recalculateWellnessIfNeeded(updatedDay, emit);
 
-        // Пересчитываем wellness score только если есть потребленные блюда
-        if (existingWelness != null && existingWelness.consumedMeals.isNotEmpty) {
-          log(
-            '[WhoopBloc] 🔄 Обнаружены потребленные блюда, запускаем пересчет Daily Wellness Score после изменения целевых макросов',
-            name: 'WhoopBloc',
-          );
+        final syncedDay = state.day;
+        userBloc.add(UserGetDays(newDay: syncedDay));
+        chatBloc.add(ChatSyncWithSelectedDate());
 
-          // Небольшая задержка, чтобы убедиться, что состояние обновлено
-          await Future.delayed(const Duration(milliseconds: 100));
+        final now = DateTime.now();
+        final sevenDaysAgo = now.subtract(const Duration(days: 7));
+        await chatRepo.updateChatCache(
+          directusId: userBloc.state.user.directusId,
+          startDate: sevenDaysAgo,
+          endDate: now,
+        );
 
-          // [WELLNESS_SCORE_RECALC] Получаем WellnessScoreCalculator через getIt для избежания циклической зависимости
-          final wellnessScoreCalculator =
-              getIt.get<WellnessScoreCalculator>();
+        emit(state.copyWith(status: Status.success));
 
-          // Пересчитываем wellness score с новыми целевыми макросами
-          // Передаем текущий день с обновленными макросами
-          final updatedDayWithWellness =
-              await wellnessScoreCalculator.recalculateWellnessScoreForExistingMeals(
-            currentDay,
-          );
+        if (showLoadingRoute) {
+          appNavigationService.go(path: AppRoutes.homeScreen.path);
+        }
 
-          // Обновляем день в WhoopBloc с пересчитанным wellness score
-          log(
-            '[WhoopBloc] 🔄 Обновляем день в WhoopBloc с пересчитанным wellness score',
-            name: 'WhoopBloc',
-          );
-          emit(state.copyWith(day: updatedDayWithWellness));
-
-          log(
-            '[WhoopBloc] ✅ Daily Wellness Score успешно пересчитан после изменения целевых макросов',
-            name: 'WhoopBloc',
-          );
-        } else {
-          log(
-            '[WhoopBloc] ℹ️ Нет потребленных блюд, пересчет Daily Wellness Score не требуется',
-            name: 'WhoopBloc',
+        if (showSuccessSnack) {
+          RishSnackbar().showSnackBar(
+            'Your data has been updated',
+            isError: false,
           );
         }
-      } catch (e, stackTrace) {
-        log(
-          '[WhoopBloc] ❌ Ошибка при пересчете Daily Wellness Score после изменения макросов: $e',
-          error: e,
-          stackTrace: stackTrace,
-          name: 'WhoopBloc',
-        );
-        // Не прерываем процесс обновления макросов из-за ошибки пересчета wellness score
-      }
-    }
-
-    if (!success) {
-      await RishiDialog.showCustomDialog(
-        event.context,
-        isDissmissable: false,
-        type: DialogType.info,
-        actionDialogType: ActionDialogType.warning,
-        text: errorMessage,
-        action: () async {
-          appNavigationService.go(path: AppRoutes.redirect.path);
-        },
-      );
-    }
+      },
+    );
   }
 
-  /// Проверяет изменение диеты на кето или карнивор и пересчитывает макросы при необходимости
-  FutureOr<void> _checkDietChange(
-    WhoopCheckDietChange event,
+  Future<void> _recalculateWellnessIfNeeded(
+    DayEntity day,
     Emitter<WhoopState> emit,
   ) async {
     try {
-      log('[WhoopBloc] Проверка изменения диеты', name: 'WhoopBloc');
-      log(
-        '[WhoopBloc] Предыдущие диеты: ${event.previousDiets}',
-        name: 'WhoopBloc',
-      );
-      log('[WhoopBloc] Новые диеты: ${event.newDiets}', name: 'WhoopBloc');
-
-      // Определяем тип предыдущей и текущей диеты
-      final previousDietType =
-          UserDataEntity.getSpecialDietType(event.previousDiets);
-      final currentDietType = UserDataEntity.getSpecialDietType(event.newDiets);
-
-      log(
-        '[WhoopBloc] Предыдущий тип диеты: $previousDietType',
-        name: 'WhoopBloc',
-      );
-      log('[WhoopBloc] Текущий тип диеты: $currentDietType', name: 'WhoopBloc');
-
-      // Проверяем, изменились ли сами диеты (не только тип)
-      final dietsChanged = !listEquals(event.previousDiets, event.newDiets);
-      log(
-        '[WhoopBloc] Диеты изменились: $dietsChanged',
-        name: 'WhoopBloc',
-      );
-
-      // Логика пересчета макросов - НУЖЕН ПЕРЕСЧЕТ если тип диеты изменился
-      if (previousDietType == currentDietType) {
-        // Тип диеты не изменился
-        log(
-          '[WhoopBloc] ✅ ТИП ДИЕТЫ НЕ ИЗМЕНИЛСЯ ($currentDietType)',
-          name: 'WhoopBloc',
-        );
-
-        // Если диеты изменились, но тип остался тот же (например, Vegan -> Omnivore),
-        // пересчитываем только wellness score, если есть потребленные блюда
-        if (dietsChanged) {
-          log(
-            '[WhoopBloc] 🔄 Диеты изменились при том же типе, пересчитываем только wellness score',
-            name: 'WhoopBloc',
-          );
-          await _recalculateWellnessScoreAfterDietChange(emit);
-        } else {
-          log(
-            '[WhoopBloc] ℹ️ Диеты не изменились, пересчет не требуется',
-            name: 'WhoopBloc',
-          );
-        }
+      final existingWelness = day.welnessEntity;
+      if (existingWelness == null || existingWelness.consumedMeals.isEmpty) {
         return;
       }
 
-      // ТИП ДИЕТЫ ИЗМЕНИЛСЯ - делаем пересчет макросов
       log(
-        '[WhoopBloc] 🔄 ИЗМЕНЕНИЕ ТИПА ДИЕТЫ: $previousDietType → $currentDietType',
+        '[WhoopBloc] 🔄 Recalculating Daily Wellness Score after backend day refresh',
         name: 'WhoopBloc',
       );
 
-      // Логируем конкретный тип изменения
-      if (currentDietType != null) {
-        if (currentDietType == 'carnivore') {
-          log('[WhoopBloc] ✅ ПЕРЕХОД НА CARNIVORE ДИЕТУ', name: 'WhoopBloc');
-          print('🥩 ПЕРЕХОД НА CARNIVORE ДИЕТУ');
-        } else if (currentDietType == 'keto') {
-          log('[WhoopBloc] ✅ ПЕРЕХОД НА KETO ДИЕТУ', name: 'WhoopBloc');
-          print('🥑 ПЕРЕХОД НА KETO ДИЕТУ');
-        }
-      } else {
-        final standardDiets = event.newDiets
-            .where(
-              (diet) =>
-                  diet.toLowerCase() != 'keto' &&
-                  diet.toLowerCase() != 'carnivore',
-            )
-            .join(', ');
-        log(
-          '[WhoopBloc] 🔄 ПЕРЕХОД НА СТАНДАРТНУЮ ДИЕТУ: ${standardDiets.isEmpty ? "omnivore" : standardDiets}',
-          name: 'WhoopBloc',
-        );
-        print(
-          '🔄 ПЕРЕХОД НА СТАНДАРТНУЮ ДИЕТУ: ${standardDiets.isEmpty ? "omnivore" : standardDiets}',
-        );
-      }
-
-      // Пересчитываем макросы для изменения типа диеты
-      final needsSpecialAlgorithm = currentDietType != null;
-      await _recalculateMacrosForDietChange(needsSpecialAlgorithm, emit);
-    } catch (e, stackTrace) {
-      log(
-        '[WhoopBloc] Ошибка при проверке изменения диеты: $e',
-        name: 'WhoopBloc',
-        error: e,
-        stackTrace: stackTrace,
+      await Future.delayed(const Duration(milliseconds: 100));
+      final wellnessScoreCalculator = getIt.get<WellnessScoreCalculator>();
+      final updatedDayWithWellness =
+          await wellnessScoreCalculator.recalculateWellnessScoreForExistingMeals(
+        day,
       );
-      print('❌ Ошибка при проверке изменения диеты: $e');
-    }
-  }
 
-  /// Пересчитывает только wellness score при изменении диет без изменения типа
-  /// (например, Vegan -> Omnivore, оба стандартные диеты)
-  Future<void> _recalculateWellnessScoreAfterDietChange(
-    Emitter<WhoopState> emit,
-  ) async {
-    try {
-      final currentDay = state.day;
-      final existingWelness = currentDay.welnessEntity;
-
-      // Пересчитываем wellness score только если есть потребленные блюда
-      if (existingWelness != null && existingWelness.consumedMeals.isNotEmpty) {
-        log(
-          '[WhoopBloc] 🔄 Обнаружены потребленные блюда, запускаем пересчет Daily Wellness Score после изменения диет',
-          name: 'WhoopBloc',
-        );
-
-        // Небольшая задержка, чтобы убедиться, что состояние обновлено
-        await Future.delayed(const Duration(milliseconds: 100));
-
-        // Получаем WellnessScoreCalculator через getIt для избежания циклической зависимости
-        final wellnessScoreCalculator = getIt.get<WellnessScoreCalculator>();
-
-        // Пересчитываем wellness score с текущими целевыми макросами
-        final updatedDayWithWellness =
-            await wellnessScoreCalculator.recalculateWellnessScoreForExistingMeals(
-          currentDay,
-        );
-
-        // Обновляем день в WhoopBloc с пересчитанным wellness score
-        log(
-          '[WhoopBloc] 🔄 Обновляем день в WhoopBloc с пересчитанным wellness score',
-          name: 'WhoopBloc',
-        );
-        emit(state.copyWith(day: updatedDayWithWellness));
-
-        log(
-          '[WhoopBloc] ✅ Daily Wellness Score успешно пересчитан после изменения диет',
-          name: 'WhoopBloc',
-        );
-      } else {
-        log(
-          '[WhoopBloc] ℹ️ Нет потребленных блюд, пересчет Daily Wellness Score не требуется',
-          name: 'WhoopBloc',
-        );
-      }
+      emit(state.copyWith(day: updatedDayWithWellness));
     } catch (e, stackTrace) {
       log(
-        '[WhoopBloc] ❌ Ошибка при пересчете Daily Wellness Score после изменения диет: $e',
+        '[WhoopBloc] ❌ Failed to recalculate Daily Wellness Score: $e',
         error: e,
         stackTrace: stackTrace,
         name: 'WhoopBloc',
-      );
-      // Не прерываем процесс из-за ошибки пересчета wellness score
-    }
-  }
-
-  /// Пересчитывает макросы при изменении диеты
-  Future<void> _recalculateMacrosForDietChange(
-    bool useKetoCarnivoreAlgorithm,
-    Emitter<WhoopState> emit,
-  ) async {
-    try {
-      log(
-        '[WhoopBloc] Начинаем пересчет макросов для диеты',
-        name: 'WhoopBloc',
-      );
-      log(
-        '[WhoopBloc] Тип алгоритма: ${useKetoCarnivoreAlgorithm ? "кето/карнивор" : "стандартный"}',
-        name: 'WhoopBloc',
-      );
-
-      // Получаем текущие данные пользователя из Hive
-      final userData = await hive.fetchUserDataEntity(
-        userId: userBloc.state.user.directusId,
-      );
-
-      if (userData == null) {
-        log(
-          '[WhoopBloc] UserDataEntity не найден, пропускаем пересчет макросов',
-          name: 'WhoopBloc',
-        );
-        return;
-      }
-
-      // Сохраняем старые макросы для сравнения
-      final oldMacros = state.day.macros;
-      log(
-        '[WhoopBloc] Старые макросы: P=${oldMacros.protein}г, C=${oldMacros.carbs}г, F=${oldMacros.fat}г, K=${oldMacros.kcal}ккал',
-        name: 'WhoopBloc',
-      );
-
-      // Рассчитываем новые макросы в зависимости от типа диеты
-      final MacrosBreakdown newMacros;
-      if (useKetoCarnivoreAlgorithm) {
-        // Определяем конкретный тип специальной диеты
-        final currentUser = userBloc.state.user;
-        final currentDiets = currentUser.foodPreferences?.diets ?? [];
-        final specialDietType = UserDataEntity.getSpecialDietType(currentDiets);
-
-        switch (specialDietType) {
-          case 'carnivore':
-            log(
-              '[WhoopBloc] 🥩 Применяю CARNIVORE алгоритм (1% углеводов, 30-35% белки, 65-70% жиры)',
-              name: 'WhoopBloc',
-            );
-            newMacros = userData.calcMacrosForCarnivore();
-            break;
-          case 'keto':
-            log(
-              '[WhoopBloc] 🥑 Применяю KETO алгоритм (5-10% углеводов, 20-25% белки, 65-75% жиры)',
-              name: 'WhoopBloc',
-            );
-            newMacros = userData.calcMacrosForKeto();
-            break;
-          default:
-            // Fallback на keto алгоритм для совместимости
-            log(
-              '[WhoopBloc] ⚠️ Неопознанная специальная диета, используем KETO fallback алгоритм',
-              name: 'WhoopBloc',
-            );
-            newMacros = userData.calcMacrosForKeto();
-        }
-      } else {
-        log(
-          '[WhoopBloc] 🍽️ Применяю СТАНДАРТНЫЙ алгоритм (обычное распределение)',
-          name: 'WhoopBloc',
-        );
-        newMacros = userData.calcMacros();
-      }
-
-      log(
-        '[WhoopBloc] Новые макросы: P=${newMacros.protein}г, C=${newMacros.carbs}г, F=${newMacros.fat}г, K=${newMacros.kcal}ккал',
-        name: 'WhoopBloc',
-      );
-
-      // Показываем разницу в макросах
-      final proteinDiff = newMacros.protein - oldMacros.protein;
-      final carbsDiff = newMacros.carbs - oldMacros.carbs;
-      final fatDiff = newMacros.fat - oldMacros.fat;
-
-      log(
-        '[WhoopBloc] Изменения: P${proteinDiff >= 0 ? "+" : ""}$proteinDiffг, C${carbsDiff >= 0 ? "+" : ""}$carbsDiffг, F${fatDiff >= 0 ? "+" : ""}$fatDiffг',
-        name: 'WhoopBloc',
-      );
-
-      // Обновляем день с новыми макросами, сохраняя план питания
-      final updatedDay = state.day.copyWith(
-        macros: newMacros,
-        // Сохраняем существующий план питания (согласно требованиям UX)
-        mealPlanEntity: state.day.mealPlanEntity,
-      );
-
-      // Обновляем состояние
-      emit(state.copyWith(day: updatedDay));
-
-      // Сохраняем изменения - используем правильную логику обновления
-      if (updatedDay.directusId > 0) {
-        // День уже существует в Directus - обновляем напрямую
-        log(
-          '[WhoopBloc] 🔄 Обновляем существующий день с directusId: ${updatedDay.directusId}',
-          name: 'WhoopBloc',
-        );
-        final raw = await directus.updateOne(
-          collection: daysCollection,
-          itemId: updatedDay.directusId.toString(),
-          updateData:
-              updatedDay.toDirectus(userId: userBloc.state.user.directusId),
-        );
-        final updatedFromDirectus = DayEntity.fromMap(raw);
-        await hive.saveDay(data: updatedFromDirectus);
-        log(
-          '[WhoopBloc] ✅ День успешно обновлен в Directus без дублирования',
-          name: 'WhoopBloc',
-        );
-      } else {
-        // День не существует - создаем новый через dayManager
-        log(
-          '[WhoopBloc] ➕ Создаем новый день через dayManager',
-          name: 'WhoopBloc',
-        );
-        await dayManager.createOrUpdateDay(day: updatedDay);
-      }
-
-      log(
-        '[WhoopBloc] ✅ Макросы успешно пересчитаны и сохранены',
-        name: 'WhoopBloc',
-      );
-
-      // [WELLNESS_SCORE_RECALC] Пересчитываем Daily Wellness Score после изменения диеты
-      // если у пользователя есть потребленные блюда
-      try {
-        final currentDay = state.day;
-        final existingWelness = currentDay.welnessEntity;
-
-        // Пересчитываем wellness score только если есть потребленные блюда
-        if (existingWelness != null && existingWelness.consumedMeals.isNotEmpty) {
-          log(
-            '[WhoopBloc] 🔄 Обнаружены потребленные блюда, запускаем пересчет Daily Wellness Score после изменения диеты',
-            name: 'WhoopBloc',
-          );
-
-          // Небольшая задержка, чтобы убедиться, что состояние обновлено
-          await Future.delayed(const Duration(milliseconds: 100));
-
-          // Получаем WellnessScoreCalculator через getIt для избежания циклической зависимости
-          final wellnessScoreCalculator =
-              getIt.get<WellnessScoreCalculator>();
-
-          // Пересчитываем wellness score с новыми целевыми макросами
-          // Передаем текущий день с обновленными макросами
-          final updatedDayWithWellness =
-              await wellnessScoreCalculator.recalculateWellnessScoreForExistingMeals(
-            currentDay,
-          );
-
-          // Обновляем день в WhoopBloc с пересчитанным wellness score
-          log(
-            '[WhoopBloc] 🔄 Обновляем день в WhoopBloc с пересчитанным wellness score',
-            name: 'WhoopBloc',
-          );
-          emit(state.copyWith(day: updatedDayWithWellness));
-
-          log(
-            '[WhoopBloc] ✅ Daily Wellness Score успешно пересчитан после изменения диеты',
-            name: 'WhoopBloc',
-          );
-        } else {
-          log(
-            '[WhoopBloc] ℹ️ Нет потребленных блюд, пересчет Daily Wellness Score не требуется',
-            name: 'WhoopBloc',
-          );
-        }
-      } catch (e, stackTrace) {
-        log(
-          '[WhoopBloc] ❌ Ошибка при пересчете Daily Wellness Score после изменения диеты: $e',
-          error: e,
-          stackTrace: stackTrace,
-          name: 'WhoopBloc',
-        );
-        // Не прерываем процесс обновления макросов из-за ошибки пересчета wellness score
-      }
-
-      // Не показываем снек бар успеха при смене диеты
-    } catch (e, stackTrace) {
-      log(
-        '[WhoopBloc] ❌ Ошибка при пересчете макросов: $e',
-        name: 'WhoopBloc',
-        error: e,
-        stackTrace: stackTrace,
-      );
-
-      RishSnackbar().showSnackBar(
-        'Error recalculating macros. Please try again.',
       );
     }
   }
@@ -1166,79 +737,14 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     Emitter<WhoopState> emit,
   ) async {
     emit(state.copyWith(status: Status.loading));
-
-    final isThereFreshData =
-        await whoopRemote.pingLastCycle(cycleId: state.day.cycleId);
-
-    if (isThereFreshData) {
-      // Сначала делаем редирект на экран загрузки
-      appNavigationService.go(path: AppRoutes.redirect.path);
-
-      final result = await getDataUsecase.call(
-        GetDataParams(
-          gender: userBloc.state.user.gender!,
-          goal: userBloc.state.user.userGoal!,
-          userId: userBloc.state.user.directusId,
-        ),
-      );
-
-      await result.fold(
-        (failure) {
-          emit(state.copyWith(status: Status.error));
-          appNavigationService.go(
-            path: AppRoutes.homeScreen.path,
-          );
-        },
-        (newDay) async {
-          // Сохраняем существующий снапшот
-          final existingSnap = state.day.snap;
-
-          // Определяем, нужно ли сохранить существующий план питания
-          final mealPlanToUse = shouldKeepExistingMealPlan(state.day, newDay)
-              ? state.day.mealPlanEntity
-              : newDay.mealPlanEntity;
-
-          // Обновляем день, сохраняя существующие данные где нужно
-          final updatedDay = newDay.copyWith(
-            mealPlanEntity: mealPlanToUse,
-            snap: existingSnap,
-          );
-
-          // Обновляем состояние блока
-          emit(state.copyWith(day: updatedDay));
-
-          // Обновляем список дней
-          userBloc.add(UserGetDays(newDay: updatedDay));
-
-          // Синхронизируем состояние чата с выбранной датой
-          chatBloc.add(ChatSyncWithSelectedDate());
-
-          // Обновляем кэш чата за последние 7 дней
-          final now = DateTime.now();
-          final sevenDaysAgo = now.subtract(const Duration(days: 7));
-          await chatRepo.updateChatCache(
-            directusId: userBloc.state.user.directusId,
-            startDate: sevenDaysAgo,
-            endDate: now,
-          );
-
-          // Завершаем загрузку и возвращаемся на главный экран
-          emit(state.copyWith(status: Status.success));
-          appNavigationService.go(
-            path: AppRoutes.homeScreen.path,
-          );
-
-          // Показываем уведомление об успешном обновлении
-          RishSnackbar()
-              .showSnackBar('Your data has been updated', isError: false);
-        },
-      );
-    } else {
-      if (event.needsErrorSnack) {
-        RishSnackbar().showWarningSnackBar(message: 'Your data is up to date');
-      }
-      emit(state.copyWith(status: Status.initial));
-    }
+    // PTR на домашнем экране: не уводим на Redirect/splash — достаточно индикатора
+    // на странице (см. RefreshIndicator + WhoopBloc status).
+    await _fetchCurrentDayFromBackend(
+      emit,
+      forceRefresh: true,
+      showLoadingRoute: false,
+      showSuccessSnack: true,
+    );
   }
 
   FutureOr<void> _updateCurrentDay(

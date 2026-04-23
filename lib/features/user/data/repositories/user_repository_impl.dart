@@ -1,13 +1,9 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
-import 'package:hive/hive.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
-import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/services/day_manager/day_manager.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -203,46 +199,19 @@ class UserRepositoryImpl implements UserRepository {
         name: 'UserRepositoryImpl',
       );
 
-      DayEntity? dayEntity;
-
-      // Если в плане питания есть cycleId, ищем день по нему
-      if (mealPlan.cycleId != null) {
-        log(
-          'Поиск дня по cycleId из плана питания: ${mealPlan.cycleId}',
-          name: 'UserRepositoryImpl',
-        );
-        dayEntity = await dayManager.getDayByCycleId(
-          userId: userId,
-          cycleId: mealPlan.cycleId!,
-        );
-      }
-
-      // Если день не найден по cycleId, ищем активный день
-      if (dayEntity == null) {
-        log(
-          'День по cycleId не найден, ищем активный день для пользователя $userId',
-          name: 'UserRepositoryImpl',
-        );
-        dayEntity = await dayManager.getActiveDay(userId: userId);
-      }
+      // Backend источник истины: берем current day вместо локального cycle-поиска.
+      final lastDayResult = await dayManager.getLastDayWithCycleStatus(
+        userId: userId,
+        checkCycleStatus: false,
+      );
+      final dayEntity = lastDayResult?.day;
 
       if (dayEntity == null) {
         log(
-          'Активный день не найден для пользователя $userId',
+          'Текущий день не найден для пользователя $userId',
           name: 'UserRepositoryImpl',
         );
-        return const Left(FailedUpdateUser('No active day found'));
-      }
-
-      // Проверяем совместимость cycleId если он есть в обоих местах
-      if (mealPlan.cycleId != null &&
-          dayEntity.cycleId != null &&
-          mealPlan.cycleId != dayEntity.cycleId) {
-        log(
-          'Несоответствие cycleId: план=${mealPlan.cycleId}, день=${dayEntity.cycleId}',
-          name: 'UserRepositoryImpl',
-        );
-        return const Left(FailedUpdateUser('Cycle ID mismatch'));
+        return const Left(FailedUpdateUser('No current day found'));
       }
 
       // Создаем обновленный день с новым планом питания и снапшотом
@@ -310,7 +279,7 @@ class UserRepositoryImpl implements UserRepository {
       await dayManager.createOrUpdateDay(day: data);
       // Для удобства отладки
       log('День сохранен через dayManager: ID=${data.directusId}, Макросы=${data.macros}');
-    } catch (e, stackTrace) {
+    } catch (e) {
       log('Ошибка при сохранении дня через dayManager: $e');
       rethrow;
     }

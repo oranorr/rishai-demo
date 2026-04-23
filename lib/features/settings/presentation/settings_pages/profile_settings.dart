@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,7 @@ import 'package:rishai/core/extensions/string_extension.dart';
 import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/dialog.dart';
 import 'package:rishai/core/widgets/dropdown_menu.dart';
+import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/core/widgets/modal_sheet.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
@@ -483,9 +485,18 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
             final previousDiets = currentUser.foodPreferences?.diets ?? [];
             final newDiets = updUser.foodPreferences?.diets ?? [];
             final dietChanged = !listEquals(previousDiets, newDiets);
+            final needsDayRefresh =
+                dietChanged || modificatorChanged || genderChanged;
+
+            final updateCompletion = Completer<bool>();
 
             // Обновляем пользователя
-            userBloc.add(UpdateUserEvent(user: updUser));
+            userBloc.add(
+              UpdateUserEvent(
+                user: updUser,
+                completion: updateCompletion,
+              ),
+            );
 
             // [FIX] UX Restore:
             // Сразу отключаем кнопку и возвращаем интерфейс в режим просмотра.
@@ -495,35 +506,27 @@ class _ProfileSettingsState extends State<ProfileSettings> with ProfileMixin {
               _pendingSave = true;
             });
 
-            // [FIX] Небольшая задержка перед проверкой изменений
-            await Future.delayed(const Duration(milliseconds: 100));
+            final userUpdateSucceeded = await updateCompletion.future;
 
-            // [DIET_CHECK] Проверяем изменение диеты на кето/карнивор при сохранении
-            if (dietChanged) {
+            // После любых изменений, влияющих на дневные макросы/health data,
+            // полностью синхронизируем текущий день с backend вместо локальных расчетов.
+            // КРИТИЧЕСКИ ВАЖНО: делаем это только после успешного PUT /users/:id.
+            if (needsDayRefresh && userUpdateSucceeded) {
               log(
-                '[ProfileSettings] Обнаружено изменение диет при сохранении',
+                '[ProfileSettings] Обнаружены изменения профиля, обновляем текущий день с backend',
                 name: 'ProfileSettings',
               );
-              whoopBloc.add(
-                WhoopCheckDietChange(
-                  newDiets: newDiets,
-                  previousDiets: previousDiets,
-                  context: context,
-                ),
+              whoopBloc.add(const WhoopRefreshAfterProfileChange());
+            } else if (needsDayRefresh && !userUpdateSucceeded) {
+              log(
+                '[ProfileSettings] Пропускаем refresh дня, потому что обновление пользователя на backend не подтвердилось',
+                name: 'ProfileSettings',
               );
-            }
-
-            // Проверяем, нужно ли обновить макросы
-            if (modificatorChanged || genderChanged) {
-              whoopBloc.add(
-                WhoopChangeModificatorOrSex(
-                  modificator: updUser.userGoal!.modificator,
-                  gender: updUser.gender!,
-                  context: context,
-                  currentDiets: updUser
-                      .foodPreferences?.diets, // Передаем актуальные диеты
-                ),
-              );
+              if (mounted) {
+                RishSnackbar().showSnackBar(
+                  'Failed to save profile changes. Day refresh was cancelled.',
+                );
+              }
             }
           },
         ),

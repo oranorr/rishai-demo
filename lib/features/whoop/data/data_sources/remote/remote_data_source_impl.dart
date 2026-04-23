@@ -1,18 +1,11 @@
 import 'dart:developer';
+
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/constants/constants.dart';
 import 'package:rishai/core/di/injectable.dart';
-import 'package:rishai/core/extensions/date_time_extension.dart';
-import 'package:rishai/core/services/day_manager/day_manager_impl.dart' as dm;
-import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
-import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
-import 'package:rishai/features/whoop/data/models/cycle_model.dart';
-import 'package:rishai/features/whoop/data/models/recovery_model.dart';
-import 'package:rishai/features/whoop/data/models/sleep_model.dart';
-import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -25,17 +18,26 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   WhoopRemoteDataSourceImpl(this._userServiceClient);
   final UserServiceClient _userServiceClient;
 
-  bool emptify = emptifyWhoopData;
-  // Константы для повторных попыток
   final int maxRetries = 3;
   final Duration retryDelay = const Duration(seconds: 2);
 
   String get _currentUserId => userBloc.state.user.directusId;
 
   @override
+  Future<DayEntity> getCurrentDay({bool forceRefresh = false}) async {
+    final rawDay = await _userServiceClient.getCurrentDay(
+      userId: _currentUserId,
+      forceRefresh: forceRefresh,
+    );
+    return DayEntity.fromMap(rawDay);
+  }
+
+  @override
   Future<bool> isWhoopConnected() async {
     try {
-      final status = await _userServiceClient.getWhoopStatus(userId: _currentUserId);
+      final status = await _userServiceClient.getWhoopStatus(
+        userId: _currentUserId,
+      );
       return status['connected'] == true;
     } on UserServiceException catch (e) {
       log(
@@ -59,10 +61,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       );
 
       if (rawBm == null) {
-        log(
-          'Failed to get body measurements: API returned null',
-          name: 'WhoopBodyData',
-        );
         await WhoopErrorHandler.handleError(
           'Body measurements response is null',
           StackTrace.current,
@@ -75,15 +73,9 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         return null;
       }
 
-      log('Received body measurements data: $rawBm', name: 'WhoopBodyData');
-
       if (!rawBm.containsKey('height_meter') ||
           !rawBm.containsKey('weight_kilogram') ||
           !rawBm.containsKey('max_heart_rate')) {
-        log(
-          'Body measurements data is incomplete: $rawBm',
-          name: 'WhoopBodyData',
-        );
         await WhoopErrorHandler.handleError(
           'Body measurements data is incomplete',
           StackTrace.current,
@@ -96,7 +88,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         return null;
       }
 
-      // Дополнительная защита от неожиданных типов (null, String, num)
       final height = (rawBm['height_meter'] as num?)?.toDouble();
       final weightKg = (rawBm['weight_kilogram'] as num?)?.toDouble();
       final maxHeartRateRaw = rawBm['max_heart_rate'];
@@ -107,10 +98,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
               : int.tryParse(maxHeartRateRaw?.toString() ?? '');
 
       if (height == null || weightKg == null || maxHeartRate == null) {
-        log(
-          'Body measurements data has invalid types: $rawBm',
-          name: 'WhoopBodyData',
-        );
         await WhoopErrorHandler.handleError(
           'Body measurements data has invalid types',
           StackTrace.current,
@@ -125,17 +112,11 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         return null;
       }
 
-      final bodyData = BodyMeasurementsEntity(
+      return BodyMeasurementsEntity(
         height: height,
         weight: weightKg.round(),
         maxHeartRate: maxHeartRate,
       );
-
-      log(
-        'Successfully parsed body measurements: $bodyData',
-        name: 'WhoopBodyData',
-      );
-      return bodyData;
     } catch (e, stackTrace) {
       log('Error getting body measurements: $e', name: 'WhoopBodyData');
       await Sentry.captureException(
@@ -146,222 +127,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           'endpoint': '/whoop/body',
         }),
       );
-      return null;
-    }
-  }
-
-  @override
-  Future<(List<CycleModel>, int)> getCycles() async {
-    try {
-      final data = await _makeRequest(
-        endpointName: '/whoop/cycles',
-        request: () => _userServiceClient.getWhoopCycles(userId: _currentUserId),
-      );
-
-      if (data == null || data['records'] == null) {
-        return (<CycleModel>[], 0);
-      }
-
-      final List<Map<String, dynamic>> rawCycles =
-          List<Map<String, dynamic>>.from(data['records']);
-
-      final Map<String, dynamic>? currentCycle = rawCycles.firstWhere(
-        (map) => map['end'] == null,
-        orElse: () => <String, dynamic>{},
-      );
-
-      if (currentCycle == null || currentCycle.isEmpty) {
-        await WhoopErrorHandler.handleError(
-          'Current cycle not found',
-          StackTrace.current,
-          context: 'whoop_cycles_current_missing',
-          extras: {
-            'directus_user_id': userBloc.state.user.directusId,
-            'records_count': rawCycles.length,
-          },
-        );
-      }
-
-      final List<CycleModel> cycles = [];
-      final scoredCycles = rawCycles
-          .take(8)
-          .where((raw) => raw['score_state'] == 'SCORED' && raw['end'] != null);
-      for (final raw in scoredCycles) {
-        final parsed = CycleModel.tryFromMap(raw);
-        if (parsed == null) {
-          await WhoopErrorHandler.handleError(
-            'Failed to parse cycle record',
-            StackTrace.current,
-            context: 'whoop_parse_cycle',
-            extras: {
-              'directus_user_id': userBloc.state.user.directusId,
-              'record_keys': raw.keys.toList(),
-            },
-          );
-          continue;
-        }
-        cycles.add(parsed);
-      }
-      log('CYCLES LENGTH: ${cycles.length}');
-      final currentCycleIdRaw =
-          currentCycle != null ? currentCycle['id'] : null;
-      final currentCycleId = currentCycleIdRaw is int
-          ? currentCycleIdRaw
-          : currentCycleIdRaw is num
-              ? currentCycleIdRaw.toInt()
-              : int.tryParse(currentCycleIdRaw?.toString() ?? '');
-      return (cycles, currentCycleId ?? 0);
-    } on Exception catch (__) {
-      rethrow;
-    }
-  }
-
-  @override
-  Future<List<WorkoutModel>> getWorkoutsOfCycle({
-    required CycleModel cycle,
-  }) async {
-    final data = await _makeRequest(
-      endpointName: '/whoop/workouts',
-      request: () => _userServiceClient.getWhoopWorkouts(userId: _currentUserId),
-    );
-
-    if (data == null || data['records'] == null) {
-      return [];
-    }
-
-    List<Map<String, dynamic>> rawWorkouts =
-        List.from(data['records']).cast<Map<String, dynamic>>();
-
-    List<Map<String, dynamic>> rawScoredWorkouts =
-        rawWorkouts.where((raw) => raw['score_state'] == 'SCORED').toList();
-
-    final List<WorkoutModel> workouts = [];
-    for (final raw in rawScoredWorkouts) {
-      final parsed = WorkoutModel.tryFromMap(raw);
-      if (parsed == null) {
-        await WhoopErrorHandler.handleError(
-          'Failed to parse workout record',
-          StackTrace.current,
-          context: 'whoop_parse_workout',
-          extras: {
-            'directus_user_id': userBloc.state.user.directusId,
-            'record_keys': raw.keys.toList(),
-          },
-        );
-        continue;
-      }
-      workouts.add(parsed);
-    }
-    if (workouts.isNotEmpty) {
-      return emptify
-          ? []
-          : workouts.where((workout) {
-              final workoutEnd = workout.end ?? DateTime.now();
-              final cycleEnd = cycle.end;
-
-              return workout.start.isAfter(cycle.start) &&
-                  workoutEnd.isBefore(cycleEnd!);
-            }).toList();
-    } else {
-      return [];
-    }
-  }
-
-  @override
-  Future<RecoveryModel?> getRecoveryOfCycle({required int cycleId}) async {
-    final data = await _makeRequest(
-      endpointName: '/whoop/recovery',
-      request: () => _userServiceClient.getWhoopRecovery(userId: _currentUserId),
-    );
-
-    if (data == null) {
-      return null;
-    }
-
-    List<dynamic> list = emptify ? [] : data['records'];
-    if (list.isNotEmpty) {
-      final first = list.firstWhere(
-        (recovery) =>
-            recovery['score_state'] == 'SCORED' &&
-            recovery['cycle_id'] == cycleId,
-        orElse: () => list.first,
-      );
-      if (first is! Map<String, dynamic>) {
-        await WhoopErrorHandler.handleError(
-          'Recovery record is not a map',
-          StackTrace.current,
-          context: 'whoop_parse_recovery_type',
-          extras: {
-            'directus_user_id': userBloc.state.user.directusId,
-            'cycle_id': cycleId,
-            'record_type': first.runtimeType.toString(),
-          },
-        );
-        return null;
-      }
-      final parsed = RecoveryModel.tryFromJson(first);
-      if (parsed == null) {
-        await WhoopErrorHandler.handleError(
-          'Failed to parse recovery record',
-          StackTrace.current,
-          context: 'whoop_parse_recovery',
-          extras: {
-            'directus_user_id': userBloc.state.user.directusId,
-            'cycle_id': cycleId,
-            'record_keys': first.keys.toList(),
-          },
-        );
-        return null;
-      }
-      return parsed;
-    } else {
-      return null;
-    }
-  }
-
-  @override
-  Future<SleepModel?> getLastSleep() async {
-    final rawSleeps = await _makeRequest(
-      endpointName: '/whoop/sleep',
-      request: () => _userServiceClient.getWhoopSleep(userId: _currentUserId),
-    );
-    if (rawSleeps == null) {
-      return null;
-    }
-
-    List<dynamic> list = emptify ? [] : rawSleeps['records'];
-    if (list.isNotEmpty) {
-      final first = list.firstWhere(
-        (sleep) => sleep['score_state'] == 'SCORED',
-        orElse: () => list.first,
-      );
-      if (first is! Map<String, dynamic>) {
-        await WhoopErrorHandler.handleError(
-          'Sleep record is not a map',
-          StackTrace.current,
-          context: 'whoop_parse_sleep_type',
-          extras: {
-            'directus_user_id': userBloc.state.user.directusId,
-            'record_type': first.runtimeType.toString(),
-          },
-        );
-        return null;
-      }
-      final parsed = SleepModel.tryFromMap(first);
-      if (parsed == null) {
-        await WhoopErrorHandler.handleError(
-          'Failed to parse sleep record',
-          StackTrace.current,
-          context: 'whoop_parse_sleep',
-          extras: {
-            'directus_user_id': userBloc.state.user.directusId,
-            'record_keys': first.keys.toList(),
-          },
-        );
-        return null;
-      }
-      return parsed;
-    } else {
       return null;
     }
   }
@@ -416,76 +181,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
   }
 
   @override
-  Future<DayEntity?> fetchDirectusData() async {
-    try {
-      final rawUser = await _userServiceClient.getUser(
-        userBloc.state.user.directusId,
-      );
-
-      if (rawUser.isEmpty) {
-        log('User data is empty in fetchDirectusData');
-        return null;
-      }
-
-      // Используем новую архитектуру - получаем последний день напрямую
-      final lastDay = await dm.dayManager.getLastUserDay(
-        userId: rawUser['id'].toString(),
-      );
-
-      if (lastDay == null) {
-        log('No days found for user in fetchDirectusData');
-        return null;
-      }
-
-      log(
-        'Found last day for user: ${lastDay.dateTime}',
-        name: 'RemoteDataSourceImpl',
-      );
-
-      // Проверяем наличие whoopData в пользователе
-      final data = rawUser['whoopData'];
-      if (data != null &&
-          data.isNotEmpty &&
-          data['weekTdeeAverage'] != null &&
-          data['macros'] != null &&
-          data['askTime'] != null) {
-        log('Using whoopData from user: weekTdeeAverage=${data['weekTdeeAverage']}');
-
-        // Создаём обновлённый день с данными из whoopData
-        final dayEntity = lastDay.copyWith(
-          weekTdeeAverage: data['weekTdeeAverage'],
-          macros: MacrosBreakdown.fromMap(data['macros']),
-          dateTime: DateTime.fromMillisecondsSinceEpoch(data['askTime']),
-        );
-        return dayEntity;
-      } else {
-        log('whoopData is missing or incomplete: $data');
-        // Возвращаем последний день как есть
-        return lastDay;
-      }
-    } catch (e) {
-      log('Error in fetchDirectusData: $e');
-      return null;
-    }
-  }
-
-  // @override
-  // Future<bool> pingCurrentCycle() async {
-  //   await wTokenService.initService();
-  //   UserDataEntity? savedUserData =
-  //       await hive.fetchUserDataEntity(userId: userBloc.state.user.directusId);
-  //   if (savedUserData == null) {
-  //     return false;
-  //   }
-  //   final raw = await _requestData(
-  //     endpoint:
-  //         WhoopEndpoints().cycleById(cycleId: savedUserData.currentCycleId),
-  //   );
-  //   log(raw.toString());
-  //   return raw!['end'] != null && raw['score_state'] == 'SCORED';
-  // }
-
-  @override
   Future<bool> pingLastCycle({required int? cycleId}) async {
     if (cycleId == null) return true;
 
@@ -496,7 +191,6 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         cycleId: cycleId,
       ),
     );
-    // log(raw.toString());
 
     if (raw == null) return true;
 
@@ -512,112 +206,5 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
       log('Error: $e', name: 'Disconnect Whoop RDS');
       return false;
     }
-  }
-
-  @override
-  Future<bool> doesChatNeedsRefreshment({required String userId}) async {
-    try {
-      // Используем новую архитектуру - получаем последний день напрямую
-      final lastDay = await dm.dayManager.getLastUserDay(userId: userId);
-
-      if (lastDay == null) {
-        return true;
-      }
-
-      // Проверяем, отличается ли дата последнего дня от сегодняшней
-      return !lastDay.dateTime.isSameDate(DateTime.now());
-    } catch (e) {
-      log(
-        'Ошибка в doesChatNeedsRefreshment: $e',
-        name: 'WhoopRemoteDataSource',
-      );
-      return true; // В случае ошибки считаем, что чат нуждается в обновлении
-    }
-  }
-
-  // @override
-  // Future<List<DayEntity>> getDaysWithMealPlans({
-  //   required List<int> daysIds,
-  // }) async {
-  //   try {
-  //     // final List<DayEntity> days = [];
-  //     final Map<String, DayEntity> uniqueDays =
-  //         {}; // Используем Map для хранения уникальных дней по дате
-
-  //     for (final id in daysIds) {
-  //       final rawDay = await directus.readOne(
-  //         collection: daysCollection,
-  //         id: id.toString(),
-  //       );
-
-  //       if (rawDay.isNotEmpty) {
-  //         final dayEntity = DayEntity(
-  //           directusId: id,
-  //           cycleId:
-  //               rawDay['cycleId'] != null ? int.parse(rawDay['cycleId']) : null,
-  //           weekTdeeAverage: rawDay['weekTdeeAverage'],
-  //           macros: MacrosBreakdown.fromMap(rawDay['macros']),
-  //           mealPlanEntity: rawDay['mealPlan'] != null
-  //               ? MealPlanEntity.fromMap(rawDay['mealPlan'])
-  //               : null,
-  //           healthMetrics: HealthMetricsEntity.fromMap(rawDay['healthMetrics']),
-  //           snap: ChatSnapshotEntity.fromDirectus(rawDay['chatSnap']),
-  //           dateTime: DateTime.fromMillisecondsSinceEpoch(
-  //             int.parse(rawDay['dateTime']),
-  //           ),
-  //         );
-
-  //         // Используем дату как ключ для уникальности
-  //         final dateKey = dayEntity.dateTime.toIso8601String().split('T')[0];
-  //         if (!uniqueDays.containsKey(dateKey) ||
-  //             (dayEntity.cycleId != null &&
-  //                 uniqueDays[dateKey]?.cycleId == null)) {
-  //           uniqueDays[dateKey] = dayEntity;
-  //         }
-  //       }
-  //     }
-
-  //     return uniqueDays.values.toList()
-  //       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-  //   } catch (e) {
-  //     log('Error fetching days with meal plans: $e');
-  //     return [];
-  //   }
-  // }
-
-  // Метод для повторных попыток
-  Future<T?> retryOperation<T>(
-    Future<T?> Function() operation,
-    String operationName,
-  ) async {
-    for (int attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        final result = await operation();
-        if (result != null) return result;
-
-        await Sentry.addBreadcrumb(
-          Breadcrumb(
-            category: 'whoop_retry',
-            message: 'Retry attempt $attempt for $operationName',
-            level: SentryLevel.info,
-          ),
-        );
-
-        if (attempt < maxRetries - 1) {
-          await Future.delayed(retryDelay);
-        }
-      } catch (e, stackTrace) {
-        await Sentry.captureException(
-          e,
-          stackTrace: stackTrace,
-          hint: Hint.withMap({
-            'context': 'whoop_retry',
-            'operation': operationName,
-            'attempt': attempt + 1,
-          }),
-        );
-      }
-    }
-    return null;
   }
 }

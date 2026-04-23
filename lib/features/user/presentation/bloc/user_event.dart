@@ -10,8 +10,10 @@ sealed class UserEvent extends Equatable {
 
 class UpdateUserEvent extends UserEvent {
   final UserEntity user;
+  final Completer<bool>? completion;
   const UpdateUserEvent({
     required this.user,
+    this.completion,
   });
 }
 

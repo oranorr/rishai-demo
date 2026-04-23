@@ -82,18 +82,22 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
           }
 
           // Добавляем текущую рекомендацию по питанию в контекст
-          final currentRecommendation = RecommendationService.getCurrentRecommendation();
-          if (currentRecommendation != null && currentRecommendation.isNotEmpty) {
+          final currentRecommendation =
+              RecommendationService.getCurrentRecommendation();
+          if (currentRecommendation != null &&
+              currentRecommendation.isNotEmpty) {
             log('💡 Добавляем текущую рекомендацию в контекст чата: ${currentRecommendation.substring(0, currentRecommendation.length > 200 ? 200 : currentRecommendation.length)}...');
             contextMessages.add(
               PreviousMessage(
-                text: 'Current nutritional recommendation: $currentRecommendation',
+                text:
+                    'Current nutritional recommendation: $currentRecommendation',
                 role: 'user',
               ),
             );
             contextMessages.add(
               PreviousMessage(
-                text: 'I understand the current nutritional recommendation. I will consider it when answering questions.',
+                text:
+                    'I understand the current nutritional recommendation. I will consider it when answering questions.',
                 role: 'model',
               ),
             );
@@ -102,13 +106,15 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
             // Добавляем информацию о том, что рекомендации нет
             contextMessages.add(
               PreviousMessage(
-                text: 'The user does not have a current nutritional recommendation at this time.',
+                text:
+                    'The user does not have a current nutritional recommendation at this time.',
                 role: 'user',
               ),
             );
             contextMessages.add(
               PreviousMessage(
-                text: 'I understand. I will help with nutrition questions without a specific recommendation.',
+                text:
+                    'I understand. I will help with nutrition questions without a specific recommendation.',
                 role: 'model',
               ),
             );
@@ -213,13 +219,18 @@ Please use this information when answering my nutrition questions.''';
     DateTime date,
   ) async {
     try {
-      // Используем унифицированный метод вместо дублирующей логики
+      // [fetchLastChatSnap] Параметр [date] пока не используется: user-service
+      // отдаёт только «текущий» день. Любой цикл по диапазону дат на клиенте
+      // без per-day API дублирует один и тот же payload — см. `updateChatCache`.
+      //
+      // Источник истины на backend: берем current day.
       final result = await dayManager.getLastDayWithCycleStatus(
         userId: directusId,
+        checkCycleStatus: false,
       );
 
-      // Если день не найден или цикл завершен, возвращаем null
-      if (result == null || !result.isCycleActive) {
+      // Если current day не найден, возвращаем null.
+      if (result == null) {
         return null;
       }
 
@@ -501,6 +512,36 @@ Please use this information when answering my nutrition questions.''';
     }
 
     return {'meals': allMeals};
+  }
+
+  @override
+  Future<void> sendMealPlanToAssistantChat(MealPlanEntity mealPlan) async {
+    try {
+      final meals = mealPlan.toMap()['meals'];
+      if (meals is! List || meals.isEmpty) {
+        log(
+          '[sendMealPlanToAssistantChat] mealPlan.meals пустой, пропускаем',
+          name: 'ChatRemoteDataSource',
+        );
+        return;
+      }
+
+      log(
+        '[sendMealPlanToAssistantChat] Добавляем meal plan в чат (meals=${meals.length})',
+        name: 'ChatRemoteDataSource',
+      );
+
+      await requestAssistant(
+        prompt: "{'meals': $meals}",
+        isChat: true,
+        type: LlmRequestType.chat,
+      );
+    } catch (e) {
+      log(
+        '[sendMealPlanToAssistantChat] Ошибка: $e',
+        name: 'ChatRemoteDataSource',
+      );
+    }
   }
 
   /// Новые методы для регенерации блюд с использованием V2 структуры API

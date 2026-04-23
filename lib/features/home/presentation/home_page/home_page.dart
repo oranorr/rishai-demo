@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:auto_size_text/auto_size_text.dart';
-import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -268,14 +267,18 @@ class _HomePageBodyState extends State<_HomePageBody> {
         print('❌ Последний день не найден');
       }
 
-      // Тест 3: Получение активного дня (текущий незавершенный цикл)
-      final activeDay = await dayManager.getActiveDay(userId: userId);
+      // Тест 3: Получение текущего дня (backend current day)
+      final currentDayResult = await dayManager.getLastDayWithCycleStatus(
+        userId: userId,
+        checkCycleStatus: false,
+      );
+      final activeDay = currentDayResult?.day;
       if (activeDay != null) {
         print(
-          '✅ Найден активный день: cycleId=${activeDay.cycleId}, дата=${activeDay.dateTime}',
+          '✅ Найден текущий день: cycleId=${activeDay.cycleId}, дата=${activeDay.dateTime}',
         );
       } else {
-        print('❌ Активный день не найден');
+        print('❌ Текущий день не найден');
       }
 
       print('=== ТЕСТ ЗАВЕРШЕН ===');

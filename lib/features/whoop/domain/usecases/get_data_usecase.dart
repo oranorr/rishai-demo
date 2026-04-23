@@ -23,8 +23,10 @@ class GetDataParams {
     required this.gender,
     required this.goal,
     required this.userId,
+    this.forceRefresh = false,
   });
   final Gender gender;
   final UserGoal goal;
   final String userId;
+  final bool forceRefresh;
 }

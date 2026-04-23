@@ -10,10 +10,26 @@ abstract interface class ChatRepository {
   Future<void> saveChatSnapShot({
     required ChatSnapshotEntity chatSnap,
     DateTime? date,
+    /// Служебные вызовы (например после PTR) — без шумных [log].
+    bool quietLogs = false,
   });
 
-  /// Новый метод для запроса планов питания с использованием новой структуры API
+  /// Legacy путь генерации плана питания (клиентская оркестрация LLM).
+  ///
+  /// Для дневного плана (isWeekPlan=false) **предпочитать** async tasks:
+  /// [requestDailyMealPlanViaTask].
+  @Deprecated(
+    'Legacy client-side orchestration. Use requestDailyMealPlanViaTask (async tasks) for daily plans.',
+  )
   Future<Either<Failure, MealPlanEntity>> requestMealPlanV2({
+    required RequestPlanParams params,
+  });
+
+  /// Асинхронный дневной план питания через backend tasks.
+  ///
+  /// Контракт: POST /tasks/enqueue (type daily_meal_plan) -> poll GET /tasks/:id.
+  /// Используется только для `isWeekPlan: false`.
+  Future<Either<Failure, MealPlanEntity>> requestDailyMealPlanViaTask({
     required RequestPlanParams params,
   });
 
@@ -22,6 +38,9 @@ abstract interface class ChatRepository {
   Future<Either<Failure, ChatSnapshotEntity?>> fetchSavedSnap({
     required String directusId,
     DateTime? targetDate,
+    bool forceUpdate = false,
+    /// Меньше логов при фоновом обновлении кэша после refresh дня.
+    bool quietLogs = false,
   });
   Future<Either<Failure, Meal>> replaceMeal({
     required ReplaceMealParams params,

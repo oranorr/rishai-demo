@@ -84,6 +84,13 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     UpdateUserEvent event,
     Emitter<UserState> emit,
   ) async {
+    void completeSync(bool success) {
+      final completion = event.completion;
+      if (completion != null && !completion.isCompleted) {
+        completion.complete(success);
+      }
+    }
+
     UserEntity user = event.user;
     log('user.userGoal: ${user.userGoal}', name: 'UserBloc');
 
@@ -123,12 +130,15 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         log('Ошибка синхронизации с backend: ${l.message}', name: 'UserBloc');
         // Не показываем snackbar для ошибок сети - пользователь может не знать о проблеме
         // Данные уже сохранены локально и будут синхронизированы позже
+        completeSync(false);
       }, (r) {
         log('Пользователь успешно синхронизирован с backend', name: 'UserBloc');
+        completeSync(true);
       });
     } on Exception catch (e) {
       log('Ошибка обновления пользователя: $e', name: 'UserBloc');
       // Локальное состояние уже обновлено, просто логируем ошибку
+      completeSync(false);
     }
   }
 

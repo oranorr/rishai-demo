@@ -62,6 +62,29 @@ class DayEntity {
       }
     }
 
+    /// [DayEntity.fromMap] Безопасный парсинг chat snapshot:
+    /// backend может вернуть null (например, при частичных/пустых состояниях).
+    /// В таком случае подставляем дефолтный снимок, чтобы не падать в рантайме.
+    final rawChatSnap = map['chatSnap'];
+    final ChatSnapshotEntity safeChatSnapshot = (rawChatSnap
+            is Map<String, dynamic>)
+        ? ChatSnapshotEntity.fromDirectus(rawChatSnap)
+        : ChatSnapshotEntity(
+            messages: const [],
+            date: DateTime.now(),
+            requestsLeft: 0,
+            threadId: null,
+          );
+
+    /// [DayEntity.fromMap] Backend обычно отдает cycleId строкой, но
+    /// в legacy/edge-кейсах значение может прийти числом. Поддерживаем оба.
+    final dynamic rawCycleId = map['cycleId'];
+    final int? parsedCycleId = rawCycleId == null
+        ? null
+        : rawCycleId is int
+            ? rawCycleId
+            : int.tryParse(rawCycleId.toString());
+
     return DayEntity(
       directusId: map['id'] as int,
       weekTdeeAverage: (map['weekTdeeAverage'] as num).toInt(),
@@ -77,10 +100,8 @@ class DayEntity {
           : map['dateTime'] is int
               ? DateTime.fromMillisecondsSinceEpoch(map['dateTime'])
               : DateTime.now(),
-      snap: ChatSnapshotEntity.fromDirectus(
-        map['chatSnap'],
-      ),
-      cycleId: map['cycleId'] != null ? int.parse(map['cycleId']) : null,
+      snap: safeChatSnapshot,
+      cycleId: parsedCycleId,
       welnessEntity: welnessEntity,
     );
   }

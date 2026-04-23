@@ -272,9 +272,11 @@ class LlmProxyClient {
   String get _baseUrl {
     // Временно используем staging для разработки
     // В продакшене нужно будет определить правильную логику
-    return kDebugMode
-        ? _stagingBaseUrl
-        : _productionBaseUrl; // TODO(dev): Replace with real environment check
+    return _productionBaseUrl;
+
+    // return kDebugMode
+    //     ? _stagingBaseUrl
+    //     : _productionBaseUrl;
   }
 
   /// Отправляет запрос к LLM прокси
@@ -782,15 +784,16 @@ class LlmProxyClient {
         if (response.statusCode == 200 || response.statusCode == 201) {
           // API возвращает JSON объект с полем "recommendation"
           try {
-            final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+            final responseData =
+                jsonDecode(response.body) as Map<String, dynamic>;
             final recommendation = responseData['recommendation'] as String?;
-            
+
             if (recommendation != null && recommendation.isNotEmpty) {
               // Если это была повторная попытка, логируем успех
               if (retryCount > 0) {
                 log('[RecommendationsWidget] 🎉 Успешно получена рекомендация после $retryCount повторных попыток');
               }
-              
+
               log('[RecommendationsWidget] ✅ Получена рекомендация: ${recommendation.substring(0, recommendation.length > 100 ? 100 : recommendation.length)}...');
               return recommendation;
             } else {
@@ -805,7 +808,8 @@ class LlmProxyClient {
           }
         } else {
           // Проверяем, является ли это HTTP 500 или 502 ошибкой (временные ошибки сервера)
-          final isRetryableError = response.statusCode == 500 || response.statusCode == 502;
+          final isRetryableError =
+              response.statusCode == 500 || response.statusCode == 502;
           final errorMessage = 'HTTP ${response.statusCode}: ${response.body}';
 
           log('[RecommendationsWidget] ❌ Ошибка от API: ${response.statusCode} - ${response.body}');
@@ -816,7 +820,7 @@ class LlmProxyClient {
             // Задержки между попытками: 3, 4, 5 секунд
             final delays = [3, 4, 5];
             final delaySeconds = delays[retryCount - 1];
-            log('[RecommendationsWidget] 🔄 HTTP ${response.statusCode} ошибка, повторяем через ${delaySeconds}с (попытка ${retryCount + 1}/${maxRetries + 1})');
+            log('[RecommendationsWidget] 🔄 HTTP ${response.statusCode} ошибка, повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
             await Future.delayed(Duration(seconds: delaySeconds));
             continue;
           }
@@ -829,11 +833,11 @@ class LlmProxyClient {
         final errorString = e.toString();
         // Проверяем, является ли это HTTP 500 или 502 ошибкой (временные ошибки сервера)
         final isRetryableError = errorString.contains('500') ||
-                                errorString.contains('502') ||
-                                errorString.contains('Internal Server Error') ||
-                                errorString.contains('Bad Gateway') ||
-                                errorString.contains('502 Bad Gateway') ||
-                                errorString.contains('500 Internal Server Error');
+            errorString.contains('502') ||
+            errorString.contains('Internal Server Error') ||
+            errorString.contains('Bad Gateway') ||
+            errorString.contains('502 Bad Gateway') ||
+            errorString.contains('500 Internal Server Error');
 
         // Если это 500 или 502 ошибка и у нас есть попытки, пробуем еще раз
         if (isRetryableError && retryCount < maxRetries) {
@@ -842,7 +846,7 @@ class LlmProxyClient {
           final delays = [3, 4, 5];
           final delaySeconds = delays[retryCount - 1];
           log('[RecommendationsWidget] 💥 HTTP 500/502 исключение: $e');
-          log('[RecommendationsWidget] 🔄 Повторяем через ${delaySeconds}с (попытка ${retryCount + 1}/${maxRetries + 1})');
+          log('[RecommendationsWidget] 🔄 Повторяем через $delaySecondsс (попытка ${retryCount + 1}/${maxRetries + 1})');
           await Future.delayed(Duration(seconds: delaySeconds));
           continue;
         }

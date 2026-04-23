@@ -40,32 +40,8 @@ class WhoopUserCalibrating extends WhoopEvent {
 
 class WhoopRetrieveBodyData extends WhoopEvent {}
 
-class WhoopChangeModificatorOrSex extends WhoopEvent {
-  final double modificator;
-  final Gender gender;
-  final BuildContext context;
-  final List<String>? currentDiets; // Добавляем параметр для текущих диет
-  const WhoopChangeModificatorOrSex({
-    required this.modificator,
-    required this.gender,
-    required this.context,
-    this.currentDiets, // Опциональный параметр для диет
-  });
-}
-
-class WhoopCheckDietChange extends WhoopEvent {
-  final List<String> newDiets;
-  final List<String> previousDiets;
-  final BuildContext context;
-
-  const WhoopCheckDietChange({
-    required this.newDiets,
-    required this.previousDiets,
-    required this.context,
-  });
-
-  @override
-  List<Object> get props => [newDiets, previousDiets, context];
+class WhoopRefreshAfterProfileChange extends WhoopEvent {
+  const WhoopRefreshAfterProfileChange();
 }
 
 class WhoopUpdateDayByMealPlan extends WhoopEvent {

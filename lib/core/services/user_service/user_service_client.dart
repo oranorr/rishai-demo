@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/services/envied/envied.dart';
@@ -36,8 +35,8 @@ class UserServiceClient {
   static const String _authHeaderValue = Env.authHeaderKey;
   static const String _userIdHeaderKey = 'x-user-id';
 
-  String get _baseUrl =>
-      kDebugMode ? _stagingBaseUrl : _productionBaseUrl;
+  String get _baseUrl => _stagingBaseUrl;
+  // kDebugMode ? _stagingBaseUrl : _productionBaseUrl;
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -135,7 +134,10 @@ class UserServiceClient {
     required String name,
     required String provider,
   }) async {
-    log('[loginOAuth] email=$email, provider=$provider', name: 'UserServiceClient');
+    log(
+      '[loginOAuth] email=$email, provider=$provider',
+      name: 'UserServiceClient',
+    );
 
     final response = await http.post(
       Uri.parse('$_baseUrl/users/login-oauth'),
@@ -165,7 +167,10 @@ class UserServiceClient {
   }
 
   /// PUT /users/:id — обновление пользователя (частичный payload)
-  Future<Map<String, dynamic>> updateUser(String id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> updateUser(
+    String id,
+    Map<String, dynamic> body,
+  ) async {
     log('[updateUser] id=$id', name: 'UserServiceClient');
 
     // Исключаем directusId из body — id только в URL
@@ -305,6 +310,132 @@ class UserServiceClient {
       userId: userId,
       queryParameters: queryParameters,
     );
+  }
+
+  /// GET /days/current — получить или пересчитать текущий день пользователя.
+  Future<Map<String, dynamic>> getCurrentDay({
+    required String userId,
+    bool forceRefresh = false,
+  }) async {
+    log(
+      '[getCurrentDay] userId=$userId, forceRefresh=$forceRefresh',
+      name: 'UserServiceClient',
+    );
+
+    final response = await http.get(
+      _buildUri(
+        '/days/current',
+        queryParameters: forceRefresh ? {'forceRefresh': true} : null,
+      ),
+      headers: _whoopHeaders(userId: userId, includeContentType: false),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// GET /days — получить историю дней пользователя с пагинацией.
+  Future<Map<String, dynamic>> getDays({
+    required String userId,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    log(
+      '[getDays] userId=$userId, limit=$limit, offset=$offset',
+      name: 'UserServiceClient',
+    );
+
+    final response = await http.get(
+      _buildUri(
+        '/days',
+        queryParameters: {
+          'limit': limit,
+          'offset': offset,
+        },
+      ),
+      headers: _whoopHeaders(userId: userId, includeContentType: false),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// PATCH /days/current — частичное обновление текущего дня пользователя.
+  ///
+  /// Поддерживаемые поля payload: mealPlan, chatSnap, welnessEntity.
+  Future<Map<String, dynamic>> patchDaysCurrent({
+    required String userId,
+    required Map<String, dynamic> payload,
+  }) async {
+    log(
+      '[patchDaysCurrent] userId=$userId, keys=${payload.keys.toList()}',
+      name: 'UserServiceClient',
+    );
+
+    final response = await http.patch(
+      _buildUri('/days/current'),
+      headers: _whoopHeaders(userId: userId),
+      body: jsonEncode(payload),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// POST /tasks/enqueue — поставить асинхронную задачу в очередь.
+  ///
+  /// Ожидаемый ответ: 202 Accepted (в `_throwOnError` это входит как success).
+  Future<Map<String, dynamic>> enqueueTask({
+    required String userId,
+    required String type,
+    required Map<String, dynamic> input,
+    String? idempotencyClientKey,
+  }) async {
+    log(
+      '[enqueueTask] userId=$userId, type=$type, idempotencyClientKey=$idempotencyClientKey',
+      name: 'UserServiceClient',
+    );
+
+    final body = <String, dynamic>{
+      'type': type,
+      'input': input,
+      if (idempotencyClientKey != null)
+        'idempotencyClientKey': idempotencyClientKey,
+    };
+
+    final response = await http.post(
+      _buildUri('/tasks/enqueue'),
+      headers: _whoopHeaders(userId: userId),
+      body: jsonEncode(body),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// GET /tasks/:taskId — получить публичный статус задачи.
+  ///
+  /// Важно: backend возвращает 404 и для чужих задач (не раскрываем существование).
+  Future<Map<String, dynamic>> getTask({
+    required String userId,
+    required String taskId,
+    bool debug = false,
+  }) async {
+    log(
+      '[getTask] userId=$userId, taskId=$taskId, debug=$debug',
+      name: 'UserServiceClient',
+    );
+
+    final response = await http.get(
+      _buildUri(
+        '/tasks/$taskId',
+        queryParameters: debug ? {'debug': true} : null,
+      ),
+      headers: _whoopHeaders(userId: userId, includeContentType: false),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> _getWhoopJson(

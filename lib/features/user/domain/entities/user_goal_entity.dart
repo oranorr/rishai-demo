@@ -13,12 +13,27 @@ class UserGoal {
 
   factory UserGoal.fromMap(Map<String, dynamic> map) {
     return UserGoal(
-      goal: GoalType.values.byName(map['goal']),
-      modificator: map['modificator'].runtimeType == int
-          ? map['modificator'].toDouble()
-          : map['modificator'] as double,
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updatedAt'] as int),
+      goal: GoalType.values.byName((map['goalType'] ?? 'optimize') as String),
+      modificator: _parseModificator(map['modificator']),
+      updatedAt: _parseUpdatedAt(map['updatedAt']),
     );
+  }
+
+  /// Парсит modificator из разных форматов бекенда: int, double, или string (например "-0.01")
+  static double _parseModificator(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is int) return value.toDouble();
+    if (value is double) return value;
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  /// Парсит updatedAt из int (milliseconds) или string (ISO 8601, например "2026-03-18T14:56:03.047")
+  static DateTime _parseUpdatedAt(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) return DateTime.parse(value);
+    return DateTime.now();
   }
 
   factory UserGoal.fromJson(String source) =>

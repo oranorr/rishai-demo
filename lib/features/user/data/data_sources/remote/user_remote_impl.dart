@@ -18,13 +18,26 @@ class UserRemoteImpl implements UserRemoteSource {
   Map<String, dynamic> _toApiBody(UserEntity user) {
     final body = Map<String, dynamic>.from(user.toMap());
 
-    // userGoal: goal → goalType, modificator (double) → string
+    // userGoal: goal → goalType, modificator (double) → string,
+    // updatedAt: бекенд ожидает ISO 8601 string, не int (milliseconds)
     final userGoal = body['userGoal'] as Map<String, dynamic>?;
     if (userGoal != null && userGoal.isNotEmpty) {
+      Object? updatedAtValue = userGoal['updatedAt'];
+      String? updatedAtStr;
+      if (updatedAtValue != null) {
+        if (updatedAtValue is int) {
+          updatedAtStr = DateTime.fromMillisecondsSinceEpoch(updatedAtValue)
+              .toIso8601String();
+        } else if (updatedAtValue is DateTime) {
+          updatedAtStr = updatedAtValue.toIso8601String();
+        } else if (updatedAtValue is String) {
+          updatedAtStr = updatedAtValue;
+        }
+      }
       body['userGoal'] = {
         'goalType': userGoal['goal'] ?? userGoal['goalType'],
         'modificator': (userGoal['modificator'] ?? 0).toString(),
-        if (userGoal['updatedAt'] != null) 'updatedAt': userGoal['updatedAt'],
+        if (updatedAtStr != null) 'updatedAt': updatedAtStr,
       };
     }
 

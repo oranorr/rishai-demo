@@ -49,19 +49,9 @@ abstract class DayManager {
     required DayEntity day,
   });
 
-  /// Поиск дня по ID биологического цикла WHOOP
-  Future<DayEntity?> getDayByCycleId({
-    required String userId,
-    required int cycleId,
-  });
-
-  /// Получение активного дня (текущий незавершенный цикл)
-  Future<DayEntity?> getActiveDay({
-    required String userId,
-  });
-
   /// УНИФИЦИРОВАННЫЙ МЕТОД: Получение последнего дня с проверкой статуса цикла
-  /// Заменяет логику из getLastCycleId, fetchLastChatSnap и getActiveDay
+  /// Источник истины — backend `/days/current`.
+  /// Если backend вернул 404, значит активного дня нет.
   Future<LastDayResult?> getLastDayWithCycleStatus({
     required String userId,
     bool checkCycleStatus = true,

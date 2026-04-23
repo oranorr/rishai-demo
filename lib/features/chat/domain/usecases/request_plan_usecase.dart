@@ -8,6 +8,7 @@ import 'package:rishai/features/chat/data/remote_data_source/llm_proxy_client.da
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
 import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
+import 'package:rishai/core/config/feature_flags.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 
@@ -22,6 +23,9 @@ class RequestPlanUsecaseV2
 
   @override
   Future<Either<Failure, MealPlanEntity>> call(RequestPlanParams params) async {
+    if (kUseAsyncDailyMealPlan && !params.isWeekPlan) {
+      return chatRepository.requestDailyMealPlanViaTask(params: params);
+    }
     return chatRepository.requestMealPlanV2(params: params);
   }
 }

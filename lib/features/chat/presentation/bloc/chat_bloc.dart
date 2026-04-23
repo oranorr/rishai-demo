@@ -8,6 +8,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/router/app_navigation_service.dart';
 import 'package:rishai/core/router/app_routes.dart';
+import 'package:rishai/core/config/feature_flags.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
@@ -17,6 +18,7 @@ import 'package:rishai/features/chat/data/chat_repository_impl.dart'
     as chat_repo;
 import 'package:rishai/features/chat/data/remote_data_source/remote_data_source_impl.dart'
     as chat_remote;
+import 'package:rishai/features/chat/data/remote_data_source/remote_data_source.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/message_entity.dart';
@@ -28,11 +30,12 @@ import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/send_message_gpt_usecase.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_state.dart';
-import 'package:rishai/features/onboard/domain/entities.dart' show Diet;
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart'
+    as whoop_remote;
 
 part 'chat_event.dart';
 
@@ -184,12 +187,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Success, update state
         final responseMsg = MessageEntity(text: result, isMe: false);
         list.add(responseMsg); // Add response message
-        
+
         // [_sendMessage] Для подписчиков не уменьшаем requestsLeft
-        final newRequestsLeft = adapty.isActive 
-            ? state.requestsLeft 
-            : state.requestsLeft - 1;
-        
+        final newRequestsLeft =
+            adapty.isActive ? state.requestsLeft : state.requestsLeft - 1;
+
         emit(
           state.copyWith(
             status: Status.initial,
@@ -243,6 +245,20 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           RishSnackbar().showSnackBar(failure.message);
         },
         (mealPlan) async {
+          // При async-генерации meal plan создаётся на backend и записывается в day.
+          // Чтобы не перетирать welness/chatSnap устаревшими данными, сначала берём
+          // актуальный day с backend и обновляем WhoopBloc.
+          if (kUseAsyncDailyMealPlan) {
+            try {
+              final refreshedDay = await whoop_remote.whoopRemote.getCurrentDay(
+                forceRefresh: true,
+              );
+              whoopBloc.add(WhoopUpdateCurrentDay(day: refreshedDay));
+            } catch (e) {
+              log('[ChatBloc._createMealPlan] Failed to refresh current day: $e');
+            }
+          }
+
           // Создаем снапшот чата
           final chatSnap = _createSnapshot();
 
@@ -255,13 +271,27 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           // Сохраняем обновленный день
           await dayManager.createOrUpdateDay(day: updatedDay);
 
-          // Немедленно обновляем в Directus
-          await _saveToDirectus(mealPlan);
+          // Для async-генерации не делаем дополнительный PATCH: backend уже записал mealPlan,
+          // а `createOrUpdateDay` выше добавляет chatSnap/welness в рамках текущего дня.
+          if (!kUseAsyncDailyMealPlan) {
+            // Немедленно обновляем в Directus (legacy путь)
+            await _saveToDirectus(mealPlan);
+          } else {
+            // Паритет со старым пайплайном: добавляем план в контекст ассистента.
+            try {
+              await getIt
+                  .get<ChatRemoteDataSource>()
+                  .sendMealPlanToAssistantChat(
+                    mealPlan,
+                  );
+            } catch (e) {
+              log('[ChatBloc._createMealPlan] Failed to send meal plan to assistant chat: $e');
+            }
+          }
 
           // [_createMealPlan] Для подписчиков не уменьшаем requestsLeft
-          final newRequestsLeft = adapty.isActive 
-              ? state.requestsLeft 
-              : state.requestsLeft - 1;
+          final newRequestsLeft =
+              adapty.isActive ? state.requestsLeft : state.requestsLeft - 1;
 
           // Обновляем состояние
           emit(
