@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
-import 'package:equatable/equatable.dart';
 import 'package:injectable/injectable.dart';
+import 'package:rishai/core/config/feature_flags.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -9,6 +9,7 @@ import 'package:rishai/features/chat/domain/repository/chat_repository.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
+import 'package:rishai/features/week_plan/domain/params/week_plan_params.dart';
 
 /// Новая версия UseCase для генерации недельного плана с использованием новой структуры API
 @injectable
@@ -20,6 +21,10 @@ class GenerateWeekPlanUsecaseV2
 
   @override
   Future<Either<Failure, WeekPlanEntity>> call(WeekPlanParams params) async {
+    if (kUseAsyncWeeklyMealPlan) {
+      return chatRepository.requestWeeklyMealPlanViaTask(params: params);
+    }
+
     try {
       final List<MealPlanEntity> weekPlans = [];
       final Map<String, List<String>> generatedMeals = {
@@ -164,40 +169,4 @@ class GenerateWeekPlanUsecaseV2
 
     return completedPlans;
   }
-}
-
-class WeekPlanParams extends Equatable {
-  const WeekPlanParams({
-    required this.dietary,
-    required this.cuisines,
-    required this.restrictions,
-    required this.calorieTarget,
-    required this.macros,
-    required this.hasTraining,
-    required this.hasSnack,
-    required this.servings,
-    required this.startDate,
-  });
-  final List<String> dietary;
-  final List<String> cuisines;
-  final List<String> restrictions;
-  final int calorieTarget;
-  final MacrosBreakdown macros;
-  final bool hasTraining;
-  final bool hasSnack;
-  final List<ServingEntity> servings;
-  final DateTime startDate;
-
-  @override
-  List<Object?> get props => [
-        dietary,
-        cuisines,
-        restrictions,
-        calorieTarget,
-        macros,
-        hasTraining,
-        hasSnack,
-        servings,
-        startDate,
-      ];
 }

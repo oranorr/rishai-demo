@@ -1,13 +1,13 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
+import 'dart:convert' show jsonDecode;
+
 import 'package:equatable/equatable.dart';
-import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 
-part 'week_plan_entity.g.dart';
-
-@HiveType(typeId: 17)
+/// Сущность недельного плана: только сеть (Directus) + [WeekPlanBloc] в памяти,
+/// без отдельного бокса Hive.
 class WeekPlanEntity extends Equatable {
   const WeekPlanEntity({
     required this.userId,
@@ -50,31 +50,87 @@ class WeekPlanEntity extends Equatable {
     return weekPlan;
   }
 
-  factory WeekPlanEntity.fromMap(Map<String, dynamic> map) {
+  factory WeekPlanEntity.fromMap(Object? source) {
+    if (source is! Map) {
+      throw ArgumentError(
+        'WeekPlanEntity.fromMap: expected Map, got: $source',
+      );
+    }
+    // Directus/JSON: [Map<dynamic, dynamic>], [startDate] как String/int/double.
+    final m = Map<String, dynamic>.from(source);
+
     // ✅ Отладочные логи для проверки десериализации
-    final userId = map['userId'].toString();
+    final userId = m['userId'].toString();
     print('[WeekPlanEntity.fromMap] Десериализация плана с userId: $userId');
     print(
-        '[WeekPlanEntity.fromMap] Данные из Directus: ${map.keys.join(', ')}');
+        '[WeekPlanEntity.fromMap] Данные из Directus: ${m.keys.join(', ')}');
+
+    // Directus JSON-поле иногда отдаётся одной строкой, не массивом.
+    dynamic rawPlans = m['mealPlans'];
+    if (rawPlans is String) {
+      final decoded = jsonDecode(rawPlans);
+      rawPlans = decoded;
+    }
+    if (rawPlans is! List || rawPlans.isEmpty) {
+      throw ArgumentError(
+        'WeekPlanEntity.fromMap: mealPlans must be a non-empty List, got: $rawPlans',
+      );
+    }
 
     return WeekPlanEntity(
       userId: userId,
-      plans: List<MealPlanEntity>.from(
-        (map['mealPlans'] as List).map(
-          (plan) => MealPlanEntity.fromMap(plan as Map<String, dynamic>),
-        ),
-      ),
+      plans: <MealPlanEntity>[
+        for (final plan in rawPlans)
+          if (plan is String)
+            MealPlanEntity.fromMap(
+              Map<String, dynamic>.from(jsonDecode(plan) as Map),
+            )
+          else if (plan is Map)
+            MealPlanEntity.fromMap(Map<String, dynamic>.from(plan))
+          else
+            throw ArgumentError(
+              'WeekPlanEntity.fromMap: invalid meal plan item: $plan',
+            ),
+      ],
       startDate: DateTime.fromMillisecondsSinceEpoch(
-        int.parse(map['startDate'] as String),
+        _readEpochMsField(m, 'startDate'),
       ),
       endDate: DateTime.fromMillisecondsSinceEpoch(
-        int.parse(map['endDate'] as String),
+        _readEpochMsField(m, 'endDate'),
       ),
-      fitnessGoal: map['fitnessGoal'] ?? '',
-      dietaryPreferences: map['dietaryPreferences'] ?? '',
-      cuisines: List<String>.from(map['cuisines'] ?? []),
-      mealsTypes: List<String>.from(map['mealsTypes'] ?? []),
+      fitnessGoal: m['fitnessGoal']?.toString() ?? '',
+      dietaryPreferences: m['dietaryPreferences']?.toString() ?? '',
+      cuisines: List<String>.from(m['cuisines'] ?? []),
+      mealsTypes: List<String>.from(m['mealsTypes'] ?? []),
     );
+  }
+
+  /// Сравнение с [startDateMs] из таски/Directus (фильтр не всегда совпадает по типу поля).
+  static int? tryParseStartDateEpochMs(Object? row) {
+    if (row is! Map) return null;
+    try {
+      return _readEpochMsField(Map<String, dynamic>.from(row), 'startDate');
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Directus/таски: epoch ms [String], [int] или [num].
+  static int _readEpochMsField(Map<dynamic, dynamic> map, String key) {
+    final v = map[key];
+    if (v == null) {
+      throw ArgumentError('WeekPlanEntity: missing $key');
+    }
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      final t = v.trim();
+      if (t.isEmpty) {
+        throw ArgumentError('WeekPlanEntity: empty $key');
+      }
+      return int.parse(t);
+    }
+    return int.parse(v.toString().trim());
   }
 
   Map<String, dynamic> toMap() {
@@ -109,21 +165,13 @@ class WeekPlanEntity extends Equatable {
     return '$year $month $startDay-$endDay';
   }
 
-  @HiveField(0)
   final String userId;
-  @HiveField(1)
   final List<MealPlanEntity> plans;
-  @HiveField(2)
   final DateTime startDate;
-  @HiveField(3)
   final DateTime endDate;
-  @HiveField(4)
   final String fitnessGoal;
-  @HiveField(5)
   final String dietaryPreferences;
-  @HiveField(6)
   final List<String> cuisines;
-  @HiveField(7)
   final List<String> mealsTypes;
 
   bool get isActive {

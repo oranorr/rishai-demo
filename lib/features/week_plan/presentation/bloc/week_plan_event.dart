@@ -16,7 +16,9 @@ class WeekPlanEvent with _$WeekPlanEvent {
 
   const factory WeekPlanEvent.reset() = WeekPlanReset;
 
-  const factory WeekPlanEvent.load() = WeekPlanLoad;
+  /// [weekPlanIdHint] — свежий список id из GET /users/:id, чтобы не гоняться
+  /// за устаревшим [userBloc.state] при fallback readOne (см. userId 462 != 8).
+  const factory WeekPlanEvent.load({List<int>? weekPlanIdHint}) = WeekPlanLoad;
 
   const factory WeekPlanEvent.clear() = WeekPlanClear;
 

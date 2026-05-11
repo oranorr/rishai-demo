@@ -25,11 +25,6 @@ abstract class HiveRepo {
 
   Future<void> refreshChat();
 
-  Future<void> saveWeekPlan({required WeekPlanEntity weekPlan});
-  Future<List<WeekPlanEntity>?> retrieveWeekPlan();
-
-  Future<void> clearWeekPlans();
-
   Future<void> resetStorageOnFatalError();
 
   void test();

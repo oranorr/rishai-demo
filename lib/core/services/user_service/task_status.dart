@@ -35,12 +35,13 @@ class PublicTaskEntity {
       type: (json['type'] as String?) ?? '',
       status:
           taskStatusFromString(json['status'] as String?) ?? TaskStatus.pending,
-      error: json['error'] is Map<String, dynamic>
-          ? (json['error'] as Map<String, dynamic>)
-          : (json['error'] != null ? {'message': json['error']} : null),
-      output: json['output'] is Map<String, dynamic>
-          ? (json['output'] as Map<String, dynamic>)
-          : null,
+      error: _asStringKeyMap(json['error']) ??
+          (json['error'] != null && json['error'] is! Map
+              ? {'message': json['error']}
+              : null),
+      // После [jsonDecode] вложенные объекты часто [Map<dynamic, dynamic>],
+      // тогда [is Map<String, dynamic>] = false — [output] терялся, хотя в JSON есть.
+      output: _asStringKeyMap(json['output']),
     );
   }
 
@@ -55,4 +56,11 @@ class PublicTaskEntity {
     if (msg is String && msg.trim().isNotEmpty) return msg;
     return null;
   }
+}
+
+Map<String, dynamic>? _asStringKeyMap(Object? value) {
+  if (value == null) return null;
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return null;
 }

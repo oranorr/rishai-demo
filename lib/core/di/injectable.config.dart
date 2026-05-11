@@ -285,8 +285,10 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i831.ChatRepository>(),
               gh<_i176.RequestPlanUsecaseV2>(),
             ));
-    gh.factory<_i1018.WeekPlanBloc>(
-        () => _i1018.WeekPlanBloc(gh<_i1015.GenerateWeekPlanUsecaseV2>()));
+    gh.factory<_i1018.WeekPlanBloc>(() => _i1018.WeekPlanBloc(
+          gh<_i1015.GenerateWeekPlanUsecaseV2>(),
+          gh<_i489.UserServiceClient>(),
+        ));
     return this;
   }
 }

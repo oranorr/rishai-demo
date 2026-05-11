@@ -16,7 +16,6 @@ import 'package:rishai/features/food_diary/domain/welness_entity.dart';
 import 'package:rishai/features/user/domain/entities/food_preferences_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
-import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
@@ -33,7 +32,6 @@ class HiveImpl implements HiveRepo {
   late Box<ChatSnapshotEntity> chatBox;
   late Box<DayEntity> dayBox;
   late Box<UserDataEntity> userDataBox;
-  late Box<WeekPlanEntity> weekPlanBox;
   int savedUserIndex = 0;
 
   @override
@@ -199,7 +197,6 @@ class HiveImpl implements HiveRepo {
       ..registerAdapter(WorkoutModelAdapter())
       ..registerAdapter(WorkoutScoreAdapter())
       ..registerAdapter(BodyMeasurementsEntityAdapter())
-      ..registerAdapter(WeekPlanEntityAdapter())
       ..registerAdapter(HealthMetricsEntityAdapter())
       ..registerAdapter(WelnessEntityAdapter())
       ..registerAdapter(DiaryMealAdapter())
@@ -213,7 +210,6 @@ class HiveImpl implements HiveRepo {
     chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
     dayBox = await Hive.openBox<DayEntity>('day_box');
     userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
-    weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
   }
 
   /// Обрабатывает критические ошибки инициализации
@@ -328,7 +324,6 @@ class HiveImpl implements HiveRepo {
     log('  - CHAT: ${chatBox.isEmpty ? "пустой" : "${chatBox.length} записей"}');
     log('  - DAY: ${dayBox.isEmpty ? "пустой" : "${dayBox.length} записей"}');
     log('  - USER_DATA: ${userDataBox.isEmpty ? "пустой" : "${userDataBox.length} записей"}');
-    log('  - WEEK_PLAN: ${weekPlanBox.isEmpty ? "пустой" : "${weekPlanBox.length} записей"}');
   }
 
   @override
@@ -383,17 +378,14 @@ class HiveImpl implements HiveRepo {
       await userBox.clear();
       await chatBox.clear();
       await dayBox.clear();
-      await weekPlanBox.clear();
 
       await userBox.close();
       await chatBox.close();
       await dayBox.close();
-      await weekPlanBox.close();
 
       userBox = await Hive.openBox<UserEntity>('user_box');
       chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
       dayBox = await Hive.openBox<DayEntity>('day_box');
-      weekPlanBox = await Hive.openBox<WeekPlanEntity>('weekPlan_box');
     } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
@@ -831,64 +823,12 @@ class HiveImpl implements HiveRepo {
   }
 
   @override
-  Future<List<WeekPlanEntity>?> retrieveWeekPlan() async {
-    try {
-      if (weekPlanBox.isEmpty) {
-        return [];
-      }
-      return weekPlanBox.values.toList();
-    } on Exception catch (e, stackTrace) {
-      await LocalStorageErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'hive_week_plan',
-        operation: 'retrieve_week_plan',
-        storageType: 'hive',
-      );
-      rethrow;
-    }
-  }
-
-  @override
-  Future<void> saveWeekPlan({required WeekPlanEntity weekPlan}) async {
-    try {
-      await weekPlanBox.add(weekPlan);
-    } on Exception catch (e, stackTrace) {
-      await LocalStorageErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'hive_week_plan',
-        operation: 'save_week_plan',
-        storageType: 'hive',
-        extras: {'plan_start_date': weekPlan.startDate.toString()},
-      );
-      rethrow;
-    }
-  }
-
-  @override
   void test() {
     try {
-      final res = weekPlanBox.values.toList();
-      log(res.toString());
+      final res = userBox.length;
+      log('[HIVE] test: userBox entries=$res');
     } on Exception catch (e) {
       log('Ошибка в test методе: $e');
-    }
-  }
-
-  @override
-  Future<void> clearWeekPlans() async {
-    try {
-      await weekPlanBox.clear();
-    } on Exception catch (e, stackTrace) {
-      await LocalStorageErrorHandler.handleError(
-        e,
-        stackTrace,
-        context: 'hive_week_plan',
-        operation: 'clear_week_plans',
-        storageType: 'hive',
-      );
-      rethrow;
     }
   }
 
@@ -953,11 +893,6 @@ class HiveImpl implements HiveRepo {
         log('[HIVE] userDataBox не инициализирован или уже закрыт: $e');
       }
 
-      try {
-        if (weekPlanBox.isOpen) await weekPlanBox.close();
-      } catch (e) {
-        log('[HIVE] weekPlanBox не инициализирован или уже закрыт: $e');
-      }
     } catch (e) {
       log('[HIVE] Общая ошибка при закрытии боксов: $e');
     }

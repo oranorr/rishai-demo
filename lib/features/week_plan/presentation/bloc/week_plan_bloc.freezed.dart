@@ -30,7 +30,7 @@ mixin _$WeekPlanEvent {
             DateTime startDate)
         generate,
     required TResult Function() reset,
-    required TResult Function() load,
+    required TResult Function(List<int>? weekPlanIdHint) load,
     required TResult Function() clear,
     required TResult Function(WeekFilterEntity filter) filter,
     required TResult Function() clearFilter,
@@ -50,7 +50,7 @@ mixin _$WeekPlanEvent {
             DateTime startDate)?
         generate,
     TResult? Function()? reset,
-    TResult? Function()? load,
+    TResult? Function(List<int>? weekPlanIdHint)? load,
     TResult? Function()? clear,
     TResult? Function(WeekFilterEntity filter)? filter,
     TResult? Function()? clearFilter,
@@ -70,7 +70,7 @@ mixin _$WeekPlanEvent {
             DateTime startDate)?
         generate,
     TResult Function()? reset,
-    TResult Function()? load,
+    TResult Function(List<int>? weekPlanIdHint)? load,
     TResult Function()? clear,
     TResult Function(WeekFilterEntity filter)? filter,
     TResult Function()? clearFilter,
@@ -330,7 +330,7 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
             DateTime startDate)
         generate,
     required TResult Function() reset,
-    required TResult Function() load,
+    required TResult Function(List<int>? weekPlanIdHint) load,
     required TResult Function() clear,
     required TResult Function(WeekFilterEntity filter) filter,
     required TResult Function() clearFilter,
@@ -354,7 +354,7 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
             DateTime startDate)?
         generate,
     TResult? Function()? reset,
-    TResult? Function()? load,
+    TResult? Function(List<int>? weekPlanIdHint)? load,
     TResult? Function()? clear,
     TResult? Function(WeekFilterEntity filter)? filter,
     TResult? Function()? clearFilter,
@@ -378,7 +378,7 @@ class _$WeekPlanGenerateImpl implements WeekPlanGenerate {
             DateTime startDate)?
         generate,
     TResult Function()? reset,
-    TResult Function()? load,
+    TResult Function(List<int>? weekPlanIdHint)? load,
     TResult Function()? clear,
     TResult Function(WeekFilterEntity filter)? filter,
     TResult Function()? clearFilter,
@@ -511,7 +511,7 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
             DateTime startDate)
         generate,
     required TResult Function() reset,
-    required TResult Function() load,
+    required TResult Function(List<int>? weekPlanIdHint) load,
     required TResult Function() clear,
     required TResult Function(WeekFilterEntity filter) filter,
     required TResult Function() clearFilter,
@@ -534,7 +534,7 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
             DateTime startDate)?
         generate,
     TResult? Function()? reset,
-    TResult? Function()? load,
+    TResult? Function(List<int>? weekPlanIdHint)? load,
     TResult? Function()? clear,
     TResult? Function(WeekFilterEntity filter)? filter,
     TResult? Function()? clearFilter,
@@ -557,7 +557,7 @@ class _$WeekPlanResetImpl implements WeekPlanReset {
             DateTime startDate)?
         generate,
     TResult Function()? reset,
-    TResult Function()? load,
+    TResult Function(List<int>? weekPlanIdHint)? load,
     TResult Function()? clear,
     TResult Function(WeekFilterEntity filter)? filter,
     TResult Function()? clearFilter,
@@ -622,6 +622,8 @@ abstract class _$$WeekPlanLoadImplCopyWith<$Res> {
   factory _$$WeekPlanLoadImplCopyWith(
           _$WeekPlanLoadImpl value, $Res Function(_$WeekPlanLoadImpl) then) =
       __$$WeekPlanLoadImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({List<int>? weekPlanIdHint});
 }
 
 /// @nodoc
@@ -631,26 +633,60 @@ class __$$WeekPlanLoadImplCopyWithImpl<$Res>
   __$$WeekPlanLoadImplCopyWithImpl(
       _$WeekPlanLoadImpl _value, $Res Function(_$WeekPlanLoadImpl) _then)
       : super(_value, _then);
+
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? weekPlanIdHint = freezed,
+  }) {
+    return _then(_$WeekPlanLoadImpl(
+      weekPlanIdHint: freezed == weekPlanIdHint
+          ? _value._weekPlanIdHint
+          : weekPlanIdHint // ignore: cast_nullable_to_non_nullable
+              as List<int>?,
+    ));
+  }
 }
 
 /// @nodoc
 
 class _$WeekPlanLoadImpl implements WeekPlanLoad {
-  const _$WeekPlanLoadImpl();
+  const _$WeekPlanLoadImpl({final List<int>? weekPlanIdHint})
+      : _weekPlanIdHint = weekPlanIdHint;
+
+  final List<int>? _weekPlanIdHint;
+  @override
+  List<int>? get weekPlanIdHint {
+    final value = _weekPlanIdHint;
+    if (value == null) return null;
+    if (_weekPlanIdHint is EqualUnmodifiableListView) return _weekPlanIdHint;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(value);
+  }
 
   @override
   String toString() {
-    return 'WeekPlanEvent.load()';
+    return 'WeekPlanEvent.load(weekPlanIdHint: $weekPlanIdHint)';
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        (other.runtimeType == runtimeType && other is _$WeekPlanLoadImpl);
+        (other.runtimeType == runtimeType &&
+            other is _$WeekPlanLoadImpl &&
+            const DeepCollectionEquality()
+                .equals(other._weekPlanIdHint, _weekPlanIdHint));
   }
 
   @override
-  int get hashCode => runtimeType.hashCode;
+  int get hashCode => Object.hash(
+      runtimeType, const DeepCollectionEquality().hash(_weekPlanIdHint));
+
+  @JsonKey(ignore: true)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$WeekPlanLoadImplCopyWith<_$WeekPlanLoadImpl> get copyWith =>
+      __$$WeekPlanLoadImplCopyWithImpl<_$WeekPlanLoadImpl>(this, _$identity);
 
   @override
   @optionalTypeArgs
@@ -667,12 +703,12 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
             DateTime startDate)
         generate,
     required TResult Function() reset,
-    required TResult Function() load,
+    required TResult Function(List<int>? weekPlanIdHint) load,
     required TResult Function() clear,
     required TResult Function(WeekFilterEntity filter) filter,
     required TResult Function() clearFilter,
   }) {
-    return load();
+    return load(weekPlanIdHint);
   }
 
   @override
@@ -690,12 +726,12 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
             DateTime startDate)?
         generate,
     TResult? Function()? reset,
-    TResult? Function()? load,
+    TResult? Function(List<int>? weekPlanIdHint)? load,
     TResult? Function()? clear,
     TResult? Function(WeekFilterEntity filter)? filter,
     TResult? Function()? clearFilter,
   }) {
-    return load?.call();
+    return load?.call(weekPlanIdHint);
   }
 
   @override
@@ -713,14 +749,14 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
             DateTime startDate)?
         generate,
     TResult Function()? reset,
-    TResult Function()? load,
+    TResult Function(List<int>? weekPlanIdHint)? load,
     TResult Function()? clear,
     TResult Function(WeekFilterEntity filter)? filter,
     TResult Function()? clearFilter,
     required TResult orElse(),
   }) {
     if (load != null) {
-      return load();
+      return load(weekPlanIdHint);
     }
     return orElse();
   }
@@ -770,7 +806,13 @@ class _$WeekPlanLoadImpl implements WeekPlanLoad {
 }
 
 abstract class WeekPlanLoad implements WeekPlanEvent {
-  const factory WeekPlanLoad() = _$WeekPlanLoadImpl;
+  const factory WeekPlanLoad({final List<int>? weekPlanIdHint}) =
+      _$WeekPlanLoadImpl;
+
+  List<int>? get weekPlanIdHint;
+  @JsonKey(ignore: true)
+  _$$WeekPlanLoadImplCopyWith<_$WeekPlanLoadImpl> get copyWith =>
+      throw _privateConstructorUsedError;
 }
 
 /// @nodoc
@@ -823,7 +865,7 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
             DateTime startDate)
         generate,
     required TResult Function() reset,
-    required TResult Function() load,
+    required TResult Function(List<int>? weekPlanIdHint) load,
     required TResult Function() clear,
     required TResult Function(WeekFilterEntity filter) filter,
     required TResult Function() clearFilter,
@@ -846,7 +888,7 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
             DateTime startDate)?
         generate,
     TResult? Function()? reset,
-    TResult? Function()? load,
+    TResult? Function(List<int>? weekPlanIdHint)? load,
     TResult? Function()? clear,
     TResult? Function(WeekFilterEntity filter)? filter,
     TResult? Function()? clearFilter,
@@ -869,7 +911,7 @@ class _$WeekPlanClearImpl implements WeekPlanClear {
             DateTime startDate)?
         generate,
     TResult Function()? reset,
-    TResult Function()? load,
+    TResult Function(List<int>? weekPlanIdHint)? load,
     TResult Function()? clear,
     TResult Function(WeekFilterEntity filter)? filter,
     TResult Function()? clearFilter,
@@ -1006,7 +1048,7 @@ class _$WeekPlanFilterImpl implements WeekPlanFilter {
             DateTime startDate)
         generate,
     required TResult Function() reset,
-    required TResult Function() load,
+    required TResult Function(List<int>? weekPlanIdHint) load,
     required TResult Function() clear,
     required TResult Function(WeekFilterEntity filter) filter,
     required TResult Function() clearFilter,
@@ -1029,7 +1071,7 @@ class _$WeekPlanFilterImpl implements WeekPlanFilter {
             DateTime startDate)?
         generate,
     TResult? Function()? reset,
-    TResult? Function()? load,
+    TResult? Function(List<int>? weekPlanIdHint)? load,
     TResult? Function()? clear,
     TResult? Function(WeekFilterEntity filter)? filter,
     TResult? Function()? clearFilter,
@@ -1052,7 +1094,7 @@ class _$WeekPlanFilterImpl implements WeekPlanFilter {
             DateTime startDate)?
         generate,
     TResult Function()? reset,
-    TResult Function()? load,
+    TResult Function(List<int>? weekPlanIdHint)? load,
     TResult Function()? clear,
     TResult Function(WeekFilterEntity filter)? filter,
     TResult Function()? clearFilter,
@@ -1169,7 +1211,7 @@ class _$WeekPlanClearFilterImpl implements WeekPlanClearFilter {
             DateTime startDate)
         generate,
     required TResult Function() reset,
-    required TResult Function() load,
+    required TResult Function(List<int>? weekPlanIdHint) load,
     required TResult Function() clear,
     required TResult Function(WeekFilterEntity filter) filter,
     required TResult Function() clearFilter,
@@ -1192,7 +1234,7 @@ class _$WeekPlanClearFilterImpl implements WeekPlanClearFilter {
             DateTime startDate)?
         generate,
     TResult? Function()? reset,
-    TResult? Function()? load,
+    TResult? Function(List<int>? weekPlanIdHint)? load,
     TResult? Function()? clear,
     TResult? Function(WeekFilterEntity filter)? filter,
     TResult? Function()? clearFilter,
@@ -1215,7 +1257,7 @@ class _$WeekPlanClearFilterImpl implements WeekPlanClearFilter {
             DateTime startDate)?
         generate,
     TResult Function()? reset,
-    TResult Function()? load,
+    TResult Function(List<int>? weekPlanIdHint)? load,
     TResult Function()? clear,
     TResult Function(WeekFilterEntity filter)? filter,
     TResult Function()? clearFilter,

@@ -5,6 +5,8 @@ import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_ingredient_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
+import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
+import 'package:rishai/features/week_plan/domain/params/week_plan_params.dart';
 
 abstract interface class ChatRepository {
   Future<void> saveChatSnapShot({
@@ -31,6 +33,13 @@ abstract interface class ChatRepository {
   /// Используется только для `isWeekPlan: false`.
   Future<Either<Failure, MealPlanEntity>> requestDailyMealPlanViaTask({
     required RequestPlanParams params,
+  });
+
+  /// Асинхронный недельный план: одна таска, запись [weekPlans] на бэке.
+  ///
+  /// См. [docs/FRONTEND_WEEKLY_MEAL_PLAN_MIGRATION.md].
+  Future<Either<Failure, WeekPlanEntity>> requestWeeklyMealPlanViaTask({
+    required WeekPlanParams params,
   });
 
   Future<Either<Failure, void>> initGpt(String? threadId);

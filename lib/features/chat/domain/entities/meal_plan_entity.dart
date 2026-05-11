@@ -57,14 +57,29 @@ class MealPlanEntity extends HiveObject {
   // }
 
   factory MealPlanEntity.fromMap(Map<String, dynamic> map) {
+    dynamic rawMeals = map['meals'];
+    if (rawMeals is String) {
+      rawMeals = jsonDecode(rawMeals);
+    }
+    if (rawMeals is! List) {
+      throw ArgumentError(
+        'MealPlanEntity: meals must be a List, got: $rawMeals',
+      );
+    }
     // log(map.toString());
     return MealPlanEntity(
       meals: List<Meal>.from(
-        (map['meals'] as List<dynamic>).map<Meal>(
-          (x) => Meal.fromMap(x as Map<String, dynamic>),
+        rawMeals.map<Meal>(
+          (x) => Meal.fromMap(
+            x is Map<String, dynamic> ? x : Map<String, dynamic>.from(x as Map),
+          ),
         ),
       ),
-      cycleId: map['cycleId'] as int?,
+      cycleId: map['cycleId'] is int
+          ? map['cycleId'] as int
+          : (map['cycleId'] is num
+              ? (map['cycleId'] as num).toInt()
+              : int.tryParse('${map['cycleId']}')),
     );
   }
 
@@ -124,18 +139,27 @@ class Meal {
   });
 
   factory Meal.fromMap(Map<String, dynamic> map) {
+    final ingList = map['ingredients'];
     return Meal(
-      title: map['title'] as String,
-      type: map['type'] as String,
-      description: map['description'] as String,
-      macros: MacrosBreakdown.fromMap(map['macros'] as Map<String, dynamic>),
-      ingredients: List<Ingredient>.from(
-        (map['ingredients'] as List<dynamic>).map<Ingredient>(
-          (x) => Ingredient.fromMap(x as Map<String, dynamic>),
-        ),
+      title: map['title']?.toString() ?? '',
+      type: map['type']?.toString() ?? '',
+      description: map['description']?.toString() ?? '',
+      macros: MacrosBreakdown.fromMap(
+        map['macros'] is Map
+            ? Map<String, dynamic>.from(map['macros']! as Map)
+            : (throw ArgumentError('Meal: macros must be a Map')),
       ),
-      cookingInstructions: (map['cooking_instructions'] ?? []).cast<String>(),
-      isRegenerated: map['isRegenerated'] ?? false,
+      ingredients: ingList is List
+          ? List<Ingredient>.from(
+              ingList.map<Ingredient>(
+                (x) => Ingredient.fromMap(
+                  x is Map<String, dynamic> ? x : Map<String, dynamic>.from(x as Map),
+                ),
+              ),
+            )
+          : <Ingredient>[],
+      cookingInstructions: _parseCookingInstructionsList(map['cooking_instructions']),
+      isRegenerated: map['isRegenerated'] as bool? ?? false,
     );
   }
 
@@ -289,6 +313,34 @@ class Meal {
       macros: macros,
       isGeneratedMeal: isGeneratedMeal,
     );
+  }
+
+  /// [cooking_instructions] в Directus/LLM: [List] строк, одна строка или пусто.
+  static List<String> _parseCookingInstructionsList(Object? raw) {
+    if (raw == null) return <String>[];
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    if (raw is String) {
+      final t = raw.trim();
+      if (t.isEmpty) return <String>[];
+      if (t.startsWith('[')) {
+        try {
+          final d = jsonDecode(t);
+          if (d is List) {
+            return d.map((e) => e.toString()).toList();
+          }
+        } on Object {
+          // не JSON — падаем на разбиение по строкам
+        }
+      }
+      return t
+          .split('\n')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    }
+    return <String>[];
   }
 }
 
@@ -461,13 +513,19 @@ class Ingredient {
       );
     }
 
+    final unitRaw = map['unit']?.toString().toLowerCase() ?? 'grams';
     return Ingredient(
-      id: map['id'].toString(),
-      title: map['name'] as String,
-      quantity: (map['quantity'] as num).toDouble().roundToDouble(),
+      id: map['id']?.toString() ?? '0',
+      title: (map['name'] ?? map['title'])?.toString() ?? '',
+      quantity: (map['quantity'] as num?)?.toDouble().roundToDouble() ?? 0,
       unit: MeasurementUnit.values.firstWhere(
-        (e) => e.toString().split('.').last == map['unit'],
-        orElse: () => MeasurementUnit.pieces,
+        (e) {
+          final n = e.toString().split('.').last.toLowerCase();
+          return n == unitRaw ||
+              (unitRaw == 'g' && e == MeasurementUnit.grams) ||
+              (unitRaw == 'ml' && e == MeasurementUnit.milliliters);
+        },
+        orElse: () => MeasurementUnit.grams,
       ),
       emojiCode: (map['emoji'] ?? '') as String,
       category: map['category'] as String?,

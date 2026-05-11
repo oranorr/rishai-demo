@@ -14,14 +14,15 @@ import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart'
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/directus/directus_collections.dart';
 import 'package:rishai/core/services/directus/directus_repository_impl.dart';
-import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
+import 'package:rishai/features/user/data/models/user_model.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
@@ -80,6 +81,19 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     return super.close();
   }
 
+  /// Сравнение [weekPlanIds] для решения, нужно ли писать Hive после getUser.
+  static bool _sameWeekPlanIdLists(List<int> a, List<int> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   FutureOr<void> _updateUser(
     UpdateUserEvent event,
     Emitter<UserState> emit,
@@ -134,6 +148,13 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       }, (r) {
         log('Пользователь успешно синхронизирован с backend', name: 'UserBloc');
         completeSync(true);
+        // Профиль User Service с [weekPlanIds] приходит/обновляется раньше, чем
+        // [readMany] weekPlans с фильтром userId; повторяем загрузку недель.
+        if (user.weekPlanIds.isNotEmpty) {
+          weekPlanBloc.add(
+            WeekPlanLoad(weekPlanIdHint: List<int>.from(user.weekPlanIds)),
+          );
+        }
       });
     } on Exception catch (e) {
       log('Ошибка обновления пользователя: $e', name: 'UserBloc');
@@ -189,8 +210,32 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         // Обновляем состояние после завершения всех операций с Adapty
         emit(state.copyWith(user: user));
 
+        // [weekPlanIds] в Hive часто пусты/устарели; User Service отдаёт актуальные
+        // id планов — передаём в [WeekPlanLoad] как [weekPlanIdHint], иначе гонка:
+        // таска читает [userBloc.state] с устаревшим [6] вместо свежих [8] с API.
+        List<int>? weekPlanIdHint;
+        try {
+          final raw = await userServiceClient.getUser(user.directusId);
+          final fromApi = UserModel.fromMap(raw).toEntity();
+          if (fromApi.weekPlanIds.isNotEmpty) {
+            weekPlanIdHint = List<int>.from(fromApi.weekPlanIds);
+            if (user.weekPlanIds.isEmpty ||
+                !_sameWeekPlanIdLists(user.weekPlanIds, fromApi.weekPlanIds)) {
+              final merged = user.copyWith(weekPlanIds: fromApi.weekPlanIds);
+              await hive.saveUser(user: merged);
+              emit(state.copyWith(user: merged));
+            }
+            log(
+              'Профиль: weekPlanIds с бэка -> $weekPlanIdHint',
+              name: 'UserBloc',
+            );
+          }
+        } on Object catch (e) {
+          log('getUser при старте (weekPlanIds): $e', name: 'UserBloc');
+        }
+
         // Теперь запускаем другие блоки, когда статус подписки уже определен
-        weekPlanBloc.add(const WeekPlanLoad());
+        weekPlanBloc.add(WeekPlanLoad(weekPlanIdHint: weekPlanIdHint));
         whoopBloc.add(const InitWhoopOnLogin());
         log(
           'Пользователь загружен из кэша. Финальный статус подписки: ${adapty.isActive}',

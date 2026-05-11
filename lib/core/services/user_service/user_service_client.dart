@@ -360,6 +360,107 @@ class UserServiceClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  // --- Week plans (User API, не Directus) ---
+
+  /// Нормализует тело ответа [GET /week-plans?limit&offset] в список карт, совместимых с
+  /// [WeekPlanEntity.fromMap] (те же поля, что в Directus / WeekPlanResponseDto).
+  static List<Map<String, dynamic>> weekPlanListFromResponse(
+    Map<String, dynamic> response,
+  ) {
+    final raw = response['data'];
+    if (raw is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  /// Нормализует ответ [GET /week-plans/:id] и [GET /week-plans?startDateMs=] (один план).
+  static Map<String, dynamic> weekPlanSingleFromResponse(
+    Map<String, dynamic> response,
+  ) {
+    final raw = response['data'];
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    if (raw is List && raw.isNotEmpty && raw.first is Map) {
+      return Map<String, dynamic>.from(raw.first as Map);
+    }
+    if (response['mealPlans'] != null) {
+      return Map<String, dynamic>.from(response);
+    }
+    throw FormatException(
+      'week plan response: expected data or mealPlans, got keys: ${response.keys}',
+    );
+  }
+
+  /// GET /week-plans?limit&offset — список недельных планов (без [startDateMs]).
+  /// Ответ: `{ "data": [...], "meta": { "total", "limit", "offset" } }`.
+  Future<Map<String, dynamic>> getWeekPlans({
+    required String userId,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    log(
+      '[getWeekPlans] userId=$userId, limit=$limit, offset=$offset',
+      name: 'UserServiceClient',
+    );
+
+    final response = await http.get(
+      _buildUri(
+        '/week-plans',
+        queryParameters: {
+          'limit': limit,
+          'offset': offset,
+        },
+      ),
+      headers: _whoopHeaders(userId: userId, includeContentType: false),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// GET /week-plans/:id — план по Directus id (только при совпадении [x-user-id]).
+  Future<Map<String, dynamic>> getWeekPlanById({
+    required String userId,
+    required String id,
+  }) async {
+    log('[getWeekPlanById] userId=$userId, id=$id', name: 'UserServiceClient');
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/week-plans/${Uri.encodeComponent(id)}'),
+      headers: _whoopHeaders(userId: userId, includeContentType: false),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// GET /week-plans?startDateMs=... — один план с заданным началом недели (строка ms).
+  Future<Map<String, dynamic>> getWeekPlanByStartDate({
+    required String userId,
+    required int startDateMs,
+  }) async {
+    log(
+      '[getWeekPlanByStartDate] userId=$userId, startDateMs=$startDateMs',
+      name: 'UserServiceClient',
+    );
+
+    final response = await http.get(
+      _buildUri(
+        '/week-plans',
+        queryParameters: {'startDateMs': startDateMs},
+      ),
+      headers: _whoopHeaders(userId: userId, includeContentType: false),
+    );
+
+    _throwOnError(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   /// PATCH /days/current — частичное обновление текущего дня пользователя.
   ///
   /// Поддерживаемые поля payload: mealPlan, chatSnap, welnessEntity.

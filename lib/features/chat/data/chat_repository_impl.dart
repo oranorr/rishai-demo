@@ -19,8 +19,10 @@ import 'package:rishai/features/chat/domain/usecases/replace_meal_usecase.dart';
 import 'package:rishai/features/chat/domain/usecases/request_plan_usecase.dart';
 import 'package:rishai/features/user/domain/repositories/user_repository.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
-import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
+import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
+import 'package:rishai/features/week_plan/domain/params/week_plan_params.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 import 'package:uuid/uuid.dart';
 
 final chatRepo = getIt.get<ChatRepository>();
@@ -209,7 +211,7 @@ class ChatRepositoryImpl implements ChatRepository {
     if (params.isWeekPlan) {
       return const Left(
         ChatGptRequestMealFailures(
-          'Weekly plan is not supported via async tasks in this migration',
+          'Use requestWeeklyMealPlanViaTask for weekly plans (async tasks).',
         ),
       );
     }
@@ -224,8 +226,10 @@ class ChatRepositoryImpl implements ChatRepository {
     final userServiceClient = getIt.get<UserServiceClient>();
 
     try {
-      log('[requestDailyMealPlanViaTask] Генерируем requests',
-          name: 'ChatRepository');
+      log(
+        '[requestDailyMealPlanViaTask] Генерируем requests',
+        name: 'ChatRepository',
+      );
       final mealRequests = params.generateMealRequestsV2();
       if (mealRequests.isEmpty) {
         return const Left(
@@ -299,8 +303,348 @@ class ChatRepositoryImpl implements ChatRepository {
       return Left(ChatGptRequestMealFailures(e.message));
     } catch (e) {
       return Left(
-          ChatGptRequestMealFailures('Failed to generate meal plan: $e'));
+        ChatGptRequestMealFailures('Failed to generate meal plan: $e'),
+      );
     }
+  }
+
+  @override
+  Future<Either<Failure, WeekPlanEntity>> requestWeeklyMealPlanViaTask({
+    required WeekPlanParams params,
+  }) async {
+    final userId = userBloc.state.user.directusId;
+    if (userId == '-1') {
+      return const Left(
+        ChatGptRequestMealFailures('User is not authorized'),
+      );
+    }
+
+    // Старый UI делал 5 дней в цикле: excludedMeals (названия блюд) рос *после* ответа LLM.
+    // Пока нет сгенерированных заголовков, все 5 `days[i].requests` — один и тот же
+    // набор LlmMealRequest (как день 0). Воркер `weekly_meal_plan` на бэке обязан
+    // вести сквозное исключение дубликатов по дням, как в WEEKLY_MEAL_PLAN_BACKEND_TZ.
+    const emptyExcluded = {
+      'breakfasts': <String>[],
+      'mains': <String>[],
+      'snacks': <String>[],
+    };
+    final dayParams = RequestPlanParams(
+      dietary: params.dietary,
+      cuisines: params.cuisines,
+      restrictions: params.restrictions,
+      calorieTarget: params.calorieTarget,
+      macros: params.macros,
+      trainingToday: params.hasTraining,
+      servings: params.servings,
+      snackForToday: params.hasSnack,
+      isWeekPlan: true,
+      excludedMeals: emptyExcluded,
+    );
+
+    final userServiceClient = getIt.get<UserServiceClient>();
+
+    try {
+      log(
+        '[requestWeeklyMealPlanViaTask] building requests (servings=${params.servings.length})',
+        name: 'ChatRepository',
+      );
+      final mealRequests = dayParams.generateMealRequestsV2();
+      if (mealRequests.isEmpty) {
+        return const Left(
+          ChatGptRequestMealFailures('No meal requests were generated'),
+        );
+      }
+      final startDateMs = params.startDate.millisecondsSinceEpoch;
+      final requestsJson = mealRequests.map((r) => r.toJson()).toList();
+      final input = <String, dynamic>{
+        'startDateMs': startDateMs,
+        'days': List<Map<String, dynamic>>.generate(
+          5,
+          (i) => {
+            'dayIndex': i,
+            'requests': requestsJson,
+          },
+        ),
+        'meta': {
+          'dietary': params.dietary,
+          'cuisines': params.cuisines,
+          'restrictions': params.restrictions,
+          'servings': params.servings.map((e) => e.type.name).toList(),
+          'hasTraining': params.hasTraining,
+          'hasSnack': params.hasSnack,
+        },
+      };
+
+      final idempotencyClientKey = const Uuid().v4();
+      log(
+        '[requestWeeklyMealPlanViaTask] enqueue weekly_meal_plan startDateMs=$startDateMs',
+        name: 'ChatRepository',
+      );
+      final enqueueRes = await userServiceClient.enqueueTask(
+        userId: userId,
+        type: 'weekly_meal_plan',
+        input: input,
+        idempotencyClientKey: idempotencyClientKey,
+      );
+      final taskId =
+          (enqueueRes['taskId'] as String?) ?? (enqueueRes['id'] as String?);
+      if (taskId == null || taskId.isEmpty) {
+        return const Left(
+          ChatGptRequestMealFailures('Backend did not return taskId'),
+        );
+      }
+
+      final task = await _pollWeeklyMealPlanTask(
+        userServiceClient: userServiceClient,
+        userId: userId,
+        taskId: taskId,
+        idempotencyClientKey: idempotencyClientKey,
+        input: input,
+        startDateMs: startDateMs,
+      );
+      if (task.status == TaskStatus.failed) {
+        return Left(
+          ChatGptRequestMealFailures(task.errorMessage ?? 'Task failed'),
+        );
+      }
+      return await _parseWeekPlanFromTaskResult(
+        userId: userId,
+        startDateMs: startDateMs,
+        output: task.output,
+      );
+    } on UserServiceException catch (e) {
+      return Left(ChatGptRequestMealFailures(e.message));
+    } catch (e) {
+      return Left(
+        ChatGptRequestMealFailures('Failed to generate week plan: $e'),
+      );
+    }
+  }
+
+  /// Разбор [output] из `GET /tasks/:id` и при необходимости догрузка через [GET /week-plans].
+  Future<Either<Failure, WeekPlanEntity>> _parseWeekPlanFromTaskResult({
+    required String userId,
+    required int startDateMs,
+    required Map<String, dynamic>? output,
+  }) async {
+    if (output == null) {
+      try {
+        final w = await _loadWeekPlanFromUserApi(
+          userId: userId,
+          startDateMs: startDateMs,
+          weekPlanId: null,
+        );
+        return Right(w);
+      } catch (e) {
+        return Left(
+          ChatGptRequestMealFailures('Task done but output is null: $e'),
+        );
+      }
+    }
+    // Тело таски/прокси может отдать [weekPlan] как [Map<dynamic, dynamic>].
+    final wRaw = output['weekPlan'];
+    if (wRaw is Map) {
+      final embedded = Map<String, dynamic>.from(wRaw);
+      final meals = embedded['mealPlans'];
+      if (meals is List && meals.isNotEmpty) {
+        try {
+          return Right(WeekPlanEntity.fromMap(embedded));
+        } catch (e) {
+          return Left(
+            ChatGptRequestMealFailures('Invalid output.weekPlan: $e'),
+          );
+        }
+      }
+    }
+    // Разные бэки: id плана, вложенный [data] и т.д.
+    Object? idFromOutput = output['weekPlanId'] ?? output['id'];
+    if (idFromOutput == null && output['data'] is Map) {
+      final data = Map<String, dynamic>.from(output['data']! as Map);
+      idFromOutput = data['weekPlanId'] ?? data['id'];
+    }
+    try {
+      final w = await _loadWeekPlanFromUserApi(
+        userId: userId,
+        startDateMs: startDateMs,
+        weekPlanId: idFromOutput,
+      );
+      return Right(w);
+    } catch (e) {
+      return Left(
+        ChatGptRequestMealFailures('Could not load week plan: $e'),
+      );
+    }
+  }
+
+  /// Догрузка плана: [GET /week-plans/:id] при наличии id, иначе [GET /week-plans?startDateMs=...].
+  Future<WeekPlanEntity> _loadWeekPlanFromUserApi({
+    required String userId,
+    required int startDateMs,
+    required Object? weekPlanId,
+  }) async {
+    final c = getIt.get<UserServiceClient>();
+    if (weekPlanId != null) {
+      final id = weekPlanId is String ? weekPlanId : weekPlanId.toString();
+      try {
+        final raw = await c.getWeekPlanById(userId: userId, id: id);
+        final m = UserServiceClient.weekPlanSingleFromResponse(raw);
+        if ((m['mealPlans'] as List?)?.isNotEmpty ?? false) {
+          return WeekPlanEntity.fromMap(m);
+        }
+      } catch (e) {
+        log(
+          '[_loadWeekPlanFromUserApi] getWeekPlanById($id) failed: $e',
+          name: 'ChatRepository',
+        );
+      }
+    }
+    final raw = await c.getWeekPlanByStartDate(
+      userId: userId,
+      startDateMs: startDateMs,
+    );
+    final m = UserServiceClient.weekPlanSingleFromResponse(raw);
+    return WeekPlanEntity.fromMap(m);
+  }
+
+  /// Поллинг `weekly_meal_plan`: тот же backoff, что у дня; дольше ждём (5 дней LLM).
+  Future<PublicTaskEntity> _pollWeeklyMealPlanTask({
+    required UserServiceClient userServiceClient,
+    required String userId,
+    required String taskId,
+    required String idempotencyClientKey,
+    required Map<String, dynamic> input,
+    required int startDateMs,
+  }) async {
+    final startedAt = DateTime.now();
+    const maxDuration = Duration(minutes: 8);
+    const allowNotFoundFor = Duration(seconds: 15);
+
+    Duration delay = const Duration(seconds: 2);
+    const maxDelay = Duration(seconds: 5);
+
+    bool reEnqueued = false;
+
+    while (true) {
+      PublicTaskEntity? task;
+      try {
+        final raw = await userServiceClient.getTask(
+          userId: userId,
+          taskId: taskId,
+        );
+        task = PublicTaskEntity.fromMap(raw);
+      } on UserServiceException catch (e) {
+        final elapsed = DateTime.now().difference(startedAt);
+
+        if (e.statusCode == 404 && elapsed < allowNotFoundFor) {
+          log(
+            '[requestWeeklyMealPlanViaTask] GET /tasks/$taskId 404 (grace ${elapsed.inSeconds}s)',
+            name: 'ChatRepository',
+          );
+        } else if (e.statusCode == 404) {
+          try {
+            final w = await _loadWeekPlanFromUserApi(
+              userId: userId,
+              startDateMs: startDateMs,
+              weekPlanId: null,
+            );
+            log(
+              '[requestWeeklyMealPlanViaTask] GET /tasks/$taskId 404, week-plans по startDate найден',
+              name: 'ChatRepository',
+            );
+            return PublicTaskEntity(
+              taskId: taskId,
+              type: 'weekly_meal_plan',
+              status: TaskStatus.done,
+              output: {
+                'weekPlan': _weekPlanToTaskOutputMap(w),
+              },
+            );
+          } catch (fallbackError) {
+            log(
+              '[requestWeeklyMealPlanViaTask] fallback GET /week-plans: $fallbackError',
+              name: 'ChatRepository',
+            );
+          }
+        } else {
+          return PublicTaskEntity(
+            taskId: taskId,
+            type: 'weekly_meal_plan',
+            status: TaskStatus.failed,
+            error: {
+              'message': e.message,
+              'code': e.code,
+              'statusCode': e.statusCode,
+            },
+          );
+        }
+      } catch (e) {
+        return PublicTaskEntity(
+          taskId: taskId,
+          type: 'weekly_meal_plan',
+          status: TaskStatus.failed,
+          error: {'message': e.toString()},
+        );
+      }
+
+      if (task != null &&
+          (task.status == TaskStatus.done ||
+              task.status == TaskStatus.failed)) {
+        return task;
+      }
+
+      final elapsed = DateTime.now().difference(startedAt);
+      if (!reEnqueued &&
+          task?.status == TaskStatus.pending &&
+          elapsed >= const Duration(seconds: 45)) {
+        reEnqueued = true;
+        try {
+          log(
+            '[requestWeeklyMealPlanViaTask] pending долго, пробуем re-enqueue',
+            name: 'ChatRepository',
+          );
+          await userServiceClient.enqueueTask(
+            userId: userId,
+            type: 'weekly_meal_plan',
+            input: input,
+            idempotencyClientKey: idempotencyClientKey,
+          );
+        } catch (re) {
+          log(
+            '[requestWeeklyMealPlanViaTask] re-enqueue не удался: $re',
+            name: 'ChatRepository',
+          );
+        }
+      }
+
+      if (elapsed >= maxDuration) {
+        return PublicTaskEntity(
+          taskId: taskId,
+          type: 'weekly_meal_plan',
+          status: TaskStatus.failed,
+          error: const {'message': 'Task polling timed out'},
+        );
+      }
+
+      await Future<void>.delayed(delay);
+      final nextMs = (delay.inMilliseconds * 1.2).round();
+      delay = Duration(milliseconds: nextMs).compareTo(maxDelay) > 0
+          ? maxDelay
+          : Duration(milliseconds: nextMs);
+    }
+  }
+
+  /// Минимальный map для `output.weekPlan` при fallback (уже есть [WeekPlanEntity]).
+  Map<String, dynamic> _weekPlanToTaskOutputMap(WeekPlanEntity w) {
+    return {
+      'userId': w.userId,
+      'mealPlans': w.plans.map((p) => p.toMap()).toList(),
+      'startDate': w.startDate.millisecondsSinceEpoch.toString(),
+      'endDate': w.endDate.millisecondsSinceEpoch.toString(),
+      'fitnessGoal': w.fitnessGoal,
+      'dietaryPreferences': w.dietaryPreferences,
+      'cuisines': w.cuisines,
+      'mealsTypes': w.mealsTypes,
+    };
   }
 
   Future<PublicTaskEntity> _pollDailyMealPlanTask({
@@ -311,47 +655,24 @@ class ChatRepositoryImpl implements ChatRepository {
     required Map<String, dynamic> input,
   }) async {
     final startedAt = DateTime.now();
-    final maxDuration = const Duration(minutes: 2);
-    final allowNotFoundFor = const Duration(seconds: 15);
+    const maxDuration = Duration(minutes: 2);
+    const allowNotFoundFor = Duration(seconds: 15);
 
     Duration delay = const Duration(seconds: 2);
-    final maxDelay = const Duration(seconds: 5);
+    const maxDelay = Duration(seconds: 5);
 
     bool reEnqueued = false;
-    int attempt = 0;
-
-    log(
-      '[ChatRepository._pollDailyMealPlanTask] start poll taskId=$taskId userId=$userId allowNotFoundFor=${allowNotFoundFor.inSeconds}s maxDuration=${maxDuration.inSeconds}s delay=${delay.inMilliseconds}ms',
-      name: 'ChatRepository',
-    );
 
     while (true) {
-      attempt += 1;
       PublicTaskEntity? task;
       try {
-        final elapsedBefore = DateTime.now().difference(startedAt);
-        log(
-          '[ChatRepository._pollDailyMealPlanTask] attempt=$attempt elapsed=${elapsedBefore.inMilliseconds}ms GET /tasks/$taskId',
-          name: 'ChatRepository',
-        );
-
         final raw = await userServiceClient.getTask(
           userId: userId,
           taskId: taskId,
         );
         task = PublicTaskEntity.fromMap(raw);
-
-        log(
-          '[ChatRepository._pollDailyMealPlanTask] attempt=$attempt status=${task.status.name} type=${task.type} outputKeys=${task.output?.keys.toList()}',
-          name: 'ChatRepository',
-        );
       } on UserServiceException catch (e) {
         final elapsed = DateTime.now().difference(startedAt);
-
-        log(
-          '[ChatRepository._pollDailyMealPlanTask] attempt=$attempt UserServiceException statusCode=${e.statusCode} code=${e.code} msg=${e.message} elapsed=${elapsed.inMilliseconds}ms',
-          name: 'ChatRepository',
-        );
 
         // Наблюдали в проде ситуацию: enqueue вернул taskId,
         // но первый GET /tasks/:id какое-то время отвечает 404,
@@ -368,10 +689,6 @@ class ChatRepositoryImpl implements ChatRepository {
           // расхождений доступа/проекции). При этом воркер уже может записать day.
           // Чтобы не ломать UX — делаем fallback на источник правды: GET /days/current.
           try {
-            log(
-              '[ChatRepository._pollDailyMealPlanTask] attempt=$attempt fallback GET /days/current (forceRefresh=true)',
-              name: 'ChatRepository',
-            );
             final rawDay = await userServiceClient.getCurrentDay(
               userId: userId,
               forceRefresh: true,
@@ -392,11 +709,6 @@ class ChatRepositoryImpl implements ChatRepository {
                 },
               );
             }
-
-            log(
-              '[ChatRepository._pollDailyMealPlanTask] attempt=$attempt fallback: day.mealPlan отсутствует/пустой, продолжаем поллинг',
-              name: 'ChatRepository',
-            );
           } catch (fallbackError) {
             log(
               '[requestDailyMealPlanViaTask] fallback GET /days/current failed: $fallbackError',
@@ -413,31 +725,20 @@ class ChatRepositoryImpl implements ChatRepository {
               'code': e.code,
               'statusCode': e.statusCode,
             },
-            output: null,
           );
         }
       } catch (e) {
-        log(
-          '[ChatRepository._pollDailyMealPlanTask] attempt=$attempt unexpected error: $e',
-          name: 'ChatRepository',
-        );
         return PublicTaskEntity(
           taskId: taskId,
           type: 'daily_meal_plan',
           status: TaskStatus.failed,
           error: {'message': e.toString()},
-          output: null,
         );
       }
 
       if (task != null &&
           (task.status == TaskStatus.done ||
               task.status == TaskStatus.failed)) {
-        final elapsedDone = DateTime.now().difference(startedAt);
-        log(
-          '[ChatRepository._pollDailyMealPlanTask] finish attempt=$attempt status=${task.status.name} elapsed=${elapsedDone.inMilliseconds}ms',
-          name: 'ChatRepository',
-        );
         return task;
       }
 
@@ -448,7 +749,7 @@ class ChatRepositoryImpl implements ChatRepository {
         reEnqueued = true;
         try {
           log(
-            '[ChatRepository._pollDailyMealPlanTask] pending долго, пробуем re-enqueue taskId=$taskId attempt=$attempt elapsed=${elapsed.inSeconds}s idempotencyClientKey=$idempotencyClientKey',
+            '[requestDailyMealPlanViaTask] pending долго, пробуем re-enqueue',
             name: 'ChatRepository',
           );
           await userServiceClient.enqueueTask(
@@ -459,30 +760,21 @@ class ChatRepositoryImpl implements ChatRepository {
           );
         } catch (e) {
           log(
-            '[ChatRepository._pollDailyMealPlanTask] re-enqueue не удался: $e',
+            '[requestDailyMealPlanViaTask] re-enqueue не удался: $e',
             name: 'ChatRepository',
           );
         }
       }
 
       if (elapsed >= maxDuration) {
-        log(
-          '[ChatRepository._pollDailyMealPlanTask] timeout taskId=$taskId attempt=$attempt elapsed=${elapsed.inSeconds}s',
-          name: 'ChatRepository',
-        );
         return PublicTaskEntity(
           taskId: taskId,
           type: 'daily_meal_plan',
           status: TaskStatus.failed,
           error: const {'message': 'Task polling timed out'},
-          output: null,
         );
       }
 
-      log(
-        '[ChatRepository._pollDailyMealPlanTask] sleep delay=${delay.inMilliseconds}ms attempt=$attempt',
-        name: 'ChatRepository',
-      );
       await Future<void>.delayed(delay);
       final nextMs = (delay.inMilliseconds * 1.2).round();
       delay = Duration(milliseconds: nextMs).compareTo(maxDelay) > 0
