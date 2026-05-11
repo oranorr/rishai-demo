@@ -45,9 +45,11 @@ class FailureNoUserWithEmail extends Failure {
 }
 
 class FailureDirectus extends Failure {
-  const FailureDirectus() : super('Network issue occured, please try again.');
+  /// [customMessage] — например текст из `UserServiceException` при OTP/JWT.
+  const FailureDirectus([String? customMessage])
+      : super(customMessage ?? 'Network issue occured, please try again.');
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [message];
 }
 
 class WhoopDidNotReturnAuthCodeFailure extends Failure {

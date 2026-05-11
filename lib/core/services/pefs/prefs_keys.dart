@@ -8,6 +8,13 @@ const String notesTime = 'notesTime';
 const String acceptedWhoopDisclaimer = 'acceptedWhoopDisclaimer';
 const String whoopExpiresAt = 'whoopExpiresAt';
 
+/// JWT Pivot User API (после `/auth/verify-otp`), отдельно от WHOOP-токенов.
+const String appAccessToken = 'appAccessToken';
+const String appRefreshToken = 'appRefreshToken';
+
+/// ISO8601 или ms — время истечения access (клиентский расчёт: now + expires_in).
+const String appAccessTokenExpiresAt = 'appAccessTokenExpiresAt';
+
 /// [wellnessTooltipViewed] Ключ для хранения состояния просмотра подсказки на wellness score
 const String wellnessTooltipViewed = 'wellnessTooltipViewed';
 

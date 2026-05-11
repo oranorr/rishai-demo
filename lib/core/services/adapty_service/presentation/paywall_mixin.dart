@@ -86,9 +86,22 @@ mixin PaywallMixin on State<Paywall> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: GestureDetector(
-                  onTap: () => appNavigationService.go(
-                    path: AppRoutes.homeScreen.path,
-                  ),
+                  // [PostQuestionaryBack] После опросника выставляется shouldRedirectAfterPaywall:
+                  // на home без InitWhoopOnLogin список дней пуст → «Data failed to load».
+                  // Ведём на /redirect, где выполнится загрузка WHOOP/дней (как после Subscribe).
+                  onTap: () {
+                    final shouldInit =
+                        prefsRepo.getShouldRedirectAfterPaywall();
+                    if (shouldInit) {
+                      appNavigationService.go(
+                        path: AppRoutes.redirect.path,
+                      );
+                    } else {
+                      appNavigationService.go(
+                        path: AppRoutes.homeScreen.path,
+                      );
+                    }
+                  },
                   child: Container(
                     padding: EdgeInsets.all(8.w),
                     decoration: const BoxDecoration(

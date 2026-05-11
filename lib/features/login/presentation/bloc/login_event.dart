@@ -46,11 +46,22 @@ class LoginCancelOtpEnter extends LoginEvent {
   List<Object?> get props => [];
 }
 
+/// OAuth (Google/Apple): пользователь уже подтверждён, OTP не нужен.
 class LoginOtpCorrect extends LoginEvent {
   const LoginOtpCorrect();
 
   @override
   List<Object?> get props => [];
+}
+
+/// Email: код из письма, проверка на сервере (`verify-otp` + `users/me`).
+class LoginSubmitEmailOtp extends LoginEvent {
+  const LoginSubmitEmailOtp({required this.code});
+
+  final String code;
+
+  @override
+  List<Object?> get props => [code];
 }
 
 class LogoutEvent extends LoginEvent {

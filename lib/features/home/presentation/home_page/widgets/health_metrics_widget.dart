@@ -10,9 +10,18 @@ class _HealthMetricsWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     HealthMetricsEntity health = day.healthMetrics;
 
-    // Рассчитываем модификатор Goal Setting (как в calories_widget)
-    final mod = (day.macros.kcal / day.weekTdeeAverage) - 1;
-    final goalSettingPercent = (mod * 100).round();
+    // Goal Setting: (kcal / среднесуточный TDEE недели - 1) * 100.
+    // У только что созданного дня [weekTdeeAverage] часто 0 (ещё нет WHOOP-данных)
+    // — деление даёт Infinity, а [.round()] бросает UnsupportedError.
+    final weekTdeeAvg = day.weekTdeeAverage;
+    late final int goalSettingPercent;
+    if (weekTdeeAvg <= 0) {
+      goalSettingPercent = 0;
+    } else {
+      final mod = (day.macros.kcal / weekTdeeAvg) - 1;
+      final pct = mod * 100;
+      goalSettingPercent = pct.isFinite ? pct.round() : 0;
+    }
 
     // Создаем расширенные списки с дополнительными метриками в правильном порядке
     // Порядок согласно дизайну: Goal Setting, BMI, BMR, 24h Cal Burn, Weekly Burn

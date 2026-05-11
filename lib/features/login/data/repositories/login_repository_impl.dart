@@ -5,9 +5,9 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/features/login/data/dara_sources/remote/remote_data_source.dart';
+import 'package:rishai/features/login/domain/params/email_otp_params.dart';
 import 'package:rishai/features/login/domain/repositories/login_repository.dart';
 import 'package:rishai/features/login/domain/usecases/create_new_user_usecase.dart';
-import 'package:rishai/features/login/domain/usecases/login_via_email_usecase.dart';
 import 'package:rishai/features/user/data/models/user_model.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 
@@ -53,7 +53,6 @@ class LoginRepositoryImpl implements LoginRepository {
       final raw = await _userServiceClient.createUser(
         email: params.email,
         name: params.name,
-        code: params.code,
       );
       return Right(UserModel.fromMap(raw).toEntity());
     } on UserServiceException catch (e) {
@@ -72,24 +71,40 @@ class LoginRepositoryImpl implements LoginRepository {
   }
 
   @override
-  Future<Either<Failure, UserEntity>> loginViaEmail(
-    LoginViaEmailParams params,
+  Future<Either<Failure, Unit>> requestEmailOtp(
+    RequestEmailOtpParams params,
   ) async {
     try {
-      final raw = await _userServiceClient.login(
-        email: params.loginInfoEntity.email,
-        code: params.loginInfoEntity.verificationCode,
+      await _userServiceClient.requestOtp(email: params.email);
+      return const Right(unit);
+    } on UserServiceException catch (e) {
+      log('requestEmailOtp UserServiceException: ${e.code} - ${e.message}');
+      return Left(FailureDirectus(e.message));
+    } on Exception catch (e) {
+      log('requestEmailOtp Exception: $e');
+      return Left(FailureDirectus(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserEntity>> verifyEmailOtpAndFetchProfile(
+    VerifyEmailOtpParams params,
+  ) async {
+    try {
+      await _userServiceClient.verifyOtp(
+        email: params.email,
+        code: params.code,
       );
+      final raw = await _userServiceClient.getMe();
       return Right(UserModel.fromMap(raw).toEntity());
     } on UserServiceException catch (e) {
-      log('loginViaEmail UserServiceException: ${e.code} - ${e.message}');
-      if (e.code == 'NOT_FOUND') {
-        return const Left(FailureNoUserWithEmail());
-      }
-      return const Left(FailureDirectus());
+      log(
+        'verifyEmailOtpAndFetchProfile UserServiceException: ${e.code} - ${e.message}',
+      );
+      return Left(FailureDirectus(e.message));
     } on Exception catch (e) {
-      log('loginViaEmail Exception: $e');
-      return const Left(FailureDirectus());
+      log('verifyEmailOtpAndFetchProfile Exception: $e');
+      return Left(FailureDirectus(e.toString()));
     }
   }
 

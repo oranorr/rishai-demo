@@ -97,6 +97,64 @@ class PrefsRepository {
     await _prefs.setString(whoopExpiresAt, '');
   }
 
+  // --- Pivot app JWT (Auth / OTP), не смешивать с WHOOP ---
+
+  /// Сохраняет пару токенов после `verify-otp` / `auth/refresh`.
+  ///
+  /// [expiresInSeconds] — `expires_in` из ответа бэкенда; вычисляем локально
+  /// время истечения access для проактивного refresh.
+  Future<void> writeAppJwtSession({
+    required String accessToken,
+    required String refreshToken,
+    required int expiresInSeconds,
+  }) async {
+    // Как [writeTokens] для WHOOP: не вызываем [_ensureInitialized] —
+    // предполагается `await prefsRepo.init()` до логина.
+    final expiresAt = DateTime.now().add(Duration(seconds: expiresInSeconds));
+    await _prefs.setString(appAccessToken, accessToken);
+    await _prefs.setString(appRefreshToken, refreshToken);
+    await _prefs.setString(
+      appAccessTokenExpiresAt,
+      expiresAt.toIso8601String(),
+    );
+  }
+
+  String fetchAppAccessToken() {
+    _ensureInitialized();
+    return _prefs.getString(appAccessToken) ?? '';
+  }
+
+  String fetchAppRefreshToken() {
+    _ensureInitialized();
+    return _prefs.getString(appRefreshToken) ?? '';
+  }
+
+  /// `null` если сессии нет или время не задано.
+  DateTime? getAppAccessTokenExpiry() {
+    _ensureInitialized();
+    final raw = _prefs.getString(appAccessTokenExpiresAt);
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    try {
+      return DateTime.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Есть ненулевой access JWT (для выбора `Bearer` vs legacy).
+  bool hasAppAccessToken() {
+    return fetchAppAccessToken().isNotEmpty;
+  }
+
+  /// Сброс только app JWT (WHOOP prefs не трогаем).
+  Future<void> clearAppJwtSession() async {
+    await _prefs.remove(appAccessToken);
+    await _prefs.remove(appRefreshToken);
+    await _prefs.remove(appAccessTokenExpiresAt);
+  }
+
   Future<bool> checkForWhoopDisclaimerAccpeted() async {
     return _prefs.getBool(acceptedWhoopDisclaimer) ?? false;
   }

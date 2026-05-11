@@ -94,10 +94,12 @@ import 'package:rishai/features/login/domain/usecases/create_new_user_usecase.da
     as _i734;
 import 'package:rishai/features/login/domain/usecases/login_via_apple_usecase.dart'
     as _i914;
-import 'package:rishai/features/login/domain/usecases/login_via_email_usecase.dart'
-    as _i248;
 import 'package:rishai/features/login/domain/usecases/login_via_google_usecase.dart'
     as _i1003;
+import 'package:rishai/features/login/domain/usecases/request_email_otp_usecase.dart'
+    as _i49;
+import 'package:rishai/features/login/domain/usecases/verify_email_otp_usecase.dart'
+    as _i88;
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart'
     as _i1024;
 import 'package:rishai/features/settings/domain/repository/feedback_repository.dart'
@@ -153,7 +155,6 @@ extension GetItInjectableX on _i174.GetIt {
       environment,
       environmentFilter,
     );
-    gh.factory<_i489.UserServiceClient>(() => _i489.UserServiceClient());
     gh.factory<_i572.NavigatorKeyProvider>(() => _i572.NavigatorKeyProvider());
     gh.factory<_i672.FoodDiaryCubit>(() => _i672.FoodDiaryCubit());
     gh.factory<_i947.LlmProxyClient>(() => _i947.LlmProxyClient());
@@ -166,14 +167,14 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i993.FirebaseRepository>(
         () => _i201.FirebaseImplementation());
     gh.singleton<_i89.DirectusService>(() => _i523.DirectusRepositoryImpl());
-    gh.singleton<_i300.DayManager>(() =>
-        _i629.DayManagerImpl(userServiceClient: gh<_i489.UserServiceClient>()));
     gh.singleton<_i672.HomePageControllerService>(
         () => _i300.HomePageControllerServiceImpl());
     gh.singleton<_i510.LoginRemoteDataSource>(
         () => _i675.RemoteDataSourceImpl());
     gh.singleton<_i751.AccountsWhiteListService>(
         () => _i748.AccountsWhiteListServiceImpl(gh<_i89.DirectusService>()));
+    gh.factory<_i489.UserServiceClient>(
+        () => _i489.UserServiceClient(gh<_i97.PrefsRepository>()));
     gh.singleton<_i373.AdsRepository>(() => _i368.AdsRepositoryImpl());
     gh.singleton<_i1067.AdaptyRepository>(() => _i910.AdaptyRepositoryImpl());
     gh.singleton<_i886.UserLocalDataSource>(() => _i461.UserLocalDataImpl());
@@ -199,14 +200,18 @@ extension GetItInjectableX on _i174.GetIt {
         remoteDataSource: gh<_i675.WhoopRemoteDataSource>()));
     gh.singleton<_i570.VersionCheckService>(
         () => _i634.VersionCheckServiceImpl(gh<_i89.DirectusService>()));
+    gh.singleton<_i300.DayManager>(() =>
+        _i629.DayManagerImpl(userServiceClient: gh<_i489.UserServiceClient>()));
     gh.factory<_i1003.LoginViaGoogleUsecase>(
         () => _i1003.LoginViaGoogleUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i734.CreateNewUserUsecase>(
         () => _i734.CreateNewUserUsecase(gh<_i544.LoginRepository>()));
-    gh.factory<_i248.LoginViaEmailUsecase>(
-        () => _i248.LoginViaEmailUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i914.LoginViaAppleUsecase>(
         () => _i914.LoginViaAppleUsecase(gh<_i544.LoginRepository>()));
+    gh.factory<_i49.RequestEmailOtpUsecase>(
+        () => _i49.RequestEmailOtpUsecase(gh<_i544.LoginRepository>()));
+    gh.factory<_i88.VerifyEmailOtpUsecase>(
+        () => _i88.VerifyEmailOtpUsecase(gh<_i544.LoginRepository>()));
     gh.factory<_i1035.WhoopGetBodyData>(
         () => _i1035.WhoopGetBodyData(gh<_i897.WhoopRepository>()));
     gh.factory<_i757.WhoopGetDataUsecase>(
@@ -231,6 +236,14 @@ extension GetItInjectableX on _i174.GetIt {
           remote: gh<_i867.ChatRemoteDataSource>(),
           userRepo: gh<_i926.UserRepository>(),
         ));
+    gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
+          gh<_i1003.LoginViaGoogleUsecase>(),
+          gh<_i734.CreateNewUserUsecase>(),
+          gh<_i49.RequestEmailOtpUsecase>(),
+          gh<_i88.VerifyEmailOtpUsecase>(),
+          gh<_i914.LoginViaAppleUsecase>(),
+          gh<_i751.AccountsWhiteListService>(),
+        ));
     gh.factory<_i663.UpdateUserUsecase>(
         () => _i663.UpdateUserUsecase(gh<_i926.UserRepository>()));
     gh.factory<_i547.GetUserDaysUsecase>(
@@ -246,13 +259,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i547.GetUserDaysUsecase>(),
           gh<_i751.AccountsWhiteListService>(),
           gh<_i489.UserServiceClient>(),
-        ));
-    gh.factory<_i1024.LoginBloc>(() => _i1024.LoginBloc(
-          gh<_i1003.LoginViaGoogleUsecase>(),
-          gh<_i734.CreateNewUserUsecase>(),
-          gh<_i248.LoginViaEmailUsecase>(),
-          gh<_i914.LoginViaAppleUsecase>(),
-          gh<_i751.AccountsWhiteListService>(),
         ));
     gh.factory<_i241.InitGptUsecase>(
         () => _i241.InitGptUsecase(gh<_i831.ChatRepository>()));

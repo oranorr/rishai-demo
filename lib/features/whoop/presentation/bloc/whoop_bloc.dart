@@ -235,7 +235,10 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       log('retrieveing BODY data');
       await _getBodyData(WhoopRetrieveBodyData(), emit);
 
-      if (!user.needsQuestionary) {
+      // Свежий профиль после body/опросника — не опираемся на [user] с начала метода
+      final userForFlow = userBloc.state.user;
+
+      if (!userForFlow.needsQuestionary) {
         log('retrieveing data');
         // [CheckCurrentPath] Проверяем, не находимся ли мы уже на странице /redirect
         // Если да, не переходим туда снова (это предотвращает автоматический редирект
@@ -247,15 +250,15 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
         await _getUserData(
           WhoopGetUserData(
-            user.gender!,
-            user.userGoal!,
+            userForFlow.gender!,
+            userForFlow.userGoal!,
             isInitializing: true,
           ),
           emit,
         );
 
         if (state.status != Status.loading && state.status != Status.error) {
-          chatBloc.add(InitChatBloc(directusId: user.directusId));
+          chatBloc.add(InitChatBloc(directusId: userForFlow.directusId));
 
           // Используем централизованную логику инициализации дней из DayManager
           log(
@@ -263,7 +266,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
             name: 'WhoopBloc',
           );
           final initResult = await dayManager.initializeUserDaysOnLogin(
-            userId: user.directusId,
+            userId: userForFlow.directusId,
             newDay: state.day,
           );
 
@@ -321,8 +324,20 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
             await Future.delayed(const Duration(milliseconds: 100));
           }
 
+          // [DaysRecovery] Первый заход: /days может быть пуст, пока не создан current day;
+          // или гонка подписки DayManager — добиваем через GET /days/current.
+          var finalUserState = userBloc.state;
+          if (finalUserState.days.isEmpty &&
+              finalUserState.user.directusId != '-1') {
+            log(
+              '[WhoopBloc] Список дней пуст после ожидания — recovery (GET /days/current + UserGetDays)',
+              name: 'WhoopBloc',
+            );
+            await _recoverUserBlocDays(state.day);
+            finalUserState = userBloc.state;
+          }
+
           // Финальная проверка состояния перед навигацией
-          final finalUserState = userBloc.state;
           if (finalUserState.status == Status.loading) {
             log(
               'UserBloc все еще загружается, но продолжаем навигацию с предупреждением',
@@ -350,7 +365,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
               '[WhoopBloc] Обновляем state.day актуальным днем из UserBloc: wellness=${lastDayFromUserBloc.welnessEntity != null ? "есть (${lastDayFromUserBloc.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
               name: 'WhoopBloc',
             );
-            
+
             // Обновляем день в WhoopBloc, сохраняя существующие данные (mealPlan, snap)
             // но используя актуальные данные из UserBloc (включая welnessEntity)
             final updatedDay = lastDayFromUserBloc.copyWith(
@@ -358,9 +373,9 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
               mealPlanEntity: state.day.mealPlanEntity ?? lastDayFromUserBloc.mealPlanEntity,
               snap: state.day.snap,
             );
-            
+
             emit(state.copyWith(day: updatedDay));
-            
+
             log(
               '[WhoopBloc] ✅ state.day обновлен: wellness=${state.day.welnessEntity != null ? "есть (${state.day.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
               name: 'WhoopBloc',
@@ -386,6 +401,52 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         'Unable to connect to WHOOP. Please try again later.',
       );
       emit(state.copyWith(status: Status.initial));
+    }
+  }
+
+  /// Догрузка дней в [UserBloc]: сначала `/days/current`, иначе fallback на день из WHOOP.
+  Future<void> _recoverUserBlocDays(DayEntity whoopDay) async {
+    final userId = userBloc.state.user.directusId;
+    if (userId == '-1') {
+      return;
+    }
+
+    try {
+      final lastRes =
+          await dayManager.getLastDayWithCycleStatus(userId: userId);
+      final seed = lastRes?.day ?? whoopDay;
+      log(
+        '[WhoopBloc._recoverUserBlocDays] UserGetDays, hasLastRes=${lastRes != null}, '
+        'seedCycle=${seed.cycleId}',
+        name: 'WhoopBloc',
+      );
+      userBloc.add(UserGetDays(newDay: seed));
+
+      final started = DateTime.now();
+      while (DateTime.now().difference(started) < const Duration(seconds: 8)) {
+        if (userBloc.state.days.isNotEmpty) {
+          log(
+            '[WhoopBloc._recoverUserBlocDays] ok, count=${userBloc.state.days.length}',
+            name: 'WhoopBloc',
+          );
+          return;
+        }
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      log(
+        '[WhoopBloc._recoverUserBlocDays] retry with whoop state.day',
+        name: 'WhoopBloc',
+      );
+      userBloc.add(UserGetDays(newDay: whoopDay));
+      await Future.delayed(const Duration(milliseconds: 400));
+    } on Exception catch (e, st) {
+      log(
+        '[WhoopBloc._recoverUserBlocDays] $e',
+        name: 'WhoopBloc',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 

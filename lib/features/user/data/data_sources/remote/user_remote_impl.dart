@@ -72,6 +72,7 @@ class UserRemoteImpl implements UserRemoteSource {
         name: 'UserRemoteImpl',
       );
 
+      // При наличии app JWT [UserServiceClient.updateUser] уходит на `PUT /users/me`.
       await _userServiceClient.updateUser(
         user.directusId,
         _toApiBody(user),

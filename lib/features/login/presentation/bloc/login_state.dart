@@ -10,7 +10,6 @@ sealed class LoginState with _$LoginState {
   const factory LoginState.mainState({
     required Status status,
     LoginInfoEntity? loginEntity,
-    String? otp,
     String? errorMessage,
   }) = LoginMainState;
 }

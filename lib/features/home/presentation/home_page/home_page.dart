@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:developer';
+import 'dart:math' hide log;
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -53,6 +54,9 @@ class _HomePageState extends State<HomePage> {
   late PageController pageController;
   bool isLoading = false;
 
+  /// Один раз пробуем [UserGetDays], если попали на home без прохода redirect/init (например старый back).
+  bool _requestedDaysBootstrap = false;
+
   @override
   void initState() {
     pageController = PageController();
@@ -60,9 +64,25 @@ class _HomePageState extends State<HomePage> {
     _trackMealPlanView();
   }
 
+  /// Синхронизируем [PageController] после обновления дней в [UserBloc].
+  ///
+  /// [BlocConsumer.listener] вызывается **до** перестроения [builder]: при первом
+  /// появлении дней (bootstrap с пустого списка) [PageView] ещё не смонтирован —
+  /// чтение [PageController.page] падает с assert. Поэтому либо делаем [jumpToPage]
+  /// сразу при [PageController.hasClients], либо один раз на следующий кадр после
+  /// того, как [PageView.builder] уже привязал контроллер.
   void _resetPageController() {
-    final currentPage = pageController.page?.round() ?? 0;
-    pageController.jumpToPage(currentPage);
+    void jumpToCurrent() {
+      if (!mounted || !pageController.hasClients) return;
+      final currentPage = pageController.page?.round() ?? 0;
+      pageController.jumpToPage(currentPage);
+    }
+
+    if (pageController.hasClients) {
+      jumpToCurrent();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => jumpToCurrent());
+    }
   }
 
   @override
@@ -112,6 +132,9 @@ class _HomePageState extends State<HomePage> {
         if (state.status == Status.success) {
           _resetPageController();
         }
+        if (state.days.isNotEmpty) {
+          _requestedDaysBootstrap = false;
+        }
       },
       builder: (context, userState) {
         // print(userState.days.last.dateTime);
@@ -127,6 +150,25 @@ class _HomePageState extends State<HomePage> {
             if (userState.days.isEmpty) {
               if (isLoading) {
                 // Показываем индикатор загрузки, если дни еще загружаются
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: RishColors.primary,
+                  ),
+                );
+              } else if (userState.user.directusId != '-1' &&
+                  !_requestedDaysBootstrap) {
+                // [HomeDaysBootstrap] Пользователь залогинен, но дни не прогрузились
+                // (гонка после OTP/онборда, back с paywall и т.д.) — триггерим ту же цепочку, что и при init.
+                _requestedDaysBootstrap = true;
+                log(
+                  '[HomePage] Пустой список дней при открытии home — запускаем UserGetDays '
+                  '(whoop day cycleId=${whoopBloc.state.day.cycleId})',
+                  name: 'HomePage',
+                );
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  userBloc.add(UserGetDays(newDay: whoopBloc.state.day));
+                });
                 return const Center(
                   child: CircularProgressIndicator(
                     color: RishColors.primary,

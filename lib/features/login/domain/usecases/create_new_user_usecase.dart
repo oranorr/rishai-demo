@@ -21,14 +21,13 @@ class CreateNewUserUsecase implements UseCase<UserEntity, CreateNewUserParams> {
 }
 
 class CreateNewUserParams extends Equatable {
-  final String name;
-  final String email;
-  final String code;
   const CreateNewUserParams({
     required this.name,
     required this.email,
-    required this.code,
   });
+
+  final String name;
+  final String email;
 
   @override
   List<Object> get props => [name, email];

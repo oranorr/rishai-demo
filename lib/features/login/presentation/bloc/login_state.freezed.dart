@@ -18,26 +18,25 @@ final _privateConstructorUsedError = UnsupportedError(
 mixin _$LoginState {
   Status get status => throw _privateConstructorUsedError;
   LoginInfoEntity? get loginEntity => throw _privateConstructorUsedError;
-  String? get otp => throw _privateConstructorUsedError;
   String? get errorMessage => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult when<TResult extends Object?>({
-    required TResult Function(Status status, LoginInfoEntity? loginEntity,
-            String? otp, String? errorMessage)
+    required TResult Function(
+            Status status, LoginInfoEntity? loginEntity, String? errorMessage)
         mainState,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function(Status status, LoginInfoEntity? loginEntity, String? otp,
-            String? errorMessage)?
+    TResult? Function(
+            Status status, LoginInfoEntity? loginEntity, String? errorMessage)?
         mainState,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
-    TResult Function(Status status, LoginInfoEntity? loginEntity, String? otp,
-            String? errorMessage)?
+    TResult Function(
+            Status status, LoginInfoEntity? loginEntity, String? errorMessage)?
         mainState,
     required TResult orElse(),
   }) =>
@@ -71,10 +70,7 @@ abstract class $LoginStateCopyWith<$Res> {
       _$LoginStateCopyWithImpl<$Res, LoginState>;
   @useResult
   $Res call(
-      {Status status,
-      LoginInfoEntity? loginEntity,
-      String? otp,
-      String? errorMessage});
+      {Status status, LoginInfoEntity? loginEntity, String? errorMessage});
 }
 
 /// @nodoc
@@ -92,7 +88,6 @@ class _$LoginStateCopyWithImpl<$Res, $Val extends LoginState>
   $Res call({
     Object? status = null,
     Object? loginEntity = freezed,
-    Object? otp = freezed,
     Object? errorMessage = freezed,
   }) {
     return _then(_value.copyWith(
@@ -104,10 +99,6 @@ class _$LoginStateCopyWithImpl<$Res, $Val extends LoginState>
           ? _value.loginEntity
           : loginEntity // ignore: cast_nullable_to_non_nullable
               as LoginInfoEntity?,
-      otp: freezed == otp
-          ? _value.otp
-          : otp // ignore: cast_nullable_to_non_nullable
-              as String?,
       errorMessage: freezed == errorMessage
           ? _value.errorMessage
           : errorMessage // ignore: cast_nullable_to_non_nullable
@@ -125,10 +116,7 @@ abstract class _$$LoginMainStateImplCopyWith<$Res>
   @override
   @useResult
   $Res call(
-      {Status status,
-      LoginInfoEntity? loginEntity,
-      String? otp,
-      String? errorMessage});
+      {Status status, LoginInfoEntity? loginEntity, String? errorMessage});
 }
 
 /// @nodoc
@@ -144,7 +132,6 @@ class __$$LoginMainStateImplCopyWithImpl<$Res>
   $Res call({
     Object? status = null,
     Object? loginEntity = freezed,
-    Object? otp = freezed,
     Object? errorMessage = freezed,
   }) {
     return _then(_$LoginMainStateImpl(
@@ -156,10 +143,6 @@ class __$$LoginMainStateImplCopyWithImpl<$Res>
           ? _value.loginEntity
           : loginEntity // ignore: cast_nullable_to_non_nullable
               as LoginInfoEntity?,
-      otp: freezed == otp
-          ? _value.otp
-          : otp // ignore: cast_nullable_to_non_nullable
-              as String?,
       errorMessage: freezed == errorMessage
           ? _value.errorMessage
           : errorMessage // ignore: cast_nullable_to_non_nullable
@@ -172,20 +155,18 @@ class __$$LoginMainStateImplCopyWithImpl<$Res>
 
 class _$LoginMainStateImpl implements LoginMainState {
   const _$LoginMainStateImpl(
-      {required this.status, this.loginEntity, this.otp, this.errorMessage});
+      {required this.status, this.loginEntity, this.errorMessage});
 
   @override
   final Status status;
   @override
   final LoginInfoEntity? loginEntity;
   @override
-  final String? otp;
-  @override
   final String? errorMessage;
 
   @override
   String toString() {
-    return 'LoginState.mainState(status: $status, loginEntity: $loginEntity, otp: $otp, errorMessage: $errorMessage)';
+    return 'LoginState.mainState(status: $status, loginEntity: $loginEntity, errorMessage: $errorMessage)';
   }
 
   @override
@@ -196,14 +177,13 @@ class _$LoginMainStateImpl implements LoginMainState {
             (identical(other.status, status) || other.status == status) &&
             (identical(other.loginEntity, loginEntity) ||
                 other.loginEntity == loginEntity) &&
-            (identical(other.otp, otp) || other.otp == otp) &&
             (identical(other.errorMessage, errorMessage) ||
                 other.errorMessage == errorMessage));
   }
 
   @override
   int get hashCode =>
-      Object.hash(runtimeType, status, loginEntity, otp, errorMessage);
+      Object.hash(runtimeType, status, loginEntity, errorMessage);
 
   @JsonKey(ignore: true)
   @override
@@ -215,33 +195,33 @@ class _$LoginMainStateImpl implements LoginMainState {
   @override
   @optionalTypeArgs
   TResult when<TResult extends Object?>({
-    required TResult Function(Status status, LoginInfoEntity? loginEntity,
-            String? otp, String? errorMessage)
+    required TResult Function(
+            Status status, LoginInfoEntity? loginEntity, String? errorMessage)
         mainState,
   }) {
-    return mainState(status, loginEntity, otp, errorMessage);
+    return mainState(status, loginEntity, errorMessage);
   }
 
   @override
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function(Status status, LoginInfoEntity? loginEntity, String? otp,
-            String? errorMessage)?
+    TResult? Function(
+            Status status, LoginInfoEntity? loginEntity, String? errorMessage)?
         mainState,
   }) {
-    return mainState?.call(status, loginEntity, otp, errorMessage);
+    return mainState?.call(status, loginEntity, errorMessage);
   }
 
   @override
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
-    TResult Function(Status status, LoginInfoEntity? loginEntity, String? otp,
-            String? errorMessage)?
+    TResult Function(
+            Status status, LoginInfoEntity? loginEntity, String? errorMessage)?
         mainState,
     required TResult orElse(),
   }) {
     if (mainState != null) {
-      return mainState(status, loginEntity, otp, errorMessage);
+      return mainState(status, loginEntity, errorMessage);
     }
     return orElse();
   }
@@ -279,15 +259,12 @@ abstract class LoginMainState implements LoginState {
   const factory LoginMainState(
       {required final Status status,
       final LoginInfoEntity? loginEntity,
-      final String? otp,
       final String? errorMessage}) = _$LoginMainStateImpl;
 
   @override
   Status get status;
   @override
   LoginInfoEntity? get loginEntity;
-  @override
-  String? get otp;
   @override
   String? get errorMessage;
   @override

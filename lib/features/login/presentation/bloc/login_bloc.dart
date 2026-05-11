@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer';
-import 'dart:math' as math;
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -19,10 +18,12 @@ import 'package:rishai/core/usecase/usecase.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/chat/presentation/bloc/chat_bloc.dart';
 import 'package:rishai/features/login/domain/entities/login_info_entity.dart';
+import 'package:rishai/features/login/domain/params/email_otp_params.dart';
 import 'package:rishai/features/login/domain/usecases/create_new_user_usecase.dart';
 import 'package:rishai/features/login/domain/usecases/login_via_apple_usecase.dart';
-import 'package:rishai/features/login/domain/usecases/login_via_email_usecase.dart';
 import 'package:rishai/features/login/domain/usecases/login_via_google_usecase.dart';
+import 'package:rishai/features/login/domain/usecases/request_email_otp_usecase.dart';
+import 'package:rishai/features/login/domain/usecases/verify_email_otp_usecase.dart';
 import 'package:rishai/features/login/presentation/bloc/login_state.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
@@ -38,7 +39,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   LoginBloc(
     this.loginViaGoogleUsecase,
     this.createNewUserUsecase,
-    this.loginViaEmailUseCase,
+    this.requestEmailOtpUsecase,
+    this.verifyEmailOtpUsecase,
     this.loginViaAppleUsecase,
     this.accountsWhiteListService,
   ) : super(
@@ -51,52 +53,65 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     on<LoginViaEmail>(_loginViaEmail);
     on<LoginCancelOtpEnter>(_cancelOtpEnter);
     on<LoginOtpCorrect>(_correctOtp);
+    on<LoginSubmitEmailOtp>(_submitEmailOtp);
     on<LogoutEvent>(_logout);
     on<LoginViaApple>(_loginViaApple);
   }
   final LoginViaGoogleUsecase loginViaGoogleUsecase;
   final CreateNewUserUsecase createNewUserUsecase;
-  final LoginViaEmailUsecase loginViaEmailUseCase;
+  final RequestEmailOtpUsecase requestEmailOtpUsecase;
+  final VerifyEmailOtpUsecase verifyEmailOtpUsecase;
   final LoginViaAppleUsecase loginViaAppleUsecase;
   final AccountsWhiteListService accountsWhiteListService;
 
+  /// Регистрация: `POST /users/create` → `POST /auth/request-otp` → экран OTP.
   FutureOr<void> _createAccount(
     CreateAccountEvent event,
     Emitter<LoginState> emit,
   ) async {
-    /// тут по крайней мере проще, просто создается аккаунт, прокидываем на онборд
     emit(state.copyWith(status: Status.loading));
-    final String otp = generateVerificationCode(event.email);
     final res = await createNewUserUsecase.call(
       CreateNewUserParams(
-        code: otp,
         name: event.name,
         email: event.email,
       ),
     );
-    emit(
-      state.copyWith(
-        otp: otp,
-        loginEntity: LoginInfoEntity(
-          email: event.email,
-          name: event.name,
-          verificationCode: otp,
-        ),
-      ),
+    await res.fold<Future<void>>(
+      (fail) async {
+        emit(state.copyWith(status: Status.error));
+        RishSnackbar().showSnackBar(fail.message);
+      },
+      (user) async {
+        userBloc.add(
+          CreateUserOnLogin(
+            user: user,
+            shouldCreateHistoryDays: event.shouldCreateHistoryDays,
+          ),
+        );
+        final otpReq = await requestEmailOtpUsecase.call(
+          RequestEmailOtpParams(email: event.email),
+        );
+        await otpReq.fold<Future<void>>(
+          (fail) async {
+            emit(state.copyWith(status: Status.error));
+            RishSnackbar().showSnackBar(fail.message);
+          },
+          (_) async {
+            emit(
+              state.copyWith(
+                status: Status.success,
+                loginEntity: LoginInfoEntity(
+                  email: event.email,
+                  name: event.name,
+                  shouldCreateHistoryDays: event.shouldCreateHistoryDays,
+                ),
+              ),
+            );
+            await appNavigationService.push(path: AppRoutes.enterOtp.path);
+          },
+        );
+      },
     );
-    res.fold((fail) {
-      emit(state.copyWith(status: Status.error));
-      RishSnackbar().showSnackBar(fail.message);
-    }, (user) {
-      userBloc.add(
-        CreateUserOnLogin(
-          user: user,
-          shouldCreateHistoryDays: event.shouldCreateHistoryDays,
-        ),
-      );
-      appNavigationService.push(path: AppRoutes.enterOtp.path);
-      emit(state.copyWith(status: Status.success));
-    });
   }
 
   FutureOr<void> _loginViaGoogle(
@@ -105,67 +120,80 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaGoogleUsecase.call(const NoParams());
-    await res.fold((f) {
-      RishSnackbar().showSnackBar(f.message);
-      emit(state.copyWith(status: Status.error));
-    }, (user) async {
-      userBloc.add(CreateUserOnLogin(user: user));
-      // Даем время на обновление состояния userBloc
-      await Future.delayed(const Duration(milliseconds: 100));
-      add(const LoginOtpCorrect());
-      emit(state.copyWith(status: Status.success));
-    });
+    await res.fold<Future<void>>(
+      (f) async {
+        RishSnackbar().showSnackBar(f.message);
+        emit(state.copyWith(status: Status.error));
+      },
+      (user) async {
+        userBloc.add(CreateUserOnLogin(user: user));
+        // Даем время на обновление состояния userBloc
+        await Future.delayed(const Duration(milliseconds: 100));
+        add(const LoginOtpCorrect());
+        emit(state.copyWith(status: Status.success));
+      },
+    );
   }
 
+  /// Логин по email: только `request-otp`, профиль после `verify` на экране OTP.
   FutureOr<void> _loginViaEmail(
     LoginViaEmail event,
     Emitter<LoginState> emit,
   ) async {
     emit(state.copyWith(status: Status.loading));
-    final String otp = generateVerificationCode(event.email);
-    final LoginInfoEntity loginInfoEntity =
-        LoginInfoEntity(email: event.email, name: '', verificationCode: otp);
-    final res = await loginViaEmailUseCase
-        .call(LoginViaEmailParams(loginInfoEntity: loginInfoEntity));
-    emit(state.copyWith(loginEntity: loginInfoEntity, otp: otp));
-    res.fold((fail) {
-      emit(state.copyWith(status: Status.error));
-      RishSnackbar().showSnackBar(fail.message);
-    }, (user) {
-      userBloc.add(CreateUserOnLogin(user: user));
-      appNavigationService.push(path: AppRoutes.enterOtp.path);
-      emit(state.copyWith(status: Status.success));
-    });
+    final loginInfoEntity = LoginInfoEntity(
+      email: event.email,
+      name: '',
+    );
+    final res = await requestEmailOtpUsecase.call(
+      RequestEmailOtpParams(email: event.email),
+    );
+    await res.fold<Future<void>>(
+      (fail) async {
+        emit(state.copyWith(status: Status.error));
+        RishSnackbar().showSnackBar(fail.message);
+      },
+      (_) async {
+        emit(
+          state.copyWith(
+            loginEntity: loginInfoEntity,
+            status: Status.success,
+          ),
+        );
+        await appNavigationService.push(path: AppRoutes.enterOtp.path);
+      },
+    );
   }
 
   FutureOr<void> _cancelOtpEnter(
     LoginCancelOtpEnter event,
     Emitter<LoginState> emit,
   ) {
-    emit(state.copyWith(otp: null, loginEntity: null, status: Status.initial));
+    emit(state.copyWith(loginEntity: null, status: Status.initial));
     userBloc.add(CreateUserOnLogin(user: UserEntity.unauthorized()));
   }
 
-  FutureOr<void> _correctOtp(
-    LoginOtpCorrect event,
+  /// Завершение сессии после того, как в [userBloc] уже лежит актуальный [UserEntity].
+  Future<void> _finalizeAuthenticatedSession(
+    UserEntity curUser,
     Emitter<LoginState> emit,
   ) async {
-    UserEntity curUser = userBloc.state.user;
-    if (curUser.adaptyId == null) {
-      curUser = curUser.copyWith(
-        adaptyId: adapty.generateAdaptyId(directusId: curUser.directusId),
+    UserEntity user = curUser;
+    if (user.adaptyId == null) {
+      user = user.copyWith(
+        adaptyId: adapty.generateAdaptyId(directusId: user.directusId),
       );
     }
 
     await prefsRepo.setLogin(true);
 
     // Сначала сохраняем в Hive
-    await hive.saveUser(user: curUser);
+    await hive.saveUser(user: user);
     await adapty.initAdapty();
 
     // [FIX] Дожидаемся завершения identify перед запуском других блоков
     try {
-      await adapty.identify(adaptyId: curUser.adaptyId!);
+      await adapty.identify(adaptyId: user.adaptyId!);
       log(
         'Adapty identify завершен при логине. Статус подписки: ${adapty.isActive}',
         name: 'LoginBloc',
@@ -188,14 +216,14 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     }
 
     // Проверяем белый список аккаунтов для автоматической активации подписки
-    await _checkWhiteListAndActivateSubscription(curUser.email);
+    await _checkWhiteListAndActivateSubscription(user.email);
 
     // Затем обновляем в Directus и состоянии (без вызова identify)
-    userBloc.add(UpdateUserEvent(user: curUser));
+    userBloc.add(UpdateUserEvent(user: user));
 
     // Теперь инициализируем другие блоки, когда статус подписки определен
     whoopBloc.add(const InitWhoopOnLogin());
-    chatBloc.add(InitChatBloc(directusId: curUser.directusId));
+    chatBloc.add(InitChatBloc(directusId: user.directusId));
     weekPlanBloc.add(const WeekPlanLoad());
     log(
       'Логин завершен. Финальный статус подписки: ${adapty.isActive}',
@@ -204,8 +232,53 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     emit(state.copyWith(status: Status.success));
   }
 
+  FutureOr<void> _correctOtp(
+    LoginOtpCorrect event,
+    Emitter<LoginState> emit,
+  ) async {
+    await _finalizeAuthenticatedSession(userBloc.state.user, emit);
+  }
+
+  /// Проверка OTP на бэкенде и загрузка профиля (`users/me`).
+  FutureOr<void> _submitEmailOtp(
+    LoginSubmitEmailOtp event,
+    Emitter<LoginState> emit,
+  ) async {
+    final info = state.loginEntity;
+    if (info == null) {
+      log('[LoginBloc._submitEmailOtp] loginEntity is null', name: 'LoginBloc');
+      emit(state.copyWith(status: Status.error));
+      return;
+    }
+
+    emit(state.copyWith(status: Status.loading));
+
+    final res = await verifyEmailOtpUsecase.call(
+      VerifyEmailOtpParams(email: info.email, code: event.code),
+    );
+
+    await res.fold<Future<void>>(
+      (fail) async {
+        emit(state.copyWith(status: Status.error));
+        RishSnackbar().showSnackBar(fail.message);
+      },
+      (user) async {
+        userBloc.add(
+          CreateUserOnLogin(
+            user: user,
+            shouldCreateHistoryDays: info.shouldCreateHistoryDays,
+          ),
+        );
+        await Future.delayed(const Duration(milliseconds: 100));
+        // Используем [user] из `users/me`, а не повторное чтение bloc (race).
+        await _finalizeAuthenticatedSession(user, emit);
+      },
+    );
+  }
+
   FutureOr<void> _logout(LogoutEvent event, Emitter<LoginState> emit) async {
     await hive.clear();
+    await prefsRepo.clearAppJwtSession();
     await prefsRepo.flush();
     await notes.cancelNotifications();
     await adapty.logout();
@@ -230,34 +303,19 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   ) async {
     emit(state.copyWith(status: Status.loading));
     final res = await loginViaAppleUsecase.call(const NoParams());
-    await res.fold((f) {
-      RishSnackbar().showSnackBar(f.message);
-      emit(state.copyWith(status: Status.error));
-    }, (user) async {
-      userBloc.add(CreateUserOnLogin(user: user));
-      // Даем время на обновление состояния userBloc
-      await Future.delayed(const Duration(milliseconds: 100));
-      add(const LoginOtpCorrect());
-      emit(state.copyWith(status: Status.success));
-    });
-  }
-
-  String generateVerificationCode(String incEmail) {
-    final random = math.Random();
-    String verificationCode = '';
-
-    if (okEmails.contains(incEmail)) {
-      return '0000';
-    }
-
-    for (int i = 0; i < 4; i++) {
-      int randomNumber = random.nextInt(10);
-      // ignore: use_string_buffers
-      verificationCode += randomNumber.toString();
-    }
-
-    log('OTP CODE: $verificationCode');
-    return verificationCode;
+    await res.fold<Future<void>>(
+      (f) async {
+        RishSnackbar().showSnackBar(f.message);
+        emit(state.copyWith(status: Status.error));
+      },
+      (user) async {
+        userBloc.add(CreateUserOnLogin(user: user));
+        // Даем время на обновление состояния userBloc
+        await Future.delayed(const Duration(milliseconds: 100));
+        add(const LoginOtpCorrect());
+        emit(state.copyWith(status: Status.success));
+      },
+    );
   }
 
   /// Проверяет белый список аккаунтов и активирует подписку для пользователей из списка
@@ -303,18 +361,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       // Не прерываем процесс логина при ошибке проверки белого списка
     }
   }
-
-  List<String> okEmails = [
-    'googleTester@gmail.com',
-    'oliverkarlin0@gmail.com',
-    'appleTester@apple.com',
-  ];
 }
 
-
-
-
-///У нас три варианта логина, после которых мы получаем пользователя  
+///У нас три варианта логина, после которых мы получаем пользователя
 ///У него может быть, а может и не быть данных.
 ///Если данных нет —– ведем его на коннект, а после опросник
-///если есть –– смотрим 
+///если есть –– смотрим
