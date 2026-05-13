@@ -289,22 +289,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.1"
-  directus:
-    dependency: "direct main"
-    description:
-      name: directus
-      sha256: ab509d05e4f1cf6e6cc257ed3466aea564dacb4f7b80806dd004c24ca00a1b85
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.11.0"
-  directus_core:
-    dependency: transitive
-    description:
-      name: directus_core
-      sha256: d99c947451046cacbebd405391fd6b8b8f5e7f00d98da4ac7766b2b6c746f280
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.11.0"
   envied:
     dependency: "direct main"
     description:

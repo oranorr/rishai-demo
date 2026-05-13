@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
@@ -20,7 +21,7 @@ class LoginRepositoryImpl implements LoginRepository {
   @override
   Future<Either<Failure, UserEntity>> loginViaGoogle() async {
     try {
-      final gUser = await _remoteDataSource.authorizeViaGoogle();
+      final User? gUser = await _remoteDataSource.authorizeViaGoogle();
 
       if (gUser == null) {
         return const Left(
@@ -30,11 +31,23 @@ class LoginRepositoryImpl implements LoginRepository {
         );
       }
 
-      final raw = await _userServiceClient.loginOAuth(
-        email: gUser.email ?? '',
-        name: gUser.displayName ?? '',
-        provider: 'google',
+      // Новый поток: Firebase ID token → POST /auth/oauth → сохранить JWT → GET /users/me.
+      // Не используем legacy `POST /users/login-oauth` (оно доверяет телу и требует pivot-key).
+      final String? idToken = await gUser.getIdToken(true);
+      if (idToken == null || idToken.isEmpty) {
+        return const Left(
+          FailureNoGoogleUser(
+            'Google authentication failed. Firebase id_token is missing.',
+          ),
+        );
+      }
+      await _userServiceClient.exchangeOAuthToken(
+        idToken: idToken,
+        providerHint: 'google',
+        // display_name опционально, но дешево передать при первом входе
+        displayName: gUser.displayName,
       );
+      final raw = await _userServiceClient.getMe();
       return Right(UserModel.fromMap(raw).toEntity());
     } on UserServiceException catch (e) {
       log('loginViaGoogle UserServiceException: ${e.code} - ${e.message}');
@@ -111,7 +124,7 @@ class LoginRepositoryImpl implements LoginRepository {
   @override
   Future<Either<Failure, UserEntity>> loginViaApple() async {
     try {
-      final aUser = await _remoteDataSource.authorizeViaApple();
+      final User? aUser = await _remoteDataSource.authorizeViaApple();
 
       if (aUser == null) {
         return const Left(
@@ -121,12 +134,26 @@ class LoginRepositoryImpl implements LoginRepository {
         );
       }
 
-      log(aUser.email.toString());
-      final raw = await _userServiceClient.loginOAuth(
-        email: aUser.email ?? '',
-        name: aUser.displayName ?? 'Undefined',
-        provider: 'apple',
+      // Новый поток: Firebase ID token → POST /auth/oauth → сохранить JWT → GET /users/me.
+      //
+      // Для Apple `display_name` бывает доступен только при первом входе на устройстве,
+      // поэтому прокидываем его как опциональное поле (если есть).
+      final String? idToken = await aUser.getIdToken(true);
+      if (idToken == null || idToken.isEmpty) {
+        return const Left(
+          FailureNoAppleUser(
+            'Apple authentication failed. Firebase id_token is missing.',
+          ),
+        );
+      }
+
+      await _userServiceClient.exchangeOAuthToken(
+        idToken: idToken,
+        providerHint: 'apple',
+        displayName: aUser.displayName,
       );
+
+      final raw = await _userServiceClient.getMe();
       return Right(UserModel.fromMap(raw).toEntity());
     } on UserServiceException catch (e) {
       log('loginViaApple UserServiceException: ${e.code} - ${e.message}');

@@ -308,6 +308,41 @@ class UserServiceClient {
     await _persistTokensFromAuthJson(map);
   }
 
+  /// POST /auth/oauth — обмен Firebase ID token на app JWT (access/refresh).
+  ///
+  /// Важно:
+  /// - это публичный auth endpoint: **без** `pivot-identity-key` и **без** Bearer;
+  /// - сервер валидирует `id_token` криптографически (Firebase Admin verifyIdToken).
+  ///
+  /// После успеха сохраняет app JWT в prefs через [_persistTokensFromAuthJson].
+  Future<void> exchangeOAuthToken({
+    required String idToken,
+    String? providerHint,
+    String? displayName,
+  }) async {
+    final safeHint = providerHint?.trim();
+    log(
+      '[exchangeOAuthToken] providerHint=${safeHint ?? "n/a"}',
+      name: 'UserServiceClient',
+    );
+
+    final body = <String, dynamic>{
+      'id_token': idToken,
+      if (safeHint != null && safeHint.isNotEmpty) 'provider_hint': safeHint,
+      if (displayName != null && displayName.trim().isNotEmpty)
+        'display_name': displayName.trim(),
+    };
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/auth/oauth'),
+      headers: _publicJsonHeaders,
+      body: jsonEncode(body),
+    );
+    _throwOnError(response);
+    final map = jsonDecode(response.body) as Map<String, dynamic>;
+    await _persistTokensFromAuthJson(map);
+  }
+
   /// POST /users/create — создание пользователя (email-регистрация).
   ///
   /// [code] опционален: новый поток — create → request-otp → verify-otp.
@@ -855,6 +890,117 @@ class UserServiceClient {
 
     _throwOnError(response);
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Публичный конфиг, whitelist, feedback, дебаг-дни (Pivot API вместо Directus SDK)
+  // Контракт: docs/backend/PUBLIC_CONFIG_WHITELIST_FEEDBACK_DEBUG_BACKEND_SPEC.md
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Достаёт полезную карту из ответа `{ "data": { ... } }` или плоского JSON.
+  static Map<String, dynamic> unwrapResponseData(Map<String, dynamic> json) {
+    final dynamic d = json['data'];
+    if (d is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(d);
+    }
+    if (d is Map) {
+      return Map<String, dynamic>.from(d);
+    }
+    return json;
+  }
+
+  /// GET /config/app — публично, без API-key/JWT (`readAppConfig` с бэка, JSON как в Directus).
+  Future<Map<String, dynamic>> getAppConfigPublic() async {
+    log('[getAppConfigPublic]', name: 'UserServiceClient');
+    final response = await http.get(
+      _buildUri('/config/app'),
+      headers: _publicJsonHeaders,
+    );
+    _throwOnError(response);
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return unwrapResponseData(decoded);
+  }
+
+  /// GET /config/accounts-whitelist — публично; канонический ответ `{ "emails": [...] }`.
+  Future<Map<String, dynamic>> getAccountsWhitelistPublic() async {
+    log('[getAccountsWhitelistPublic]', name: 'UserServiceClient');
+    final response = await http.get(
+      _buildUri('/config/accounts-whitelist'),
+      headers: _publicJsonHeaders,
+    );
+    _throwOnError(response);
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return unwrapResponseData(decoded);
+  }
+
+  /// POST /feedback — публично, только JSON (без multipart). Ответ: `{ "id": "..." }`.
+  Future<String> submitFeedbackPublic(Map<String, dynamic> body) async {
+    log('[submitFeedbackPublic] keys=${body.keys.toList()}', name: 'UserServiceClient');
+    final response = await http.post(
+      _buildUri('/feedback'),
+      headers: _publicJsonHeaders,
+      body: jsonEncode(body),
+    );
+    _throwOnError(response);
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final map = unwrapResponseData(decoded);
+    final id = map['id']?.toString();
+    if (id == null || id.isEmpty) {
+      throw UserServiceException(
+        code: 'INVALID_RESPONSE',
+        message: 'POST /feedback: ответ без поля id',
+        statusCode: response.statusCode,
+      );
+    }
+    return id;
+  }
+
+  /// POST /debug/days/seed-history — только non-prod + `ENABLE_DEBUG_SEED`; защита через
+  /// JWT / legacy pivot + `x-user-id` ([_sendUserScopedWithRetry]).
+  ///
+  /// [count] опционально на бэке (default 200, max 200); в теле не шлём, если после clamp = 200.
+  Future<({int created, String userId})> seedDebugHistoryDays({
+    required String userId,
+    int count = 200,
+  }) async {
+    // На бэке default 200, max 200; некорректные значения → 200 как на сервере.
+    final safeCount = count <= 0 ? 200 : count.clamp(1, 200);
+    log(
+      '[seedDebugHistoryDays] userId=$userId count=$safeCount',
+      name: 'UserServiceClient',
+    );
+
+    final body = <String, dynamic>{
+      'userId': userId,
+      if (safeCount != 200) 'count': safeCount,
+    };
+
+    final response = await _sendUserScopedWithRetry(
+      userId: userId,
+      send: (h) => http.post(
+        _buildUri('/debug/days/seed-history'),
+        headers: h,
+        body: jsonEncode(body),
+      ),
+    );
+
+    _throwOnError(response);
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final map = unwrapResponseData(decoded);
+
+    final rawCreated = map['created'];
+    final created = switch (rawCreated) {
+      final int i => i,
+      final num n => n.toInt(),
+      final String s => int.tryParse(s) ?? 0,
+      _ => 0,
+    };
+
+    final uid = map['userId']?.toString();
+    return (
+      created: created,
+      userId: (uid != null && uid.isNotEmpty) ? uid : userId,
+    );
   }
 
   Future<Map<String, dynamic>> _getWhoopJson(

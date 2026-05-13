@@ -29,9 +29,6 @@ import 'package:rishai/core/services/analytics/analytics_repository_impl.dart'
 import 'package:rishai/core/services/day_manager/day_manager.dart' as _i300;
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart'
     as _i629;
-import 'package:rishai/core/services/directus/directus_repository.dart' as _i89;
-import 'package:rishai/core/services/directus/directus_repository_impl.dart'
-    as _i523;
 import 'package:rishai/core/services/firebase/firebase_impl.dart' as _i201;
 import 'package:rishai/core/services/firebase/firebase_repo.dart' as _i993;
 import 'package:rishai/core/services/hive/hive_impl.dart' as _i410;
@@ -162,17 +159,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i149.AnalyticsRepository>(
         () => _i624.AnalyticsRepositoryImpl());
     gh.singleton<_i410.HiveRepo>(() => _i410.HiveImpl());
-    gh.singleton<_i768.FeedbackRepository>(
-        () => _i534.FeedbackRepositoryImpl());
     gh.singleton<_i993.FirebaseRepository>(
         () => _i201.FirebaseImplementation());
-    gh.singleton<_i89.DirectusService>(() => _i523.DirectusRepositoryImpl());
     gh.singleton<_i672.HomePageControllerService>(
         () => _i300.HomePageControllerServiceImpl());
     gh.singleton<_i510.LoginRemoteDataSource>(
         () => _i675.RemoteDataSourceImpl());
-    gh.singleton<_i751.AccountsWhiteListService>(
-        () => _i748.AccountsWhiteListServiceImpl(gh<_i89.DirectusService>()));
     gh.factory<_i489.UserServiceClient>(
         () => _i489.UserServiceClient(gh<_i97.PrefsRepository>()));
     gh.singleton<_i373.AdsRepository>(() => _i368.AdsRepositoryImpl());
@@ -180,26 +172,28 @@ extension GetItInjectableX on _i174.GetIt {
     gh.singleton<_i886.UserLocalDataSource>(() => _i461.UserLocalDataImpl());
     gh.lazySingleton<_i453.AppNavigationService>(
         () => _i453.AppNavigationService(gh<_i572.NavigatorKeyProvider>()));
-    gh.factory<_i242.SendFeedbackUseCase>(
-        () => _i242.SendFeedbackUseCase(gh<_i768.FeedbackRepository>()));
     gh.singleton<_i492.NotificationsService>(
         () => _i724.NotificationsServiceImpl());
     gh.singleton<_i544.LoginRepository>(() => _i1025.LoginRepositoryImpl(
           gh<_i510.LoginRemoteDataSource>(),
           gh<_i489.UserServiceClient>(),
         ));
+    gh.singleton<_i768.FeedbackRepository>(
+        () => _i534.FeedbackRepositoryImpl(gh<_i489.UserServiceClient>()));
     gh.singleton<_i820.WhoopTokenService>(
         () => _i597.WhoopTokenServiceImpl(gh<_i489.UserServiceClient>()));
+    gh.singleton<_i570.VersionCheckService>(
+        () => _i634.VersionCheckServiceImpl(gh<_i489.UserServiceClient>()));
     gh.singleton<_i948.UserRemoteSource>(
         () => _i526.UserRemoteImpl(gh<_i489.UserServiceClient>()));
     gh.singleton<_i675.WhoopRemoteDataSource>(
         () => _i675.WhoopRemoteDataSourceImpl(gh<_i489.UserServiceClient>()));
+    gh.singleton<_i751.AccountsWhiteListService>(() =>
+        _i748.AccountsWhiteListServiceImpl(gh<_i489.UserServiceClient>()));
     gh.singleton<_i867.ChatRemoteDataSource>(
         () => _i467.ChatRemoteDataSourceImpl(gh<_i947.LlmProxyClient>()));
     gh.singleton<_i897.WhoopRepository>(() => _i907.WhoopRepositoryImpl(
         remoteDataSource: gh<_i675.WhoopRemoteDataSource>()));
-    gh.singleton<_i570.VersionCheckService>(
-        () => _i634.VersionCheckServiceImpl(gh<_i89.DirectusService>()));
     gh.singleton<_i300.DayManager>(() =>
         _i629.DayManagerImpl(userServiceClient: gh<_i489.UserServiceClient>()));
     gh.factory<_i1003.LoginViaGoogleUsecase>(
@@ -226,6 +220,8 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i1035.WhoopGetBodyData>(),
           gh<_i62.DisconnectWhoopUsecase>(),
         ));
+    gh.factory<_i242.SendFeedbackUseCase>(
+        () => _i242.SendFeedbackUseCase(gh<_i768.FeedbackRepository>()));
     gh.singleton<_i926.UserRepository>(() => _i670.UserRepositoryImpl(
           remoteDataSource: gh<_i948.UserRemoteSource>(),
           localDataSource: gh<_i886.UserLocalDataSource>(),
@@ -252,7 +248,7 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i793.WellnessScoreCalculator(
               gh<_i300.DayManager>(),
               gh<_i1051.WhoopBloc>(),
-              gh<_i89.DirectusService>(),
+              gh<_i489.UserServiceClient>(),
             ));
     gh.factory<_i984.UserBloc>(() => _i984.UserBloc(
           gh<_i663.UpdateUserUsecase>(),

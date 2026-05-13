@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 double kjToKcal = 0.239006;
 double kgToLbs = 2.205;
 
@@ -22,16 +20,6 @@ const int hiveSchemaVersion = 4;
 //   return kDebugMode ? diff.inMinutes < 1 : diff.inDays <= 1;
 //   // return kDebugMode ? diff.inMinutes < 50 : diff.inDays <= 1;
 // }
-
-bool recompDifference(Duration diff) {
-  // В релизной сборке использовать строгую проверку на 14 полных дней
-  if (!kDebugMode) {
-    // Для продакшена: должно пройти не менее 14 полных дней (14 * 24 часов)
-    return diff.inHours >= 336; // 14 дней * 24 часа
-  }
-  // Для отладки можно использовать короткий период в 15 минут
-  return diff.inMinutes > 15;
-}
 
 // bool chatIsActual(DateTime askTime) {
 //   final now = DateTime.now();

@@ -3,14 +3,14 @@ import 'dart:io' show Platform;
 
 import 'package:injectable/injectable.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:rishai/core/services/directus/directus_repository.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/services/version_check/version_check_service.dart';
 import 'package:version/version.dart';
 
 @Singleton(as: VersionCheckService)
 class VersionCheckServiceImpl implements VersionCheckService {
-  VersionCheckServiceImpl(this._directusService);
-  final DirectusService _directusService;
+  VersionCheckServiceImpl(this._userServiceClient);
+  final UserServiceClient _userServiceClient;
   PackageInfo? _packageInfo;
   Map<String, dynamic>? _appConfig;
 
@@ -21,7 +21,7 @@ class VersionCheckServiceImpl implements VersionCheckService {
 
   Future<Map<String, dynamic>?> _getAppConfig() async {
     try {
-      _appConfig ??= await _directusService.readAppConfig();
+      _appConfig ??= await _userServiceClient.getAppConfigPublic();
       return _appConfig;
     } catch (e, stackTrace) {
       log('Error fetching app config: $e', error: e, stackTrace: stackTrace);

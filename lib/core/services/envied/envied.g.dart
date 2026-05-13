@@ -17,12 +17,6 @@ final class _Env {
   static const String clientSecret =
       '4df89d3f55d75e61297f5225ee2d24b73bcf7f5e4a66fc8d9efae674332ef3b3';
 
-  static const String directusEmail = 'rishaiUser@app.com';
-
-  static const String directusPassword = 'sexmoB-5rijvo-gubzuh';
-
-  static const String directusAccessToken = 'L8WtbAFZBnpREVmM67bCcR5DKa4hTQ_W';
-
   static const String gptAssistantId = 'asst_73sOfKqJE7EYmGC16hLTkcjj';
 
   static const String googleClientId =

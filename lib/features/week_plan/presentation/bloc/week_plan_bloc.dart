@@ -7,8 +7,6 @@ import 'package:rishai/core/config/feature_flags.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/string_extension.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -233,27 +231,27 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
     _logger('userId из WeekPlanEntity: ${week.userId}');
     _logger('Пользователь авторизован: ${currentUserId != '-1'}');
 
-    // ✅ Проверка принадлежности к текущему пользователю
+    // Проверка принадлежности к текущему пользователю
     if (week.userId != currentUserId) {
       _logger(
         'WARNING: WeekPlan userId mismatch! Expected: $currentUserId, Got: ${week.userId}',
       );
     } else {
-      _logger('✅ userId совпадает, сохраняем план');
+      _logger('✅ userId совпадает');
     }
 
-    // При `weekly_meal_plan` строка в Directus уже создана воркером; повторный
-    // createOne дал бы дубликат (toMap() не содержит id).
+    // При async weekly строка уже создана воркером на бэке; клиентский Directus убран.
     if (kUseAsyncWeeklyMealPlan) {
-      _logger('Async weekly: коллекция уже записана воркером (без локального кэша)');
+      _logger(
+        'saveWeek: async weekly — план уже на сервере, только состояние bloc.',
+      );
     } else {
-      await directus.createOne(
-        collection: weekPlanCollection,
-        data: week.toMap(),
+      throw UnsupportedError(
+        'kUseAsyncWeeklyMealPlan=false не поддерживается (нет клиентской записи коллекций).',
       );
     }
 
-    _logger('Недельный план: состояние обновлено, сервер в актуальном состоянии');
+    _logger('Недельный план: сохранение state завершено');
   }
 
   /// Список недель с бэка (офлайн без кэша — пусто, если [GET /week-plans] не удался).

@@ -2,16 +2,14 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:bloc/bloc.dart';
-import 'package:directus/directus.dart';
 import 'package:equatable/equatable.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-import 'package:rishai/core/services/directus/directus_repository.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/chat/domain/entities/serving_entity.dart';
@@ -31,7 +29,9 @@ part 'food_diary_state.dart';
 
 // [FoodDiaryCubit] Глобальные экземпляры для доступа из других частей приложения
 final foodDiaryCubit = getIt.get<FoodDiaryCubit>();
-final directusService = getIt.get<DirectusService>();
+
+/// Публичный app config с Pivot API (раньше Directus [readAppConfig]).
+final pivotPublicConfigClient = getIt.get<UserServiceClient>();
 
 /// [FoodDiaryCubit] Кубит для управления состоянием дневника питания
 ///
@@ -318,10 +318,11 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         return;
       }
 
-      // Получаем inceptionDate из app_config в Directus
+      // Получаем inceptionDate из публичного app config (Pivot API).
       DateTime? inceptionDateFromConfig;
       try {
-        final appConfig = await directusService.readAppConfig();
+        final appConfig =
+            await pivotPublicConfigClient.getAppConfigPublic();
         final inceptionDateValue = appConfig['inceptionDate'];
 
         if (inceptionDateValue != null) {
@@ -679,10 +680,10 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
       // Обновляем день с обновленной wellness entity
       final updatedDay = currentDay.copyWith(welnessEntity: welnessEntity);
 
-      // [FIX] Сохраняем день в Directus ДО отправки события в WhoopBloc
+      // [FIX] Сохраняем день на бэке ДО отправки события в WhoopBloc (PATCH /days/current).
       // Это предотвращает задвойку дня, аналогично логике создания плана питания
       log(
-        '[FoodDiaryCubit] 💾 Сохраняем обновленный день в Directus перед отправкой в WhoopBloc',
+        '[FoodDiaryCubit] 💾 PATCH /days/current перед WhoopBloc',
         name: 'FoodDiaryCubit',
       );
       await dayManager.createOrUpdateDay(day: updatedDay);
@@ -692,7 +693,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         name: 'FoodDiaryCubit',
       );
 
-      // Обновляем день в WhoopBloc (без повторного сохранения в Directus)
+      // Обновляем день в WhoopBloc (без второго PATCH).
       log(
         '[FoodDiaryCubit] 🔄 Отправляем обновленный день в WhoopBloc',
         name: 'FoodDiaryCubit',
@@ -722,8 +723,11 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
 
   /// [_clearTodayEntries] Дебажный метод для очистки всех записей дневника питания за сегодня
   ///
-  /// Очищает записи как локально (Hive), так и в Directus.
-  /// Также сбрасывает WelnessEntity в текущем дне.
+  /// Очищает локальное состояние кубита (и задел под Hive, когда появится хранилище записей).
+  /// Сбрасывает [WelnessEntity] в текущем дне в памяти ([WhoopBloc]).
+  ///
+  /// Отдельной коллекции «строк дневника» нет — велнес в [DayEntity], сохранение через
+  /// [DayManager.createOrUpdateDay] в штатных сценариях, не в этом дебаг-методе.
   FutureOr<void> _clearTodayEntries(
     FoodDiaryClearTodayEntries event,
     Emitter<FoodDiaryState> emit,
@@ -772,60 +776,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         // Продолжаем выполнение, даже если локальная очистка не удалась
       }
 
-      // 2. Очищаем записи в Directus
-      try {
-        log(
-          '[FoodDiaryCubit] 🌐 Очищаем записи в Directus...',
-          name: 'FoodDiaryCubit',
-        );
-
-        // Получаем все записи дневника питания за сегодня из Directus
-        final todayEntriesResponse = await directus.readMany(
-          collection: 'food_diary_entries', // Предполагаемое название коллекции
-          filters: Filters({
-            'timestamp': {
-              '_gte': todayStart.toIso8601String(),
-              '_lt': todayEnd.toIso8601String(),
-            },
-          }),
-        );
-
-        if (todayEntriesResponse.isNotEmpty) {
-          // Извлекаем ID записей для удаления
-          final entryIds = todayEntriesResponse
-              .map((entry) => entry['id'].toString())
-              .toList();
-
-          log(
-            '[FoodDiaryCubit] 🗑️ Найдено ${entryIds.length} записей для удаления: $entryIds',
-            name: 'FoodDiaryCubit',
-          );
-
-          // Удаляем записи пакетно
-          await directus.deleteMany(
-            collection: 'food_diary_entries',
-            ids: entryIds,
-          );
-
-          log(
-            '[FoodDiaryCubit] ✅ Записи в Directus удалены',
-            name: 'FoodDiaryCubit',
-          );
-        } else {
-          log(
-            '[FoodDiaryCubit] ℹ️ Записей за сегодня в Directus не найдено',
-            name: 'FoodDiaryCubit',
-          );
-        }
-      } catch (e) {
-        log(
-          '[FoodDiaryCubit] ⚠️ Ошибка при очистке записей в Directus: $e',
-          name: 'FoodDiaryCubit',
-        );
-        // Продолжаем выполнение, даже если очистка в Directus не удалась
-      }
-
-      // 3. Сбрасываем WelnessEntity в текущем дне
+      // 2. Сбрасываем WelnessEntity в текущем дне
       try {
         log(
           '[FoodDiaryCubit] 🔄 Сбрасываем WelnessEntity в текущем дне...',
@@ -856,7 +807,7 @@ class FoodDiaryCubit extends Bloc<FoodDiaryEvent, FoodDiaryState> {
         );
       }
 
-      // 4. Обновляем состояние кубита
+      // 3. Обновляем состояние кубита
       emit(
         (state as FoodDiaryMainState).copyWith(
           status: Status.success,

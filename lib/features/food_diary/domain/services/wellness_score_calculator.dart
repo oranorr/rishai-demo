@@ -2,7 +2,7 @@ import 'dart:developer';
 
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/services/day_manager/day_manager.dart';
-import 'package:rishai/core/services/directus/directus_repository.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/food_diary/domain/diary_meal.dart';
 import 'package:rishai/features/food_diary/domain/pivot_life_scrore_entity.dart';
@@ -24,13 +24,13 @@ class WellnessScoreCalculator {
   WellnessScoreCalculator(
     this._dayManager,
     this._whoopBloc,
-    this._directusService,
+    this._userServiceClient,
   );
 
   final DayManager _dayManager;
   final WhoopBloc _whoopBloc;
   final UserBloc _userBloc = userBloc;
-  final DirectusService _directusService;
+  final UserServiceClient _userServiceClient;
 
   /// [calculateDailyWellnessScore] Рассчитывает Daily Wellness Score на основе потребленных блюд
   ///
@@ -307,7 +307,7 @@ class WellnessScoreCalculator {
       // Получаем inceptionDate из app_config в Directus
       DateTime? inceptionDateFromConfig;
       try {
-        final appConfig = await _directusService.readAppConfig();
+        final appConfig = await _userServiceClient.getAppConfigPublic();
         final inceptionDateValue = appConfig['inceptionDate'];
 
         if (inceptionDateValue != null) {
@@ -599,7 +599,7 @@ class WellnessScoreCalculator {
 
       // Сохраняем день в Directus
       log(
-        '[WellnessScoreCalculator] 💾 Сохраняем обновленный день в Directus',
+        '[WellnessScoreCalculator] 💾 PATCH /days/current после пересчёта wellness',
         name: 'WellnessScoreCalculator',
       );
       await _dayManager.createOrUpdateDay(day: updatedDay);

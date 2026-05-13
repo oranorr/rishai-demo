@@ -33,10 +33,6 @@ class CreateUserOnLogin extends UserEvent {
 
 class UserDeleteAccount extends UserEvent {}
 
-class UserCheckForRecomp extends UserEvent {
-  const UserCheckForRecomp();
-}
-
 class UserManageDay extends UserEvent {
   final DayEntity day;
   const UserManageDay({

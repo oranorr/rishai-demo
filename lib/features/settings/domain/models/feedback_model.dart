@@ -40,7 +40,7 @@ class FeedbackModel extends Equatable {
   final List<FeedbackMediaFile> media;
   final DateTime? dateCreated;
 
-  /// Конвертирует модель в формат JSON для отправки в Directus
+  /// JSON для POST /feedback (Pivot backend): без вложений, лишние поля игнорируются на сервере.
   Map<String, dynamic> toJson() {
     return {
       'authorName': authorName,

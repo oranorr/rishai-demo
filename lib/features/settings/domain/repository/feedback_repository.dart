@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:rishai/features/settings/domain/models/feedback_model.dart';
 
-/// Репозиторий для работы с обратной связью
+/// Репозиторий обратной связи (Pivot Backend, без прямого Directus).
 abstract interface class FeedbackRepository {
-  /// Отправляет обратную связь в Directus
+  /// Отправляет обратную связь на сервер.
   Future<void> sendFeedback(FeedbackModel feedback);
 
-  /// Загружает файл в Directus и возвращает ID файла
+  /// Заглушка: вложения не загружаются (см. текущий контракт API без файлов).
   Future<String> uploadFile(File file);
 
   /// Связывает файлы с обратной связью

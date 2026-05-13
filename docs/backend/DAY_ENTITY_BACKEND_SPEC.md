@@ -513,7 +513,7 @@ fat = round(0.7 * calorieGoal / 9)
 | Strain/Recovery/Sleep    | `lib/features/whoop/presentation/calculate.dart` → `CalculateWhoopData` |
 | Activity mapping         | `lib/features/whoop/domain/entities/activity.dart`        |
 | Константы                | `lib/core/constants/constants.dart` → `kjToKcal`, `kgToLbs` |
-| Recomp                   | `lib/features/user/presentation/bloc/user_bloc.dart` → `checkRecompForNewDay` |
+| Recomp (смена modificator) | `docs/backend/RECOMP_BACKEND_SPEC.md` — только бэкенд |
 | DayEntity / toDirectus   | `lib/features/whoop/domain/entities/day_entity.dart`      |
 | ChatSnapshot toDirectus  | `lib/features/chat/domain/entities/chat_snapshot_entity.dart` |
 

@@ -12,25 +12,19 @@ import 'package:rishai/core/router/app_routes.dart';
 import 'package:rishai/core/services/accounts_whitelist/accounts_whitelist_service.dart';
 import 'package:rishai/core/services/adapty_service/adapty_repository_impl.dart';
 import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
-import 'package:rishai/core/services/directus/directus_collections.dart';
-import 'package:rishai/core/services/directus/directus_repository_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
-import 'package:rishai/features/chat/domain/entities/chat_snapshot_entity.dart';
-import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
 import 'package:rishai/features/login/presentation/bloc/login_bloc.dart';
 import 'package:rishai/features/user/data/models/user_model.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
-import 'package:rishai/features/user/domain/entities/user_goal_entity.dart';
 import 'package:rishai/features/user/domain/usecases/get_days_usecase.dart';
 import 'package:rishai/features/user/domain/usecases/update_user_usecase.dart';
 import 'package:rishai/features/user/presentation/bloc/user_state.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
-import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part 'user_event.dart';
@@ -56,30 +50,16 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<CheckForSavedUser>(_checkForSavedUser);
     on<CreateUserOnLogin>(_createUserOnLogin);
     on<UserDeleteAccount>(_deleteAccount);
-    on<UserCheckForRecomp>(_checkForRecomp);
     on<UserManageDay>(_manageDay);
     on<UserGetDays>(_getDays); // Используем новую архитектуру
     on<UserUpdateDay>(_updateDay);
     on<UserAddHistoryDays>(_addHistoryDays);
   }
 
-  // Удаляем таймер - больше не нужен
-  // Timer? _recompCheckTimer;
   final UpdateUserUsecase updateUserUsecase;
-  // Удаляем старый use case, оставляем только новый
   final GetUserDaysUsecase getUserDaysUsecase;
   final AccountsWhiteListService accountsWhiteListService;
   final UserServiceClient userServiceClient;
-
-  // Удаляем метод инициализации таймера
-  // void _initRecompCheckTimer() { ... }
-
-  @override
-  Future<void> close() {
-    // Убираем отмену таймера
-    // _recompCheckTimer?.cancel();
-    return super.close();
-  }
 
   /// Сравнение [weekPlanIds] для решения, нужно ли писать Hive после getUser.
   static bool _sameWeekPlanIdLists(List<int> a, List<int> b) {
@@ -306,103 +286,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     loginBloc.add(LogoutEvent());
   }
 
-  FutureOr<void> _checkForRecomp(
-    UserCheckForRecomp event,
-    Emitter<UserState> emit,
-  ) async {
-    try {
-      if (state.user.userGoal?.goal != null &&
-          state.user.userGoal?.goal == GoalType.recomp) {
-        UserGoal goal = state.user.userGoal!;
-
-        log(
-          'Checking recomp modifier change:\n'
-          'Last updated: ${goal.updatedAt}\n'
-          'Current time: ${DateTime.now()}\n'
-          'Days since update: ${DateTime.now().difference(goal.updatedAt).inDays}\n'
-          'Current modifier: ${goal.modificator}',
-          name: 'UserBloc',
-        );
-
-        if (goal.updatedAt
-            .isBefore(DateTime.now().subtract(const Duration(days: 14)))) {
-          log('Initiating recomp modifier change', name: 'UserBloc');
-
-          final oldModifier = goal.modificator;
-          goal = goal.copyWith(
-            modificator: goal.modificator > 0 ? -0.05 : 0.05,
-            updatedAt: DateTime.now(),
-          );
-
-          final user = state.user.copyWith(userGoal: goal);
-
-          // Сначала обновляем локальное состояние
-          emit(state.copyWith(user: user));
-
-          // Затем пытаемся синхронизировать с бэкендом
-          final updateResult = await updateUserUsecase.call(user);
-
-          await updateResult.fold(
-            (failure) async {
-              log(
-                'Failed to update recomp modifier:\n'
-                'Error: ${failure.message}\n'
-                'Old modifier: $oldModifier\n'
-                'Attempted new modifier: ${goal.modificator}',
-                name: 'UserBloc',
-                error: failure,
-              );
-
-              // Откатываем изменения в локальном состоянии при ошибке
-              emit(
-                state.copyWith(
-                  user: state.user.copyWith(
-                    userGoal: state.user.userGoal!.copyWith(
-                      modificator: oldModifier,
-                      updatedAt: goal.updatedAt,
-                    ),
-                  ),
-                ),
-              );
-
-              // Показываем уведомление пользователю
-              RishSnackbar().showSnackBar(
-                'Не удалось обновить настройки фитнес-цели. Пожалуйста, попробуйте снова.',
-              );
-            },
-            (_) {
-              log(
-                'Successfully updated recomp modifier:\n'
-                'Old modifier: $oldModifier\n'
-                'New modifier: ${goal.modificator}',
-                name: 'UserBloc',
-              );
-            },
-          );
-        } else {
-          log(
-            'Recomp modifier change not needed yet:\n'
-            'Days until next change: ${14 - DateTime.now().difference(goal.updatedAt).inDays}',
-            name: 'UserBloc',
-          );
-        }
-      }
-    } catch (e, stackTrace) {
-      log(
-        'Unexpected error in recomp modifier check:\n'
-        'Error: $e\n'
-        'Stack trace: $stackTrace',
-        name: 'UserBloc',
-        error: e,
-      );
-
-      // Показываем уведомление пользователю о неожиданной ошибке
-      RishSnackbar().showSnackBar(
-        'Произошла неожиданная ошибка при обновлении фитнес-цели. Пожалуйста, попробуйте перезапустить приложение.',
-      );
-    }
-  }
-
   FutureOr<void> _manageDay(
     UserManageDay event,
     Emitter<UserState> emit,
@@ -583,15 +466,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     }
   }
 
-  Future<void> createMockData(DayEntity day) async {
-    // print('hi');
-    await directus.createMany(
-      collection: daysCollection,
-      data: day.mockDays(length: 30, id: '139'),
-    );
-    // print('done');
-  }
-
   FutureOr<void> _updateDay(UserUpdateDay event, Emitter<UserState> emit) {
     List<DayEntity> days = List.from(state.days);
     if (!state.days.any((d) => d.cycleId == event.day.cycleId)) {
@@ -606,9 +480,11 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     Emitter<UserState> emit,
   ) async {
     try {
-      log('Начинаю добавление 200 дней истории пользователю', name: 'UserBloc');
+      log(
+        'Начинаю добавление 200 дней истории (POST /debug/days/seed-history)',
+        name: 'UserBloc',
+      );
 
-      // Получаем текущего пользователя
       final currentUser = state.user;
       if (currentUser.directusId == '-1') {
         log('Пользователь не авторизован', name: 'UserBloc');
@@ -616,75 +492,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         return;
       }
 
-      // Создаем реалистичный базовый день для истории
-      final baseDay = state.days.isNotEmpty
-          ? state.days.last
-          : DayEntity(
-              directusId: 0,
-              weekTdeeAverage: 2200,
-              macros: MacrosBreakdown(
-                kcal: 2000,
-                protein: 150,
-                carbs: 200,
-                fat: 67,
-              ),
-              healthMetrics: const HealthMetricsEntity(
-                bmi: 23,
-                lastTdee: 2200,
-                bmr: 1800,
-                bodyFatPerc: 15,
-              ),
-              snap: ChatSnapshotEntity(
-                messages: [],
-                date: DateTime.now(),
-                requestsLeft: 13,
-              ),
-              dateTime: DateTime.now(),
-            );
-
-      // Создаем список дней для добавления в Directus
-      final List<Map<String, dynamic>> daysToCreate = [];
-
-      // Генерируем 200 дней, начиная со вчера и уходя в прошлое
-      for (int i = 0; i < 200; i++) {
-        // Вычисляем дату для каждого дня (вчера - i дней)
-        final dayDate = DateTime.now().subtract(Duration(days: i + 1));
-
-        // Создаем день с уникальными данными
-        final historyDay = DayEntity(
-          directusId: 0, // Будет установлен Directus
-          weekTdeeAverage: baseDay.weekTdeeAverage + (i % 100), // Вариация TDEE
-          macros: MacrosBreakdown(
-            kcal: baseDay.macros.kcal + (i % 50),
-            protein: baseDay.macros.protein + (i % 10),
-            carbs: baseDay.macros.carbs + (i % 15),
-            fat: baseDay.macros.fat + (i % 8),
-          ),
-          healthMetrics: baseDay.healthMetrics,
-          snap: ChatSnapshotEntity(
-            messages: [],
-            date: dayDate,
-            requestsLeft: 13,
-          ),
-          dateTime: dayDate,
-          cycleId: baseDay.cycleId != null
-              ? baseDay.cycleId! + i
-              : i + 1, // Уникальный cycleId
-        );
-
-        // Добавляем день в список для создания
-        daysToCreate.add(historyDay.toDirectus(userId: currentUser.directusId));
-      }
-
-      log('Создаю ${daysToCreate.length} дней в Directus', name: 'UserBloc');
-
-      // Создаем все дни в Directus одним запросом
-      await directus.createMany(
-        collection: daysCollection,
-        data: daysToCreate,
+      final seedResult = await userServiceClient.seedDebugHistoryDays(
+        userId: currentUser.directusId,
       );
-
-      log('Создано ${daysToCreate.length} дней в Directus', name: 'UserBloc');
 
       // Перезагружаем дни
       if (state.days.isNotEmpty) {
@@ -692,10 +502,12 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       }
 
       log(
-        'История из 200 дней успешно добавлена пользователю',
+        'История добавлена: created=${seedResult.created}, userId=${seedResult.userId}',
         name: 'UserBloc',
       );
-      RishSnackbar().showSnackBar('История из 200 дней успешно добавлена!');
+      RishSnackbar().showSnackBar(
+        'Добавлено дней в историю: ${seedResult.created}',
+      );
     } catch (e, stackTrace) {
       log('Ошибка при добавлении истории дней: $e', name: 'UserBloc');
       log('Stack trace: $stackTrace', name: 'UserBloc');
@@ -705,184 +517,31 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     }
   }
 
-  /// Синхронное создание исторических дней для нового пользователя
-  /// (без emit-ов и снекбаров, используется в _createUserOnLogin)
+  /// Синхронный вызов debug seed для нового пользователя (_createUserOnLogin).
   Future<void> _createHistoryDaysSync(UserEntity user) async {
     try {
-      log('Начинаю синхронное создание 200 дней истории', name: 'UserBloc');
+      log(
+        '[UserBloc] Синхронный seed 200 дней (POST /debug/days/seed-history)',
+        name: 'UserBloc',
+      );
 
       if (user.directusId == '-1') {
         throw Exception('Пользователь не авторизован');
       }
 
-      // Создаем реалистичный базовый день для истории
-      final baseDay = DayEntity(
-        directusId: 0,
-        weekTdeeAverage: 2200, // Реалистичный TDEE для среднего взрослого
-        macros: MacrosBreakdown(
-          kcal: 2000, // Базовое количество калорий
-          protein: 150, // ~30% калорий от белков
-          carbs: 200, // ~40% калорий от углеводов
-          fat: 67, // ~30% калорий от жиров
-        ),
-        healthMetrics: const HealthMetricsEntity(
-          bmi: 23, // Нормальный ИМТ
-          lastTdee: 2200, // Соответствует weekTdeeAverage
-          bmr: 1800, // Базальный метаболизм
-          bodyFatPerc: 15, // Средний процент жира
-        ),
-        snap: ChatSnapshotEntity(
-          messages: [],
-          date: DateTime.now(),
-          requestsLeft: 13,
-        ),
-        dateTime: DateTime.now(),
-      );
-
-      // Создаем список дней для добавления в Directus
-      final List<Map<String, dynamic>> daysToCreate = [];
-
-      // Генерируем 200 дней, начиная со вчера и уходя в прошлое
-      for (int i = 0; i < 200; i++) {
-        // Вычисляем дату для каждого дня (вчера - i дней)
-        final dayDate = DateTime.now().subtract(Duration(days: i + 1));
-
-        // Создаем день с уникальными данными
-        final historyDay = DayEntity(
-          directusId: 0, // Будет установлен Directus
-          weekTdeeAverage: baseDay.weekTdeeAverage + (i % 100), // Вариация TDEE
-          macros: MacrosBreakdown(
-            kcal: baseDay.macros.kcal + (i % 50),
-            protein: baseDay.macros.protein + (i % 10),
-            carbs: baseDay.macros.carbs + (i % 15),
-            fat: baseDay.macros.fat + (i % 8),
-          ),
-          healthMetrics: baseDay.healthMetrics,
-          snap: ChatSnapshotEntity(
-            messages: [],
-            date: dayDate,
-            requestsLeft: 13,
-          ),
-          dateTime: dayDate,
-          cycleId: i + 1, // Уникальный cycleId
-        );
-
-        // Добавляем день в список для создания
-        daysToCreate.add(historyDay.toDirectus(userId: user.directusId));
-      }
-
-      log('Создаю ${daysToCreate.length} дней в Directus', name: 'UserBloc');
-
-      // Создаем все дни в Directus одним запросом
-      await directus.createMany(
-        collection: daysCollection,
-        data: daysToCreate,
+      final seedResult = await userServiceClient.seedDebugHistoryDays(
+        userId: user.directusId,
       );
 
       log(
-        'Синхронно создано ${daysToCreate.length} дней в Directus',
+        '[UserBloc] Backend seed дней: created=${seedResult.created}, '
+        'userId=${seedResult.userId} (local user id=${user.directusId})',
         name: 'UserBloc',
       );
     } catch (e, stackTrace) {
       log('Ошибка при синхронном создании истории дней: $e', name: 'UserBloc');
       log('Stack trace: $stackTrace', name: 'UserBloc');
       rethrow; // Пробрасываем ошибку выше
-    }
-  }
-
-  /// Упрощенная проверка recomp при создании нового дня
-  /// Вызывается только когда создается НОВЫЙ день (не обновляется существующий)
-  /// Возвращает обновленный модификатор (или текущий, если изменения не нужны)
-  Future<double> checkRecompForNewDay() async {
-    try {
-      // Проверяем, что у пользователя установлена цель recomp
-      if (state.user.userGoal?.goal != null &&
-          state.user.userGoal?.goal == GoalType.recomp) {
-        final goal = state.user.userGoal!;
-        final daysSinceUpdate =
-            DateTime.now().difference(goal.updatedAt).inDays;
-
-        log(
-          'Checking recomp for new day:\n'
-          'Last updated: ${goal.updatedAt}\n'
-          'Current time: ${DateTime.now()}\n'
-          'Days since update: $daysSinceUpdate\n'
-          'Current modifier: ${goal.modificator}',
-          name: 'UserBloc',
-        );
-
-        // Если прошло 14 или больше дней, меняем модификатор
-        if (daysSinceUpdate >= 14) {
-          log('Changing recomp modifier for new day', name: 'UserBloc');
-
-          final oldModifier = goal.modificator;
-          final newModifier = goal.modificator > 0 ? -0.05 : 0.05;
-
-          final updatedGoal = goal.copyWith(
-            modificator: newModifier,
-            updatedAt: DateTime.now(),
-          );
-
-          final updatedUser = state.user.copyWith(userGoal: updatedGoal);
-
-          // Обновляем локальное состояние через событие
-          add(UpdateUserEvent(user: updatedUser));
-
-          // Сохраняем локально
-          await hive.saveUser(user: updatedUser);
-
-          // Пытаемся синхронизировать с бэкендом (без отката при ошибке)
-          try {
-            await updateUserUsecase.call(updatedUser);
-            log(
-              'Successfully updated recomp modifier:\n'
-              'Old modifier: $oldModifier\n'
-              'New modifier: $newModifier',
-              name: 'UserBloc',
-            );
-          } catch (e) {
-            log(
-              'Failed to sync recomp modifier with backend, but local state is updated:\n'
-              'Error: $e\n'
-              'Old modifier: $oldModifier\n'
-              'New modifier: $newModifier',
-              name: 'UserBloc',
-            );
-            // Не откатываем локальные изменения - они сохранятся при следующей синхронизации
-          }
-
-          // Возвращаем новый модификатор
-          return newModifier;
-        } else {
-          log(
-            'Recomp modifier change not needed yet:\n'
-            'Days until next change: ${14 - daysSinceUpdate}',
-            name: 'UserBloc',
-          );
-
-          // Возвращаем текущий модификатор
-          return goal.modificator;
-        }
-      } else {
-        log(
-          'User goal is not recomp or userGoal is null',
-          name: 'UserBloc',
-        );
-
-        // Возвращаем текущий модификатор или 0.0 по умолчанию
-        return state.user.userGoal?.modificator ?? 0.0;
-      }
-    } catch (e, stackTrace) {
-      log(
-        'Unexpected error in recomp check for new day:\n'
-        'Error: $e\n'
-        'Stack trace: $stackTrace',
-        name: 'UserBloc',
-        error: e,
-      );
-
-      // В случае ошибки возвращаем текущий модификатор
-      return state.user.userGoal?.modificator ?? 0.0;
     }
   }
 
