@@ -34,4 +34,9 @@ extension DateFormatExtension on DateTime {
   bool isSameDate(DateTime other) {
     return year == other.year && month == other.month && day == other.day;
   }
+
+  /// [formatAsSyncTimestamp] Формат timestamp на плашке синхронизации WHOOP (dd/MM, h:mm a).
+  String formatAsSyncTimestamp() {
+    return DateFormat('dd/MM, h:mm a').format(this);
+  }
 }

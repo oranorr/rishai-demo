@@ -4,6 +4,7 @@ import 'package:injectable/injectable.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
+import 'package:rishai/core/services/user_service/user_service_exception_extensions.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
@@ -117,6 +118,16 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
         weight: weightKg.round(),
         maxHeartRate: maxHeartRate,
       );
+    } on UserServiceException catch (e) {
+      // [getBodyData] Propagate auth errors — bloc will force disconnect + reconnect.
+      if (e.requiresWhoopReconnect) {
+        rethrow;
+      }
+      log(
+        'WHOOP body request failed: ${e.statusCode} - ${e.message}',
+        name: 'WhoopBodyData',
+      );
+      return null;
     } catch (e, stackTrace) {
       log('Error getting body measurements: $e', name: 'WhoopBodyData');
       await Sentry.captureException(
@@ -143,6 +154,10 @@ class WhoopRemoteDataSourceImpl implements WhoopRemoteDataSource {
           'WHOOP proxy request failed: ${e.statusCode} - ${e.message}',
           name: 'WhoopRemoteDataSource',
         );
+        // [_makeRequest] Retries on refresh-blocked 403 only amplify backend load.
+        if (e.requiresWhoopReconnect) {
+          rethrow;
+        }
         await WhoopErrorHandler.handleError(
           e,
           stackTrace,

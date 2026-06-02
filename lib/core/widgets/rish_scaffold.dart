@@ -38,51 +38,67 @@ class RishScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        backgroundColor: context.theme.colorScheme.surface,
-        bottomNavigationBar: bottomNavigationBar,
-        floatingActionButton: floatingActionButton,
-        floatingActionButtonLocation: floatingActionButtonLocation,
-        appBar: needsAppBar ?? true
-            ? PreferredSize(
-                preferredSize: Size.fromHeight(50.h),
-                child: appBar ??
-                    AppBar(
-                      automaticallyImplyLeading: false,
-                      elevation: 0,
-                      backgroundColor: context.theme.colorScheme.surface,
-                      centerTitle: centerTitle,
-                      leading: implyLeading ?? false
-                          ? GestureDetector(
-                              onTap: leadingAction ??
-                                  () {
-                                    context.pop();
-                                  },
-                              child: Padding(
-                                padding: EdgeInsets.only(left: 16.w),
-                                child: Container(
-                                  width: 40.w,
-                                  height: 40.h,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: RishColors.inputField,
-                                  ),
-                                  child: const Icon(
-                                    Icons.arrow_back_rounded,
-                                    color: Colors.white,
-                                  ),
+  // [build] Scaffold на весь экран — иначе SafeArea снаружи оставляет
+  // «чёрную бороду» под home indicator (фон не рисуется в нижней зоне).
+    final surfaceColor = context.theme.colorScheme.surface;
+    final hasBottomNav = bottomNavigationBar != null;
+
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      backgroundColor: surfaceColor,
+      bottomNavigationBar: hasBottomNav
+          ? ColoredBox(
+              color: surfaceColor,
+              child: SafeArea(
+                top: false,
+                bottom: true,
+                child: bottomNavigationBar!,
+              ),
+            )
+          : null,
+      floatingActionButton: floatingActionButton,
+      floatingActionButtonLocation: floatingActionButtonLocation,
+      appBar: needsAppBar ?? true
+          ? PreferredSize(
+              preferredSize: Size.fromHeight(50.h),
+              child: appBar ??
+                  AppBar(
+                    automaticallyImplyLeading: false,
+                    elevation: 0,
+                    backgroundColor: surfaceColor,
+                    centerTitle: centerTitle,
+                    leading: implyLeading ?? false
+                        ? GestureDetector(
+                            onTap: leadingAction ??
+                                () {
+                                  context.pop();
+                                },
+                            child: Padding(
+                              padding: EdgeInsets.only(left: 16.w),
+                              child: Container(
+                                width: 40.w,
+                                height: 40.h,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: RishColors.inputField,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: Colors.white,
                                 ),
                               ),
-                            )
-                          : null,
-                      title: appBarLabel,
-                    ),
-              )
-            : null,
-        body: Padding(
+                            ),
+                          )
+                        : null,
+                    title: appBarLabel,
+                  ),
+            )
+          : null,
+      body: SafeArea(
+        top: false,
+        // [body] Нижний inset только без bottomNavigationBar — иначе двойной отступ.
+        bottom: !hasBottomNav,
+        child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h)
               .copyWith(bottom: needsBottomPadding ?? true ? 16.h : 0),
           child: child,

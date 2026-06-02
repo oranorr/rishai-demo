@@ -9,7 +9,7 @@ class _LoadingState extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          "I'm creating your personalized\n5-day meal prep.\n\nPlease wait a few minutes and avoid switching apps or locking your screen until the generation has completed",
+          "I'm creating your personalized\n5-day meal prep.",
           style: context.styles.h2,
           textAlign: TextAlign.center,
         ),

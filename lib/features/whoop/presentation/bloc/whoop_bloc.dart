@@ -45,6 +45,16 @@ final whoopBloc = getIt.get<WhoopBloc>();
 final chatRemoteSrc = chat_remote.chatRemoteSrc;
 final chatRepo = chat_repo.chatRepo;
 
+/// [navigateHomeAndInitWhoopIfNeeded] После paywall: home + InitWhoop без /redirect.
+void navigateHomeAndInitWhoopIfNeeded() {
+  final shouldInit = prefsRepo.getShouldRedirectAfterPaywall();
+  appNavigationService.go(path: AppRoutes.homeScreen.path);
+  if (shouldInit) {
+    unawaited(prefsRepo.setShouldRedirectAfterPaywall(false));
+    whoopBloc.add(const InitWhoopOnLogin());
+  }
+}
+
 @injectable
 class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
   WhoopBloc(
@@ -70,11 +80,157 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     on<WhoopCheckForRefresh>(_checkForRefresh);
     on<WhoopUpdateCurrentDay>(_updateCurrentDay);
     on<WhoopResetState>(_resetState);
+    on<WhoopHideSyncBanner>(_hideSyncBanner);
   }
+
+  Timer? _syncBannerHideTimer;
+
+  /// Prevents parallel force-disconnect calls during a burst of 403 responses.
+  bool _whoopAuthRecoveryInProgress = false;
+
+  /// Caps body-measurement retries (previously retried indefinitely).
+  int _bodyDataRetryCount = 0;
+  static const int _maxBodyDataRetries = 3;
+
   final ConnectWhoopUsecase connectWhoopUsecase;
   final WhoopGetDataUsecase getDataUsecase;
   final WhoopGetBodyData getBodyUsecase;
   final DisconnectWhoopUsecase disconnectWhoopUsecase;
+
+  @override
+  Future<void> close() {
+    _cancelSyncBannerHideTimer();
+    return super.close();
+  }
+
+  void _cancelSyncBannerHideTimer() {
+    _syncBannerHideTimer?.cancel();
+    _syncBannerHideTimer = null;
+  }
+
+  /// [_ensureOnHomeForSync] Домашний таб — единственное место, где видна плашка sync.
+  void _ensureOnHomeForSync() {
+    // Do not pull the user back to home while WHOOP reconnect is required.
+    if (!state.whoopConnected) {
+      return;
+    }
+    final currentPath = appNavigationService.currentPath;
+    if (!currentPath.contains(AppRoutes.homeScreen.path)) {
+      appNavigationService.go(path: AppRoutes.homeScreen.path);
+    }
+  }
+
+  void _emitSyncBannerCatchingUp(Emitter<WhoopState> emit) {
+    _cancelSyncBannerHideTimer();
+    emit(state.copyWith(syncBannerPhase: WhoopSyncBannerPhase.catchingUp));
+  }
+
+  void _emitSyncBannerSuccess({
+    required Emitter<WhoopState> emit,
+    required bool dataUnchanged,
+  }) {
+    _cancelSyncBannerHideTimer();
+    final now = DateTime.now();
+    emit(
+      state.copyWith(
+        lastSyncedAt: now,
+        syncBannerPhase: dataUnchanged
+            ? WhoopSyncBannerPhase.syncedFresh
+            : WhoopSyncBannerPhase.syncedUpdated,
+      ),
+    );
+    _scheduleSyncBannerHide();
+  }
+
+  void _scheduleSyncBannerHide() {
+    _cancelSyncBannerHideTimer();
+    _syncBannerHideTimer = Timer(const Duration(seconds: 2), () {
+      if (!isClosed) {
+        add(const WhoopHideSyncBanner());
+      }
+    });
+  }
+
+  void _emitSyncBannerHidden(Emitter<WhoopState> emit) {
+    _cancelSyncBannerHideTimer();
+    emit(state.copyWith(syncBannerPhase: WhoopSyncBannerPhase.hidden));
+  }
+
+  bool _isWhoopReconnectFailure(Failure failure) {
+    return failure is WhoopFailedToReturnAccessToken ||
+        failure is WhoopAuthenticationFailure;
+  }
+
+  /// [_forceDisconnectWhoopForReconnect] Clears WHOOP on backend and locally
+  /// so the user must complete OAuth again (invalid or blocked refresh).
+  Future<void> _forceDisconnectWhoopForReconnect(
+    Emitter<WhoopState> emit, {
+    required String logReason,
+  }) async {
+    if (_whoopAuthRecoveryInProgress) {
+      log(
+        '[WhoopBloc] Force disconnect already in progress, skipping: $logReason',
+        name: 'WhoopBloc',
+      );
+      return;
+    }
+    _whoopAuthRecoveryInProgress = true;
+    _bodyDataRetryCount = 0;
+
+    try {
+      log(
+        '[WhoopBloc] Force disconnect WHOOP: $logReason',
+        name: 'WhoopBloc',
+      );
+      emit(
+        state.copyWith(
+          whoopConnected: false,
+          status: Status.loading,
+          syncBannerPhase: WhoopSyncBannerPhase.hidden,
+        ),
+      );
+
+      final userId = userBloc.state.user.directusId;
+      final res = await disconnectWhoopUsecase.call(
+        DisconnecWhoopParams(userId: userId),
+      );
+
+      res.fold(
+        (failure) {
+          log(
+            '[WhoopBloc] Force disconnect failed: ${failure.message}',
+            name: 'WhoopBloc',
+          );
+        },
+        (_) {
+          add(WhoopResetState());
+        },
+      );
+
+      RishSnackbar().showSnackBar(
+        'Your WHOOP connection is no longer valid. Please connect WHOOP again.',
+      );
+      emit(state.copyWith(status: Status.initial, whoopConnected: false));
+      // Navigate after emit so [_initWhoopOnLogin] sees whoopConnected == false
+      // and does not call [_ensureOnHomeForSync] back to /home.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!isClosed) {
+          appNavigationService.go(path: AppRoutes.whoopConnect.path);
+        }
+      });
+    } finally {
+      _whoopAuthRecoveryInProgress = false;
+    }
+  }
+
+  /// [_isWhoopPayloadUnchanged] Сравнивает WHOOP-поля до merge meal plan / snap.
+  bool _isWhoopPayloadUnchanged(DayEntity before, DayEntity after) {
+    return before.healthMetrics == after.healthMetrics &&
+        before.macros == after.macros &&
+        before.weekTdeeAverage == after.weekTdeeAverage &&
+        before.cycleId == after.cycleId &&
+        before.welnessEntity == after.welnessEntity;
+  }
 
   Future<void> _migrateLegacyWhoopRefreshTokenIfNeeded(String userId) async {
     final legacyRefreshToken = prefsRepo.fetchSavedRefreshToken();
@@ -166,14 +322,11 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           log('Failed to get user data: ${failure.message}', name: 'WhoopBloc');
           emit(state.copyWith(status: Status.error));
 
-          if (failure is WhoopFailedToReturnAccessToken ||
-              failure is WhoopAuthenticationFailure) {
-            emit(state.copyWith(whoopConnected: false));
-            log('WHOOP connection needs to be refreshed', name: 'WhoopBloc');
-            RishSnackbar().showSnackBar(
-              'WHOOP connection needs to be refreshed. Please reconnect.',
+          if (_isWhoopReconnectFailure(failure)) {
+            await _forceDisconnectWhoopForReconnect(
+              emit,
+              logReason: failure.message,
             );
-            appNavigationService.go(path: AppRoutes.whoopConnect.path);
             return;
           }
 
@@ -235,18 +388,26 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       log('retrieveing BODY data');
       await _getBodyData(WhoopRetrieveBodyData(), emit);
 
+      // Stop init if body fetch failed or we forced disconnect for reconnect.
+      if (!state.whoopConnected || state.status == Status.error) {
+        log(
+          '[WhoopBloc] Init aborted after body fetch '
+          '(whoopConnected=${state.whoopConnected}, status=${state.status})',
+          name: 'WhoopBloc',
+        );
+        _emitSyncBannerHidden(emit);
+        return;
+      }
+
       // Свежий профиль после body/опросника — не опираемся на [user] с начала метода
       final userForFlow = userBloc.state.user;
 
       if (!userForFlow.needsQuestionary) {
         log('retrieveing data');
-        // [CheckCurrentPath] Проверяем, не находимся ли мы уже на странице /redirect
-        // Если да, не переходим туда снова (это предотвращает автоматический редирект
-        // когда мы вызываем InitWhoopOnLogin из Redirect после paywall)
-        final currentPath = appNavigationService.currentPath;
-        if (!currentPath.contains(AppRoutes.redirect.path)) {
-          appNavigationService.go(path: AppRoutes.redirect.path);
-        }
+        // [SyncBanner] Остаёмся на home, плашка вместо полноэкранного /redirect.
+        _ensureOnHomeForSync();
+        final dayBeforeInit = state.day;
+        _emitSyncBannerCatchingUp(emit);
 
         await _getUserData(
           WhoopGetUserData(
@@ -277,6 +438,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
               initResult.errorMessage ?? 'Failed to load user data',
             );
             emit(state.copyWith(status: Status.error));
+            _emitSyncBannerHidden(emit);
             return;
           } else if (initResult.partialSuccess) {
             // Частичная загрузка - не показываем ошибку
@@ -291,104 +453,71 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
             );
           }
 
-          // Дополнительная проверка состояния UserBloc перед навигацией
+          // ─────────────────────────────────────────────────────────────────
+          // Stale-While-Revalidate: UserBloc уже emitнул фазу 1 (кэш/сегодня),
+          // поэтому дни в state гарантированно не пустые — ждать Status.success
+          // больше не нужно. Навигируем сразу; фаза 2 (полная история) придёт
+          // в фоне и обновит PageView автоматически.
+          // ─────────────────────────────────────────────────────────────────
           log(
-            'Проверка состояния UserBloc перед навигацией',
+            '[WhoopBloc] Готовимся к навигации, days=${userBloc.state.days.length}',
             name: 'WhoopBloc',
           );
 
-          // [FIX] Поддерживаем состояние загрузки во время ожидания дней
-          emit(state.copyWith(status: Status.loading));
-
-          // Ждем, пока UserBloc завершит загрузку или достигнет стабильного состояния
-          const maxWaitTime = Duration(seconds: 10);
-          final waitStartTime = DateTime.now();
-
-          while (DateTime.now().difference(waitStartTime) < maxWaitTime) {
-            final userState = userBloc.state;
-
-            // Проверяем, что UserBloc находится в стабильном состоянии
-            if (userState.status == Status.success &&
-                userState.days.isNotEmpty) {
-              log(
-                'UserBloc готов к навигации: ${userState.days.length} дней загружено',
-                name: 'WhoopBloc',
-              );
-              break;
-            } else if (userState.status == Status.error) {
-              log('UserBloc завершился с ошибкой', name: 'WhoopBloc');
-              break;
-            }
-
-            // Ждем небольшую задержку перед следующей проверкой
-            await Future.delayed(const Duration(milliseconds: 100));
-          }
-
-          // [DaysRecovery] Первый заход: /days может быть пуст, пока не создан current day;
-          // или гонка подписки DayManager — добиваем через GET /days/current.
+          // [DaysRecovery] Страховочный путь: если по какой-то причине фаза 1
+          // не отработала и список всё ещё пуст — добиваем через /days/current.
           var finalUserState = userBloc.state;
           if (finalUserState.days.isEmpty &&
               finalUserState.user.directusId != '-1') {
             log(
-              '[WhoopBloc] Список дней пуст после ожидания — recovery (GET /days/current + UserGetDays)',
+              '[WhoopBloc] Список дней пуст — recovery через GET /days/current',
               name: 'WhoopBloc',
             );
             await _recoverUserBlocDays(state.day);
             finalUserState = userBloc.state;
           }
 
-          // Финальная проверка состояния перед навигацией
-          if (finalUserState.status == Status.loading) {
+          // Обновляем state.day в WhoopBloc актуальным сегодняшним днём из
+          // UserBloc (он уже содержит welnessEntity из кэша/Directus).
+          if (finalUserState.days.isNotEmpty) {
+            final lastDayFromUserBloc =
+                finalUserState.days.reversed.toList().first;
             log(
-              'UserBloc все еще загружается, но продолжаем навигацию с предупреждением',
-              name: 'WhoopBloc',
-            );
-            RishSnackbar().showSnackBar(
-              'Данные все еще загружаются. Это может занять некоторое время.',
-              isError: false,
-            );
-          } else if (finalUserState.days.isEmpty) {
-            log(
-              'UserBloc не содержит дней, показываем предупреждение',
-              name: 'WhoopBloc',
-            );
-            RishSnackbar().showSnackBar(
-              'Не удалось загрузить некоторые данные. Попробуйте обновить позже.',
-              isError: false,
-            );
-          } else {
-            // [FIX] КРИТИЧЕСКИ ВАЖНО: Обновляем state.day в WhoopBloc актуальным днем из UserBloc
-            // Это гарантирует, что welnessEntity из Directus будет доступен в WhoopBloc
-            // и отобразится в DailyWellnessWidget
-            final lastDayFromUserBloc = finalUserState.days.reversed.toList().first;
-            log(
-              '[WhoopBloc] Обновляем state.day актуальным днем из UserBloc: wellness=${lastDayFromUserBloc.welnessEntity != null ? "есть (${lastDayFromUserBloc.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+              '[WhoopBloc] Обновляем state.day из UserBloc: wellness=${lastDayFromUserBloc.welnessEntity != null ? "есть (${lastDayFromUserBloc.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
               name: 'WhoopBloc',
             );
 
-            // Обновляем день в WhoopBloc, сохраняя существующие данные (mealPlan, snap)
-            // но используя актуальные данные из UserBloc (включая welnessEntity)
             final updatedDay = lastDayFromUserBloc.copyWith(
               // Сохраняем mealPlan и snap из текущего state.day, если они есть
-              mealPlanEntity: state.day.mealPlanEntity ?? lastDayFromUserBloc.mealPlanEntity,
+              mealPlanEntity:
+                  state.day.mealPlanEntity ?? lastDayFromUserBloc.mealPlanEntity,
               snap: state.day.snap,
             );
 
             emit(state.copyWith(day: updatedDay));
 
             log(
-              '[WhoopBloc] ✅ state.day обновлен: wellness=${state.day.welnessEntity != null ? "есть (${state.day.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+              '[WhoopBloc] ✅ state.day обновлён: wellness=${state.day.welnessEntity != null ? "есть (${state.day.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+              name: 'WhoopBloc',
+            );
+          } else {
+            log(
+              '[WhoopBloc] ⚠️ Дней нет даже после recovery — навигируем с пустым списком',
               name: 'WhoopBloc',
             );
           }
 
-          // Переходим на домашний экран после завершения инициализации
-          log('Навигация на главный экран', name: 'WhoopBloc');
-          appNavigationService.go(
-            path: AppRoutes.homeScreen.path,
+          // [SyncBanner] Успех init: сравниваем WHOOP-данные до/после загрузки.
+          _emitSyncBannerSuccess(
+            emit: emit,
+            dataUnchanged: _isWhoopPayloadUnchanged(dayBeforeInit, state.day),
           );
+          _ensureOnHomeForSync();
+          log('Навигация на главный экран', name: 'WhoopBloc');
           emit(state.copyWith(status: Status.success));
           return;
+        } else if (state.status == Status.error) {
+          _emitSyncBannerHidden(emit);
         }
       } else {
         appNavigationService.go(path: AppRoutes.questionary.path);
@@ -400,6 +529,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
       RishSnackbar().showSnackBar(
         'Unable to connect to WHOOP. Please try again later.',
       );
+      _emitSyncBannerHidden(emit);
       emit(state.copyWith(status: Status.initial));
     }
   }
@@ -475,11 +605,36 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
     await bodyRes.fold((l) async {
       emit(state.copyWith(status: Status.error));
-      RishSnackbar().showSnackBar(
-        'Failed to retrieve body data: ${l.message}, retrying...',
+
+      if (_isWhoopReconnectFailure(l)) {
+        await _forceDisconnectWhoopForReconnect(
+          emit,
+          logReason: l.message,
+        );
+        return;
+      }
+
+      if (_bodyDataRetryCount < _maxBodyDataRetries) {
+        _bodyDataRetryCount++;
+        log(
+          '[WhoopBloc] Body data retry $_bodyDataRetryCount/$_maxBodyDataRetries',
+          name: 'WhoopBloc',
+        );
+        RishSnackbar().showSnackBar(
+          'Failed to retrieve body data: ${l.message}, retrying...',
+        );
+        add(WhoopRetrieveBodyData());
+        return;
+      }
+
+      _bodyDataRetryCount = 0;
+      // Exhausted retries — treat as broken WHOOP session (same as null/403 body).
+      await _forceDisconnectWhoopForReconnect(
+        emit,
+        logReason: 'body_data_retries_exhausted: ${l.message}',
       );
-      add(WhoopRetrieveBodyData());
     }, (r) async {
+      _bodyDataRetryCount = 0;
       UserEntity user = userBloc.state.user;
       final upd = user.copyWith(bodyMeasurements: r);
       emit(
@@ -510,8 +665,10 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     required bool showLoadingRoute,
     required bool showSuccessSnack,
   }) async {
+    final dayBefore = state.day;
+    _emitSyncBannerCatchingUp(emit);
     if (showLoadingRoute) {
-      appNavigationService.go(path: AppRoutes.redirect.path);
+      _ensureOnHomeForSync();
     }
 
     final result = await getDataUsecase.call(
@@ -526,17 +683,19 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     await result.fold(
       (failure) async {
         log('Failed to refresh current day: ${failure.message}', name: 'WhoopBloc');
+        _emitSyncBannerHidden(emit);
         emit(state.copyWith(status: Status.error));
 
-        if (failure is WhoopFailedToReturnAccessToken ||
-            failure is WhoopAuthenticationFailure) {
-          emit(state.copyWith(whoopConnected: false));
-          appNavigationService.go(path: AppRoutes.whoopConnect.path);
+        if (_isWhoopReconnectFailure(failure)) {
+          await _forceDisconnectWhoopForReconnect(
+            emit,
+            logReason: failure.message,
+          );
           return;
         }
 
         if (showLoadingRoute) {
-          appNavigationService.go(path: AppRoutes.homeScreen.path);
+          _ensureOnHomeForSync();
         }
 
         RishSnackbar().showSnackBar(
@@ -577,15 +736,13 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
 
         emit(state.copyWith(status: Status.success));
 
-        if (showLoadingRoute) {
-          appNavigationService.go(path: AppRoutes.homeScreen.path);
-        }
+        _emitSyncBannerSuccess(
+          emit: emit,
+          dataUnchanged: _isWhoopPayloadUnchanged(dayBefore, newDay),
+        );
 
-        if (showSuccessSnack) {
-          RishSnackbar().showSnackBar(
-            'Your data has been updated',
-            isError: false,
-          );
+        if (showLoadingRoute) {
+          _ensureOnHomeForSync();
         }
       },
     );
@@ -735,7 +892,7 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
           'Error disconnecting your WHOOP account. Please, try again.',
         );
       }, (r) {
-        emit(state.copyWith(status: Status.success));
+        add(WhoopResetState());
         appNavigationService.go(path: AppRoutes.whoopConnect.path);
       });
     } on Exception catch (e) {
@@ -798,14 +955,20 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
     Emitter<WhoopState> emit,
   ) async {
     emit(state.copyWith(status: Status.loading));
-    // PTR на домашнем экране: не уводим на Redirect/splash — достаточно индикатора
-    // на странице (см. RefreshIndicator + WhoopBloc status).
+    // PTR на домашнем экране: плашка sync вместо полноэкранного standby.
     await _fetchCurrentDayFromBackend(
       emit,
       forceRefresh: true,
       showLoadingRoute: false,
-      showSuccessSnack: true,
+      showSuccessSnack: false,
     );
+  }
+
+  FutureOr<void> _hideSyncBanner(
+    WhoopHideSyncBanner event,
+    Emitter<WhoopState> emit,
+  ) {
+    _emitSyncBannerHidden(emit);
   }
 
   FutureOr<void> _updateCurrentDay(
@@ -888,6 +1051,8 @@ class WhoopBloc extends Bloc<WhoopEvent, WhoopState> {
         status: Status.initial,
         day: DayEntity.empty(requestsLeft: chatBloc.state.requestsLeft),
         whoopConnected: false,
+        syncBannerPhase: WhoopSyncBannerPhase.hidden,
+        lastSyncedAt: null,
       ),
     );
   }

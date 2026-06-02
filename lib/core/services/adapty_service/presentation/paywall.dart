@@ -15,6 +15,7 @@ import 'package:rishai/core/theme/theme_colors.dart';
 import 'package:rishai/core/widgets/new_button.dart';
 import 'package:rishai/core/widgets/rish_scaffold.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
+import 'package:rishai/features/whoop/presentation/bloc/whoop_bloc.dart';
 
 part 'paywall_mixin.dart';
 

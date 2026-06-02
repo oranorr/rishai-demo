@@ -52,11 +52,7 @@ class _CalendarWidget extends StatelessWidget {
                   },
                   child: Text(
                     widget.day.dateTime.formatAsDayString(),
-                    style: context.styles.h2.copyWith(
-                      color: widget.isLoading
-                          ? context.styles.h2.color?.withOpacity(0.6)
-                          : context.styles.h2.color,
-                    ),
+                    style: context.styles.h2,
                     textAlign: TextAlign.center,
                   ),
                 ),

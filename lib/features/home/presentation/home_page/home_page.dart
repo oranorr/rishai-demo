@@ -148,17 +148,23 @@ class _HomePageState extends State<HomePage> {
 
             // [FIX] Обрабатываем случай, когда дни еще не загружены
             if (userState.days.isEmpty) {
-              if (isLoading) {
+              final syncBannerActive =
+                  whoopState.syncBannerPhase == WhoopSyncBannerPhase.catchingUp;
+              if (isLoading && !syncBannerActive) {
                 // Показываем индикатор загрузки, если дни еще загружаются
                 return const Center(
                   child: CircularProgressIndicator(
                     color: RishColors.primary,
                   ),
                 );
+              } else if (isLoading && syncBannerActive) {
+                // [SyncBanner] Плашка на HomeScreen — не блокируем весь экран.
+                return const SizedBox.shrink();
               } else if (userState.user.directusId != '-1' &&
-                  !_requestedDaysBootstrap) {
-                // [HomeDaysBootstrap] Пользователь залогинен, но дни не прогрузились
-                // (гонка после OTP/онборда, back с paywall и т.д.) — триггерим ту же цепочку, что и при init.
+                  !_requestedDaysBootstrap &&
+                  userState.status != Status.loading &&
+                  whoopState.status != Status.loading) {
+                // [HomeDaysBootstrap] Только если init не запустил загрузку уже.
                 _requestedDaysBootstrap = true;
                 log(
                   '[HomePage] Пустой список дней при открытии home — запускаем UserGetDays '
@@ -252,6 +258,22 @@ class _HomePageBody extends StatefulWidget {
 class _HomePageBodyState extends State<_HomePageBody> {
   Completer<void>? _refreshCompleter;
 
+  /// Минимальный overscroll вниз (логические px) для pull-to-sync.
+  /// Обычный скролл и лёгкий bounce на верхушке не должны дергать WHOOP refresh.
+  static const double _strongPullSyncThreshold = 100;
+
+  /// Пиковое «усиленное» потягивание в текущем жесте (только drag пальцем).
+  ///
+  /// КРИТИЧНО: это именно ПИК (только растёт), а не текущее смещение. На iOS
+  /// после отпускания идёт ballistic spring-back, и если бы мы тут вычитали
+  /// обратный ход — пик «съедался» бы до того, как [ScrollEndNotification]
+  /// его прочитает (та самая регрессия «надо тянуть как бешеный»).
+  double _dragPullExtent = 0;
+
+  /// Накопленный overscroll текущего drag для Android ([ClampingScrollPhysics]),
+  /// где [ScrollMetrics.pixels] держится на 0 и тянуть надо считать по дельтам.
+  double _androidPullAccum = 0;
+
   /// ScrollController для управления прокруткой списка
   /// Регистрируется в сервисе для доступа извне
   late final ScrollController _scrollController;
@@ -285,6 +307,67 @@ class _HomePageBodyState extends State<_HomePageBody> {
         .read<WhoopBloc>()
         .add(const WhoopCheckForRefresh(needsErrorSnack: true));
     return _refreshCompleter!.future;
+  }
+
+  /// [StrongPullSync] Sync только после явного длинного pull-down на верхушке списка.
+  /// Игнорируем ballistic overscroll и обычную прокрутку контента.
+  ///
+  /// iOS: overscroll виден через отрицательные [ScrollMetrics.pixels] (bounce).
+  /// Android: [ClampingScrollPhysics] держит pixels на 0 — overscroll приходит
+  /// через [OverscrollNotification] (как в Material [RefreshIndicator]).
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollStartNotification) {
+      // Новый жест — сбрасываем пик и аккумулятор.
+      _dragPullExtent = 0;
+      _androidPullAccum = 0;
+      return false;
+    }
+
+    final isAtTop = notification.metrics.extentBefore == 0;
+    final isVerticalListDown =
+        notification.metrics.axisDirection == AxisDirection.down;
+
+    // iOS ([BouncingScrollPhysics]): overscroll виден как отрицательные pixels.
+    // Учитываем ТОЛЬКО кадры реального drag пальцем (dragDetails != null),
+    // чтобы ballistic spring-back после отпускания не трогал пик.
+    if (notification is ScrollUpdateNotification &&
+        isAtTop &&
+        isVerticalListDown) {
+      final isFingerDrag = notification.dragDetails != null;
+      if (isFingerDrag && notification.metrics.pixels < 0) {
+        _dragPullExtent = max(
+          _dragPullExtent,
+          -notification.metrics.pixels,
+        );
+      }
+      return false;
+    }
+
+    // Android ([ClampingScrollPhysics]): pixels держится на 0 — overscroll
+    // приходит только сюда. Копим дельты текущего drag и фиксируем пик.
+    if (notification is OverscrollNotification &&
+        isAtTop &&
+        isVerticalListDown) {
+      final isFingerDrag = notification.dragDetails != null;
+      if (isFingerDrag) {
+        // overscroll < 0 при тяге за верхнюю границу (вниз).
+        _androidPullAccum = max(0, _androidPullAccum - notification.overscroll);
+        _dragPullExtent = max(_dragPullExtent, _androidPullAccum);
+      }
+      return false;
+    }
+
+    if (notification is ScrollEndNotification) {
+      final pullExtent = _dragPullExtent;
+      _dragPullExtent = 0;
+      _androidPullAccum = 0;
+      if (pullExtent >= _strongPullSyncThreshold &&
+          whoopBloc.state.status != Status.loading) {
+        unawaited(_onRefresh());
+      }
+    }
+
+    return false;
   }
 
   Future<void> test() async {
@@ -342,16 +425,12 @@ class _HomePageBodyState extends State<_HomePageBody> {
         }
       },
       builder: (BuildContext context, state) {
-        return RefreshIndicator(
-          color: RishColors.primary,
-          backgroundColor: RishColors.stroke,
-          displacement: 50,
-          onRefresh: () async {
-            if (state.status == Status.loading) return;
-            await _onRefresh();
-          },
+        return NotificationListener<ScrollNotification>(
+          onNotification: _onScrollNotification,
           child: ListView(
             controller: _scrollController,
+            // [StrongPullSync] Как у RefreshIndicator — overscroll возможен даже при коротком контенте.
+            physics: const AlwaysScrollableScrollPhysics(),
             shrinkWrap: true,
             padding: EdgeInsets.zero,
             children: [
@@ -371,7 +450,8 @@ class _HomePageBodyState extends State<_HomePageBody> {
               // при входе. Для других дней используем widget.day из UserBloc
               // Добавляем key для принудительного обновления виджета при изменении day
               DailyWellnessWidget(
-                key: ValueKey('wellness_${widget.day.isToday ? state.day.directusId : widget.day.directusId}_${widget.day.welnessEntity?.consumedMeals.length ?? 0}'),
+                key: ValueKey(
+                    'wellness_${widget.day.isToday ? state.day.directusId : widget.day.directusId}_${widget.day.welnessEntity?.consumedMeals.length ?? 0}'),
                 day: widget.day.isToday ? state.day : widget.day,
               ),
               SizedBox(height: 12.h),

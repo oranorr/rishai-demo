@@ -164,6 +164,24 @@ void main() async {
 
       await notes.requestPermissions();
 
+      // Восстанавливаем запланированные уведомления после рестарта/обновления.
+      // Каждый запуск переплановывает пуш, если пользователь ранее его включал —
+      // это гарантирует, что WorkManager/zonedSchedule не потеряется при перезагрузке.
+      final String? savedNotificationTime = prefsRepo.getNoteTime();
+      if (savedNotificationTime != null) {
+        try {
+          final parts = savedNotificationTime.split(':');
+          final time = TimeOfDay(
+            hour: int.parse(parts[0]),
+            minute: int.parse(parts[1]),
+          );
+          await notes.scheduleNotification(time);
+          print('[main] Уведомление восстановлено на $savedNotificationTime');
+        } catch (e) {
+          print('[main] Ошибка восстановления уведомления: $e');
+        }
+      }
+
       await FlutterBranchSdk.init(
         enableLogging: kDebugMode,
       ); // Включаем логирование только в debug режиме для продакшена

@@ -1,12 +1,16 @@
 import 'dart:developer';
-import 'package:workmanager/workmanager.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:workmanager/workmanager.dart';
 
 /// Android-специфичный сервис для планирования уведомлений через WorkManager
 /// Решает проблемы с Doze Mode и оптимизацией батареи в Android 12+
 class AndroidWorkManagerService {
   static const String _notificationTaskName = 'scheduleDailyNotification';
-  static const String _notificationChannelId = 'daily_reminders';
+  static const String notificationChannelId = 'daily_reminders';
 
   /// Инициализация WorkManager для Android
   static Future<void> initialize() async {
@@ -24,6 +28,10 @@ class AndroidWorkManagerService {
   /// Планирование ежедневного уведомления в указанное время
   static Future<void> scheduleDailyNotification(int hour, int minute) async {
     try {
+      // Переинициализируем WorkManager перед каждой регистрацией задачи —
+      // нативный плагин теряет состояние между сессиями/hot-restart
+      await initialize();
+
       // Отменяем существующие задачи
       await Workmanager().cancelAll();
 
@@ -85,20 +93,33 @@ class AndroidWorkManagerService {
   }
 }
 
-/// Callback функция для WorkManager - выполняется в указанное время
+/// Callback функция для WorkManager - выполняется в указанное время.
+///
+/// ВАЖНО: запускается в отдельном isolate, поэтому ОБЯЗАТЕЛЬНО нужен
+/// WidgetsFlutterBinding.ensureInitialized() перед любым плагином.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
+      // Инициализируем Flutter bindings — обязательно для фонового isolate
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // Инициализируем таймзоны в фоновом isolate
+      tz.initializeTimeZones();
+      try {
+        final timeZoneName = await FlutterTimezone.getLocalTimezone();
+        tz.setLocalLocation(tz.getLocation(timeZoneName));
+      } catch (e) {
+        log('[AndroidWorkManager] Timezone init failed: $e');
+      }
+
       log('[AndroidWorkManager] Executing task: $task');
 
-      // Получаем время из данных задачи
       final hour = inputData?['hour'] ?? 9;
       final minute = inputData?['minute'] ?? 0;
 
       log('[AndroidWorkManager] Показываем уведомление для времени $hour:${minute.toString().padLeft(2, '0')}');
 
-      // Показываем уведомление
       await _showNotification(inputData);
 
       // Планируем следующее уведомление на завтра
@@ -113,10 +134,20 @@ void callbackDispatcher() {
   });
 }
 
-/// Показ уведомления через flutter_local_notifications
+/// Показ уведомления через flutter_local_notifications.
+///
+/// Перед вызовом обязателен WidgetsFlutterBinding.ensureInitialized()
+/// в [callbackDispatcher].
 Future<void> _showNotification(Map<String, dynamic>? inputData) async {
   try {
-    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    final plugin = FlutterLocalNotificationsPlugin();
+
+    // В фоновом isolate обязательно инициализируем плагин заново
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    await plugin.initialize(
+      const InitializationSettings(android: androidSettings),
+    );
 
     // Создаем канал для Android
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -127,13 +158,13 @@ Future<void> _showNotification(Map<String, dynamic>? inputData) async {
       enableLights: true,
     );
 
-    await flutterLocalNotificationsPlugin
+    await plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
     // Показываем уведомление
-    await flutterLocalNotificationsPlugin.show(
+    await plugin.show(
       DateTime.now().millisecondsSinceEpoch.remainder(100000),
       inputData?['title'] ?? 'Daily Reminder',
       inputData?['body'] ?? 'Time to create your meal plan',
@@ -159,6 +190,9 @@ Future<void> _showNotification(Map<String, dynamic>? inputData) async {
 /// Планирование уведомления на следующий день
 Future<void> _scheduleNextDayNotification(int hour, int minute) async {
   try {
+    // Переинициализируем WorkManager — в фоновом isolate состояние тоже может быть сброшено
+    await Workmanager().initialize(callbackDispatcher);
+
     final now = DateTime.now();
     final tomorrow = now.add(const Duration(days: 1));
     final nextNotification = DateTime(

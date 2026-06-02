@@ -51,8 +51,9 @@ class AddMealsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      minimum: const EdgeInsets.only(top: 16),
+    // [build] Нижний safe area даёт RishScaffold; здесь только отступ сверху.
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
       child: RishButton.primary(
         title: selectedMealsCount == 0 ? 'Select meals' : 'Add to diary',
         enabled: selectedMealsCount > 0 || isLoading,

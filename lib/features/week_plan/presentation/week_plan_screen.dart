@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -65,7 +66,8 @@ class _WeekPlanScreenState extends State<WeekPlanScreen> {
     return BlocBuilder<WeekPlanBloc, WeekPlanState>(
       bloc: weekPlanBloc,
       builder: (context, state) {
-        // Обрабатываем состояние загрузки
+        // Полноэкранный «creating…» — только генерация нового prep ([WeekPlanGenerate]).
+        // [WeekPlanLoad] синхронизирует список в фоне, не перекрывая экран.
         if (state.isLoading) {
           return const _LoadingState();
         }

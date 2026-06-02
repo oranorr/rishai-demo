@@ -118,8 +118,11 @@ class _UpdateRequiredScreenState extends State<UpdateRequiredScreen> {
   Widget build(BuildContext context) {
     // Show an indicator while the dialog is not shown
     return Scaffold(
-      body: Center(
-        child: _dialogShown ? Container() : const CircularProgressIndicator(),
+      body: SafeArea(
+        bottom: true,
+        child: Center(
+          child: _dialogShown ? Container() : const CircularProgressIndicator(),
+        ),
       ),
     );
   }

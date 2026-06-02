@@ -1324,6 +1324,15 @@ mixin _$WeekPlanState {
       throw _privateConstructorUsedError;
   WeekFilterEntity? get filter => throw _privateConstructorUsedError;
   bool get isLoading => throw _privateConstructorUsedError;
+
+  /// Идёт фоновая синхронизация preps с backend (revalidate-фаза SWR).
+  /// Используем для деликатного индикатора, НЕ перекрывая уже готовый список.
+  bool get isSyncing => throw _privateConstructorUsedError;
+
+  /// Был ли хотя бы один завершённый цикл загрузки (кэш или сеть).
+  /// Пока false и список пуст — показываем skeleton, а не «нет планов»,
+  /// чтобы убрать вспышку «There are no preps yet» на первом входе.
+  bool get hasLoaded => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
@@ -1342,6 +1351,8 @@ abstract class $WeekPlanStateCopyWith<$Res> {
       List<WeekPlanEntity> displayWeekPlans,
       WeekFilterEntity? filter,
       bool isLoading,
+      bool isSyncing,
+      bool hasLoaded,
       String? error});
 }
 
@@ -1362,6 +1373,8 @@ class _$WeekPlanStateCopyWithImpl<$Res, $Val extends WeekPlanState>
     Object? displayWeekPlans = null,
     Object? filter = freezed,
     Object? isLoading = null,
+    Object? isSyncing = null,
+    Object? hasLoaded = null,
     Object? error = freezed,
   }) {
     return _then(_value.copyWith(
@@ -1380,6 +1393,14 @@ class _$WeekPlanStateCopyWithImpl<$Res, $Val extends WeekPlanState>
       isLoading: null == isLoading
           ? _value.isLoading
           : isLoading // ignore: cast_nullable_to_non_nullable
+              as bool,
+      isSyncing: null == isSyncing
+          ? _value.isSyncing
+          : isSyncing // ignore: cast_nullable_to_non_nullable
+              as bool,
+      hasLoaded: null == hasLoaded
+          ? _value.hasLoaded
+          : hasLoaded // ignore: cast_nullable_to_non_nullable
               as bool,
       error: freezed == error
           ? _value.error
@@ -1402,6 +1423,8 @@ abstract class _$$WeekPlanStateImplCopyWith<$Res>
       List<WeekPlanEntity> displayWeekPlans,
       WeekFilterEntity? filter,
       bool isLoading,
+      bool isSyncing,
+      bool hasLoaded,
       String? error});
 }
 
@@ -1420,6 +1443,8 @@ class __$$WeekPlanStateImplCopyWithImpl<$Res>
     Object? displayWeekPlans = null,
     Object? filter = freezed,
     Object? isLoading = null,
+    Object? isSyncing = null,
+    Object? hasLoaded = null,
     Object? error = freezed,
   }) {
     return _then(_$WeekPlanStateImpl(
@@ -1439,6 +1464,14 @@ class __$$WeekPlanStateImplCopyWithImpl<$Res>
           ? _value.isLoading
           : isLoading // ignore: cast_nullable_to_non_nullable
               as bool,
+      isSyncing: null == isSyncing
+          ? _value.isSyncing
+          : isSyncing // ignore: cast_nullable_to_non_nullable
+              as bool,
+      hasLoaded: null == hasLoaded
+          ? _value.hasLoaded
+          : hasLoaded // ignore: cast_nullable_to_non_nullable
+              as bool,
       error: freezed == error
           ? _value.error
           : error // ignore: cast_nullable_to_non_nullable
@@ -1455,6 +1488,8 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
       required final List<WeekPlanEntity> displayWeekPlans,
       this.filter,
       this.isLoading = false,
+      this.isSyncing = false,
+      this.hasLoaded = false,
       this.error})
       : _allWeekPlans = allWeekPlans,
         _displayWeekPlans = displayWeekPlans;
@@ -1481,12 +1516,25 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
   @override
   @JsonKey()
   final bool isLoading;
+
+  /// Идёт фоновая синхронизация preps с backend (revalidate-фаза SWR).
+  /// Используем для деликатного индикатора, НЕ перекрывая уже готовый список.
+  @override
+  @JsonKey()
+  final bool isSyncing;
+
+  /// Был ли хотя бы один завершённый цикл загрузки (кэш или сеть).
+  /// Пока false и список пуст — показываем skeleton, а не «нет планов»,
+  /// чтобы убрать вспышку «There are no preps yet» на первом входе.
+  @override
+  @JsonKey()
+  final bool hasLoaded;
   @override
   final String? error;
 
   @override
   String toString() {
-    return 'WeekPlanState(allWeekPlans: $allWeekPlans, displayWeekPlans: $displayWeekPlans, filter: $filter, isLoading: $isLoading, error: $error)';
+    return 'WeekPlanState(allWeekPlans: $allWeekPlans, displayWeekPlans: $displayWeekPlans, filter: $filter, isLoading: $isLoading, isSyncing: $isSyncing, hasLoaded: $hasLoaded, error: $error)';
   }
 
   @override
@@ -1501,6 +1549,10 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
             (identical(other.filter, filter) || other.filter == filter) &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
+            (identical(other.isSyncing, isSyncing) ||
+                other.isSyncing == isSyncing) &&
+            (identical(other.hasLoaded, hasLoaded) ||
+                other.hasLoaded == hasLoaded) &&
             (identical(other.error, error) || other.error == error));
   }
 
@@ -1511,6 +1563,8 @@ class _$WeekPlanStateImpl implements _WeekPlanState {
       const DeepCollectionEquality().hash(_displayWeekPlans),
       filter,
       isLoading,
+      isSyncing,
+      hasLoaded,
       error);
 
   @JsonKey(ignore: true)
@@ -1526,6 +1580,8 @@ abstract class _WeekPlanState implements WeekPlanState {
       required final List<WeekPlanEntity> displayWeekPlans,
       final WeekFilterEntity? filter,
       final bool isLoading,
+      final bool isSyncing,
+      final bool hasLoaded,
       final String? error}) = _$WeekPlanStateImpl;
 
   @override
@@ -1536,6 +1592,17 @@ abstract class _WeekPlanState implements WeekPlanState {
   WeekFilterEntity? get filter;
   @override
   bool get isLoading;
+  @override
+
+  /// Идёт фоновая синхронизация preps с backend (revalidate-фаза SWR).
+  /// Используем для деликатного индикатора, НЕ перекрывая уже готовый список.
+  bool get isSyncing;
+  @override
+
+  /// Был ли хотя бы один завершённый цикл загрузки (кэш или сеть).
+  /// Пока false и список пуст — показываем skeleton, а не «нет планов»,
+  /// чтобы убрать вспышку «There are no preps yet» на первом входе.
+  bool get hasLoaded;
   @override
   String? get error;
   @override

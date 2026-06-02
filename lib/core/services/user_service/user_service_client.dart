@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:injectable/injectable.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
+import 'package:rishai/core/services/session/session_manager.dart';
 
 /// Исключение User Service API с кодом ошибки для маппинга на Failure
 class UserServiceException implements Exception {
@@ -33,6 +34,7 @@ class UserServiceClient {
   UserServiceClient(this._prefs);
 
   final PrefsRepository _prefs;
+  bool _sessionExpiryHandled = false;
 
   static const String _stagingBaseUrl =
       'https://pivot-backend-staging-676768388165.us-central1.run.app';
@@ -158,13 +160,25 @@ class UserServiceClient {
       refreshToken: refresh,
       expiresInSeconds: expiresIn,
     );
+    _sessionExpiryHandled = false;
+    sessionManager.markAuthenticated();
+  }
+
+  /// [session-expired] Full logout fallback for app JWT expiration.
+  Future<void> _handleExpiredAppSession({
+    required String reason,
+  }) async {
+    if (_sessionExpiryHandled) return;
+    _sessionExpiryHandled = true;
+
+    await sessionManager.forceLogout(reason: reason);
   }
 
   /// Внутренний refresh по сохранённому refresh (публичный endpoint).
   Future<void> _refreshTokensInternal() async {
     final refresh = _prefs.fetchAppRefreshToken();
     if (refresh.isEmpty) {
-      await _prefs.clearAppJwtSession();
+      await _handleExpiredAppSession(reason: 'missing refresh token');
       throw UserServiceException(
         code: 'NO_REFRESH_TOKEN',
         message: 'No refresh token stored',
@@ -182,7 +196,9 @@ class UserServiceClient {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      await _prefs.clearAppJwtSession();
+      await _handleExpiredAppSession(
+        reason: 'refresh failed with ${response.statusCode}',
+      );
       _throwOnError(response);
     }
 
@@ -233,6 +249,9 @@ class UserServiceClient {
       }
       response = await send(headers());
     }
+    if (response.statusCode == 401) {
+      await _handleExpiredAppSession(reason: 'protected request returned 401');
+    }
     return response;
   }
 
@@ -255,6 +274,9 @@ class UserServiceClient {
       }
       response = await send(headers());
     }
+    if (response.statusCode == 401) {
+      await _handleExpiredAppSession(reason: 'protected GET returned 401');
+    }
     return response;
   }
 
@@ -275,6 +297,38 @@ class UserServiceClient {
         _throwOnError(response);
       }
       response = await send(headers());
+    }
+    if (response.statusCode == 401) {
+      await _handleExpiredAppSession(reason: 'Bearer /users/me returned 401');
+    }
+    return response;
+  }
+
+  /// Bearer-only helper for protected endpoints that do not need `x-user-id`.
+  ///
+  /// Used by LLM proxy endpoints: the backend AuthGuard only needs a valid
+  /// app access token, and refresh/session-expired behavior must match User API.
+  Future<http.Response> sendAppBearerWithRetry({
+    required Future<http.Response> Function(Map<String, String> headers) send,
+    bool includeContentType = true,
+    String context = 'protected bearer request',
+  }) async {
+    await _ensureAppAccessFreshIfNeeded();
+    Map<String, String> headers() =>
+        _bearerOnlyHeaders(includeContentType: includeContentType);
+
+    var response = await send(headers());
+    if (response.statusCode == 401 &&
+        _prefs.fetchAppRefreshToken().isNotEmpty) {
+      try {
+        await _refreshTokensInternal();
+      } catch (_) {
+        _throwOnError(response);
+      }
+      response = await send(headers());
+    }
+    if (response.statusCode == 401) {
+      await _handleExpiredAppSession(reason: '$context returned 401');
     }
     return response;
   }
@@ -828,6 +882,27 @@ class UserServiceClient {
 
     _throwOnError(response);
     return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// DELETE /days/:id — полное удаление записи дня (204 No Content).
+  Future<void> deleteDay({
+    required String userId,
+    required int dayId,
+  }) async {
+    log(
+      '[deleteDay] userId=$userId, dayId=$dayId',
+      name: 'UserServiceClient',
+    );
+
+    final response = await _sendUserScopedWithRetry(
+      userId: userId,
+      send: (h) => http.delete(
+        _buildUri('/days/$dayId'),
+        headers: h,
+      ),
+    );
+
+    _throwOnError(response);
   }
 
   /// POST /tasks/enqueue — поставить асинхронную задачу в очередь.

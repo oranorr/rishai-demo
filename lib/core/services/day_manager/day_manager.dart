@@ -66,6 +66,12 @@ abstract class DayManager {
 
   /// Очистка локального хранилища дней (используется при логауте)
   Future<void> clearUserDays();
+
+  /// Перед отключением WHOOP: GET /days/current → DELETE /days/:id.
+  /// Возвращает удалённый [DayEntity.directusId] или null, если current day нет.
+  Future<int?> deleteCurrentDayBeforeWhoopDisconnect({
+    required String userId,
+  });
 }
 
 /// Результат инициализации дней

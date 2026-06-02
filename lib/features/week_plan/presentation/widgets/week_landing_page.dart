@@ -110,11 +110,18 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
       bloc: weekPlanBloc,
       builder: (context, state) {
         // Убираем проверку isLoading, так как она уже обрабатывается в WeekPlanScreen
+        // Первый вход без кэша: список пуст, но загрузка ещё не завершалась.
+        // Показываем skeleton, чтобы не мигало «There are no preps yet».
+        final bool isFirstLoad = plans.isEmpty && !state.hasLoaded;
+
+        // «Пусто по-настоящему» — только после завершённой загрузки.
+        final bool isTrulyEmpty = plans.isEmpty && state.hasLoaded;
+
         return Column(
-          crossAxisAlignment: plans.isEmpty
+          crossAxisAlignment: isTrulyEmpty
               ? CrossAxisAlignment.center
               : CrossAxisAlignment.start,
-          mainAxisAlignment: plans.isEmpty
+          mainAxisAlignment: isTrulyEmpty
               ? MainAxisAlignment.center
               : MainAxisAlignment.start,
           children: [
@@ -124,6 +131,12 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
                   'Your meal preps',
                   style: context.styles.h1,
                 ),
+                // Деликатный индикатор фоновой синхронизации (Apple HIG:
+                // не перекрываем контент, лишь намекаем, что данные обновляются).
+                if (state.isSyncing && plans.isNotEmpty) ...[
+                  SizedBox(width: 8.w),
+                  const CupertinoActivityIndicator(radius: 8),
+                ],
                 const Spacer(),
                 GestureDetector(
                   onTap: () async {
@@ -150,15 +163,17 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
                 ),
               ],
             ),
+            if (isFirstLoad)
+              const Expanded(child: _WeekPlansSkeleton())
             // ignore: use_if_null_to_convert_nulls_to_bools
-            if (plans.isEmpty && state.filter?.hasActiveFilters == true) ...[
+            else if (isTrulyEmpty && state.filter?.hasActiveFilters == true) ...[
               const Spacer(),
               Text(
                 'No preps found for your filters.',
                 style: context.styles.h3,
               ),
               const Spacer(),
-            ] else if (plans.isEmpty) ...[
+            ] else if (isTrulyEmpty) ...[
               const Spacer(),
               Text(
                 'There are no preps yet.\nGo create one!',
@@ -197,6 +212,89 @@ class _WeekLandingPageState extends State<WeekLandingPage> {
           ],
         );
       },
+    );
+  }
+}
+
+/// Apple HIG-style placeholder: пока грузим preps впервые (кэша нет), вместо
+/// пустого «нет планов» показываем мягко пульсирующие карточки-скелетоны.
+/// Это даёт ощущение скорости и не «обманывает» пользователя пустым экраном.
+class _WeekPlansSkeleton extends StatefulWidget {
+  const _WeekPlansSkeleton();
+
+  @override
+  State<_WeekPlansSkeleton> createState() => _WeekPlansSkeletonState();
+}
+
+class _WeekPlansSkeletonState extends State<_WeekPlansSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    // Плавная «дышащая» пульсация ~1.1с в каждую сторону (нежно, не мигает).
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+
+    _opacity = Tween<double>(begin: 0.35, end: 0.75).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    // Освобождаем контроллер анимации, чтобы не текла память.
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: ListView.builder(
+        // Скелетон не интерактивен — отключаем скролл.
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 3,
+        itemBuilder: (context, index) => const _SkeletonCard(),
+      ),
+    );
+  }
+}
+
+/// Одна карточка-заглушка, повторяющая геометрию [_WeekCard].
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Заголовок-период (имитация week.formatPeriod()).
+        Container(
+          width: 140.w,
+          height: 16.h,
+          decoration: BoxDecoration(
+            color: RishColors.stroke,
+            borderRadius: BorderRadius.all(Radius.circular(6.r)),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        // Тело карточки с 4 «строками» свойств (diet/goal/cuisine/meals).
+        Container(
+          height: 150.h,
+          decoration: const BoxDecoration(
+            color: RishColors.stroke,
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
+        ),
+        SizedBox(height: 10.h),
+      ],
     );
   }
 }

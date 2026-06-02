@@ -114,11 +114,17 @@ class _NotificationsSettingsState extends State<NotificationsSettings> {
                       }
                     }
 
-                    // ✅ РАЗРЕШЕНИЯ ПРЕДОСТАВЛЕНЫ: Если разрешения предоставлены, включаем уведомления
+                    // ✅ РАЗРЕШЕНИЯ ПРЕДОСТАВЛЕНЫ: Включаем уведомления
                     setState(() {
                       notesAreOn = v;
                       buttonEnabled = v && _isTimeChanged();
                     });
+
+                    // Если время уже сохранено, сразу перепланируем пуш —
+                    // пользователю не нужно снова нажимать "Set"
+                    if (savedTime != null) {
+                      await notes.scheduleNotification(selectedTime);
+                    }
                   } else {
                     // 🔇 ОТКЛЮЧЕНИЕ УВЕДОМЛЕНИЙ: Отключаем уведомления
                     setState(() {

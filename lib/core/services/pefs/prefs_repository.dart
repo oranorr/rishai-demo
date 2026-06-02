@@ -321,4 +321,28 @@ class PrefsRepository {
     _ensureInitialized();
     return _prefs.getBool(shouldRedirectAfterPaywallKey) ?? false;
   }
+
+  /// [getDaysServerTotal] Сколько дней было на сервере при последнем sync.
+  /// Возвращает null, если meta для другого userId или не сохранялась.
+  int? getDaysServerTotal(String userId) {
+    _ensureInitialized();
+    if (_prefs.getString(daysSyncUserId) != userId) {
+      return null;
+    }
+    return _prefs.getInt(daysServerTotal);
+  }
+
+  /// [setDaysServerTotal] Запоминаем server total после успешного sync.
+  Future<void> setDaysServerTotal(String userId, int total) async {
+    _ensureInitialized();
+    await _prefs.setString(daysSyncUserId, userId);
+    await _prefs.setInt(daysServerTotal, total);
+  }
+
+  /// [clearDaysSyncMeta] Сброс при логауте / flush кэша дней.
+  Future<void> clearDaysSyncMeta() async {
+    _ensureInitialized();
+    await _prefs.remove(daysSyncUserId);
+    await _prefs.remove(daysServerTotal);
+  }
 }

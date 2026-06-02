@@ -86,22 +86,8 @@ mixin PaywallMixin on State<Paywall> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: GestureDetector(
-                  // [PostQuestionaryBack] После опросника выставляется shouldRedirectAfterPaywall:
-                  // на home без InitWhoopOnLogin список дней пуст → «Data failed to load».
-                  // Ведём на /redirect, где выполнится загрузка WHOOP/дней (как после Subscribe).
-                  onTap: () {
-                    final shouldInit =
-                        prefsRepo.getShouldRedirectAfterPaywall();
-                    if (shouldInit) {
-                      appNavigationService.go(
-                        path: AppRoutes.redirect.path,
-                      );
-                    } else {
-                      appNavigationService.go(
-                        path: AppRoutes.homeScreen.path,
-                      );
-                    }
-                  },
+                  // [PostQuestionaryBack] Home + InitWhoop при флаге (плашка sync вместо /redirect).
+                  onTap: navigateHomeAndInitWhoopIfNeeded,
                   child: Container(
                     padding: EdgeInsets.all(8.w),
                     decoration: const BoxDecoration(
@@ -389,17 +375,8 @@ mixin PaywallMixin on State<Paywall> {
                 '[Paywall] Флаг просмотра бесплатной версии сохранен',
                 name: 'Paywall',
               );
-              // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
-              // (используется после завершения опросника)
-              // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
-              final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
-              if (shouldRedirect) {
-                // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
-                context.go(AppRoutes.redirect.path);
-              } else {
-                // [NormalFlow] Обычный поток - переходим на главный экран
-                context.go(AppRoutes.homeScreen.path);
-              }
+              // [SyncBanner] Home + InitWhoop при флаге после опросника.
+              navigateHomeAndInitWhoopIfNeeded();
             },
           ),
         ],
@@ -882,17 +859,7 @@ mixin PaywallMixin on State<Paywall> {
     final res = await adapty.restorePurchases();
     switch (res) {
       case 'ACTIVE':
-        // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
-        // (используется после завершения опросника)
-        // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
-        final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
-        if (shouldRedirect) {
-          // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
-          appNavigationService.go(path: AppRoutes.redirect.path);
-        } else {
-          // [NormalFlow] Обычный поток - переходим на главный экран
-          appNavigationService.go(path: AppRoutes.homeScreen.path);
-        }
+        navigateHomeAndInitWhoopIfNeeded();
       case 'NO_ACTIVE':
         RishSnackbar().showSnackBar('No purchases were found');
       case 'ERROR':
@@ -965,17 +932,7 @@ mixin PaywallMixin on State<Paywall> {
 
   Future<void> processPurchaseResult(String res) async {
     if (res == 'SUCCESS') {
-      // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
-      // (используется после завершения опросника)
-      // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
-      final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
-      if (shouldRedirect) {
-        // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
-        appNavigationService.go(path: AppRoutes.redirect.path);
-      } else {
-        // [NormalFlow] Обычный поток - переходим на главный экран
-        appNavigationService.go(path: AppRoutes.homeScreen.path);
-      }
+      navigateHomeAndInitWhoopIfNeeded();
     } else if (res == 'CANCEL') {
       RishSnackbar().showSnackBar('Purchase was cancelled.');
     } else if (res == 'ALREADY_EXISTS') {
@@ -1007,17 +964,7 @@ mixin PaywallMixin on State<Paywall> {
           'Подписка успешно восстановлена после ALREADY_EXISTS',
           name: 'Paywall',
         );
-        // [CheckRedirectFlag] Проверяем, нужно ли переходить на redirect после paywall
-        // (используется после завершения опросника)
-        // [NOTE] Флаг НЕ сбрасываем здесь, он будет сброшен в Redirect после инициализации
-        final shouldRedirect = prefsRepo.getShouldRedirectAfterPaywall();
-        if (shouldRedirect) {
-          // [RedirectToInit] Переходим на redirect, где будет вызван InitWhoopOnLogin
-          appNavigationService.go(path: AppRoutes.redirect.path);
-        } else {
-          // [NormalFlow] Обычный поток - переходим на главный экран
-          appNavigationService.go(path: AppRoutes.homeScreen.path);
-        }
+        navigateHomeAndInitWhoopIfNeeded();
         return;
       }
 

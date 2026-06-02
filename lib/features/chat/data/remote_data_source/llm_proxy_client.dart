@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:injectable/injectable.dart';
-import 'package:rishai/core/services/envied/envied.dart';
+import 'package:rishai/core/di/injectable.dart';
+import 'package:rishai/core/services/user_service/user_service_client.dart';
 
 /// Типы запросов к LLM прокси
 enum LlmRequestType {
@@ -260,12 +261,12 @@ class RecommendationRequest {
 /// HTTP клиент для взаимодействия с LLM прокси
 @injectable
 class LlmProxyClient {
+  final UserServiceClient _userServiceClient = getIt.get<UserServiceClient>();
+
   static const String _stagingBaseUrl =
       'https://pivot-backend-staging-676768388165.us-central1.run.app';
   static const String _productionBaseUrl =
       'https://pivot-backend-production-676768388165.us-central1.run.app';
-  static const String _authHeaderKey = 'pivot-identity-key';
-  static const String _authHeaderValue = Env.authHeaderKey;
 
   /// Определяем base URL в зависимости от окружения
   // TODO(dev): Replace with real environment detection logic
@@ -279,6 +280,21 @@ class LlmProxyClient {
     //     : _productionBaseUrl;
   }
 
+  Future<http.Response> _postJsonWithBearer({
+    required String url,
+    required Object body,
+    required String context,
+  }) {
+    return _userServiceClient.sendAppBearerWithRetry(
+      context: context,
+      send: (headers) => http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: body,
+      ),
+    );
+  }
+
   /// Отправляет запрос к LLM прокси
   Future<List<LlmProxyResponse>> sendRequest(LlmProxyRequest request) async {
     try {
@@ -288,12 +304,9 @@ class LlmProxyClient {
         log('📚 Предыдущих сообщений: ${request.previousMessages!.length}');
       }
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/llm-proxy'),
-        headers: {
-          'Content-Type': 'application/json',
-          _authHeaderKey: _authHeaderValue,
-        },
+      final response = await _postJsonWithBearer(
+        url: '$_baseUrl/llm-proxy',
+        context: 'POST /llm-proxy',
         body: jsonEncode(request.toJson()),
       );
 
@@ -365,12 +378,9 @@ class LlmProxyClient {
       log('📦 [ChatV2] URL: $url');
       log('📦 [ChatV2] BODY: $requestBody');
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          _authHeaderKey: _authHeaderValue,
-        },
+      final response = await _postJsonWithBearer(
+        url: url,
+        context: 'POST /llm-proxy-chat',
         body: requestBody,
       );
 
@@ -461,12 +471,9 @@ class LlmProxyClient {
         log('📦 URL: $url');
         log('📦 BODY: $requestBody');
 
-        final response = await http.post(
-          Uri.parse(url), // Используем новый эндпоинт для блюд
-          headers: {
-            'Content-Type': 'application/json',
-            _authHeaderKey: _authHeaderValue,
-          },
+        final response = await _postJsonWithBearer(
+          url: url,
+          context: 'POST /llm-proxy-meal',
           body: requestBody,
         );
 
@@ -560,12 +567,9 @@ class LlmProxyClient {
         log('📦 URL: $url');
         log('📦 BODY: $requestBody');
 
-        final response = await http.post(
-          Uri.parse(url), // Используем тот же эндпоинт что и для генерации блюд
-          headers: {
-            'Content-Type': 'application/json',
-            _authHeaderKey: _authHeaderValue,
-          },
+        final response = await _postJsonWithBearer(
+          url: url,
+          context: 'POST /llm-proxy-meal',
           body: requestBody,
         );
 
@@ -660,67 +664,73 @@ class LlmProxyClient {
       final url = Uri.parse('$_baseUrl/llm-proxy-food-photo/analyze');
       log('📦 [analyzeFoodPhoto] URL: $url');
 
-      // Создаем multipart request
-      final request = http.MultipartRequest('POST', url);
+      Future<http.MultipartRequest> buildRequest(
+        Map<String, String> headers,
+      ) async {
+        final request = http.MultipartRequest('POST', url)
+          ..headers.addAll(headers)
+          ..fields['description'] = description;
 
-      // Добавляем заголовок авторизации
-      request.headers[_authHeaderKey] = _authHeaderValue;
+        // Добавляем изображения только если они есть
+        if (images.isNotEmpty) {
+          for (final image in images) {
+            // Определяем MIME-тип на основе расширения файла
+            String? mimeType;
+            final extension = image.path.split('.').last.toLowerCase();
 
-      // Добавляем изображения только если они есть
-      if (images.isNotEmpty) {
-        for (final image in images) {
-          // Определяем MIME-тип на основе расширения файла
-          String? mimeType;
-          final extension = image.path.split('.').last.toLowerCase();
+            switch (extension) {
+              case 'jpg':
+              case 'jpeg':
+                mimeType = 'image/jpeg';
+                break;
+              case 'png':
+                mimeType = 'image/png';
+                break;
+              case 'webp':
+                mimeType = 'image/webp';
+                break;
+              case 'heic':
+                mimeType = 'image/heic';
+                break;
+              case 'heif':
+                mimeType = 'image/heif';
+                break;
+              default:
+                mimeType = 'image/jpeg'; // По умолчанию
+            }
 
-          switch (extension) {
-            case 'jpg':
-            case 'jpeg':
-              mimeType = 'image/jpeg';
-              break;
-            case 'png':
-              mimeType = 'image/png';
-              break;
-            case 'webp':
-              mimeType = 'image/webp';
-              break;
-            case 'heic':
-              mimeType = 'image/heic';
-              break;
-            case 'heif':
-              mimeType = 'image/heif';
-              break;
-            default:
-              mimeType = 'image/jpeg'; // По умолчанию
+            final multipartFile = await http.MultipartFile.fromPath(
+              'images', // имя поля
+              image.path,
+              contentType: MediaType.parse(mimeType),
+            );
+            request.files.add(multipartFile);
+            log('📷 [analyzeFoodPhoto] Добавлено изображение: ${image.path.split('/').last} (MIME: $mimeType)');
           }
-
-          final multipartFile = await http.MultipartFile.fromPath(
-            'images', // имя поля
-            image.path,
-            contentType: MediaType.parse(mimeType),
-          );
-          request.files.add(multipartFile);
-          log('📷 [analyzeFoodPhoto] Добавлено изображение: ${image.path.split('/').last} (MIME: $mimeType)');
+        } else {
+          log('📝 [analyzeFoodPhoto] Фотографии не переданы, анализ будет проводиться только на основе описания');
         }
-      } else {
-        log('📝 [analyzeFoodPhoto] Фотографии не переданы, анализ будет проводиться только на основе описания');
-      }
 
-      // Добавляем description
-      request.fields['description'] = description;
+        return request;
+      }
 
       log('📤 [analyzeFoodPhoto] Отправка запроса...');
 
-      // Отправляем запрос
-      final streamedResponse = await request.send();
+      final response = await _userServiceClient.sendAppBearerWithRetry(
+        includeContentType: false,
+        context: 'POST /llm-proxy-food-photo/analyze',
+        send: (headers) async {
+          final request = await buildRequest(headers);
+          final streamedResponse = await request.send();
+          return http.Response.fromStream(streamedResponse);
+        },
+      );
 
-      // Читаем ответ
-      final responseData = await streamedResponse.stream.bytesToString();
+      final responseData = response.body;
 
-      log('📥 [analyzeFoodPhoto] Получен ответ: ${streamedResponse.statusCode}');
+      log('📥 [analyzeFoodPhoto] Получен ответ: ${response.statusCode}');
 
-      if (streamedResponse.statusCode == 200 ||
-          streamedResponse.statusCode == 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         log('📦 [analyzeFoodPhoto] ПОЛНЫЙ JSON ОТВЕТ: $responseData');
 
         // Парсим JSON ответ
@@ -734,9 +744,9 @@ class LlmProxyClient {
 
         return analysisResponse;
       } else {
-        log('❌ [analyzeFoodPhoto] Ошибка от сервера: ${streamedResponse.statusCode} - $responseData');
+        log('❌ [analyzeFoodPhoto] Ошибка от сервера: ${response.statusCode} - $responseData');
         throw Exception(
-          'HTTP ${streamedResponse.statusCode}: $responseData',
+          'HTTP ${response.statusCode}: $responseData',
         );
       }
     } catch (e) {
@@ -772,12 +782,9 @@ class LlmProxyClient {
         log('[RecommendationsWidget] 📦 URL: $url');
         log('[RecommendationsWidget] 📦 BODY: $requestBody');
 
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {
-            'Content-Type': 'application/json',
-            _authHeaderKey: _authHeaderValue,
-          },
+        final response = await _postJsonWithBearer(
+          url: url,
+          context: 'POST /recommend',
           body: requestBody,
         );
 

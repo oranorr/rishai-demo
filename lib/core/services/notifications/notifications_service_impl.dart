@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:injectable/injectable.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:rishai/core/di/injectable.dart';
@@ -143,38 +144,28 @@ class NotificationsServiceImpl implements NotificationsService {
 
   Future<void> _initializeTimeZone() async {
     try {
+      // Инициализируем базу данных таймзон
       tz.initializeTimeZones();
 
-      // Получаем системную таймзону
-      final String currentTimeZone = tz.local.name;
+      // Получаем системную таймзону через flutter_timezone и сразу применяем её
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+
       log('=== ИНИЦИАЛИЗАЦИЯ ТАЙМЗОНЫ ===');
-      log('Системная таймзона: $currentTimeZone');
-
-      // Проверяем, что таймзона работает правильно
-      final now = tz.TZDateTime.now(tz.local);
-      final utcNow = DateTime.now().toUtc();
-      final localNow = DateTime.now();
-
-      log('Время в системной таймзоне: $now');
-      log('Время UTC: $utcNow');
-      log('Время локальное: $localNow');
-      log('Разница с UTC: ${now.difference(utcNow).inHours} часов');
-
-      // Проверяем, не является ли tz.local UTC
-      if (currentTimeZone == 'UTC') {
-        log('⚠️ ВНИМАНИЕ: tz.local возвращает UTC!');
-        log('🔧 Попробуем определить локальную таймзону через DateTime.now()');
-
-        // Пытаемся определить локальную таймзону через системное время
-        final systemOffset = DateTime.now().timeZoneOffset;
-        log('Системное смещение таймзоны: ${systemOffset.inHours} часов');
-      }
-
+      log('Системная таймзона: $timeZoneName');
+      log('tz.local: ${tz.local.name}');
+      log('Текущее время: ${tz.TZDateTime.now(tz.local)}');
       log('================================');
     } on Exception catch (e) {
       log('❌ Ошибка инициализации таймзоны: $e');
-      // Fallback на UTC если что-то пошло не так
-      log('⚠️ Используем UTC как fallback');
+      // Fallback: пробуем определить смещение через DateTime.now()
+      log('⚠️ Используем fallback через системное смещение');
+      try {
+        tz.initializeTimeZones();
+        final offset = DateTime.now().timeZoneOffset;
+        // Ищем таймзону по смещению, иначе оставляем UTC
+        log('Системное смещение: ${offset.inHours} ч. Таймзона может быть неточной.');
+      } catch (_) {}
     }
   }
 
@@ -189,31 +180,6 @@ class NotificationsServiceImpl implements NotificationsService {
 
   void _onSelectNotification(NotificationResponse details) {
     log('Notification selected: ${details.payload}');
-  }
-
-  /// Проверяет, что уведомление действительно запланировано
-  Future<void> _verifyScheduledNotification(int notificationId) async {
-    try {
-      // Получаем все запланированные уведомления
-      final pendingNotifications = await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.getActiveNotifications();
-
-      log('=== ПРОВЕРКА ЗАПЛАНИРОВАННЫХ УВЕДОМЛЕНИЙ ===');
-      log('ID запланированного уведомления: $notificationId');
-      log('Активные уведомления Android: ${pendingNotifications?.length ?? 0}');
-
-      // Для iOS проверяем через другой способ
-      if (Platform.isIOS) {
-        log('📱 iOS: Уведомление запланировано через zonedSchedule');
-        log('📱 iOS: Проверьте настройки уведомлений в системных настройках');
-      }
-
-      log('==============================================');
-    } catch (e) {
-      log('❌ Ошибка при проверке уведомлений: $e');
-    }
   }
 
   @override
@@ -429,20 +395,17 @@ class NotificationsServiceImpl implements NotificationsService {
         PermissionStatus status = await Permission.notification.status;
         return status.isGranted;
       } else if (Platform.isIOS) {
-        // Для iOS проверяем через flutter_local_notifications
+        // Для iOS используем checkPermissions() — НЕ requestPermissions(),
+        // чтобы не показывать системный диалог при каждой проверке
         final IOSFlutterLocalNotificationsPlugin? iosImplementation =
             flutterLocalNotificationsPlugin
                 .resolvePlatformSpecificImplementation<
                     IOSFlutterLocalNotificationsPlugin>();
 
         if (iosImplementation != null) {
-          // Получаем настройки разрешений
-          final bool? alert = await iosImplementation.requestPermissions(
-            alert: true,
-            badge: true,
-            sound: true,
-          );
-          return alert ?? false;
+          final NotificationsEnabledOptions? options =
+              await iosImplementation.checkPermissions();
+          return options?.isEnabled ?? false;
         }
         return false;
       }

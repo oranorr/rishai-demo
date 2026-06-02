@@ -30,3 +30,9 @@ const String lastFreeUserPhotoUploadTime = 'lastFreeUserPhotoUploadTime';
 /// [freePaywallViewed] Ключ для хранения флага просмотра бесплатной версии paywall
 /// Если флаг установлен, при следующих вызовах paywall будет показываться премиум версия
 const String freePaywallViewed = 'freePaywallViewed';
+
+/// [daysSyncUserId] userId, для которого сохранён [daysServerTotal].
+const String daysSyncUserId = 'daysSyncUserId';
+
+/// [daysServerTotal] Кол-во дней на сервере при последнем успешном sync.
+const String daysServerTotal = 'daysServerTotal';

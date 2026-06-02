@@ -54,6 +54,13 @@ class UserUpdateDay extends UserEvent {
   });
 }
 
+/// Удаляет день из локального списка после hard delete на бэкенде (например, disconnect WHOOP).
+class UserRemoveDayByDirectusId extends UserEvent {
+  const UserRemoveDayByDirectusId({required this.directusId});
+
+  final int directusId;
+}
+
 /// Событие для добавления 200 дней истории пользователю
 class UserAddHistoryDays extends UserEvent {
   const UserAddHistoryDays();

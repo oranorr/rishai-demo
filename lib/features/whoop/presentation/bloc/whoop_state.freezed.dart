@@ -20,24 +20,42 @@ mixin _$WhoopState {
   DayEntity get day => throw _privateConstructorUsedError;
   bool get whoopConnected => throw _privateConstructorUsedError;
   DateTime? get calibratingCompleteDate => throw _privateConstructorUsedError;
+  WhoopSyncBannerPhase get syncBannerPhase =>
+      throw _privateConstructorUsedError;
+  DateTime? get lastSyncedAt => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult when<TResult extends Object?>({
-    required TResult Function(Status status, DayEntity day, bool whoopConnected,
-            DateTime? calibratingCompleteDate)
+    required TResult Function(
+            Status status,
+            DayEntity day,
+            bool whoopConnected,
+            DateTime? calibratingCompleteDate,
+            WhoopSyncBannerPhase syncBannerPhase,
+            DateTime? lastSyncedAt)
         main,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function(Status status, DayEntity day, bool whoopConnected,
-            DateTime? calibratingCompleteDate)?
+    TResult? Function(
+            Status status,
+            DayEntity day,
+            bool whoopConnected,
+            DateTime? calibratingCompleteDate,
+            WhoopSyncBannerPhase syncBannerPhase,
+            DateTime? lastSyncedAt)?
         main,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
-    TResult Function(Status status, DayEntity day, bool whoopConnected,
-            DateTime? calibratingCompleteDate)?
+    TResult Function(
+            Status status,
+            DayEntity day,
+            bool whoopConnected,
+            DateTime? calibratingCompleteDate,
+            WhoopSyncBannerPhase syncBannerPhase,
+            DateTime? lastSyncedAt)?
         main,
     required TResult orElse(),
   }) =>
@@ -74,7 +92,9 @@ abstract class $WhoopStateCopyWith<$Res> {
       {Status status,
       DayEntity day,
       bool whoopConnected,
-      DateTime? calibratingCompleteDate});
+      DateTime? calibratingCompleteDate,
+      WhoopSyncBannerPhase syncBannerPhase,
+      DateTime? lastSyncedAt});
 }
 
 /// @nodoc
@@ -94,6 +114,8 @@ class _$WhoopStateCopyWithImpl<$Res, $Val extends WhoopState>
     Object? day = null,
     Object? whoopConnected = null,
     Object? calibratingCompleteDate = freezed,
+    Object? syncBannerPhase = null,
+    Object? lastSyncedAt = freezed,
   }) {
     return _then(_value.copyWith(
       status: null == status
@@ -112,6 +134,14 @@ class _$WhoopStateCopyWithImpl<$Res, $Val extends WhoopState>
           ? _value.calibratingCompleteDate
           : calibratingCompleteDate // ignore: cast_nullable_to_non_nullable
               as DateTime?,
+      syncBannerPhase: null == syncBannerPhase
+          ? _value.syncBannerPhase
+          : syncBannerPhase // ignore: cast_nullable_to_non_nullable
+              as WhoopSyncBannerPhase,
+      lastSyncedAt: freezed == lastSyncedAt
+          ? _value.lastSyncedAt
+          : lastSyncedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
     ) as $Val);
   }
 }
@@ -128,7 +158,9 @@ abstract class _$$WhoopMainStateImplCopyWith<$Res>
       {Status status,
       DayEntity day,
       bool whoopConnected,
-      DateTime? calibratingCompleteDate});
+      DateTime? calibratingCompleteDate,
+      WhoopSyncBannerPhase syncBannerPhase,
+      DateTime? lastSyncedAt});
 }
 
 /// @nodoc
@@ -146,6 +178,8 @@ class __$$WhoopMainStateImplCopyWithImpl<$Res>
     Object? day = null,
     Object? whoopConnected = null,
     Object? calibratingCompleteDate = freezed,
+    Object? syncBannerPhase = null,
+    Object? lastSyncedAt = freezed,
   }) {
     return _then(_$WhoopMainStateImpl(
       status: null == status
@@ -164,6 +198,14 @@ class __$$WhoopMainStateImplCopyWithImpl<$Res>
           ? _value.calibratingCompleteDate
           : calibratingCompleteDate // ignore: cast_nullable_to_non_nullable
               as DateTime?,
+      syncBannerPhase: null == syncBannerPhase
+          ? _value.syncBannerPhase
+          : syncBannerPhase // ignore: cast_nullable_to_non_nullable
+              as WhoopSyncBannerPhase,
+      lastSyncedAt: freezed == lastSyncedAt
+          ? _value.lastSyncedAt
+          : lastSyncedAt // ignore: cast_nullable_to_non_nullable
+              as DateTime?,
     ));
   }
 }
@@ -175,7 +217,9 @@ class _$WhoopMainStateImpl implements WhoopMainState {
       {required this.status,
       required this.day,
       required this.whoopConnected,
-      this.calibratingCompleteDate});
+      this.calibratingCompleteDate,
+      this.syncBannerPhase = WhoopSyncBannerPhase.hidden,
+      this.lastSyncedAt});
 
   @override
   final Status status;
@@ -185,10 +229,15 @@ class _$WhoopMainStateImpl implements WhoopMainState {
   final bool whoopConnected;
   @override
   final DateTime? calibratingCompleteDate;
+  @override
+  @JsonKey()
+  final WhoopSyncBannerPhase syncBannerPhase;
+  @override
+  final DateTime? lastSyncedAt;
 
   @override
   String toString() {
-    return 'WhoopState.main(status: $status, day: $day, whoopConnected: $whoopConnected, calibratingCompleteDate: $calibratingCompleteDate)';
+    return 'WhoopState.main(status: $status, day: $day, whoopConnected: $whoopConnected, calibratingCompleteDate: $calibratingCompleteDate, syncBannerPhase: $syncBannerPhase, lastSyncedAt: $lastSyncedAt)';
   }
 
   @override
@@ -202,12 +251,16 @@ class _$WhoopMainStateImpl implements WhoopMainState {
                 other.whoopConnected == whoopConnected) &&
             (identical(
                     other.calibratingCompleteDate, calibratingCompleteDate) ||
-                other.calibratingCompleteDate == calibratingCompleteDate));
+                other.calibratingCompleteDate == calibratingCompleteDate) &&
+            (identical(other.syncBannerPhase, syncBannerPhase) ||
+                other.syncBannerPhase == syncBannerPhase) &&
+            (identical(other.lastSyncedAt, lastSyncedAt) ||
+                other.lastSyncedAt == lastSyncedAt));
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType, status, day, whoopConnected, calibratingCompleteDate);
+  int get hashCode => Object.hash(runtimeType, status, day, whoopConnected,
+      calibratingCompleteDate, syncBannerPhase, lastSyncedAt);
 
   @JsonKey(ignore: true)
   @override
@@ -219,33 +272,51 @@ class _$WhoopMainStateImpl implements WhoopMainState {
   @override
   @optionalTypeArgs
   TResult when<TResult extends Object?>({
-    required TResult Function(Status status, DayEntity day, bool whoopConnected,
-            DateTime? calibratingCompleteDate)
+    required TResult Function(
+            Status status,
+            DayEntity day,
+            bool whoopConnected,
+            DateTime? calibratingCompleteDate,
+            WhoopSyncBannerPhase syncBannerPhase,
+            DateTime? lastSyncedAt)
         main,
   }) {
-    return main(status, day, whoopConnected, calibratingCompleteDate);
+    return main(status, day, whoopConnected, calibratingCompleteDate,
+        syncBannerPhase, lastSyncedAt);
   }
 
   @override
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function(Status status, DayEntity day, bool whoopConnected,
-            DateTime? calibratingCompleteDate)?
+    TResult? Function(
+            Status status,
+            DayEntity day,
+            bool whoopConnected,
+            DateTime? calibratingCompleteDate,
+            WhoopSyncBannerPhase syncBannerPhase,
+            DateTime? lastSyncedAt)?
         main,
   }) {
-    return main?.call(status, day, whoopConnected, calibratingCompleteDate);
+    return main?.call(status, day, whoopConnected, calibratingCompleteDate,
+        syncBannerPhase, lastSyncedAt);
   }
 
   @override
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
-    TResult Function(Status status, DayEntity day, bool whoopConnected,
-            DateTime? calibratingCompleteDate)?
+    TResult Function(
+            Status status,
+            DayEntity day,
+            bool whoopConnected,
+            DateTime? calibratingCompleteDate,
+            WhoopSyncBannerPhase syncBannerPhase,
+            DateTime? lastSyncedAt)?
         main,
     required TResult orElse(),
   }) {
     if (main != null) {
-      return main(status, day, whoopConnected, calibratingCompleteDate);
+      return main(status, day, whoopConnected, calibratingCompleteDate,
+          syncBannerPhase, lastSyncedAt);
     }
     return orElse();
   }
@@ -284,7 +355,9 @@ abstract class WhoopMainState implements WhoopState {
       {required final Status status,
       required final DayEntity day,
       required final bool whoopConnected,
-      final DateTime? calibratingCompleteDate}) = _$WhoopMainStateImpl;
+      final DateTime? calibratingCompleteDate,
+      final WhoopSyncBannerPhase syncBannerPhase,
+      final DateTime? lastSyncedAt}) = _$WhoopMainStateImpl;
 
   @override
   Status get status;
@@ -294,6 +367,10 @@ abstract class WhoopMainState implements WhoopState {
   bool get whoopConnected;
   @override
   DateTime? get calibratingCompleteDate;
+  @override
+  WhoopSyncBannerPhase get syncBannerPhase;
+  @override
+  DateTime? get lastSyncedAt;
   @override
   @JsonKey(ignore: true)
   _$$WhoopMainStateImplCopyWith<_$WhoopMainStateImpl> get copyWith =>

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +8,7 @@ import 'package:rishai/core/config/feature_flags.dart';
 import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/extensions/date_time_extension.dart';
 import 'package:rishai/core/extensions/string_extension.dart';
+import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/widgets/snackbar.dart';
 import 'package:rishai/features/chat/domain/entities/meal_plan_entity.dart';
@@ -44,6 +46,9 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
 
   final GenerateWeekPlanUsecaseV2 _generateWeekPlanUsecase;
   final UserServiceClient _userService;
+
+  /// Сериализация параллельных [WeekPlanLoad] (как [_getDaysInFlight] в UserBloc).
+  Future<void>? _loadInFlight;
 
   Future<void> _onGenerate(
     WeekPlanGenerate event,
@@ -102,37 +107,135 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
           allWeekPlans: newAllPlans,
           displayWeekPlans: newDisplayPlans,
           isLoading: false,
+          hasLoaded: true,
         ),
       );
       await saveWeek(week);
+
+      // Сразу кладём свежесгенерированный prep в кэш, чтобы он мгновенно
+      // отрисовался при следующем входе (без ожидания GET /week-plans).
+      try {
+        await hive.replaceSavedWeekPlans(weeks: newAllPlans);
+      } on Object catch (e) {
+        _logger('Не удалось закэшировать сгенерированный prep: $e');
+      }
     });
   }
 
   void _onReset(WeekPlanReset event, Emitter<WeekPlanState> emit) {
     emit(const WeekPlanState(allWeekPlans: [], displayWeekPlans: []));
+    // Чистим кэш недельных планов (например, при смене пользователя).
+    unawaited(hive.flushWeekPlans());
   }
 
   Future<void> _onLoad(WeekPlanLoad event, Emitter<WeekPlanState> emit) async {
-    emit(state.copyWith(isLoading: true, filter: null));
-    // Используем новую логику с синхронизацией
-    final res = await _syncAndLoadWeeks(
-      weekPlanIdHint: event.weekPlanIdHint,
-    );
-    emit(
-      state.copyWith(
-        allWeekPlans: res,
-        displayWeekPlans: res,
-        isLoading: false,
-      ),
-    );
+    if (_loadInFlight != null) {
+      _logger('WeekPlanLoad: уже идёт — ждём завершения');
+      await _loadInFlight;
+      return;
+    }
+
+    _loadInFlight = _onLoadImpl(event, emit);
+    try {
+      await _loadInFlight;
+    } finally {
+      _loadInFlight = null;
+    }
   }
 
-  /// **Источник истины:** `GET /week-plans` (User API, заголовки [pivot-identity-key] + [x-user-id]),
-  /// плюс состояние bloc в памяти. Отдельного Hive-бокса для недель нет.
+  /// Фоновая синхронизация списка preps с бэка по схеме
+  /// **stale-while-revalidate**:
+  ///
+  ///   Фаза 1 (кэш) — мгновенно показываем сохранённые в Hive preps, чтобы при
+  ///                  входе НЕ мелькало «There are no preps yet», пока идёт сеть.
+  ///   Фаза 2 (сеть) — тянем актуальный список с backend и переписываем кэш.
+  ///                  Если сеть упала — оставляем кэш, просто гасим [isSyncing].
+  ///
+  /// [isLoading] намеренно не трогаем: полноэкранный «I'm creating…» только
+  /// при [WeekPlanGenerate]. Иначе любой [UpdateUserEvent] с weekPlanIds
+  /// (WHOOP sync, food diary, pivot score…) случайно перекрывал уже готовые preps.
+  Future<void> _onLoadImpl(
+    WeekPlanLoad event,
+    Emitter<WeekPlanState> emit,
+  ) async {
+    final filterPhase1 = state.filter;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Фаза 1 — кэш Hive (только если в памяти ещё пусто, иначе не мигаем).
+    // ─────────────────────────────────────────────────────────────────────
+    if (state.allWeekPlans.isEmpty) {
+      try {
+        final cached = await hive.retrieveSavedWeekPlans();
+        if (cached.isNotEmpty) {
+          final sortedCache = List<WeekPlanEntity>.from(cached)
+            ..sort((a, b) => a.startDate.compareTo(b.startDate));
+          _logger('Фаза 1 (кэш): ${sortedCache.length} preps — показываем сразу');
+          emit(
+            state.copyWith(
+              allWeekPlans: sortedCache,
+              displayWeekPlans: filterPhase1 != null
+                  ? _applyFilter(sortedCache, filterPhase1)
+                  : sortedCache,
+              isSyncing: true,
+            ),
+          );
+        } else {
+          _logger('Фаза 1 (кэш): пусто — показываем индикатор первой загрузки');
+          emit(state.copyWith(isSyncing: true));
+        }
+      } on Object catch (e) {
+        _logger('Фаза 1 (кэш) ошибка: $e');
+        emit(state.copyWith(isSyncing: true));
+      }
+    } else {
+      emit(state.copyWith(isSyncing: true));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Фаза 2 — сеть. При ошибке remote == null → кэш не трогаем.
+    // ─────────────────────────────────────────────────────────────────────
+    List<WeekPlanEntity>? remote;
+    try {
+      remote = await _fetchSortedWeeksFromBackend(
+        weekPlanIdHint: event.weekPlanIdHint,
+      );
+    } on Object catch (e) {
+      _logger('Фаза 2 (сеть) недоступна: $e — оставляем кэш');
+      remote = null;
+    }
+
+    if (remote != null) {
+      final filter = state.filter;
+      emit(
+        state.copyWith(
+          allWeekPlans: remote,
+          displayWeekPlans: filter != null ? _applyFilter(remote, filter) : remote,
+          isSyncing: false,
+          hasLoaded: true,
+        ),
+      );
+
+      // Переписываем кэш актуальным списком (replace = убираем устаревшие preps).
+      try {
+        await hive.replaceSavedWeekPlans(weeks: remote);
+      } on Object catch (e) {
+        _logger('Не удалось сохранить preps в кэш: $e');
+      }
+    } else {
+      // Сеть упала: список из фазы 1 (кэш) уже в state — только гасим флаги.
+      emit(state.copyWith(isSyncing: false, hasLoaded: true));
+    }
+  }
+
+  /// **Источник истины:** `GET /week-plans` (User API, заголовки [pivot-identity-key] + [x-user-id]).
+  /// Кэш Hive — лишь для мгновенного отображения (stale-while-revalidate).
+  ///
+  /// В отличие от старого [_syncAndLoadWeeks], этот метод **пробрасывает**
+  /// ошибку наверх: вызывающий ([_onLoadImpl]) сам решает оставить кэш.
   ///
   /// [weekPlanIdHint] — id из GET /users: после пагинированного списка догружаем планы по id,
   /// если по [startDate] их ещё нет (гонка: профиль обновился раньше, чем список).
-  Future<List<WeekPlanEntity>> _syncAndLoadWeeks({
+  Future<List<WeekPlanEntity>> _fetchSortedWeeksFromBackend({
     List<int>? weekPlanIdHint,
   }) async {
     final currentUserId = userBloc.state.user.directusId;
@@ -143,19 +246,14 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
       return [];
     }
 
-    try {
-      final remoteWeeks = await _fetchAllWeekPlansFromUserApi(
-        currentUserId,
-        weekPlanIdHint: weekPlanIdHint,
-      );
-      _logger('User API: ${remoteWeeks.length} недель(и)');
-      final sorted = List<WeekPlanEntity>.from(remoteWeeks)
-        ..sort((a, b) => a.startDate.compareTo(b.startDate));
-      return sorted;
-    } catch (e) {
-      _logger('User API (week-plans) недоступен: $e');
-      return [];
-    }
+    final remoteWeeks = await _fetchAllWeekPlansFromUserApi(
+      currentUserId,
+      weekPlanIdHint: weekPlanIdHint,
+    );
+    _logger('User API: ${remoteWeeks.length} недель(и)');
+    final sorted = List<WeekPlanEntity>.from(remoteWeeks)
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+    return sorted;
   }
 
   /// Максимальный [limit] по контракту бэка (как [DayManager] для [GET /days]).
@@ -287,6 +385,9 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
           displayWeekPlans: [],
         ),
       );
+
+      // Полный сброс (logout) — вычищаем и кэш Hive.
+      await hive.flushWeekPlans();
     } catch (e) {
       _logger('Error clearing week plans state: $e');
     } finally {
@@ -359,9 +460,13 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
     WeekPlanFilter event,
     Emitter<WeekPlanState> emit,
   ) async {
-    emit(state.copyWith(isLoading: true, filter: event.filter));
     final filteredPlans = _applyFilter(state.allWeekPlans, event.filter);
-    emit(state.copyWith(displayWeekPlans: filteredPlans, isLoading: false));
+    emit(
+      state.copyWith(
+        filter: event.filter,
+        displayWeekPlans: filteredPlans,
+      ),
+    );
   }
 
   Future<void> _onClearFilter(
@@ -370,14 +475,8 @@ class WeekPlanBloc extends Bloc<WeekPlanEvent, WeekPlanState> {
   ) async {
     emit(
       state.copyWith(
-        isLoading: true,
         filter: null,
-      ),
-    );
-    emit(
-      state.copyWith(
         displayWeekPlans: state.allWeekPlans,
-        isLoading: false,
       ),
     );
   }

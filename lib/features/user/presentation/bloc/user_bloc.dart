@@ -53,6 +53,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserManageDay>(_manageDay);
     on<UserGetDays>(_getDays); // Используем новую архитектуру
     on<UserUpdateDay>(_updateDay);
+    on<UserRemoveDayByDirectusId>(_removeDayByDirectusId);
     on<UserAddHistoryDays>(_addHistoryDays);
   }
 
@@ -60,6 +61,26 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   final GetUserDaysUsecase getUserDaysUsecase;
   final AccountsWhiteListService accountsWhiteListService;
   final UserServiceClient userServiceClient;
+
+  /// Защита от параллельных [UserGetDays] (HomePage + DayManager).
+  Future<void>? _getDaysInFlight;
+
+  /// Убираем дубликаты Hive перед показом (box раздувается из-за cycleId merge).
+  List<DayEntity> _dedupeDaysByDirectusId(List<DayEntity> days) {
+    final byId = <int, DayEntity>{};
+    final withoutId = <DayEntity>[];
+
+    for (final day in days) {
+      if (day.directusId > 0) {
+        byId[day.directusId] = day;
+      } else {
+        withoutId.add(day);
+      }
+    }
+
+    return [...byId.values, ...withoutId]
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+  }
 
   /// Сравнение [weekPlanIds] для решения, нужно ли писать Hive после getUser.
   static bool _sameWeekPlanIdLists(List<int> a, List<int> b) {
@@ -86,6 +107,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     }
 
     UserEntity user = event.user;
+    // До emit — для решения, нужен ли повторный GET /week-plans.
+    final previousWeekPlanIds = state.user.weekPlanIds;
     log('user.userGoal: ${user.userGoal}', name: 'UserBloc');
 
     if (user.adaptyId == null) {
@@ -128,9 +151,15 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       }, (r) {
         log('Пользователь успешно синхронизирован с backend', name: 'UserBloc');
         completeSync(true);
-        // Профиль User Service с [weekPlanIds] приходит/обновляется раньше, чем
-        // [readMany] weekPlans с фильтром userId; повторяем загрузку недель.
-        if (user.weekPlanIds.isNotEmpty) {
+        // Профиль User Service с [weekPlanIds] может обновиться раньше списка
+        // week-plans — догружаем только если id реально изменились (новый prep),
+        // а не на каждый UpdateUser (pivot score, WHOOP body data и т.д.).
+        if (user.weekPlanIds.isNotEmpty &&
+            !_sameWeekPlanIdLists(previousWeekPlanIds, user.weekPlanIds)) {
+          log(
+            'weekPlanIds изменились $previousWeekPlanIds -> ${user.weekPlanIds}, WeekPlanLoad',
+            name: 'UserBloc',
+          );
           weekPlanBloc.add(
             WeekPlanLoad(weekPlanIdHint: List<int>.from(user.weekPlanIds)),
           );
@@ -320,15 +349,52 @@ class UserBloc extends Bloc<UserEvent, UserState> {
   }
 
   FutureOr<void> _getDays(UserGetDays event, Emitter<UserState> emit) async {
+    if (_getDaysInFlight != null) {
+      log('[_getDays] Уже идёт — ждём завершения', name: 'UserBloc');
+      await _getDaysInFlight;
+      return;
+    }
+
+    _getDaysInFlight = _getDaysImpl(event, emit);
+    try {
+      await _getDaysInFlight;
+    } finally {
+      _getDaysInFlight = null;
+    }
+  }
+
+  Future<void> _getDaysImpl(UserGetDays event, Emitter<UserState> emit) async {
     log(
-      '[_getDays] Начинаем загрузку дней, статус -> loading',
+      '[_getDays] Начинаем загрузку дней',
       name: 'UserBloc',
     );
-    emit(state.copyWith(status: Status.loading));
-    DayEntity currentDay = event.newDay;
+
+    final DayEntity currentDay = event.newDay;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Фаза 1 — Stale-While-Revalidate (мгновенный отклик):
+    //
+    // Читаем Hive до любого сетевого запроса и сразу показываем пользователю
+    // то, что уже есть на телефоне. Если кэш пустой (первый вход) —
+    // показываем хотя бы сегодняшний день (currentDay), чтобы не было
+    // чёрного экрана пока история грузится в фоне.
+    // ─────────────────────────────────────────────────────────────────────
+    final cachedDays = _dedupeDaysByDirectusId(await hive.retrieveSavedDays());
+
+    final initialList = cachedDays.isNotEmpty ? cachedDays : <DayEntity>[];
+    final initialDays = _mergeCurrentDay(days: initialList, currentDay: currentDay);
 
     log(
-      '[_getDays] Получаем дни через новую архитектуру getUserDaysUsecase',
+      '[_getDays] Фаза 1 (кэш): ${initialDays.length} дней — emit loading',
+      name: 'UserBloc',
+    );
+    emit(state.copyWith(status: Status.loading, days: initialDays));
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Фаза 2 — Умный sync (пропуск полной загрузки если кэш актуален).
+    // ─────────────────────────────────────────────────────────────────────
+    log(
+      '[_getDays] Фаза 2 (сеть): getUserDaysUsecase',
       name: 'UserBloc',
     );
     final res = await getUserDaysUsecase
@@ -336,104 +402,103 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
     await res.fold((l) async {
       log(
-        '[_getDays] Ошибка при получении дней: ${l.message}',
+        '[_getDays] Ошибка сети: ${l.message} — оставляем кэш (${state.days.length} дней)',
         name: 'UserBloc',
       );
-
-      // Если не удалось загрузить дни, возвращаем только текущий день
-      log(
-        '[_getDays] Возвращаем только текущий день из-за ошибки',
-        name: 'UserBloc',
-      );
-      emit(state.copyWith(status: Status.success, days: [currentDay]));
+      // Сеть недоступна — кэш уже в state.days из фазы 1, просто меняем статус.
+      emit(state.copyWith(status: Status.success));
     }, (List<DayEntity> r) async {
       log(
-        '[_getDays] Дни успешно получены, обрабатываем ${r.length} дней',
+        '[_getDays] Фаза 2: sync вернул ${r.length} дней',
         name: 'UserBloc',
       );
 
-      // Создаём копию списка для изменения
-      final daysList = List<DayEntity>.from(r);
-
-      // Ищем существующий день с той же датой
-      final existingDayIndex = daysList.indexWhere(
-        (day) => day.dateTime.isSameDate(currentDay.dateTime),
+      final daysList = _mergeCurrentDay(
+        days: List<DayEntity>.from(r),
+        currentDay: currentDay,
       );
-
-      if (existingDayIndex != -1) {
-        // Обновляем существующий день
-        final existingDay = daysList[existingDayIndex];
-        log(
-          '[_getDays] Обновляем существующий день на индексе $existingDayIndex',
-          name: 'UserBloc',
-        );
-        
-        // [FIX] Детальное логирование для отладки потери welnessEntity
-        log(
-          '[_getDays] existingDay.welnessEntity: ${existingDay.welnessEntity != null ? "есть (${existingDay.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
-          name: 'UserBloc',
-        );
-        log(
-          '[_getDays] currentDay.welnessEntity: ${currentDay.welnessEntity != null ? "есть (${currentDay.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
-          name: 'UserBloc',
-        );
-
-        // [FIX] Исправлен баг потери welnessEntity при входе после логаута
-        // КРИТИЧЕСКИ ВАЖНО: Используем existingDay (из Directus) как основу полностью,
-        // так как он содержит все сохраненные данные, включая welnessEntity
-        // НЕ обновляем существующий день данными из currentDay, чтобы не потерять welnessEntity
-        // currentDay может не содержать welnessEntity, если он создан заново при входе
-        final finalWelnessEntity = existingDay.welnessEntity ?? currentDay.welnessEntity;
-        
-        log(
-          '[_getDays] Финальный welnessEntity: ${finalWelnessEntity != null ? "есть (${finalWelnessEntity.consumedMeals.length} блюд)" : "нет"}',
-          name: 'UserBloc',
-        );
-        
-        // [FIX] Проверяем, содержит ли currentDay валидные данные (не пустые/нулевые)
-        // Если currentDay пустой (например, при инициализации), не перезаписываем данные из базы нулями
-        final isCurrentDayEmpty = currentDay.macros.kcal == 0 && 
-                                 currentDay.weekTdeeAverage == 0;
-
-        if (isCurrentDayEmpty) {
-          log(
-            '[_getDays] ⚠️ currentDay пустой (инициализация), оставляем данные из базы (healthMetrics, macros)',
-            name: 'UserBloc',
-          );
-        }
-
-        // Используем existingDay полностью, обновляя только метрики из currentDay,
-        // но сохраняя welnessEntity из existingDay (Directus)
-        daysList[existingDayIndex] = existingDay.copyWith(
-          // Обновляем актуальные метрики здоровья и макросы из currentDay,
-          // только если они валидны. Иначе оставляем данные из базы.
-          healthMetrics: isCurrentDayEmpty ? existingDay.healthMetrics : currentDay.healthMetrics,
-          macros: isCurrentDayEmpty ? existingDay.macros : currentDay.macros,
-          weekTdeeAverage: isCurrentDayEmpty ? existingDay.weekTdeeAverage : currentDay.weekTdeeAverage,
-          // КРИТИЧЕСКИ ВАЖНО: Сохраняем welnessEntity из загруженного дня (Directus)
-          // Это гарантирует, что данные дневника питания не потеряются
-          welnessEntity: finalWelnessEntity,
-        );
-
-        log(
-          '[_getDays] Обновленный день: wellness=${daysList[existingDayIndex].welnessEntity?.welnessPercentage}%, блюд=${daysList[existingDayIndex].welnessEntity?.consumedMeals.length ?? 0}',
-          name: 'UserBloc',
-        );
-      } else {
-        // Добавляем новый день
-        log('[_getDays] Добавляем новый день в список', name: 'UserBloc');
-        daysList.add(currentDay);
-      }
-
-      // Сортируем дни по дате
       daysList.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
       log(
-        '[_getDays] Успешно загружено ${daysList.length} дней, статус -> success',
+        '[_getDays] Итого ${daysList.length} дней, статус -> success',
         name: 'UserBloc',
       );
       emit(state.copyWith(status: Status.success, days: daysList));
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  /// Вставляет / обновляет [currentDay] в [days], сохраняя [welnessEntity]
+  /// из уже существующей записи (Directus-источник правды).
+  ///
+  /// - Если день с той же датой уже есть — мёрджим, не затираем wellness-данные.
+  /// - Если дня нет — добавляем в конец.
+  // ─────────────────────────────────────────────────────────────────────────
+  List<DayEntity> _mergeCurrentDay({
+    required List<DayEntity> days,
+    required DayEntity currentDay,
+  }) {
+    final result = List<DayEntity>.from(days);
+    final existingIndex = result.indexWhere(
+      (d) => d.dateTime.isSameDate(currentDay.dateTime),
+    );
+
+    if (existingIndex == -1) {
+      log('[_mergeCurrentDay] Добавляем сегодняшний день в список', name: 'UserBloc');
+      result.add(currentDay);
+      return result;
+    }
+
+    final existing = result[existingIndex];
+
+    log(
+      '[_mergeCurrentDay] existingDay.welnessEntity: ${existing.welnessEntity != null ? "есть (${existing.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+      name: 'UserBloc',
+    );
+    log(
+      '[_mergeCurrentDay] currentDay.welnessEntity: ${currentDay.welnessEntity != null ? "есть (${currentDay.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
+      name: 'UserBloc',
+    );
+
+    // КРИТИЧЕСКИ ВАЖНО: welnessEntity берём из existingDay (Directus),
+    // чтобы не потерять дневник питания при вторичном входе.
+    final finalWelnessEntity =
+        existing.welnessEntity ?? currentDay.welnessEntity;
+
+    log(
+      '[_mergeCurrentDay] Финальный welnessEntity: ${finalWelnessEntity != null ? "есть (${finalWelnessEntity.consumedMeals.length} блюд)" : "нет"}',
+      name: 'UserBloc',
+    );
+
+    // Если currentDay пришёл «пустым» (инициализация без WHOOP-данных) —
+    // не затираем нулями сохранённые метрики из базы.
+    final isCurrentDayEmpty =
+        currentDay.macros.kcal == 0 && currentDay.weekTdeeAverage == 0;
+
+    if (isCurrentDayEmpty) {
+      log(
+        '[_mergeCurrentDay] ⚠️ currentDay пустой — оставляем метрики из базы',
+        name: 'UserBloc',
+      );
+    }
+
+    result[existingIndex] = existing.copyWith(
+      healthMetrics: isCurrentDayEmpty
+          ? existing.healthMetrics
+          : currentDay.healthMetrics,
+      macros: isCurrentDayEmpty ? existing.macros : currentDay.macros,
+      weekTdeeAverage: isCurrentDayEmpty
+          ? existing.weekTdeeAverage
+          : currentDay.weekTdeeAverage,
+      welnessEntity: finalWelnessEntity,
+    );
+
+    log(
+      '[_mergeCurrentDay] Обновлённый день: wellness=${result[existingIndex].welnessEntity?.welnessPercentage}%, блюд=${result[existingIndex].welnessEntity?.consumedMeals.length ?? 0}',
+      name: 'UserBloc',
+    );
+
+    return result;
   }
 
   Future<void> showDataPicker({
@@ -466,13 +531,45 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     }
   }
 
-  FutureOr<void> _updateDay(UserUpdateDay event, Emitter<UserState> emit) {
-    List<DayEntity> days = List.from(state.days);
-    if (!state.days.any((d) => d.cycleId == event.day.cycleId)) {
-      print('DAY ADDED!!!');
+  void _updateDay(UserUpdateDay event, Emitter<UserState> emit) {
+    final days = List<DayEntity>.from(state.days);
+    final sameDateIndex = days.indexWhere(
+      (d) => d.dateTime.isSameDate(event.day.dateTime),
+    );
+
+    if (sameDateIndex != -1) {
+      days[sameDateIndex] = event.day;
+      emit(state.copyWith(days: days));
+      return;
+    }
+
+    if (!days.any((d) => d.cycleId == event.day.cycleId)) {
+      log(
+        '[_updateDay] Добавляем день directusId=${event.day.directusId}, cycleId=${event.day.cycleId}',
+        name: 'UserBloc',
+      );
       days.add(event.day);
       emit(state.copyWith(days: days));
     }
+  }
+
+  void _removeDayByDirectusId(
+    UserRemoveDayByDirectusId event,
+    Emitter<UserState> emit,
+  ) {
+    if (event.directusId <= 0) {
+      return;
+    }
+
+    final days = state.days
+        .where((d) => d.directusId != event.directusId)
+        .toList();
+
+    log(
+      '[_removeDayByDirectusId] Удалён день id=${event.directusId}, осталось ${days.length}',
+      name: 'UserBloc',
+    );
+    emit(state.copyWith(days: days));
   }
 
   FutureOr<void> _addHistoryDays(

@@ -71,3 +71,8 @@ class WhoopUpdateCurrentDay extends WhoopEvent {
 }
 
 class WhoopResetState extends WhoopEvent {}
+
+/// [WhoopHideSyncBanner] Скрывает плашку синхронизации после таймаута.
+class WhoopHideSyncBanner extends WhoopEvent {
+  const WhoopHideSyncBanner();
+}

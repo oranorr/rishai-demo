@@ -16,6 +16,7 @@ Future<void> _showAppleCalendar(
     transitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (context, animation, secondaryAnimation) {
       return SafeArea(
+        bottom: true,
         child: Stack(
           children: [
             // [_showAppleCalendar] Блюр эффект в стиле Apple за модальным окном

@@ -9,6 +9,7 @@
 .history
 .svn/
 .env
+.env.copy-user
 migrate_working_dir/
 
 # IntelliJ related

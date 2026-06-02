@@ -182,6 +182,7 @@ class _AppleCalendarWidgetState extends State<AppleCalendarWidget>
                     color: RishColors.formBackgroun,
                   ),
                   child: SafeArea(
+                    bottom: true,
                     child: Padding(
                       padding: EdgeInsets.all(20.r),
                       child: Column(

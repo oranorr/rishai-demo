@@ -8,6 +8,7 @@ import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/day_manager/day_manager.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
+import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
 import 'package:rishai/core/status.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
@@ -21,7 +22,109 @@ class DayManagerImpl implements DayManager {
     required UserServiceClient userServiceClient,
   }) : _userServiceClient = userServiceClient;
 
+  /// Максимальный [limit] по контракту backend для [GET /days].
+  static const int _kDaysPageSize = 100;
+
+  /// Защита от бесконечного цикла при баге пагинации на backend.
+  static const int _kMaxDaysPages = 100;
+
   final UserServiceClient _userServiceClient;
+
+  /// Один активный sync на userId — защита от параллельных [UserGetDays].
+  Future<Either<Failure, List<DayEntity>>>? _syncInFlight;
+  String? _syncInFlightUserId;
+
+  /// Парсинг списка day maps без записи в Hive.
+  Future<List<DayEntity>> _parseDayMaps(
+    List<Map<String, dynamic>> dayMaps,
+  ) async {
+    final parsedDays = <DayEntity>[];
+
+    for (final map in dayMaps) {
+      try {
+        parsedDays.add(DayEntity.fromMap(map));
+      } on Object catch (e) {
+        _logger('[getUserDays] Пропуск дня (fromMap): $e');
+      }
+    }
+
+    parsedDays.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    return parsedDays;
+  }
+
+  void _logDaysWithoutCycleId(List<DayEntity> days, {required String context}) {
+    final withoutCycle = days.where((d) => d.cycleId == null).length;
+    if (withoutCycle == 0) {
+      return;
+    }
+    _logger(
+      '[getUserDays] ℹ️ $context: $withoutCycle/${days.length} дней без cycleId '
+      '(legacy / до WHOOP / seed — на backend cycleId опционален)',
+    );
+  }
+
+  /// Запись deduped-списка в Hive одним replace (убирает старые дубликаты).
+  Future<void> _persistDaysToHive(List<DayEntity> days) async {
+    final deduped = _dedupeDaysByDirectusId(days);
+    await hive.replaceSavedDays(days: deduped);
+  }
+
+  /// Убираем дубликаты Hive (merge по cycleId раздувает box).
+  List<DayEntity> _dedupeDaysByDirectusId(List<DayEntity> days) {
+    final byId = <int, DayEntity>{};
+    final withoutId = <DayEntity>[];
+
+    for (final day in days) {
+      if (day.directusId > 0) {
+        byId[day.directusId] = day;
+      } else {
+        withoutId.add(day);
+      }
+    }
+
+    final result = [...byId.values, ...withoutId]
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    return result;
+  }
+
+  /// Все страницы [GET /days?limit&offset], начиная с [startOffset].
+  Future<List<Map<String, dynamic>>> _fetchDayMapsFromBackend({
+    required String userId,
+    int startOffset = 0,
+  }) async {
+    final allMaps = <Map<String, dynamic>>[];
+    var offset = startOffset;
+    var page = 0;
+
+    while (page < _kMaxDaysPages) {
+      final response = await _userServiceClient.getDays(
+        userId: userId,
+        limit: _kDaysPageSize,
+        offset: offset,
+      );
+      final batch = _extractDayList(response);
+      allMaps.addAll(batch);
+
+      _logger(
+        '[getUserDays] Страница ${page + 1}: offset=$offset, batch=${batch.length}, total=${allMaps.length}',
+      );
+
+      if (batch.length < _kDaysPageSize) {
+        break;
+      }
+
+      offset += _kDaysPageSize;
+      page++;
+    }
+
+    if (page >= _kMaxDaysPages) {
+      _logger(
+        '[getUserDays] ⚠️ Достигнут лимит $_kMaxDaysPages страниц, загружено ${allMaps.length} дней',
+      );
+    }
+
+    return allMaps;
+  }
 
   Map<String, dynamic> _extractDayMap(Map<String, dynamic> response) {
     final dynamic maybeWrappedData = response['data'];
@@ -43,30 +146,123 @@ class DayManagerImpl implements DayManager {
         .toList();
   }
 
-  @override
-  Future<Either<Failure, List<DayEntity>>> getUserDays({
+  /// Все страницы [GET /days?limit&offset], как [_fetchAllWeekPlansFromUserApi]
+  /// в [WeekPlanBloc].
+  Future<List<Map<String, dynamic>>> _fetchAllDayMapsFromBackend({
     required String userId,
+  }) {
+    return _fetchDayMapsFromBackend(userId: userId);
+  }
+
+  /// [syncUserDaysFromBackend] Умный sync без meta.total (при limit=1 backend
+  /// отдаёт total=1, а не общее число записей).
+  Future<Either<Failure, List<DayEntity>>> _syncUserDaysFromBackend({
+    required String userId,
+    required List<DayEntity> cachedDays,
   }) async {
-    final cachedDays = await hive.retrieveSavedDays();
+    final storedTotal = prefsRepo.getDaysServerTotal(userId);
 
+    _logger(
+      '[getUserDays] sync: storedTotal=$storedTotal, cache=${cachedDays.length}',
+    );
+
+    // 1. Всегда обновляем current day (1 запрос).
+    DayEntity? currentDay;
     try {
-      _logger('[getUserDays] Загрузка days из backend, userId=$userId');
+      final currentResponse =
+          await _userServiceClient.getCurrentDay(userId: userId);
+      currentDay = DayEntity.fromMap(_extractDayMap(currentResponse));
+      await hive.saveDay(data: currentDay);
+    } on UserServiceException catch (e) {
+      if (e.statusCode != 404) {
+        rethrow;
+      }
+      _logger('[getUserDays] GET /days/current → 404, пропуск');
+    }
 
-      // Берем максимум, разрешенный контрактом backend.
-      final response = await _userServiceClient.getDays(
-        userId: userId,
-        limit: 100,
-        offset: 0,
+    List<DayEntity> mergeWithCurrent(List<DayEntity> days) {
+      if (currentDay == null) {
+        return days;
+      }
+      final result = List<DayEntity>.from(days);
+      final idx = result.indexWhere(
+        (d) =>
+            d.directusId == currentDay!.directusId ||
+            (d.dateTime.year == currentDay!.dateTime.year &&
+                d.dateTime.month == currentDay!.dateTime.month &&
+                d.dateTime.day == currentDay!.dateTime.day),
       );
-      final dayList = _extractDayList(response);
+      if (idx == -1) {
+        result.add(currentDay!);
+      } else {
+        final existing = result[idx];
+        result[idx] = existing.copyWith(
+          healthMetrics: currentDay!.healthMetrics,
+          macros: currentDay!.macros,
+          weekTdeeAverage: currentDay!.weekTdeeAverage,
+          welnessEntity: existing.welnessEntity ?? currentDay!.welnessEntity,
+          mealPlanEntity: currentDay!.mealPlanEntity ?? existing.mealPlanEntity,
+        );
+      }
+      result.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+      return result;
+    }
 
-      final parsedDays = dayList.map(DayEntity.fromMap).toList();
-      for (final day in parsedDays) {
-        await hive.saveDay(data: day);
+    // 2. Кэш актуален → tail-probe (offset = cache.length), без полной пагинации.
+    // Сравниваем ==, не >=: иначе битый storedTotal=1 (старый probe) даст ложный skip.
+    if (storedTotal != null &&
+        cachedDays.isNotEmpty &&
+        cachedDays.length == storedTotal) {
+      final tailProbeResponse = await _userServiceClient.getDays(
+        userId: userId,
+        limit: 1,
+        offset: cachedDays.length,
+      );
+      final tailProbeBatch = _extractDayList(tailProbeResponse);
+
+      if (tailProbeBatch.isEmpty) {
+        _logger(
+          '[getUserDays] ✅ Кэш актуален ($storedTotal дней) — полная загрузка пропущена',
+        );
+        return Right(mergeWithCurrent(cachedDays));
       }
 
-      _logger('[getUserDays] Получено ${parsedDays.length} дней из backend');
-      return Right(parsedDays);
+      _logger(
+        '[getUserDays] Incremental sync: cache=${cachedDays.length}, tail probe +1',
+      );
+      final tailMaps = await _fetchDayMapsFromBackend(
+        userId: userId,
+        startOffset: cachedDays.length,
+      );
+      final tailDays = await _parseDayMaps(tailMaps);
+      final merged = _dedupeDaysByDirectusId([...cachedDays, ...tailDays]);
+      await _persistDaysToHive(merged);
+      await prefsRepo.setDaysServerTotal(userId, merged.length);
+      return Right(mergeWithCurrent(merged));
+    }
+
+    // 3. Полная загрузка: первый вход, нет storedTotal, или рассинхрон.
+    _logger('[getUserDays] Полная загрузка с сервера');
+    final dayMaps = await _fetchAllDayMapsFromBackend(userId: userId);
+    final parsedDays = await _parseDayMaps(dayMaps);
+    final deduped = _dedupeDaysByDirectusId(parsedDays);
+    _logDaysWithoutCycleId(deduped, context: 'full sync');
+    await hive.replaceSavedDays(days: deduped);
+    await prefsRepo.setDaysServerTotal(userId, deduped.length);
+    return Right(mergeWithCurrent(deduped));
+  }
+
+  Future<Either<Failure, List<DayEntity>>> _getUserDaysImpl({
+    required String userId,
+  }) async {
+    final rawCached = await hive.retrieveSavedDays();
+    final cachedDays = _dedupeDaysByDirectusId(rawCached);
+
+    try {
+      return await _syncUserDaysFromBackend(
+        userId: userId,
+        cachedDays: cachedDays,
+      );
     } catch (e, stackTrace) {
       _logger('[getUserDays] Ошибка backend: $e');
       await WhoopErrorHandler.handleError(
@@ -78,7 +274,7 @@ class DayManagerImpl implements DayManager {
 
       if (cachedDays.isNotEmpty) {
         _logger(
-          '[getUserDays] Используем fallback на кэш: ${cachedDays.length} дней',
+          '[getUserDays] Fallback на кэш: ${cachedDays.length} дней',
         );
         return Right(cachedDays);
       }
@@ -88,27 +284,59 @@ class DayManagerImpl implements DayManager {
   }
 
   @override
+  Future<Either<Failure, List<DayEntity>>> getUserDays({
+    required String userId,
+  }) async {
+    // Дедуп параллельных вызовов (HomePage bootstrap + initializeUserDaysOnLogin).
+    if (_syncInFlight != null && _syncInFlightUserId == userId) {
+      _logger('[getUserDays] Sync уже идёт — ждём тот же Future');
+      return _syncInFlight!;
+    }
+
+    final future = _getUserDaysImpl(userId: userId);
+    _syncInFlight = future;
+    _syncInFlightUserId = userId;
+
+    try {
+      final result = await future;
+      result.fold(
+        (_) {},
+        (days) => _logger('[getUserDays] Sync завершён: ${days.length} дней'),
+      );
+      return result;
+    } finally {
+      _syncInFlight = null;
+      _syncInFlightUserId = null;
+    }
+  }
+
+  @override
   Future<DayEntity?> getLastUserDay({
     required String userId,
   }) async {
     try {
-      _logger('[getLastUserDay] Загрузка последнего дня через /days?limit=1');
-
-      final response = await _userServiceClient.getDays(
-        userId: userId,
-        limit: 1,
-        offset: 0,
+      _logger(
+        '[getLastUserDay] Загрузка последнего дня через GET /days/current',
       );
-      final dayList = _extractDayList(response);
 
-      if (dayList.isEmpty) {
-        _logger('[getLastUserDay] У пользователя $userId нет дней');
+      final response = await _userServiceClient.getCurrentDay(userId: userId);
+      final lastDay = DayEntity.fromMap(_extractDayMap(response));
+      _logger('[getLastUserDay] День получен: ${lastDay.dateTime}');
+      return lastDay;
+    } on UserServiceException catch (e, stackTrace) {
+      if (e.statusCode == 404) {
+        _logger('[getLastUserDay] У пользователя $userId нет current day (404)');
         return null;
       }
 
-      final lastDay = DayEntity.fromMap(dayList.first);
-      _logger('[getLastUserDay] День получен: ${lastDay.dateTime}');
-      return lastDay;
+      _logger('[getLastUserDay] Ошибка UserService: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'day_manager_get_last_user_day',
+        extras: {'user_id': userId},
+      );
+      return null;
     } catch (e, stackTrace) {
       _logger('[getLastUserDay] Ошибка: $e');
       await WhoopErrorHandler.handleError(
@@ -217,148 +445,81 @@ class DayManagerImpl implements DayManager {
     try {
       _logger('[initializeUserDaysOnLogin] Инициализация дней пользователя');
 
-      // Создаем комплитер для ожидания загрузки дней
-      final completer = Completer<bool>();
+      // ─────────────────────────────────────────────────────────────────────
+      // Оптимизация: таймаут считаем по размеру Hive-кэша, а не по сетевому
+      // запросу. Это быстро (чтение диска) и не порождает double-fetch.
+      // ─────────────────────────────────────────────────────────────────────
+      final rawCached = await hive.retrieveSavedDays();
+      final uniqueCached = _dedupeDaysByDirectusId(rawCached);
+      const baseTimeout = 15;
+      // ~5 секунд на каждые 50 дней в кэше — но теперь ждём только фазу 1
+      // (кэш → emit), которая занимает <100 мс, так что таймаут лишь страховка.
+      final adaptiveTimeout =
+          baseTimeout + ((uniqueCached.length / 50).ceil() * 5).clamp(0, 30);
 
-      // Переменные для отслеживания статуса загрузки
-      bool loadingHasStarted = false;
-      bool loadingInProgress = false;
-      int daysLoadedSoFar = 0;
-
-      _logger('[initializeUserDaysOnLogin] Загрузка days пользователя');
-
-      // Получаем количество дней пользователя для адаптивного таймаута
-      final userDaysResult = await getUserDays(userId: userId);
-      int totalDaysToLoad = userDaysResult.fold(
-        (failure) => 0, // В случае ошибки используем базовый таймаут
-        (days) => days.length,
+      _logger(
+        '[initializeUserDaysOnLogin] кэш=${uniqueCached.length} уникальных '
+        '(${rawCached.length} raw в Hive), таймаут=${adaptiveTimeout}с',
       );
 
-      // Вычисляем адаптивное время ожидания в зависимости от количества дней
-      // Базовое время 20 секунд + дополнительное время на каждые 50 дней
-      const baseTimeout = 20;
-      final adaptiveTimeout =
-          baseTimeout + ((totalDaysToLoad / 50).ceil() * 10);
+      final completer = Completer<bool>();
 
-      _logger('[initializeUserDaysOnLogin] Таймаут: $adaptiveTimeout сек');
-
-      // Подписываемся на состояние UserBloc
+      // Ждём первого появления дней в UserBloc (фаза 1 = кэш готов).
+      // Полная сетевая загрузка (фаза 2) продолжается в фоне — нас она
+      // здесь не блокирует.
       late StreamSubscription subscription;
       subscription = userBloc.stream.listen((userState) {
-          _logger('[initializeUserDaysOnLogin] UserBloc: ${userState.status}');
+        _logger(
+          '[initializeUserDaysOnLogin] UserBloc: ${userState.status}, days=${userState.days.length}',
+        );
 
-        // Проверяем начало загрузки
-        if (userState.status == Status.loading) {
-          loadingHasStarted = true;
-          loadingInProgress = true;
-          _logger('[initializeUserDaysOnLogin] Начата загрузка');
+        // Как только дни появились (фаза 1 готова) — считаем успехом.
+        if (userState.days.isNotEmpty && !completer.isCompleted) {
+          _logger(
+            '[initializeUserDaysOnLogin] Дни появились (${userState.days.length}) — готово к навигации',
+          );
+          completer.complete(true);
         }
 
-        // Отслеживаем прогресс загрузки
-        if (loadingInProgress && userState.days.length > daysLoadedSoFar) {
-          daysLoadedSoFar = userState.days.length;
-          _logger('[initializeUserDaysOnLogin] Прогресс: $daysLoadedSoFar');
-        }
-
-        // Успешное завершение загрузки
-        if (userState.status == Status.success &&
-            loadingHasStarted &&
-            !completer.isCompleted) {
-          loadingInProgress = false;
-          _logger('[initializeUserDaysOnLogin] Загрузка завершена успешно');
-
-          // Проверяем, что в списке есть хотя бы один день
-          if (userState.days.isNotEmpty) {
-            completer.complete(true);
-          } else {
-            _logger(
-              '[initializeUserDaysOnLogin] success статус, но пустой список',
-            );
-            completer.complete(false);
-          }
-        }
-
-        // Завершение с ошибкой
-        if (userState.status == Status.error &&
-            loadingHasStarted &&
-            !completer.isCompleted) {
-          loadingInProgress = false;
-          _logger('[initializeUserDaysOnLogin] Загрузка завершена с ошибкой');
+        if (userState.status == Status.error && !completer.isCompleted) {
+          _logger('[initializeUserDaysOnLogin] UserBloc вернул error');
           completer.complete(false);
         }
       });
 
-      // Запускаем загрузку дней
-      _logger('[initializeUserDaysOnLogin] Запуск загрузки');
+      _logger('[initializeUserDaysOnLogin] Запуск UserGetDays');
       userBloc.add(UserGetDays(newDay: newDay));
 
-      // Ждем загрузки дней с таймаутом
       bool loadingResult = false;
-      bool didTimeout = false;
 
       try {
-        // Создаем Future для таймаута
-        final timeoutFuture =
-            Future.delayed(Duration(seconds: adaptiveTimeout)).then((_) {
-          if (!completer.isCompleted) {
-            _logger('[initializeUserDaysOnLogin] Сработал таймаут ожидания');
-
-            // Проверяем, идет ли загрузка все еще
-            if (loadingInProgress && daysLoadedSoFar > 0) {
-              // Если загрузка идет и уже загружено какое-то количество дней,
-              // считаем это частичным успехом и не прерываем загрузку
-              _logger(
-                '[initializeUserDaysOnLogin] Есть прогресс, считаем partial success',
-              );
-              didTimeout = true;
-              return true; // Считаем частичный успех
-            } else {
-              // Если нет прогресса, завершаем с ошибкой
-              didTimeout = true;
-              completer.complete(false);
-              return false;
-            }
-          }
-          return true;
-        });
-
-        // Ждем результата от completer
-        loadingResult = await completer.future;
-
-        // Отменяем таймаут, если возможно
-        unawaited(timeoutFuture);
-
-        _logger('[initializeUserDaysOnLogin] Результат: $loadingResult');
-      } catch (e) {
+        loadingResult = await completer.future.timeout(
+          Duration(seconds: adaptiveTimeout),
+          onTimeout: () {
+            _logger('[initializeUserDaysOnLogin] Таймаут — days=${userBloc.state.days.length}');
+            // Если хоть что-то есть в state — считаем частичным успехом.
+            return userBloc.state.days.isNotEmpty;
+          },
+        );
+      } on Object catch (e) {
         _logger('[initializeUserDaysOnLogin] Ошибка ожидания: $e');
-        loadingResult = false;
+        loadingResult = userBloc.state.days.isNotEmpty;
       } finally {
-        // Отписываемся от стрима
         unawaited(subscription.cancel());
       }
 
-      // Обработка результата загрузки
-      if (!loadingResult && didTimeout && daysLoadedSoFar == 0) {
-        // Реальная ошибка таймаута - ничего не загрузилось
+      _logger(
+        '[initializeUserDaysOnLogin] Результат: $loadingResult, дней=${userBloc.state.days.length}',
+      );
+
+      if (!loadingResult) {
         return InitializationResult.failure(
-          'Loading time exceeded. Possible connection issues.',
+          'Failed to load user data. Please check your connection.',
         );
-      } else if (!loadingResult && !didTimeout) {
-        // Другая ошибка загрузки
-        return InitializationResult.failure(
-          'An error occurred while loading data. Please check your connection.',
-        );
-      } else if (didTimeout && daysLoadedSoFar > 0) {
-        // Частичная загрузка - успешно загрузилась часть данных
-        _logger(
-          '[initializeUserDaysOnLogin] Частичный успех: $daysLoadedSoFar дней',
-        );
-        return InitializationResult.partialSuccess(daysLoadedSoFar);
-      } else {
-        _logger('[initializeUserDaysOnLogin] Все дни загружены');
-        return InitializationResult.success(daysLoadedSoFar);
       }
-    } catch (e, stackTrace) {
+
+      return InitializationResult.success(userBloc.state.days.length);
+    } on Object catch (e, stackTrace) {
       _logger('[initializeUserDaysOnLogin] Ошибка: $e');
       await WhoopErrorHandler.handleError(
         e,
@@ -378,6 +539,7 @@ class DayManagerImpl implements DayManager {
     try {
       _logger('[clearUserDays] Очистка локального хранилища дней');
       await hive.flushSavedDays();
+      await prefsRepo.clearDaysSyncMeta();
       _logger('[clearUserDays] Хранилище очищено');
     } catch (e, stackTrace) {
       _logger('[clearUserDays] Ошибка: $e');
@@ -385,6 +547,72 @@ class DayManagerImpl implements DayManager {
         e,
         stackTrace,
         context: 'day_manager_clear_user_days',
+      );
+      rethrow;
+    }
+  }
+
+  /// [deleteCurrentDayBeforeWhoopDisconnect] Снимаем текущий WHOOP-день до POST /whoop/disconnect.
+  @override
+  Future<int?> deleteCurrentDayBeforeWhoopDisconnect({
+    required String userId,
+  }) async {
+    try {
+      _logger(
+        '[deleteCurrentDayBeforeWhoopDisconnect] GET /days/current userId=$userId',
+      );
+
+      final response = await _userServiceClient.getCurrentDay(userId: userId);
+      final day = DayEntity.fromMap(_extractDayMap(response));
+      final dayId = day.directusId;
+
+      if (dayId <= 0) {
+        _logger(
+          '[deleteCurrentDayBeforeWhoopDisconnect] Пропуск: невалидный id=$dayId',
+        );
+        return null;
+      }
+
+      try {
+        await _userServiceClient.deleteDay(userId: userId, dayId: dayId);
+        _logger(
+          '[deleteCurrentDayBeforeWhoopDisconnect] DELETE /days/$dayId — ok',
+        );
+      } on UserServiceException catch (e) {
+        if (e.statusCode == 404) {
+          _logger(
+            '[deleteCurrentDayBeforeWhoopDisconnect] День $dayId уже удалён (404)',
+          );
+        } else {
+          rethrow;
+        }
+      }
+
+      userBloc.add(UserRemoveDayByDirectusId(directusId: dayId));
+      return dayId;
+    } on UserServiceException catch (e, stackTrace) {
+      if (e.statusCode == 404) {
+        _logger(
+          '[deleteCurrentDayBeforeWhoopDisconnect] Нет current day (404), пропуск',
+        );
+        return null;
+      }
+
+      _logger('[deleteCurrentDayBeforeWhoopDisconnect] Ошибка: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'day_manager_delete_current_before_whoop_disconnect',
+        extras: {'user_id': userId},
+      );
+      rethrow;
+    } catch (e, stackTrace) {
+      _logger('[deleteCurrentDayBeforeWhoopDisconnect] Ошибка: $e');
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'day_manager_delete_current_before_whoop_disconnect',
+        extras: {'user_id': userId},
       );
       rethrow;
     }

@@ -20,6 +20,7 @@ import 'package:rishai/features/chat/presentation/chat_page.dart';
 import 'package:rishai/features/food_diary/presentation/food_diary_presentation/food_diary_page.dart';
 import 'package:rishai/features/home/presentation/bottom_navigation.dart';
 import 'package:rishai/features/home/presentation/home_page/home_page.dart';
+import 'package:rishai/features/home/presentation/widgets/data_sync_status_banner.dart';
 import 'package:rishai/features/settings/presentation/settings_page.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/week_plan/presentation/bloc/week_plan_bloc.dart';
@@ -379,6 +380,34 @@ class _HomeScreenState extends State<HomeScreen>
                       },
                     ),
                   ),
+                  // [SyncBanner] Плашка WHOOP sync только на домашнем табе.
+                  if (currentPage == 0)
+                    BlocBuilder<WhoopBloc, WhoopState>(
+                      bloc: whoopBloc,
+                      buildWhen: (previous, current) {
+                        if (previous is WhoopMainState &&
+                            current is WhoopMainState) {
+                          return previous.syncBannerPhase !=
+                                  current.syncBannerPhase ||
+                              previous.lastSyncedAt != current.lastSyncedAt;
+                        }
+                        return true;
+                      },
+                      builder: (context, whoopState) {
+                        if (whoopState is! WhoopMainState) {
+                          return const SizedBox.shrink();
+                        }
+                        return Positioned(
+                          top: 60.h + 8.h,
+                          left: 16.w,
+                          right: 16.w,
+                          child: DataSyncStatusBanner(
+                            phase: whoopState.syncBannerPhase,
+                            lastSyncedAt: whoopState.lastSyncedAt,
+                          ),
+                        );
+                      },
+                    ),
                   // Overlay с блюром и кнопками
                   if (_isOverlayVisible)
                     _FabOverlayWidget(

@@ -8,8 +8,10 @@ double kgToLbs = 2.205;
 /// - Изменение typeId или номеров HiveField
 /// - Изменение структуры существующих сущностей
 /// - Добавление новых enum значений
+/// - Добавление новых боксов Hive (например weekPlan_box)
 ///
-const int hiveSchemaVersion = 4;
+/// v5: weekPlan_box (кэш preps), saveDay по directusId, replaceSavedDays.
+const int hiveSchemaVersion = 5;
 
 //Если возвращает false — то прила начнет тащить данные с вупа
 

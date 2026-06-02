@@ -12,8 +12,19 @@ abstract class HiveRepo {
   Future<ChatSnapshotEntity?> retrieveLastChat();
 
   Future<void> saveDay({required DayEntity data});
+
+  /// Атомарно заменяет весь кэш дней (clear + batch add).
+  /// Используется после full sync, чтобы убрать дубликаты Hive.
+  Future<void> replaceSavedDays({required List<DayEntity> days});
+
   Future<List<DayEntity>> retrieveSavedDays();
   Future<void> flushSavedDays();
+
+  /// Кэш недельных планов (preps) для stale-while-revalidate.
+  /// Атомарно заменяет весь кэш списком с backend.
+  Future<void> replaceSavedWeekPlans({required List<WeekPlanEntity> weeks});
+  Future<List<WeekPlanEntity>> retrieveSavedWeekPlans();
+  Future<void> flushWeekPlans();
   Future<void> deleteLastDay();
   Box get chatBox;
 

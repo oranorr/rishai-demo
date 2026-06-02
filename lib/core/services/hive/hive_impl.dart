@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
@@ -20,6 +21,9 @@ import 'package:rishai/features/whoop/data/models/workout_model.dart';
 import 'package:rishai/features/whoop/domain/entities/day_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/health_metrics_entity.dart';
 import 'package:rishai/features/whoop/domain/entities/user_data_entity.dart';
+// Недельные планы кэшируем как JSON-строки (toMap/fromMap уже round-trip'ятся),
+// поэтому отдельный HiveType/adapter не нужен — храним в Box<String>.
+import 'package:rishai/features/week_plan/domain/entities/week_plan_entity.dart';
 
 part './hive_repo.dart';
 
@@ -32,6 +36,11 @@ class HiveImpl implements HiveRepo {
   late Box<ChatSnapshotEntity> chatBox;
   late Box<DayEntity> dayBox;
   late Box<UserDataEntity> userDataBox;
+
+  /// Кэш недельных планов: ключ — startDate(ms) в виде String, значение — JSON
+  /// сериализованного [WeekPlanEntity.toMap]. Box<String> (v5 [hiveSchemaVersion]).
+  late Box<String> weekPlanBox;
+
   int savedUserIndex = 0;
 
   @override
@@ -210,6 +219,7 @@ class HiveImpl implements HiveRepo {
     chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
     dayBox = await Hive.openBox<DayEntity>('day_box');
     userDataBox = await Hive.openBox<UserDataEntity>('userData_box');
+    weekPlanBox = await Hive.openBox<String>('weekPlan_box');
   }
 
   /// Обрабатывает критические ошибки инициализации
@@ -324,6 +334,7 @@ class HiveImpl implements HiveRepo {
     log('  - CHAT: ${chatBox.isEmpty ? "пустой" : "${chatBox.length} записей"}');
     log('  - DAY: ${dayBox.isEmpty ? "пустой" : "${dayBox.length} записей"}');
     log('  - USER_DATA: ${userDataBox.isEmpty ? "пустой" : "${userDataBox.length} записей"}');
+    log('  - WEEK_PLAN: ${weekPlanBox.isEmpty ? "пустой" : "${weekPlanBox.length} записей"}');
   }
 
   @override
@@ -378,14 +389,17 @@ class HiveImpl implements HiveRepo {
       await userBox.clear();
       await chatBox.clear();
       await dayBox.clear();
+      await weekPlanBox.clear();
 
       await userBox.close();
       await chatBox.close();
       await dayBox.close();
+      await weekPlanBox.close();
 
       userBox = await Hive.openBox<UserEntity>('user_box');
       chatBox = await Hive.openBox<ChatSnapshotEntity>('chat_box');
       dayBox = await Hive.openBox<DayEntity>('day_box');
+      weekPlanBox = await Hive.openBox<String>('weekPlan_box');
     } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
         e,
@@ -508,6 +522,61 @@ class HiveImpl implements HiveRepo {
     }
   }
 
+  /// [saveDay] Мёрдж incoming поверх existing — не затираем локальный дневник.
+  DayEntity _mergeDayForHive(DayEntity? existing, DayEntity incoming) {
+    if (existing == null) {
+      return incoming;
+    }
+
+    return incoming.copyWith(
+      welnessEntity: incoming.welnessEntity ?? existing.welnessEntity,
+      mealPlanEntity: incoming.mealPlanEntity ?? existing.mealPlanEntity,
+    );
+  }
+
+  /// [saveDay] Ищем существующую запись: directusId → cycleId → календарная дата.
+  ///
+  /// Раньше merge шёл только по [cycleId]; дни без cycleId (legacy / до WHOOP /
+  /// seed-данные) каждый раз делали [add] и раздували box.
+  (dynamic key, DayEntity day)? _findExistingDayEntry(DayEntity data) {
+    dynamic cycleKey;
+    DayEntity? cycleDay;
+    dynamic dateKey;
+    DayEntity? dateDay;
+
+    for (final entry in dayBox.toMap().entries) {
+      final day = entry.value;
+
+      if (data.directusId > 0 && day.directusId == data.directusId) {
+        return (entry.key, day);
+      }
+
+      if (cycleKey == null &&
+          data.cycleId != null &&
+          day.cycleId == data.cycleId) {
+        cycleKey = entry.key;
+        cycleDay = day;
+      }
+
+      if (dateKey == null &&
+          day.dateTime.year == data.dateTime.year &&
+          day.dateTime.month == data.dateTime.month &&
+          day.dateTime.day == data.dateTime.day) {
+        dateKey = entry.key;
+        dateDay = day;
+      }
+    }
+
+    if (cycleKey != null && cycleDay != null) {
+      return (cycleKey, cycleDay);
+    }
+    if (dateKey != null && dateDay != null) {
+      return (dateKey, dateDay);
+    }
+
+    return null;
+  }
+
   @override
   Future<void> saveDay({required DayEntity data}) async {
     try {
@@ -517,31 +586,30 @@ class HiveImpl implements HiveRepo {
         '[Hive.saveDay] Сохранение дня ID=${data.directusId}, cycleId=${data.cycleId}, wellness=${hasWellness ? "есть (${data.welnessEntity!.consumedMeals.length} блюд)" : "нет"}',
       );
 
-      if (data.cycleId == null) {
-        await dayBox.add(data);
-        return;
+      if (data.cycleId == null && data.directusId > 0) {
+        print(
+          '[Hive.saveDay] ℹ️ День directusId=${data.directusId} без cycleId — legacy/до WHOOP, upsert по id',
+        );
       }
 
-      final existingDays = dayBox.values.toList();
-      final existingDayIndex =
-          existingDays.indexWhere((day) => day.cycleId == data.cycleId);
+      final existingEntry = _findExistingDayEntry(data);
+      final merged = _mergeDayForHive(existingEntry?.$2, data);
 
-      if (existingDayIndex != -1) {
-        // [saveDay] Проверяем, не теряется ли welnessEntity при обновлении
-        final existingDay = existingDays[existingDayIndex];
+      if (existingEntry != null) {
+        final existingDay = existingEntry.$2;
         if (hasWellness && existingDay.welnessEntity == null) {
           print(
             '[Hive.saveDay] ⚠️ Обновление дня: новый день имеет welnessEntity, старый - нет',
           );
         } else if (!hasWellness && existingDay.welnessEntity != null) {
           print(
-            '[Hive.saveDay] ⚠️ ВНИМАНИЕ: Обновление дня может удалить существующий welnessEntity!',
+            '[Hive.saveDay] ✅ Сохранён локальный welnessEntity при обновлении с сервера',
           );
         }
-        
-        await dayBox.putAt(existingDayIndex, data);
+
+        await dayBox.put(existingEntry.$1, merged);
       } else {
-        await dayBox.add(data);
+        await dayBox.add(merged);
       }
     } on Exception catch (e, stackTrace) {
       await LocalStorageErrorHandler.handleError(
@@ -762,6 +830,112 @@ class HiveImpl implements HiveRepo {
   }
 
   @override
+  Future<void> replaceSavedDays({required List<DayEntity> days}) async {
+    try {
+      print(
+        '[Hive.replaceSavedDays] Замена кэша: ${dayBox.length} → ${days.length} дней',
+      );
+      await dayBox.clear();
+      for (final day in days) {
+        await dayBox.add(day);
+      }
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_day',
+        operation: 'replace_saved_days',
+        storageType: 'hive',
+        extras: {'days_count': days.length},
+      );
+      rethrow;
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  //  Недельные планы (preps) — кэш Box<String> с JSON.
+  //  Источник истины — backend (GET /week-plans); Hive нужен только для
+  //  мгновенного отображения при следующем входе (stale-while-revalidate).
+  // ───────────────────────────────────────────────────────────────────────
+
+  @override
+  Future<void> replaceSavedWeekPlans({required List<WeekPlanEntity> weeks}) async {
+    try {
+      print(
+        '[Hive.replaceSavedWeekPlans] Замена кэша preps: ${weekPlanBox.length} → ${weeks.length}',
+      );
+
+      await weekPlanBox.clear();
+
+      for (final week in weeks) {
+        // Ключ — startDate(ms): один prep на дату старта, перезапись дубликатов.
+        final key = week.startDate.millisecondsSinceEpoch.toString();
+        weekPlanBox.put(key, jsonEncode(week.toMap()));
+      }
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_week_plan',
+        operation: 'replace_saved_week_plans',
+        storageType: 'hive',
+        extras: {'weeks_count': weeks.length},
+      );
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<WeekPlanEntity>> retrieveSavedWeekPlans() async {
+    try {
+      if (weekPlanBox.isEmpty) {
+        return [];
+      }
+
+      final weeks = <WeekPlanEntity>[];
+
+      for (final raw in weekPlanBox.values) {
+        try {
+          final decoded = jsonDecode(raw);
+          weeks.add(WeekPlanEntity.fromMap(decoded));
+        } on Object catch (e) {
+          // Битую/несовместимую запись пропускаем, не роняем весь кэш.
+          print('[Hive.retrieveSavedWeekPlans] Пропуск записи: $e');
+        }
+      }
+
+      weeks.sort((a, b) => a.startDate.compareTo(b.startDate));
+      print('[Hive.retrieveSavedWeekPlans] Загружено ${weeks.length} preps из кэша');
+      return weeks;
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_week_plan',
+        operation: 'retrieve_saved_week_plans',
+        storageType: 'hive',
+      );
+      return [];
+    }
+  }
+
+  @override
+  Future<void> flushWeekPlans() async {
+    try {
+      await weekPlanBox.clear();
+    } on Exception catch (e, stackTrace) {
+      await LocalStorageErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'hive_week_plan',
+        operation: 'flush_week_plans',
+        storageType: 'hive',
+      );
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> flushSavedDays() async {
     try {
       await dayBox.clear();
@@ -891,6 +1065,12 @@ class HiveImpl implements HiveRepo {
         if (userDataBox.isOpen) await userDataBox.close();
       } catch (e) {
         log('[HIVE] userDataBox не инициализирован или уже закрыт: $e');
+      }
+
+      try {
+        if (weekPlanBox.isOpen) await weekPlanBox.close();
+      } catch (e) {
+        log('[HIVE] weekPlanBox не инициализирован или уже закрыт: $e');
       }
 
     } catch (e) {

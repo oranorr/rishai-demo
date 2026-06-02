@@ -84,6 +84,7 @@ class ImagePickerHelper {
             borderRadius: BorderRadius.circular(14),
           ),
           child: SafeArea(
+            bottom: true,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

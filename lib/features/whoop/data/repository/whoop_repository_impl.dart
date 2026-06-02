@@ -7,9 +7,11 @@ import 'package:rishai/core/di/injectable.dart';
 import 'package:rishai/core/errors/failure.dart';
 import 'package:rishai/core/services/envied/envied.dart';
 import 'package:rishai/core/services/error/whoop_error_handler.dart';
+import 'package:rishai/core/services/day_manager/day_manager_impl.dart';
 import 'package:rishai/core/services/hive/hive_impl.dart';
 import 'package:rishai/core/services/pefs/prefs_repository.dart';
 import 'package:rishai/core/services/user_service/user_service_client.dart';
+import 'package:rishai/core/services/user_service/user_service_exception_extensions.dart';
 import 'package:rishai/features/user/domain/entities/user_entity.dart';
 import 'package:rishai/features/user/presentation/bloc/user_bloc.dart';
 import 'package:rishai/features/whoop/data/data_sources/remote/remote_data_source_impl.dart';
@@ -110,9 +112,29 @@ class WhoopRepositoryImpl implements WhoopRepository {
       final BodyMeasurementsEntity? body = await remoteDataSource.getBodyData();
       log('Body data from remote source: $body', name: 'WhoopRepo');
       if (body == null) {
-        return const Left(WhoopAuthenticationFailure());
+        // Null after proxy retries usually means WHOOP auth failed on the backend.
+        return const Left(WhoopFailedToReturnAccessToken());
       }
       return Right(body);
+    } on UserServiceException catch (e, stackTrace) {
+      log(
+        'WHOOP body data auth error: ${e.statusCode} ${e.message}',
+        name: 'WhoopRepo',
+      );
+      await WhoopErrorHandler.handleError(
+        e,
+        stackTrace,
+        context: 'whoop_get_body_data_auth',
+        extras: {
+          'status_code': e.statusCode,
+          'error_code': e.code,
+          'refresh_blocked': e.isWhoopTokenRefreshBlocked,
+        },
+      );
+      if (e.requiresWhoopReconnect) {
+        return const Left(WhoopFailedToReturnAccessToken());
+      }
+      return const Left(WhoopAuthenticationFailure());
     } catch (e, stackTrace) {
       log('ERROR WHILE FETCHING BODY DATA $e', name: 'WhoopRepo');
       await WhoopErrorHandler.handleError(
@@ -175,6 +197,9 @@ class WhoopRepositoryImpl implements WhoopRepository {
   }
 
   Failure _mapCurrentDayFailure(UserServiceException exception) {
+    if (exception.requiresWhoopReconnect) {
+      return const WhoopFailedToReturnAccessToken();
+    }
     switch (exception.statusCode) {
       case 403:
         return const WhoopFailedToReturnAccessToken();
@@ -194,6 +219,40 @@ class WhoopRepositoryImpl implements WhoopRepository {
     required DisconnecWhoopParams params,
   }) async {
     try {
+      // [disconnectWhoop] Пока WHOOP ещё подключён: current day → hard delete → disconnect.
+      try {
+        final deletedDayId = await dayManager.deleteCurrentDayBeforeWhoopDisconnect(
+          userId: params.userId,
+        );
+        log(
+          '[disconnectWhoop] Current day deleted: ${deletedDayId ?? 'none'}',
+          name: 'WhoopRepository',
+        );
+      } on UserServiceException catch (e, stackTrace) {
+        log(
+          '[disconnectWhoop] Не удалось удалить current day (${e.statusCode}): ${e.message}',
+          name: 'WhoopRepository',
+        );
+        await WhoopErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'whoop_disconnect_delete_current_day',
+          extras: {'user_id': params.userId, 'status_code': e.statusCode},
+        );
+        // Не блокируем отключение WHOOP из‑за сбоя удаления дня.
+      } catch (e, stackTrace) {
+        log(
+          '[disconnectWhoop] Не удалось удалить current day: $e',
+          name: 'WhoopRepository',
+        );
+        await WhoopErrorHandler.handleError(
+          e,
+          stackTrace,
+          context: 'whoop_disconnect_delete_current_day',
+          extras: {'user_id': params.userId},
+        );
+      }
+
       await remoteDataSource.clearWhoopUserDataOnDisconnect(
         userId: params.userId,
       );
