@@ -48,7 +48,7 @@ class UserServiceClient {
   /// За сколько секунд до истечения access вызывать проактивный refresh.
   static const int _accessRefreshSkewSeconds = 90;
 
-  String get _baseUrl => _stagingBaseUrl;
+  String get _baseUrl => _productionBaseUrl;
   // kDebugMode ? _stagingBaseUrl : _productionBaseUrl;
 
   Map<String, String> get _headers => {

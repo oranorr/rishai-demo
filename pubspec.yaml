@@ -1,7 +1,7 @@
 name: rishai
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.4.4+109
+version: 1.4.5+110
 
 
 environment:

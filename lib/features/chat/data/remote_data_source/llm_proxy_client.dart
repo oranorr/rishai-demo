@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -271,10 +270,7 @@ class LlmProxyClient {
   /// Определяем base URL в зависимости от окружения
   // TODO(dev): Replace with real environment detection logic
   String get _baseUrl {
-    // Временно используем staging для разработки
-    // В продакшене нужно будет определить правильную логику
     return _productionBaseUrl;
-
     // return kDebugMode
     //     ? _stagingBaseUrl
     //     : _productionBaseUrl;
