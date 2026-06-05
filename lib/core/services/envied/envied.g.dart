@@ -1,28 +1,22 @@
-// GENERATED CODE - DO NOT MODIFY BY HAND
+// GENERATED PLACEHOLDER FOR DEMO — replace via `.env` + `dart run build_runner build`
+// coverage:ignore-file
+// ignore_for_file: type=lint
 
 part of 'envied.dart';
 
-// **************************************************************************
-// EnviedGenerator
-// **************************************************************************
-
-// coverage:ignore-file
-// ignore_for_file: type=lint
 final class _Env {
-  static const String apiKey =
-      'sk-1GvBPioSBLL9U8x2rEttRgh_Of2Ul9x18I5r9kOEuTT3BlbkFJXJpo5LmNYgv9qHR399CT-uUrAlzQBRvtRMBikwhyoA';
+  static const String apiKey = 'your_openai_api_key_here';
 
-  static const String clientId = 'a5c086c2-a22b-486e-9c33-16889ac2ec17';
+  static const String clientId = 'your_whoop_client_id_here';
 
-  static const String clientSecret =
-      '4df89d3f55d75e61297f5225ee2d24b73bcf7f5e4a66fc8d9efae674332ef3b3';
+  static const String clientSecret = 'your_whoop_client_secret_here';
 
-  static const String gptAssistantId = 'asst_73sOfKqJE7EYmGC16hLTkcjj';
+  static const String gptAssistantId = 'your_gpt_assistant_id_here';
 
   static const String googleClientId =
-      '586052816326-cot6vmm79shkq9q716irslskjskoh87b.apps.googleusercontent.com';
+      'your_google_client_id.apps.googleusercontent.com';
 
-  static const String adaptyKey = 'public_live_LKsqyHpI.uNBDvmJqMT1WEzHrJDsL';
+  static const String adaptyKey = 'your_adapty_sdk_key_here';
 
-  static const String authHeaderKey = 'QIG6b1131PQWMUdSbBPcEufvDN0BAv';
+  static const String authHeaderKey = 'your_auth_header_key_here';
 }

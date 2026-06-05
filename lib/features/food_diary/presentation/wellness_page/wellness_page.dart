@@ -103,13 +103,13 @@ class _WellnessPageState extends State<WellnessPage> {
       final String adUnitId;
       if (Platform.isAndroid) {
         adUnitId =
-            'ca-app-pub-9722388149022562/3705012456'; // Android Rewarded
+            'ca-app-pub-3940256099942544/5224354917'; // Android Rewarded
       } else if (Platform.isIOS) {
         adUnitId =
-            'ca-app-pub-9722388149022562/2962776426'; // iOS Rewarded
+            'ca-app-pub-3940256099942544/1712485313'; // iOS Rewarded
       } else {
         adUnitId =
-            'ca-app-pub-9722388149022562/3705012456'; // По умолчанию Android
+            'ca-app-pub-3940256099942544/5224354917'; // По умолчанию Android
       }
 
       // ┌─────────────────────────────────────────────────────────┐

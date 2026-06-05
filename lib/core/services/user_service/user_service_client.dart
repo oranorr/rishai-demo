@@ -37,10 +37,10 @@ class UserServiceClient {
   bool _sessionExpiryHandled = false;
 
   static const String _stagingBaseUrl =
-      'https://pivot-backend-staging-676768388165.us-central1.run.app';
+      'https://your-backend.example.com';
   // ignore: unused_field — переключение prod/staging через kDebugMode в будущем.
   static const String _productionBaseUrl =
-      'https://pivot-backend-production-676768388165.us-central1.run.app';
+      'https://your-backend.example.com';
   static const String _authHeaderKey = 'pivot-identity-key';
   static const String _authHeaderValue = Env.authHeaderKey;
   static const String _userIdHeaderKey = 'x-user-id';

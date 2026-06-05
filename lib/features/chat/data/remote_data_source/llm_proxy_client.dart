@@ -263,9 +263,9 @@ class LlmProxyClient {
   final UserServiceClient _userServiceClient = getIt.get<UserServiceClient>();
 
   static const String _stagingBaseUrl =
-      'https://pivot-backend-staging-676768388165.us-central1.run.app';
+      'https://your-backend.example.com';
   static const String _productionBaseUrl =
-      'https://pivot-backend-production-676768388165.us-central1.run.app';
+      'https://your-backend.example.com';
 
   /// Определяем base URL в зависимости от окружения
   // TODO(dev): Replace with real environment detection logic

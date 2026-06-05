@@ -32,22 +32,22 @@ abstract class Env {
 /// Константы для Branch SDK
 class BranchConfig {
   /// Тестовый ключ Branch SDK
-  static const String testKey = 'key_test_bvFnrp1Yvth9XpJU6kI7idjiuxpLxhaa';
+  static const String testKey = 'YOUR_BRANCH_TEST_KEY';
 
   /// Продакшн ключ Branch SDK
-  static const String liveKey = 'key_live_guvoqm49tveW5nOI8oV8okafrCgPh1W1';
+  static const String liveKey = 'YOUR_BRANCH_LIVE_KEY';
 
   /// Продакшн секрет Branch SDK
   static const String liveSecret =
-      'secret_live_GvutdURNUnQCP1educILr2OXUaMiLlX4';
+      'YOUR_BRANCH_LIVE_SECRET';
 
   /// Тестовые домены Branch
-  static const String testDomain = '75lyh.test-app.link';
-  static const String testAlternateDomain = '75lyh-alternate.test-app.link';
+  static const String testDomain = 'YOUR_BRANCH_TEST_DOMAIN';
+  static const String testAlternateDomain = 'YOUR_BRANCH_TEST_ALTERNATE_DOMAIN';
 
   /// Продакшн домены Branch
-  static const String liveDomain = '75lyh.app.link';
-  static const String liveAlternateDomain = '75lyh-alternate.app.link';
+  static const String liveDomain = 'YOUR_BRANCH_LIVE_DOMAIN';
+  static const String liveAlternateDomain = 'YOUR_BRANCH_LIVE_ALTERNATE_DOMAIN';
 
   /// Получить текущий ключ в зависимости от режима сборки
   static String get currentKey => kDebugMode ? testKey : liveKey;

@@ -50,21 +50,20 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBGCzdFxwm_AaAKc0Xq0Ci16ctSlpeXRjI',
-    appId: '1:922501061929:android:c4b5e8e0cd2503e5cb2b38',
-    messagingSenderId: '922501061929',
-    projectId: 'rishai',
-    storageBucket: 'rishai.appspot.com',
+    apiKey: 'YOUR_ANDROID_API_KEY',
+    appId: 'YOUR_ANDROID_APP_ID',
+    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+    projectId: 'YOUR_PROJECT_ID',
+    storageBucket: 'YOUR_STORAGE_BUCKET',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA8YF6auulbH0zZ8s7S5hxJ-Q5yJOXsYtY',
-    appId: '1:922501061929:ios:b87d47c5a4548aedcb2b38',
-    messagingSenderId: '922501061929',
-    projectId: 'rishai',
-    storageBucket: 'rishai.appspot.com',
-    androidClientId:
-        '922501061929-55mor8s2stqjo0736k3tg94gbebdv1bg.apps.googleusercontent.com',
-    iosBundleId: 'com.HealthspanCulture.Pivot',
+    apiKey: 'YOUR_IOS_API_KEY',
+    appId: 'YOUR_IOS_APP_ID',
+    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+    projectId: 'YOUR_PROJECT_ID',
+    storageBucket: 'YOUR_STORAGE_BUCKET',
+    androidClientId: 'YOUR_ANDROID_CLIENT_ID',
+    iosBundleId: 'YOUR_IOS_BUNDLE_ID',
   );
 }

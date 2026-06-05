@@ -27,7 +27,7 @@
 
     <application android:label="Pivot" android:name="${applicationName}" android:icon="@mipmap/ic_launcher" android:usesCleartextTraffic="true" android:allowBackup="false" android:screenOrientation="portrait">
 
-        <meta-data android:name="io.branch.sdk.BranchKey" android:value="key_live_guvoqm49tveW5nOI8oV8okafrCgPh1W1" />
+        <meta-data android:name="io.branch.sdk.BranchKey" android:value="YOUR_BRANCH_LIVE_KEY" />
         <!-- Убираем TestMode для продакшена -->
         <!-- <meta-data android:name="io.branch.sdk.TestMode" android:value="true" /> -->
 
@@ -71,8 +71,8 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="75lyh.app.link" />
-                <data android:scheme="https" android:host="75lyh-alternate.app.link" />
+                <data android:scheme="https" android:host="YOUR_BRANCH_LIVE_DOMAIN" />
+                <data android:scheme="https" android:host="YOUR_BRANCH_LIVE_ALTERNATE_DOMAIN" />
             </intent-filter>
 
             <intent-filter>
@@ -100,12 +100,12 @@
 
 
         <meta-data android:name="flutterEmbedding" android:value="2" />
-        <meta-data android:name="AdaptyPublicSdkKey" android:value="public_live_LKsqyHpI.uNBDvmJqMT1WEzHrJDsL" />
+        <meta-data android:name="AdaptyPublicSdkKey" android:value="your_adapty_sdk_key_here" />
         
         <!-- Google AdMob App ID (продакшн) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-9722388149022562~6099758427"/>
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
     </application>
 
     <queries>

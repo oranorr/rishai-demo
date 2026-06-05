@@ -31,7 +31,7 @@ void main() async {
   await SentryFlutter.init(
     (options) {
       options.dsn =
-          'https://5119bdddc7ff73b5231d2a825080823a@o4508957542318080.ingest.us.sentry.io/4508957543890944';
+          'YOUR_SENTRY_DSN_HERE';
       options
         ..tracesSampleRate = 1.0
         ..sendDefaultPii = true

@@ -428,8 +428,8 @@ class _HomeScreenState extends State<HomeScreen>
                           (currentPage == 1 || currentPage == 2) ? 0.w : 60.w,
                       // bottom: kBottomNavigationBarHeight + 8.h, // Высота bottomNavigationBar + небольшой отступ
                       child: BannerAdWidget(
-                        androidAdUnitId: 'ca-app-pub-9722388149022562/2699709086',
-                        iosAdUnitId: 'ca-app-pub-9722388149022562/9354399731',
+                        androidAdUnitId: 'ca-app-pub-3940256099942544/6300978111',
+                        iosAdUnitId: 'ca-app-pub-3940256099942544/2934735716',
                       ),
                     ),
                 ],
